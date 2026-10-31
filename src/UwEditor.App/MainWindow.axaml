@@ -18,6 +18,19 @@
         <Separator />
         <MenuItem Header="E_xit" Click="OnExit" />
       </MenuItem>
+      <MenuItem Header="_Edit">
+        <MenuItem Header="{Binding UndoText}" InputGesture="Ctrl+Z" Click="OnUndo" IsEnabled="{Binding CanUndo}" />
+        <MenuItem Header="{Binding RedoText}" InputGesture="Ctrl+Y" Click="OnRedo" IsEnabled="{Binding CanRedo}" />
+        <Separator />
+        <MenuItem Header="_Add an object…" InputGesture="Insert" Click="OnAddObject" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Delete the object" InputGesture="Delete" Click="OnDeleteObject" IsEnabled="{Binding HasObject}" />
+        <Separator />
+        <MenuItem Header="Move the new-game _start here" Click="OnMoveStart" IsEnabled="{Binding HasTile}" />
+        <MenuItem Header="Move the _player here" Click="OnMovePlayer" IsEnabled="{Binding HasTile}" />
+        <MenuItem Header="Choose the selected trap's _target…" Click="OnPickTarget" IsEnabled="{Binding HasTargetSquare}" />
+        <Separator />
+        <MenuItem Header="_Save the levels" InputGesture="Ctrl+S" Click="OnSaveLevels" IsEnabled="{Binding HasLevelChanges}" />
+      </MenuItem>
       <MenuItem Header="_View">
         <MenuItem Header="_Ceiling" ToggleType="CheckBox" IsChecked="{Binding ShowCeiling, Mode=TwoWay}" InputGesture="G" />
         <MenuItem Header="_Objects" ToggleType="CheckBox" IsChecked="{Binding ShowObjects, Mode=TwoWay}" />
@@ -30,6 +43,7 @@
         <MenuItem Header="_Frame the selection" InputGesture="F" Click="OnFrame" />
         <MenuItem Header="Look _straight down" InputGesture="T" Click="OnTopDown" />
         <MenuItem Header="Go to the _start" InputGesture="Home" Click="OnGoToStart" />
+        <MenuItem Header="_First person" InputGesture="P" Click="OnFirstPerson" />
       </MenuItem>
       <MenuItem Header="_Level">
         <MenuItem Header="_Previous level" InputGesture="PageUp" Click="OnPreviousLevel" />
@@ -44,10 +58,12 @@
         <MenuItem Header="_Player and inventory…" Click="OnPlayer" InputGesture="Ctrl+Shift+P" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="G_raphics…" Click="OnGraphics" InputGesture="Ctrl+Shift+R" IsEnabled="{Binding HasGame}" />
         <Separator />
-        <MenuItem Header="Paint tiles (not yet)" IsEnabled="False" />
-        <MenuItem Header="Edit object fields (not yet)" IsEnabled="False" />
-        <MenuItem Header="Place objects (not yet)" IsEnabled="False" />
-        <MenuItem Header="Textures (not yet)" IsEnabled="False" />
+        <Separator />
+        <MenuItem Header="_Keys and locks…" Click="OnKeys" InputGesture="Ctrl+Shift+K" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Triggers and traps…" Click="OnTriggers" InputGesture="Ctrl+Shift+T" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Strings…" Click="OnStrings" InputGesture="Ctrl+Shift+S" IsEnabled="{Binding HasGame}" />
+        <Separator />
+        <MenuItem Header="_Mods…" Click="OnMods" InputGesture="Ctrl+Shift+M" IsEnabled="{Binding HasGame}" />
       </MenuItem>
       <MenuItem Header="_Help">
         <MenuItem Header="_Controls" Click="OnControls" />
@@ -155,13 +171,43 @@
       <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
 
       <!-- centre: the 3D view -->
-      <Panel Grid.Column="2" Background="#0E0E12">
+      <DockPanel Grid.Column="2">
+      <Border DockPanel.Dock="Top" Classes="toolbar" IsVisible="{Binding HasGame}">
+        <WrapPanel>
+          <ComboBox x:Name="ToolBox" ItemsSource="{Binding Tools}" SelectedIndex="{Binding ToolIndex}" Width="96" Margin="0,0,6,0"
+                    ToolTip.Tip="Select: click picks. Move: click a tile to move the selected object there. Paint: drag over tiles with the brush." />
+          <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsPainting}" Margin="0,0,6,0">
+            <ComboBox x:Name="PaintModeBox" ItemsSource="{Binding PaintModes}" SelectedIndex="{Binding PaintMode}" Width="140" />
+            <ComboBox x:Name="SlotBox" ItemsSource="{Binding Slots}" SelectedIndex="{Binding PaintSlot}" IsVisible="{Binding PaintsTexture}" Width="170">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="app:SlotItem">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Image Source="{Binding Picture}" Width="20" Height="20" RenderOptions.BitmapInterpolationMode="None" />
+                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <ComboBox ItemsSource="{Binding TileTypes}" SelectedIndex="{Binding PaintType}" IsVisible="{Binding PaintsType}" Width="150" />
+            <NumericUpDown Value="{Binding PaintHeight}" Minimum="0" Maximum="15" Increment="1" FormatString="0" IsVisible="{Binding PaintsHeight}" Width="100" />
+          </StackPanel>
+          <Button Content="Add…" Click="OnAddObject" ToolTip.Tip="Add an object on the selected tile or into the selected container (Insert)" />
+          <Button Content="Delete" Click="OnDeleteObject" IsEnabled="{Binding HasObject}" ToolTip.Tip="Delete the selected object and what is inside it (Del)" />
+          <Button Content="↶" Click="OnUndo" IsEnabled="{Binding CanUndo}" ToolTip.Tip="{Binding UndoText}" />
+          <Button Content="↷" Click="OnRedo" IsEnabled="{Binding CanRedo}" ToolTip.Tip="{Binding RedoText}" />
+          <Button Content="Save levels" Click="OnSaveLevels" IsEnabled="{Binding HasLevelChanges}" ToolTip.Tip="{Binding ChangedLevels}" />
+          <ToggleButton x:Name="WalkButton" Content="First person" Click="OnFirstPerson" ToolTip.Tip="Walk through the level (P; Esc to leave)" />
+          <TextBlock Text="{Binding EditStatus}" Classes="muted" VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" MaxWidth="420" />
+        </WrapPanel>
+      </Border>
+      <Panel Background="#0E0E12">
         <app:LevelView x:Name="View" />
         <Canvas x:Name="GridLabels" IsHitTestVisible="False" ClipToBounds="True" />
         <TextBlock x:Name="ViewHint" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
                    TextAlignment="Center" FontSize="14" IsVisible="{Binding NoGame}"
                    Text="File ▸ Open game folder… (Ctrl+O)&#10;Choose the game folder, its DATA folder or a SAVE folder." />
       </Panel>
+      </DockPanel>
 
       <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
 
@@ -179,6 +225,18 @@
                 <TextBlock Classes="muted" Text="{Binding ObjectSubtitle}" Margin="0,2,0,0" />
               </StackPanel>
             </Grid>
+            <StackPanel IsVisible="{Binding IsTrapSelected}" Margin="0,10,0,0" Spacing="6">
+              <WrapPanel>
+                <Button x:Name="PickTargetButton" Content="Choose the target in the view" Click="OnPickTarget" IsVisible="{Binding HasTargetSquare}" Margin="0,0,6,6"
+                        ToolTip.Tip="Then click the square it should act on (the bullseye). A teleport can aim at another level: change level, then click." />
+                <Button Content="Chains…" Click="OnTriggers" Margin="0,0,6,6" ToolTip.Tip="Every trigger of the level and the traps it sets off (Ctrl+Shift+T)" />
+                <Button Content="Variable in globals…" Click="OnTrapVariable" IsVisible="{Binding HasTrapVariable}" Margin="0,0,6,6"
+                        ToolTip.Tip="Open the global variables window on the variable this trap sets or checks" />
+              </WrapPanel>
+              <Border Background="#1F2026" CornerRadius="4" Padding="10,8">
+                <SelectableTextBlock x:Name="TrapHelp" Text="{Binding ObjectHelp}" TextWrapping="Wrap" FontSize="12" LineHeight="17" />
+              </Border>
+            </StackPanel>
             <ItemsControl ItemsSource="{Binding ObjectRows}" Margin="0,8,0,0">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="core:PropertyRow">

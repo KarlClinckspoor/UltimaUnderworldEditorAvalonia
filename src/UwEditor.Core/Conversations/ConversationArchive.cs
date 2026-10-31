@@ -116,11 +116,25 @@ namespace UwEditor.Core.Conversations
         }
     }
 
-    /// <summary>Writing a game file safely: to a temporary file first, the old one kept as NAME.BKP.</summary>
+    /// <summary>
+    /// Writing a game file safely: to a temporary file first, the old one kept as NAME.BKP.
+    /// The first time the editor writes a file, the file as it was is also kept as
+    /// NAME.EXT.ORIG and never overwritten: the reference mods are made against.
+    /// </summary>
     public static class SafeFile
     {
+        public const string OriginalSuffix = ".ORIG";
+
+        /// <summary>The untouched copy kept beside a file the editor has written, or null.</summary>
+        public static string OriginalOf(string path)
+        {
+            string o = path + OriginalSuffix;
+            return File.Exists(o) ? o : null;
+        }
+
         public static void Write(string path, byte[] bytes)
         {
+            if (File.Exists(path) && !File.Exists(path + OriginalSuffix)) File.Copy(path, path + OriginalSuffix);
             string dir = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path));
             string tmp = System.IO.Path.Combine(dir, System.IO.Path.GetFileName(path) + ".tmp");
             File.WriteAllBytes(tmp, bytes);

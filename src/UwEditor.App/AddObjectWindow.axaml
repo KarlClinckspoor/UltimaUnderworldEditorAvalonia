@@ -1,0 +1,146 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="clr-namespace:UwEditor.App"
+        x:Class="UwEditor.App.AddObjectWindow"
+        x:DataType="app:AddObjectModel"
+        Title="Add an object"
+        Width="860" Height="640" MinWidth="680" MinHeight="460"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top" x:Name="Heading" Text="Add an object" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBlock DockPanel.Dock="Top" x:Name="WhereText" Classes="muted" Margin="0,0,0,10" TextWrapping="Wrap" />
+    <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
+      <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center">
+        <CheckBox x:Name="InsideBox" IsVisible="False" />
+        <TextBlock Text="{Binding Summary}" Classes="muted" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+      <Button Grid.Column="1" x:Name="AddButton" Content="Add" Click="OnAdd" IsDefault="True" IsEnabled="{Binding HasItem}" MinWidth="88" HorizontalContentAlignment="Center" Margin="0,0,8,0" />
+      <Button Grid.Column="2" Content="Cancel" Click="OnCancel" IsCancel="True" MinWidth="88" HorizontalContentAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="300,16,*">
+      <DockPanel Grid.Column="0">
+        <TextBox DockPanel.Dock="Top" x:Name="FilterBox" Text="{Binding Filter}" PlaceholderText="Search: name or 0x id" Margin="0,0,0,6" />
+        <ListBox x:Name="ItemList" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" Background="{DynamicResource Panel}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="app:ItemChoice">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Image Source="{Binding Icon}" Width="16" Height="16" RenderOptions.BitmapInterpolationMode="None" />
+                <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+      <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="8">
+          <TextBlock x:Name="FormTitle" Classes="h first" Text="{Binding FormName}" />
+
+          <!-- common -->
+          <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto,Auto" IsVisible="{Binding IsBasic}">
+            <TextBlock Grid.Row="0" Text="Quality" VerticalAlignment="Center" />
+            <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2" Margin="0,0,0,6">
+              <NumericUpDown x:Name="QualityBox" Value="{Binding Quality}" Minimum="0" Maximum="63" Increment="1" FormatString="0" Width="130" HorizontalAlignment="Left" />
+              <TextBlock Text="{Binding QualityMeaning}" Classes="muted" TextWrapping="Wrap" FontSize="11" />
+            </StackPanel>
+            <TextBlock Grid.Row="1" Text="Owner (race)" VerticalAlignment="Center" IsVisible="{Binding CanOwn}" />
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="6" IsVisible="{Binding CanOwn}" Margin="0,0,0,6">
+              <ComboBox x:Name="OwnerBox" ItemsSource="{Binding Races}" SelectedIndex="{Binding OwnerIndex}" Width="300"
+                        ToolTip.Tip="Taking an owned object in front of its race is stealing. Races are named by their creatures (OBJECTS.DAT byte 9)." />
+              <NumericUpDown Value="{Binding Owner}" Minimum="0" Maximum="63" Increment="1" FormatString="0" Width="110" />
+            </StackPanel>
+            <TextBlock Grid.Row="2" Text="Quantity" VerticalAlignment="Center" IsVisible="{Binding HasQuantity}" />
+            <NumericUpDown Grid.Row="2" Grid.Column="1" x:Name="QuantityBox" Value="{Binding Quantity}" Minimum="1" Maximum="511" Increment="1" FormatString="0" Width="130"
+                           HorizontalAlignment="Left" IsVisible="{Binding HasQuantity}" Margin="0,0,0,6" />
+            <CheckBox Grid.Row="3" Grid.Column="1" Content="Invisible" IsChecked="{Binding Invisible}" />
+          </Grid>
+
+          <!-- enchantable -->
+          <StackPanel Spacing="6" IsVisible="{Binding IsEnchantable}">
+            <TextBlock Classes="h" Text="ENCHANTMENT" />
+            <ComboBox x:Name="EnchantmentBox" ItemsSource="{Binding EnchantmentNames}" SelectedIndex="{Binding EnchantmentIndex}" HorizontalAlignment="Stretch" MaxDropDownHeight="420" />
+            <TextBlock x:Name="EffectText" Text="{Binding EnchantmentEffect}" TextWrapping="Wrap" FontSize="12" />
+          </StackPanel>
+
+          <!-- wand -->
+          <StackPanel Spacing="6" IsVisible="{Binding IsWand}">
+            <TextBlock Classes="h" Text="SPELL" />
+            <ComboBox x:Name="SpellBox" ItemsSource="{Binding SpellNames}" SelectedIndex="{Binding SpellIndex}" HorizontalAlignment="Stretch" MaxDropDownHeight="420" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Charges" VerticalAlignment="Center" />
+              <NumericUpDown Value="{Binding Charges}" Minimum="0" Maximum="63" Increment="1" FormatString="0" Width="120" />
+            </StackPanel>
+            <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
+                       Text="The wand holds a spell object (0x120): its link is the spell (flag 11 set), its quality the charges left." />
+          </StackPanel>
+
+          <Border x:Name="Uw2WarningBox" IsVisible="{Binding ShowUw2Warning}" Background="#3A2A10" BorderBrush="#C9934C" BorderThickness="1" CornerRadius="4" Padding="10,8">
+            <TextBlock Text="{Binding Uw2Warning}" TextWrapping="Wrap" FontSize="12" Foreground="#F1D9A8" />
+          </Border>
+
+          <!-- text -->
+          <StackPanel Spacing="6" IsVisible="{Binding IsText}">
+            <TextBlock Classes="h" Text="TEXT" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Block 3, string" VerticalAlignment="Center" />
+              <NumericUpDown Value="{Binding TextIndex}" Minimum="0" Maximum="511" Increment="1" FormatString="0" Width="120" />
+            </StackPanel>
+            <TextBlock Text="{Binding TextPreview}" TextWrapping="Wrap" FontSize="12" MaxHeight="220" />
+          </StackPanel>
+
+          <!-- key -->
+          <StackPanel Spacing="6" IsVisible="{Binding IsKey}">
+            <TextBlock Classes="h" Text="KEY" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Opens lock" VerticalAlignment="Center" />
+              <NumericUpDown x:Name="LockBox" Value="{Binding LockNumber}" Minimum="0" Maximum="63" Increment="1" FormatString="0" Width="120" />
+            </StackPanel>
+            <TextBlock Text="{Binding KeyText}" TextWrapping="Wrap" FontSize="12" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11" Text="A key's owner field is the lock it opens; its description is STRINGS.PAK block 5, 100 + the lock (Tools ▸ Keys and locks edits it)." />
+          </StackPanel>
+
+          <!-- lock -->
+          <StackPanel Spacing="6" IsVisible="{Binding IsLock}">
+            <TextBlock Classes="h" Text="LOCK" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Lock number" VerticalAlignment="Center" />
+              <NumericUpDown Value="{Binding LockNumber}" Minimum="0" Maximum="511" Increment="1" FormatString="0" Width="120" />
+              <TextBlock Text="Lockpicking difficulty" VerticalAlignment="Center" Margin="12,0,0,0" />
+              <NumericUpDown Value="{Binding PickDifficulty}" Minimum="0" Maximum="15" Increment="1" FormatString="0" Width="110"
+                             ToolTip.Tip="Z: 3 × this Picklock is needed; 15 can never be picked." />
+            </StackPanel>
+            <CheckBox Content="Locked (flag 9)" IsChecked="{Binding Locked}" />
+            <CheckBox Content="Stays after unlocking, can be locked again (flag 10)" IsChecked="{Binding Relockable}" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11" Text="Put the lock inside its door or chest (select the door first and tick 'inside')." />
+          </StackPanel>
+
+          <!-- creature -->
+          <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto" IsVisible="{Binding IsCreature}">
+            <TextBlock Grid.Row="0" Text="Hit points" VerticalAlignment="Center" />
+            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+              <NumericUpDown Value="{Binding Hp}" Minimum="0" Maximum="255" Increment="1" FormatString="0" Width="120" />
+              <TextBlock Text="0: like others of its kind (or OBJECTS.DAT's average)" Classes="muted" VerticalAlignment="Center" FontSize="11" />
+            </StackPanel>
+            <TextBlock Grid.Row="1" Text="Attitude" VerticalAlignment="Center" />
+            <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Attitudes}" SelectedIndex="{Binding AttitudeIndex}" Width="160" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="2" Text="Conversation" VerticalAlignment="Center" />
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+              <NumericUpDown Value="{Binding Whoami}" Minimum="0" Maximum="255" Increment="1" FormatString="0" Width="120" />
+              <TextBlock Text="{Binding WhoamiName}" Classes="muted" VerticalAlignment="Center" FontSize="11" />
+            </StackPanel>
+          </Grid>
+
+          <!-- trap or trigger -->
+          <StackPanel IsVisible="{Binding IsTrap}" Spacing="6">
+            <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto">
+              <TextBlock Text="Quality" VerticalAlignment="Center" />
+              <NumericUpDown Grid.Column="1" Value="{Binding Quality}" Minimum="0" Maximum="63" Increment="1" FormatString="0" Width="130" HorizontalAlignment="Left" Margin="0,0,0,6" />
+              <TextBlock Grid.Row="1" Text="Owner" VerticalAlignment="Center" />
+              <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding Owner}" Minimum="0" Maximum="63" Increment="1" FormatString="0" Width="130" HorizontalAlignment="Left" />
+            </Grid>
+            <TextBlock x:Name="TrapHelpText" Text="{Binding TrapHelp}" TextWrapping="Wrap" FontSize="12" />
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </DockPanel>
+</Window>

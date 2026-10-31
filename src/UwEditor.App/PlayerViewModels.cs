@@ -191,7 +191,7 @@ namespace UwEditor.App
 
         public bool HasItem { get { return selected != null; } }
         public bool IsTop { get { return selected != null && selected.Item.Parent == null; } }
-        InventoryItem It { get { return selected == null ? null : selected.Item; } }
+        public InventoryItem It { get { return selected == null ? null : selected.Item; } }
 
         void ItemField(Action<InventoryItem> a, string what, params string[] names)
         {
@@ -249,6 +249,25 @@ namespace UwEditor.App
                 var it = Sheet.Inventory.Add(id, container, isContainer);
                 BuildTree();
                 Status = string.Format("Added 0x{0:X3} {1} (not saved).", id, NewItemName);
+                Check();
+                Edited?.Invoke();
+                var n = Find(Items, it);
+                Selected = n;
+                return n;
+            }
+            catch (Exception ex) { Status = ex.Message; return null; }
+        }
+
+        /// <summary>Adds an object chosen in the add window (an enchanted weapon, a wand with its spell).</summary>
+        public ItemNode AddSpec(UwEditor.Core.Editing.ObjectSpec spec, bool intoSelected)
+        {
+            var container = intoSelected && It != null ? It : null;
+            if (container != null && container.IsQuantity) container = container.Parent;
+            try
+            {
+                var it = Sheet.Inventory.Add(spec, container);
+                BuildTree();
+                Status = "Added " + spec.Describe(Session.Names) + " (not saved).";
                 Check();
                 Edited?.Invoke();
                 var n = Find(Items, it);

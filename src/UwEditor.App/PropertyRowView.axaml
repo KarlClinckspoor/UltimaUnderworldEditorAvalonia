@@ -7,12 +7,17 @@
     <TextBlock Classes="section" Text="{Binding Name}" IsVisible="{Binding IsHeader}" />
     <Grid Classes="row" ColumnDefinitions="118,*,52" IsVisible="{Binding !IsHeader}" Background="Transparent"
           ToolTip.Tip="{Binding Tip}" ToolTip.ShowDelay="350">
-      <StackPanel Grid.Column="0" Orientation="Horizontal" ClipToBounds="True">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" ClipToBounds="True" VerticalAlignment="Center">
         <TextBlock Classes="name" Text="{Binding Name}" />
         <TextBlock Classes="badge" Text="{Binding Certainty}" />
       </StackPanel>
-      <TextBlock Grid.Column="1" Classes="value" Text="{Binding Value}" Margin="6,0,4,0" />
-      <TextBlock Grid.Column="2" Classes="hex" Text="{Binding Hex}" />
+      <TextBlock Grid.Column="1" Classes="value" Text="{Binding Value}" Margin="6,0,4,0" IsVisible="{Binding ReadOnly}" />
+      <TextBox Grid.Column="1" x:Name="Box" Text="{Binding Value, Mode=OneWay}" IsVisible="{Binding Editable}" FontSize="12"
+               MinHeight="0" Height="22" Padding="5,0" VerticalContentAlignment="Center" Margin="4,0,4,0"
+               KeyDown="OnKeyDown" LostFocus="OnLostFocus" />
+      <Button Grid.Column="2" x:Name="PickButton" Content="▾" IsVisible="{Binding HasChoices}" Padding="6,0" Height="22" MinHeight="0"
+              FontSize="11" Click="OnPick" ToolTip.Tip="Choose from a list" HorizontalAlignment="Left" />
+      <TextBlock Grid.Column="2" Classes="hex" Text="{Binding Hex}" VerticalAlignment="Center" IsVisible="{Binding !HasChoices}" />
     </Grid>
   </Panel>
 </UserControl>

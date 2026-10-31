@@ -162,6 +162,18 @@ namespace UwEditor.Core.Player
             return it;
         }
 
+        /// <summary>Adds an object described by a spec (an enchanted sword, a wand with its spell), with what goes inside it.</summary>
+        public InventoryItem Add(UwEditor.Core.Editing.ObjectSpec spec, InventoryItem container)
+        {
+            var it = Add(spec.Item, container, !spec.IsQuantity);
+            spec.Write(it.Record, 0);
+            it.Record[2] = it.Record[3] = 0;          // no place in a tile
+            if (!spec.IsQuantity) { it.Record[6] = (byte)(spec.Owner & 0x3F); it.Record[7] = 0; }
+            foreach (var c in spec.Contents) Add(c, it);
+            Changed = true;
+            return it;
+        }
+
         /// <summary>Takes an object (and whatever is inside it) out of the inventory.</summary>
         public void Remove(InventoryItem it)
         {

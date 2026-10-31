@@ -18,6 +18,8 @@ namespace UwEditor.Core
         public float Distance = 8;
         public float FieldOfView = 60;
         public const float MinDistance = 0.5f, MaxDistance = 120f;
+        /// <summary>How far up (negative) the camera may look; first person looks further up.</summary>
+        public float MinPitch = -10;
 
         public Vector3 Forward
         {
@@ -72,7 +74,7 @@ namespace UwEditor.Core
         {
             Yaw = (Yaw + dYaw) % 360;
             if (Yaw < 0) Yaw += 360;
-            Pitch = Math.Clamp(Pitch + dPitch, -10, 89);
+            Pitch = Math.Clamp(Pitch + dPitch, MinPitch, 89);
         }
 
         public void Zoom(float factor)

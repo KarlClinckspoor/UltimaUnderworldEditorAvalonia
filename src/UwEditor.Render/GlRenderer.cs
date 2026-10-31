@@ -24,10 +24,10 @@ namespace UwEditor.Render
         GL gl;
         bool gles;
         uint levelProg, spriteProg, lineProg, modelProg;
-        uint levelVao, levelVbo, spriteVao, spriteVbo, lineVao, lineVbo, modelVao, modelVbo, gridVao, gridVbo;
+        uint levelVao, levelVbo, spriteVao, spriteVbo, lineVao, lineVbo, markVao, markVbo, modelVao, modelVbo, gridVao, gridVbo;
         uint levelTex, atlasTex, modelTex;
-        int levelVertices, spriteVertices, lineVertices, modelVertices, gridVertices;
-        float[] pendingLevel, pendingSprites, pendingLines, pendingModels, pendingGrid;
+        int levelVertices, spriteVertices, lineVertices, markVertices, modelVertices, gridVertices;
+        float[] pendingLevel, pendingSprites, pendingLines, pendingMarks, pendingModels, pendingGrid;
         List<RgbaImage> pendingModelLayers;
         List<RgbaImage> pendingLayers;
         RgbaImage pendingAtlas;
@@ -50,6 +50,8 @@ namespace UwEditor.Render
             Layout(spriteVao, spriteVbo, new[] { 3, 2, 2, 1, 1 });
             lineVao = gl.GenVertexArray(); lineVbo = gl.GenBuffer();
             Layout(lineVao, lineVbo, new[] { 3, 4 });
+            markVao = gl.GenVertexArray(); markVbo = gl.GenBuffer();
+            Layout(markVao, markVbo, new[] { 3, 4 });
             modelVao = gl.GenVertexArray(); modelVbo = gl.GenBuffer();
             Layout(modelVao, modelVbo, new[] { 3, 2, 1, 3, 1 });
             gridVao = gl.GenVertexArray(); gridVbo = gl.GenBuffer();
@@ -146,6 +148,9 @@ namespace UwEditor.Render
         /// <summary>Lines as pairs of (x, y, z, r, g, b, a) points, drawn over everything.</summary>
         public void SetLines(float[] lines) { lock (gate) pendingLines = lines ?? new float[0]; }
 
+        /// <summary>Solid markers: triangles of (x, y, z, r, g, b, a) points, hidden by walls, plus a faint copy seen through them.</summary>
+        public void SetMarkers(float[] tris) { lock (gate) pendingMarks = tris ?? new float[0]; }
+
         void Upload()
         {
             lock (gate) UploadLocked();
@@ -231,6 +236,13 @@ namespace UwEditor.Render
                 gl.BufferData<float>(BufferTargetARB.ArrayBuffer, pendingSprites, BufferUsageARB.DynamicDraw);
                 spriteVertices = pendingSprites.Length / 9;
                 pendingSprites = null;
+            }
+            if (pendingMarks != null)
+            {
+                gl.BindBuffer(BufferTargetARB.ArrayBuffer, markVbo);
+                gl.BufferData<float>(BufferTargetARB.ArrayBuffer, pendingMarks, BufferUsageARB.DynamicDraw);
+                markVertices = pendingMarks.Length / 7;
+                pendingMarks = null;
             }
             if (pendingLines != null)
             {
@@ -329,6 +341,24 @@ namespace UwEditor.Render
                     gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)spriteVertices);
                     gl.Disable(EnableCap.Blend);
                 }
+                if (markVertices > 0)
+                {
+                    gl.Enable(EnableCap.Blend);
+                    gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    gl.UseProgram(lineProg);
+                    Matrix(lineProg, "uViewProj", vp);
+                    gl.BindVertexArray(markVao);
+                    gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)markVertices);
+                    // behind walls: a faint copy, so a marker in the next room still shows where it is
+                    gl.DepthFunc(DepthFunction.Greater);
+                    gl.DepthMask(false);
+                    gl.BlendColor(0, 0, 0, 0.28f);
+                    gl.BlendFunc(BlendingFactor.ConstantAlpha, BlendingFactor.OneMinusConstantAlpha);
+                    gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)markVertices);
+                    gl.DepthMask(true);
+                    gl.DepthFunc(DepthFunction.Lequal);
+                    gl.Disable(EnableCap.Blend);
+                }
                 if (lineVertices > 0)
                 {
                     // drawn over everything, so a marker behind a wall still shows
@@ -363,7 +393,7 @@ namespace UwEditor.Render
             if (gl == null) return;
             gl.DeleteProgram(levelProg); gl.DeleteProgram(spriteProg); gl.DeleteProgram(lineProg); gl.DeleteProgram(modelProg);
             gl.DeleteVertexArray(modelVao); gl.DeleteVertexArray(gridVao); gl.DeleteBuffer(modelVbo); gl.DeleteBuffer(gridVbo); gl.DeleteTexture(modelTex);
-            gl.DeleteVertexArray(levelVao); gl.DeleteVertexArray(spriteVao); gl.DeleteVertexArray(lineVao);
+            gl.DeleteVertexArray(levelVao); gl.DeleteVertexArray(spriteVao); gl.DeleteVertexArray(lineVao); gl.DeleteVertexArray(markVao); gl.DeleteBuffer(markVbo);
             gl.DeleteBuffer(levelVbo); gl.DeleteBuffer(spriteVbo); gl.DeleteBuffer(lineVbo);
             gl.DeleteTexture(levelTex); gl.DeleteTexture(atlasTex);
             gl = null;

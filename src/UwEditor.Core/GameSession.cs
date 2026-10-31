@@ -43,6 +43,12 @@ namespace UwEditor.Core
         /// <summary>COMOBJ.DAT's render field per item: 0 sprite, 1 critter, 2 model, 3 texture-mapped model.</summary>
         public int[] RenderTypes { get; private set; }
         public StartPoint Start { get; private set; }
+        /// <summary>Where a new game puts the player (always level 1): from the executable, else the shipped square.</summary>
+        public StartPoint NewGameStart { get; private set; }
+        /// <summary>A saved game's player (PLAYER.DAT), or null.</summary>
+        public StartPoint PlayerPoint { get; private set; }
+        /// <summary>The executable holding the new-game start square, or null.</summary>
+        public string ExePath { get; private set; }
 
         public bool IsSave { get { return SaveFolder != null; } }
         public bool IsUw2 { get { return Kind == GameKind.UW2; } }
@@ -117,13 +123,23 @@ namespace UwEditor.Core
                     catch (Exception) { s.Player = null; }
                 }
             }
-            s.Start = s.FindStart();
+            s.ExePath = StartPosition.ExePath(data, s.Kind);
+            s.NewGameStart = s.FindNewGameStart();
+            s.PlayerPoint = s.FindPlayer();
+            s.Start = s.PlayerPoint ?? s.NewGameStart;
             return s;
         }
 
         /// <summary>The new-game start square (from the executable) or the saved player's position.</summary>
-        StartPoint FindStart()
+        StartPoint FindPlayer()
         {
+            return PlayerAt(Player);
+        }
+
+        /// <summary>Where a PLAYER.DAT puts the player, or null.</summary>
+        public StartPoint PlayerAt(PlayerDat p)
+        {
+            var Player = p;
             if (Player != null && Player.SavedLevel >= 1 && Player.SavedLevel <= Profile.LevelSlots)
             {
                 // record 0x54-0x5D: x and y in 1/256 of a tile, z with 0x40 a floor step
@@ -140,6 +156,11 @@ namespace UwEditor.Core
                     Description = string.Format("player in {0}, tile ({1}, {2})", Path.GetFileName(SaveFolder), Player.TileX, Player.TileY),
                 };
             }
+            return null;
+        }
+
+        StartPoint FindNewGameStart()
+        {
             // a new game: player_setup(x, y, how) on level 1 (uw1 ui/MAINMENU.C 0x20, 2;
             // uw2 0x13, 0x30), read from the executable in case it was patched
             int x, y;
@@ -154,6 +175,28 @@ namespace UwEditor.Core
                 FacingDegrees = 0,
                 Description = string.Format("new game start square ({0}, {1}){2}", x, y, fromExe ? "" : ", the shipped default (no executable found)"),
             };
+        }
+
+        /// <summary>
+        /// Moves the new-game start square: patches the player_setup call in the executable
+        /// (keeping UW.EXE.BKP and UW.EXE.ORIG). The level is always 1.
+        /// </summary>
+        public void SetNewGameStart(int x, int y)
+        {
+            if (ExePath == null) throw new InvalidOperationException("No " + (IsUw2 ? "UW2.EXE" : "UW.EXE") + " next to DATA: the start square lives in the executable.");
+            var exe = File.ReadAllBytes(ExePath);
+            if (!StartPosition.Patch(exe, Kind, x, y)) throw new InvalidOperationException("The start call was not found in " + Path.GetFileName(ExePath) + " (another version?).");
+            UwEditor.Core.Conversations.SafeFile.Write(ExePath, exe);
+            NewGameStart = FindNewGameStart();
+            if (PlayerPoint == null) Start = NewGameStart;
+        }
+
+        /// <summary>After the player was moved in PLAYER.DAT (the player window keeps the sheet).</summary>
+        public void PlayerMoved(PlayerDat p)
+        {
+            Player = p;
+            PlayerPoint = PlayerAt(p);
+            Start = PlayerPoint ?? NewGameStart;
         }
 
         /// <summary>The levels LEV.ARK has room for, with whether each slot holds a level.</summary>
@@ -172,6 +215,16 @@ namespace UwEditor.Core
                 list.Add(new LevelSlot(this, l, present));
             }
             return list;
+        }
+
+        /// <summary>Takes a rewritten LEV.ARK (after saving levels).</summary>
+        public void ReplaceLevArk(byte[] bytes) { LevArk = Archive.Open(bytes, Kind); }
+
+        /// <summary>Reads STRINGS.PAK again (after it was saved), and the names from it.</summary>
+        public void ReloadStrings()
+        {
+            Strings = GameStrings.Load(DataFolder);
+            Names = ObjectNames.From(Strings);
         }
 
         public LevelModel LoadLevel(int level)

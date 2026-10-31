@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -34,6 +35,38 @@ namespace UwEditor.App
             };
             ok.Click += (s, e) => w.Close();
             return w.ShowDialog(owner);
+        }
+
+        /// <summary>A question with buttons; returns the button chosen (the last one if the window is closed).</summary>
+        public static async Task<string> Ask(Window owner, string title, string text, params string[] buttons)
+        {
+            string chosen = buttons.Last();
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
+            var w = new MessageWindow
+            {
+                Title = title, Width = 480, SizeToContent = SizeToContent.Height, CanResize = false,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            };
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                string b = buttons[i];
+                var btn = new Button { Content = b, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsDefault = i == 0, IsCancel = i == buttons.Length - 1 };
+                btn.Click += (s, e) => { chosen = b; w.Close(); };
+                row.Children.Add(btn);
+            }
+            w.Content = new DockPanel
+            {
+                Margin = new Thickness(20),
+                Children =
+                {
+                    new TextBlock { Text = title, FontSize = 16, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 10), [DockPanel.DockProperty] = Dock.Top },
+                    new Border { Child = row, Margin = new Thickness(0, 16, 0, 0), [DockPanel.DockProperty] = Dock.Bottom },
+                    new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 13, LineHeight = 19 },
+                },
+            };
+            if (owner == null) return chosen;
+            await w.ShowDialog(owner);
+            return chosen;
         }
     }
 }

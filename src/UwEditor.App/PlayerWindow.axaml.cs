@@ -35,6 +35,7 @@ namespace UwEditor.App
             catch (Exception) { heads = null; }
             Func<int, Bitmap> portrait = n => heads == null || n >= heads.Count ? null : Pictures.ToBitmap(heads.Get(n, pals, 0));
             Model = new PlayerViewModel(sheet, session, icon, portrait);
+            iconOf = icon;
             DataContext = Model;
             Title = "Player — " + sheet.Name + " — " + session.Title;
             TitleText.Text = "Player: " + sheet.Name;
@@ -54,6 +55,17 @@ namespace UwEditor.App
         void OnAddPack(object sender, RoutedEventArgs e) { Model.Add(false); }
         void OnAddInto(object sender, RoutedEventArgs e) { Model.Add(true); }
         void OnSave(object sender, RoutedEventArgs e) { Save(); }
+
+        Func<int, Bitmap> iconOf;
+
+        async void OnAddDetailed(object sender, RoutedEventArgs e)
+        {
+            var it = Model.It;
+            var container = it == null ? null : (it.IsQuantity ? it.Parent : it);
+            string inside = container == null ? null : string.Format("0x{0:X3} {1} (the selected container)", container.ItemId, Model.Session.Names.Get(container.ItemId));
+            var w = await AddObjectWindow.Ask(this, Model.Session, iconOf, true, "Into the pack (slots 11-18), or into a container.", inside, container != null);
+            if (w.Result != null) Model.AddSpec(w.Result, w.Inside);
+        }
 
         public bool Save()
         {

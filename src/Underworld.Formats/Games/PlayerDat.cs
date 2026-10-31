@@ -155,6 +155,12 @@ namespace UltimateEditor.Games
 		public int SavedY { get { return (short)(Record[0x56] | Record[0x57] << 8); } }
 		public int SavedZ { get { return (short)(Record[0x58] | Record[0x59] << 8); } }
 		public int SavedFacing { get { return (ushort)(Record[0x5A] | Record[0x5B] << 8); } }
+		/// <summary>Puts the player somewhere: x, y in 1/256 of a square, z with 0x40 a floor step, facing a 16-bit angle, level 1-based.</summary>
+		public void SetPosition(int level, int x, int y, int z, int facing)
+		{
+			if (x < 0x100 || x >= 63 * 0x100 || y < 0x100 || y >= 63 * 0x100) throw new ArgumentOutOfRangeException("x/y", "the player must stand on squares 1-62");
+			W(0x54, x); W(0x56, y); W(0x58, Math.Max(0, Math.Min(0x7FFF, z))); W(0x5A, facing & 0xFFFF); W(0x5C, level);
+		}
 		public int TileX { get { return (SavedX >> 8) & 0x3F; } }
 		public int TileY { get { return (SavedY >> 8) & 0x3F; } }
 		public int Heading { get { return (SavedFacing >> 13) & 7; } }

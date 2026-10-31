@@ -94,6 +94,8 @@ namespace UwEditor.Core
         public readonly ObjectInfo[] Objects = new ObjectInfo[LevelBlock.Objects];
         /// <summary>Texture numbers in the wall / floor file for each index a tile uses.</summary>
         public int[] WallMap, FloorMap, DoorMap;
+        /// <summary>The texture map block as read (null when the level has none).</summary>
+        public byte[] TextureBytes { get; private set; }
         public string CheckReport { get; private set; }
         public bool CheckOk { get; private set; }
 
@@ -108,14 +110,22 @@ namespace UwEditor.Core
 
         public static LevelModel Load(GameSession s, int level)
         {
-            var m = new LevelModel { Level = level, Session = s };
             var p = s.Profile;
             byte[] data = s.LevArk.Has(p.LevelBlock(level)) ? s.LevArk.Read(p.LevelBlock(level)) : null;
+            byte[] tex = s.LevArk.Has(p.TextureBlock(level)) ? s.LevArk.Read(p.TextureBlock(level)) : null;
+            return FromBytes(s, level, data, tex);
+        }
+
+        /// <summary>A level from its block and texture map bytes (an edited copy, say). The arrays are copied.</summary>
+        public static LevelModel FromBytes(GameSession s, int level, byte[] data, byte[] tex)
+        {
+            var m = new LevelModel { Level = level, Session = s };
+            var p = s.Profile;
             m.Present = data != null && data.Length >= LevelBlock.MagicAt + 2;
-            if (!m.Present) data = new byte[p.LevelBlockSize];
+            data = m.Present ? (byte[])data.Clone() : new byte[p.LevelBlockSize];
             m.Block = new LevelBlock(data, s.Kind);
             m.Present &= m.Block.MagicOk;
-            byte[] tex = s.LevArk.Has(p.TextureBlock(level)) ? s.LevArk.Read(p.TextureBlock(level)) : null;
+            m.TextureBytes = tex == null ? null : (byte[])tex.Clone();
             m.ReadTextureMap(tex);
             m.ReadTiles();
             m.ReadObjects();

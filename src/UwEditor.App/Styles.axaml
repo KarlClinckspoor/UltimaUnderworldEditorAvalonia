@@ -57,6 +57,21 @@
   </Style>
 
   <!-- the status bar -->
+  <Style Selector="Border.toolbar">
+    <Setter Property="Background" Value="#1C1D22" />
+    <Setter Property="BorderBrush" Value="#2A2B31" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="Padding" Value="8,5" />
+  </Style>
+  <Style Selector="Border.toolbar Button, Border.toolbar ToggleButton">
+    <Setter Property="Padding" Value="9,3" />
+    <Setter Property="Margin" Value="0,0,4,0" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="Border.toolbar ComboBox">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="MinHeight" Value="26" />
+  </Style>
   <Style Selector="Border.status">
     <Setter Property="Background" Value="{DynamicResource Panel}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Line}" />

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UltimateEditor.Uw1;
 
 namespace UwEditor.Core
@@ -14,19 +15,32 @@ namespace UwEditor.Core
         /// <summary>"", "inferred" or "unknown": how sure the meaning is.</summary>
         public string Certainty { get; set; }
         public bool IsHeader { get; set; }
+        /// <summary>The record field the row shows, when it can be typed into.</summary>
+        public FieldDef Field { get; set; }
+        /// <summary>"object" or "tile": what Field belongs to.</summary>
+        public string Target { get; set; }
+        /// <summary>The object's index, or the tile's x + 64 y.</summary>
+        public int TargetIndex { get; set; }
+        public bool Editable { get { return Field != null; } }
+        public bool ReadOnly { get { return Field == null; } }
+        /// <summary>Values to pick from (an owner's race), or null.</summary>
+        public List<UwEditor.Core.Editing.Choice> Choices { get; set; }
+        public bool HasChoices { get { return Field != null && Choices != null; } }
     }
 
     /// <summary>Builds the panels' rows from the record schemas, so every field shows, described.</summary>
     public static class PropertyRows
     {
-        public static List<PropertyRow> FromSchema(RecordSchema schema, byte[] record)
+        public static List<PropertyRow> FromSchema(RecordSchema schema, byte[] record, string target = null, int index = -1)
         {
             var rows = new List<PropertyRow>();
             foreach (var f in schema.Fields)
             {
                 int v = f.Get(record);
+                bool editable = target != null && f.Name != "Next" && f.Name != "First object";
                 rows.Add(new PropertyRow
                 {
+                    Field = editable ? f : null, Target = target, TargetIndex = index,
                     Name = f.Name,
                     Value = v.ToString(),
                     Hex = f.Bits > 3 ? "0x" + v.ToString(f.Bits > 8 ? "X3" : "X2") : "",
@@ -48,13 +62,35 @@ namespace UwEditor.Core
             if (o.Parent >= 0) Add(rows, "Inside", level.Objects[o.Parent].ToString(), "", "Reached through this object's link list (container contents, inventory, a trigger's trap, a door's lock).");
             string npc = ObjectTexts.NpcName(level.Session, o);
             if (npc != null) Add(rows, "Name", npc, "", "The name the creature talks under: STRINGS.PAK block 7, string whoami + 16.");
+            string proper = UwEditor.Core.Editing.NamedItems.Of(level.Session.Kind, o.Item);
+            if (proper != null) Add(rows, "Known as", proper, "", "What the plot calls this object (the game's own name for it is generic).");
             string text = ObjectTexts.TextOf(level.Session, o);
             if (text != null) Add(rows, "Text", text.Trim(), "", "The object's text in STRINGS.PAK: block 3 for books and scrolls, 8 for gravestones and writings, 9 for text traps.");
+            bool flag11 = (o.Record[1] & 0x08) != 0;
+            string ench = Editing.Enchantments.NameOf(o.Item, o.Enchanted, o.IsQuantity, o.Link, flag11, level.Session.Strings);
+            if (ench != null) Add(rows, "Enchantment", ench, "", "STRINGS.PAK block 6, by decode_obj_spell (obj/USEITEMS.C)." + (level.Session.IsUw2 ? " UW2's names do not always say what the enchantment does." : ""));
+            if (Editing.KeyIndex.IsKey(o.Item, level.Session.Kind))
+            {
+                string kt = level.Session.Strings.Get(5, 0x64 + o.Owner);
+                Add(rows, "Opens lock", o.Owner.ToString(), "", "A key opens the lock whose number (link & 0x1FF) equals its owner field (obj/USEITEMS.C checkLock)." + (string.IsNullOrWhiteSpace(kt) ? "" : "\nDescription: " + kt));
+            }
+            if (o.Item == 0x10F && o.IsQuantity) Add(rows, "Lock number", (o.Link & 0x1FF).ToString(), "", "Keys whose owner field is this number open it.");
             Add(rows, "Kind of item", KindName(ItemCategories.Of(o.Item, level.Session.Kind)), "", "The class of the item id (include/items.h).");
             if (o.TileX >= 0)
                 Add(rows, "Position", string.Format("{0:0.###}, {1:0.###}, h {2:0.###}", o.WorldX, o.WorldY, o.WorldZ), "", "In tiles: x east, y north, height (a floor step is 0.25).");
             rows.Add(new PropertyRow { Name = "Record", IsHeader = true, Value = "", Hex = "", Tip = "" });
-            rows.AddRange(FromSchema(o.IsMobile ? Uw1Schemas.MobileObject : Uw1Schemas.StaticObject, o.Record));
+            var fields = FromSchema(o.IsMobile ? Uw1Schemas.MobileObject : Uw1Schemas.StaticObject, o.Record, "object", o.Index);
+            var ownerRow = fields.FirstOrDefault(r => r.Name == "Owner");
+            if (ownerRow != null && !o.IsMobile && !UwEditor.Core.Editing.KeyIndex.IsKey(o.Item, level.Session.Kind) && o.Item < 0x180
+                && UwEditor.Core.Editing.Races.CanBeOwned(level.Session, o.Item))
+            {
+                var races = UwEditor.Core.Editing.Races.Of(level.Session);
+                ownerRow.Choices = races;
+                var r = races.FirstOrDefault(c => c.Value == o.Owner);
+                ownerRow.Tip = "The race that owns it: taking it in front of them is stealing (OBJECTS.DAT creature byte 9; COMOBJ.DAT's can-own bit is set for this kind)."
+                    + (r != null ? "\nNow: " + r.Label : "") + "\n" + ownerRow.Tip;
+            }
+            rows.AddRange(fields);
             rows.Add(new PropertyRow { Name = "Bytes", Value = BitConverter.ToString(o.Record).Replace("-", " "), Hex = "", Tip = "The record as stored." });
             return rows;
         }
@@ -70,7 +106,7 @@ namespace UwEditor.Core
             Add(rows, "Floor texture", floor < 0 ? "none (index " + t.FloorIndex + ")" : string.Format("{0} (index {1})", floor, t.FloorIndex), "",
                 "The texture number in " + level.Session.Profile.FloorTextureFile + ", through the level's texture map.");
             rows.Add(new PropertyRow { Name = "Record", IsHeader = true, Value = "", Hex = "", Tip = "" });
-            rows.AddRange(FromSchema(Uw1Schemas.Tile, t.Record));
+            rows.AddRange(FromSchema(Uw1Schemas.Tile, t.Record, "tile", t.X + 64 * t.Y));
             return rows;
         }
 

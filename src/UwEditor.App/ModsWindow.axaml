@@ -1,0 +1,60 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="clr-namespace:UwEditor.App"
+        x:Class="UwEditor.App.ModsWindow"
+        x:DataType="app:ModsViewModel"
+        Title="Mods"
+        Width="900" Height="680" MinWidth="640" MinHeight="460"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top" Text="Mods" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBlock DockPanel.Dock="Top" Classes="muted" TextWrapping="Wrap" Margin="0,0,0,10"
+               Text="A mod (.uwmod) holds only what changed: level blocks, strings, patched bytes, or whole new files. It names the files it was made from by their SHA-256 hash, so it is applied only to the same game, block by block and string by string." />
+    <TextBlock DockPanel.Dock="Bottom" x:Name="StatusText" Text="{Binding Status}" Classes="muted" TextWrapping="Wrap" Margin="0,10,0,0" />
+    <TabControl x:Name="Tabs">
+      <TabItem Header="Make a mod">
+        <DockPanel Margin="0,10,0,0">
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,8">
+            <TextBlock Grid.Row="0" Text="Name" VerticalAlignment="Center" />
+            <TextBox Grid.Row="0" Grid.Column="1" x:Name="NameBox" Text="{Binding Name}" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="1" Text="Id" VerticalAlignment="Center" />
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Id}" Margin="0,0,0,6" PlaceholderText="author.modname" />
+            <TextBlock Grid.Row="2" Text="Version" VerticalAlignment="Center" />
+            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Version}" Margin="0,0,0,6" Width="160" HorizontalAlignment="Left" />
+            <TextBlock Grid.Row="3" Text="Authors" VerticalAlignment="Center" />
+            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Authors}" Margin="0,0,0,6" PlaceholderText="Comma-separated" />
+            <TextBlock Grid.Row="4" Text="Description" VerticalAlignment="Top" Margin="0,4,0,0" />
+            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap" Height="60" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="5" Text="Compared with" VerticalAlignment="Top" Margin="0,4,0,0" />
+            <StackPanel Grid.Row="5" Grid.Column="1" Spacing="4">
+              <RadioButton Content="The originals the editor kept (NAME.EXT.ORIG beside each file it wrote)" IsChecked="{Binding UseOriginals}" GroupName="ref" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <RadioButton Content="An untouched copy of the game:" IsChecked="{Binding UseFolder}" GroupName="ref" />
+                <TextBox Text="{Binding ReferenceFolder}" Width="360" IsEnabled="{Binding UseFolder}" />
+                <Button Content="Browse…" Click="OnBrowseReference" IsEnabled="{Binding UseFolder}" />
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+          <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+            <Button x:Name="CollectButton" Content="Collect the changes" Click="OnCollect" />
+            <Button x:Name="WriteButton" Content="Write the .uwmod…" Click="OnWrite" IsEnabled="{Binding HasPackage}" />
+          </StackPanel>
+          <TextBox x:Name="PreviewBox" Text="{Binding Preview}" IsReadOnly="True" Classes="mono" FontSize="12" TextWrapping="Wrap" />
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Load a mod">
+        <DockPanel Margin="0,10,0,0">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+            <Button Content="Open a .uwmod…" Click="OnOpenMod" />
+            <TextBlock Text="{Binding LoadedPath}" Classes="muted" VerticalAlignment="Center" />
+          </StackPanel>
+          <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+            <Button x:Name="ApplyButton" Content="Apply to this game" Click="OnApply" IsEnabled="{Binding CanApply}" />
+            <CheckBox Content="Write over conflicts" IsChecked="{Binding Force}" ToolTip.Tip="Apply even where this game's file is not the one the mod was made from" />
+          </StackPanel>
+          <TextBox x:Name="ChecksBox" Text="{Binding Checks}" IsReadOnly="True" Classes="mono" FontSize="12" TextWrapping="Wrap" />
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

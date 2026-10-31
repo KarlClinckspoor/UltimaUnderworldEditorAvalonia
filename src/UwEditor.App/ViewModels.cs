@@ -55,7 +55,7 @@ namespace UwEditor.App
     }
 
     /// <summary>The window's state. The window's code connects it to the 3D view.</summary>
-    public sealed class MainViewModel : Observable
+    public sealed partial class MainViewModel : Observable
     {
         GameSession session;
         List<LevelSlot> slots = new List<LevelSlot>();
@@ -193,6 +193,8 @@ namespace UwEditor.App
         public void Open(GameSession s)
         {
             session = s;
+            Edits = new UwEditor.Core.Editing.LevelEdits(s);
+            Edits.Changed += e => { if (level != null && e.Level == level.Level) ScheduleRefresh(); else RaiseEditState(); };
             icons.Clear();
             slots = s.LevelSlots();
             worlds = new List<string>();
@@ -215,7 +217,7 @@ namespace UwEditor.App
         public void LoadLevel(int l)
         {
             if (session == null) return;
-            level = session.LoadLevel(l);
+            level = Edits != null ? Edits.Model(l) : session.LoadLevel(l);
             var slot = slots.FirstOrDefault(x => x.Level == l);
             if (slot != null && slot != selectedSlot)
             {
@@ -227,6 +229,8 @@ namespace UwEditor.App
             Raise(nameof(LevelSummary));
             ClearSelection();
             BuildTree();
+            RefreshSlots();
+            RaiseEditState();
             LevelChanged?.Invoke(level);
         }
 
@@ -309,10 +313,14 @@ namespace UwEditor.App
         string Label(ObjectInfo o, bool top)
         {
             string s = string.Format("#{0}  {1}", o.Index, o.Name);
-            string npc = ObjectTexts.NpcName(session, o);
-            if (npc != null) s += " (" + npc + ")";
+            string extra = UwEditor.Core.Editing.NamedItems.ExtraName(session, o);
+            if (extra != null) s += " (" + extra + ")";
             if (top) s += string.Format("  ({0}, {1})", o.TileX, o.TileY);
-            if (o.Enchanted) s += "  · enchanted";
+            if (o.Enchanted)
+            {
+                string en = o.IsQuantity ? UwEditor.Core.Editing.Enchantments.NameOf(o.Item, true, true, o.Link, ((o.Record[1] >> 3) & 1) != 0, session.Strings) : null;
+                s += string.IsNullOrWhiteSpace(en) ? "  · enchanted" : "  · " + en.Trim();
+            }
             if (o.Invisible) s += "  · invisible";
             return s;
         }
@@ -356,6 +364,7 @@ namespace UwEditor.App
             ObjectSubtitle = "Click an object in the view or the list.";
             ObjectThumb = null;
             TileTitle = ""; WallThumb = FloorThumb = null;
+            UpdateObjectHelp(null);
             Raise(nameof(HasObject)); Raise(nameof(HasTile));
             SelectionChanged?.Invoke();
         }
@@ -396,6 +405,7 @@ namespace UwEditor.App
                 FloorThumb = ft == null ? null : ToBitmap(g.TextureRgba(ft, g.FloorEdge, 64));
             }
             else { TileTitle = ""; WallThumb = FloorThumb = null; }
+            UpdateObjectHelp(obj >= 0 ? level.Objects[obj] : null);
             Raise(nameof(HasObject)); Raise(nameof(HasTile));
             if (fromView)
             {

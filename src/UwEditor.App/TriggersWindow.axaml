@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="clr-namespace:UwEditor.App"
+        x:Class="UwEditor.App.TriggersWindow"
+        x:DataType="app:TriggersViewModel"
+        Title="Triggers and traps"
+        Width="1040" Height="680" MinWidth="720" MinHeight="420"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top" x:Name="TitleText" Text="{Binding Heading}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBlock DockPanel.Dock="Top" Classes="muted" TextWrapping="Wrap" Margin="0,0,0,10"
+               Text="A trigger fires the trap its link names, and the whole chain runs on the trigger's target square (quality, owner), not where the objects lie. Each trap passes on along its link unless it ends the chain. Double-click a line to go to it in the map; the bullseye shows where it acts." />
+    <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,10,0,0">
+      <TextBlock Text="{Binding Status}" Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      <Button Grid.Column="1" Content="Variable in globals…" Click="OnVariable" IsEnabled="{Binding HasVariable}" Margin="0,0,8,0" />
+      <Button Grid.Column="2" Content="Go to" Click="OnGoTo" IsEnabled="{Binding HasSelection}" Margin="0,0,8,0" />
+      <Button Grid.Column="3" Content="This level" Click="OnRefresh" ToolTip.Tip="Show the level the main window shows" />
+    </Grid>
+    <Grid ColumnDefinitions="*,16,380">
+      <TreeView x:Name="ChainTree" Grid.Column="0" ItemsSource="{Binding Nodes}" SelectedItem="{Binding Selected}" DoubleTapped="OnDoubleTapped"
+                Background="{DynamicResource Panel}">
+        <TreeView.Styles>
+          <Style Selector="TreeViewItem" x:DataType="app:ChainNode">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+          </Style>
+        </TreeView.Styles>
+        <TreeView.ItemTemplate>
+          <TreeDataTemplate x:DataType="app:ChainNode" ItemsSource="{Binding Children}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Image Source="{Binding Icon}" Width="16" Height="16" RenderOptions.BitmapInterpolationMode="None" />
+              <TextBlock Text="{Binding Header}" FontSize="12" VerticalAlignment="Center" />
+            </StackPanel>
+          </TreeDataTemplate>
+        </TreeView.ItemTemplate>
+      </TreeView>
+      <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="h first" Text="WHAT IT DOES" />
+          <SelectableTextBlock x:Name="HelpText" Text="{Binding Help}" TextWrapping="Wrap" FontSize="12" LineHeight="17" />
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </DockPanel>
+</Window>

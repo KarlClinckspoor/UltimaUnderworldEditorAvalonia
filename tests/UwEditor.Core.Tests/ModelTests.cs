@@ -57,7 +57,7 @@ namespace UwEditor.Core.Tests
         public GridAndDoorTests(ITestOutputHelper output) { this.output = output; }
 
         [Fact]
-        public void Grid_lines_lie_on_multiples_of_the_step_and_labels_name_them()
+        public void Grid_lines_run_through_the_middles_of_tiles_at_multiples_of_the_step_and_labels_name_them()
         {
             string g = GameData.Game("UW"); if (g == null) return;
             var s = GameSession.Open(g);
@@ -67,7 +67,8 @@ namespace UwEditor.Core.Tests
             for (int i = 0; i < f.Count; i += 14)
             {
                 float x0 = f[i], z0 = f[i + 2], x1 = f[i + 7], z1 = f[i + 9];
-                bool onX = x0 == x1 && x0 % 5 == 0, onZ = z0 == z1 && z0 % 5 == 0;
+                // the line labelled 50 runs through the middle of tile 50: x = 50.5
+                bool onX = x0 == x1 && (x0 - 0.5f) % 5 == 0, onZ = z0 == z1 && (z0 - 0.5f) % 5 == 0;
                 Assert.True(onX || onZ, string.Format("segment ({0}, {1})-({2}, {3})", x0, z0, x1, z1));
             }
             var cam = new OrbitCamera { Target = new Vector3(32.5f, 3, 2.5f), Yaw = 0, Pitch = 60, Distance = 10 };
@@ -79,6 +80,10 @@ namespace UwEditor.Core.Tests
             Assert.All(labels, l => { Assert.InRange(l.X, -0.5f, 800.5f); Assert.InRange(l.Y, -0.5f, 600.5f); });
             // looking north from (32.5, 2.5): x = 30 is left of x = 35
             Assert.True(labels.First(l => l.Text == "X: 30").X < labels.First(l => l.Text == "X: 35").X);
+            // looking straight down at the middle of tile 30, its label is in the middle of the view
+            var down = new OrbitCamera { Target = new Vector3(30.5f, 3, 20.5f), Yaw = 0, Pitch = 89, Distance = 10 };
+            var l30 = GridOverlay.Labels(down, 800, 600, 5, 3f).First(l => l.Text == "X: 30");
+            Assert.InRange(l30.X, 395f, 405f);
         }
 
         [Fact]

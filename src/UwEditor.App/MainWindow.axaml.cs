@@ -42,6 +42,7 @@ namespace UwEditor.App
             View.CameraChanged += UpdateViewText;
             View.FrameDrawn += UpdateViewText;
             AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
+            InitEditing();
             Columns.ColumnDefinitions[0].Width = new GridLength(Math.Clamp(settings.LeftWidth, 200, 600));
             Columns.ColumnDefinitions[4].Width = new GridLength(Math.Clamp(settings.RightWidth, 240, 700));
             vm.ShowGrid = settings.Grid;
@@ -59,7 +60,7 @@ namespace UwEditor.App
             BuildRecentMenu();
             Opened += (s, e) =>
             {
-                if (Program.OpenAtStart != null) OpenPath(Program.OpenAtStart);
+                if (Program.OpenAtStart != null) OpenPathNow(Program.OpenAtStart);
                 if (Program.LevelAtStart > 0 && vm.Session != null && Program.LevelAtStart <= vm.Session.Profile.LevelSlots) vm.LoadLevel(Program.LevelAtStart);
                 if (Program.SelectAtStart >= 0 && vm.Level != null && Program.SelectAtStart < vm.Level.Objects.Length)
                 {
@@ -75,6 +76,7 @@ namespace UwEditor.App
                 if (Program.GlobalsAtStart && vm.Session != null) ShowGlobals();
                 if (Program.PlayerAtStart && vm.Session != null) { var pw = ShowPlayer(); if (pw != null) pw.Tabs.SelectedIndex = Program.TabAtStart; }
                 if (Program.GraphicsAtStart && vm.Session != null) ShowGraphics()?.ShowTab(Program.TabAtStart);
+                if (Program.WindowAtStart != null && vm.Session != null) OpenWindowAtStart(Program.WindowAtStart);
                 if (Program.ReadyFile != null) WriteReadyFileAfterFrames(3);
                 View.Focus();
             };
@@ -151,7 +153,14 @@ namespace UwEditor.App
             if (path != null) OpenPath(path);
         }
 
-        public void OpenPath(string path)
+        public async void OpenPath(string path)
+        {
+            if (!await ConfirmDiscard("opening another game")) return;
+            OpenPathNow(path);
+        }
+
+        /// <summary>Opens a game without asking about unsaved changes.</summary>
+        public void OpenPathNow(string path)
         {
             GameSession s;
             try { s = GameSession.Open(path); }
@@ -167,7 +176,12 @@ namespace UwEditor.App
             globalsWindow?.Close();
             playerWindow?.Close();
             graphicsWindow?.Close();
+            keysWindow?.Close(); stringsWindow?.Close(); triggersWindow?.Close(); modsWindow?.Close();
             conversations = null;
+            strings = null;
+            playerSheet = null;
+            pick = null; carrying = null;
+            if (View.FirstPerson) View.SetFirstPerson(false);
             settings.AddRecent(s.SaveFolder ?? s.GameFolder);
             settings.Save();
             BuildRecentMenu();
@@ -195,6 +209,7 @@ namespace UwEditor.App
         void OnLevelChanged(LevelModel level)
         {
             scene = level == null ? null : LevelScene.Build(level, atlas, vm.Options);
+            if (View.FirstPerson) View.SetFirstPerson(false);
             View.SetScene(scene);
             View.State.SelectedObject = View.State.SelectedTile = View.State.HoverObject = View.State.HoverTile = -1;
             vm.HoverText = "";
@@ -296,6 +311,7 @@ namespace UwEditor.App
 
         void OnPicked(PickResult hit)
         {
+            if (EditClick(hit)) return;
             if (!hit.Hit) { vm.ClearSelection(); return; }
             vm.Select(hit.Object, hit.Tile % 64, hit.Tile / 64, true);
             if (vm.SelectedNode != null) ObjectTree.ScrollIntoView(vm.SelectedNode);
@@ -305,12 +321,13 @@ namespace UwEditor.App
         {
             var lines = new List<float>();
             var level = vm.Level;
+            List<float> tris = null;
             if (level != null && scene != null)
             {
-                if (level.Level == vm.Session.Start.Level)
-                    LevelScene.StartMarker(lines, StartPoint(level), (float)vm.Session.Start.FacingDegrees, StartColour);
+                tris = BuildMarkers(lines);
                 if (vm.SelectedTileX >= 0) scene.TileOutline(lines, vm.SelectedTileX, vm.SelectedTileY, SelColour);
             }
+            View.SetMarkers(tris);
             View.State.SelectedObject = vm.SelectedObject;
             View.State.SelectedTile = vm.SelectedObject >= 0 ? -1 : (vm.SelectedTileX >= 0 ? vm.SelectedTileX + 64 * vm.SelectedTileY : -1);
             View.SetLines(lines);
@@ -352,6 +369,7 @@ namespace UwEditor.App
         {
             var level = vm.Level;
             if (level == null) return;
+            if (View.FirstPerson) View.SetFirstPerson(false);
             Vector3 target;
             float distance;
             if (vm.SelectedObject >= 0 && level.Objects[vm.SelectedObject].TileX >= 0)
@@ -359,6 +377,20 @@ namespace UwEditor.App
                 var o = level.Objects[vm.SelectedObject];
                 target = new Vector3((float)o.WorldX, (float)o.WorldZ + 0.2f, (float)o.WorldY);
                 distance = 2.5f;
+                // a trap or trigger: the object and the square it acts on, both in view
+                var aim = vm.Targets.FirstOrDefault(t => t.Level == level.Level && (t.X != o.TileX || t.Y != o.TileY));
+                if (aim != null)
+                {
+                    var far = new Vector3(aim.X + 0.5f, (float)level.FloorAt(Math.Clamp(aim.X, 0, 63), Math.Clamp(aim.Y, 0, 63), 0.5, 0.5), aim.Y + 0.5f);
+                    float d = Vector3.Distance(target, far);
+                    if (d < 24)
+                    {
+                        target = (target + far) / 2;
+                        distance = Math.Max(4f, d * 1.1f + 2f);
+                        View.LookAt(target, distance, null, Math.Max(View.Camera.Pitch, 50f));
+                        return;
+                    }
+                }
                 // wall objects and doors are seen head-on: looking the way they face (towards the wall)
                 int model;
                 var kind = ObjectModels.Classify(o.Item, vm.Session.RenderTypes, vm.Session.IsUw2, out model);
@@ -436,9 +468,8 @@ namespace UwEditor.App
                     : "The player lives in a saved game's PLAYER.DAT. Open a SAVE folder (File ▸ Open game folder…); DATA's PLAYER.DAT is a 301-byte template the game never reads.");
                 return null;
             }
-            UwEditor.Core.Player.PlayerSheet sheet;
-            try { sheet = UwEditor.Core.Player.PlayerSheet.Load(path, s.Kind, s.DataFolder); }
-            catch (Exception ex) { _ = MessageWindow.Show(this, "Could not read PLAYER.DAT", ex.Message); return null; }
+            var sheet = PlayerSheetOf();
+            if (sheet == null) return null;
             playerWindow = new PlayerWindow(sheet, s, vm.IconOf);
             playerWindow.Closed += (o, e) => playerWindow = null;
             playerWindow.Show(this);
@@ -554,7 +585,24 @@ namespace UwEditor.App
                 "  Wheel, + and −          closer, farther\n" +
                 "  W A S D or arrows       move (Shift: faster)\n" +
                 "  Q, E                    turn\n" +
-                "  R, V                    up, down a floor step\n\n" +
+                "  R, V                    up, down a floor step\n" +
+                "  Double click            select and go to it\n" +
+                "  Ctrl+wheel              raise or lower the floor under the mouse\n\n" +
+                "Editing\n" +
+                "  Tool: Select            click picks\n" +
+                "  Tool: Move              click a square: the selected object (or an arrow) goes there\n" +
+                "  Tool: Paint             drag over tiles: light flag, floor or wall texture, type, height\n" +
+                "  Insert, Del             add an object, delete the selected one\n" +
+                "  Ctrl+Z, Ctrl+Y          undo, redo (each level keeps its own)\n" +
+                "  Ctrl+S                  save the levels (and a moved player)\n" +
+                "  Properties panel        type a value and press Enter\n\n" +
+                "First person (P)\n" +
+                "  W A S D                 walk;  Q E, drag  turn;  R V  look up, down\n" +
+                "  Wheel                   step;  Esc  leave\n\n" +
+                "Markers\n" +
+                "  Red arrow               the new-game start (level 1)\n" +
+                "  Green arrow             the saved player: click it for the player window\n" +
+                "  Bullseye                where the selected trap or trigger acts\n\n" +
                 "Anywhere\n" +
                 "  Ctrl+O                  open a game\n" +
                 "  Ctrl+Shift+F            find in all levels\n" +
@@ -562,6 +610,10 @@ namespace UwEditor.App
                 "  Ctrl+Shift+G            global variables\n" +
                 "  Ctrl+Shift+P            player and inventory (a saved game)\n" +
                 "  Ctrl+Shift+R            graphics\n" +
+                "  Ctrl+Shift+K            keys and locks\n" +
+                "  Ctrl+Shift+T            triggers and traps\n" +
+                "  Ctrl+Shift+S            strings\n" +
+                "  Ctrl+Shift+M            mods\n" +
                 "  PgUp, PgDn              previous, next level\n" +
                 "  F                       frame the selection\n" +
                 "  T                       look straight down\n" +
@@ -591,7 +643,16 @@ namespace UwEditor.App
             if (e.Key == Key.G && ctrlShift) { ShowGlobals(); e.Handled = true; return; }
             if (e.Key == Key.P && ctrlShift) { ShowPlayer(); e.Handled = true; return; }
             if (e.Key == Key.R && ctrlShift) { ShowGraphics(); e.Handled = true; return; }
+            if (e.Key == Key.K && ctrlShift) { ShowKeys(); e.Handled = true; return; }
+            if (e.Key == Key.T && ctrlShift) { ShowTriggers(); e.Handled = true; return; }
+            if (e.Key == Key.S && ctrlShift) { ShowStrings(); e.Handled = true; return; }
+            if (e.Key == Key.M && ctrlShift) { ShowMods(); e.Handled = true; return; }
+            bool ctrl = (e.KeyModifiers & KeyModifiers.Control) != 0 && (e.KeyModifiers & KeyModifiers.Shift) == 0;
+            if (ctrl && e.Key == Key.S) { SaveAll(); e.Handled = true; return; }
+            if (ctrl && !typing && e.Key == Key.Z) { Undo(); e.Handled = true; return; }
+            if (ctrl && !typing && e.Key == Key.Y) { Redo(); e.Handled = true; return; }
             if (typing || (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt)) != 0) return;
+            if (View.FirstPerson && e.Key == Key.Escape) { View.SetFirstPerson(false); e.Handled = true; return; }
             // the camera keys work whichever panel has the focus (the arrows stay with lists)
             if (!View.IsFocused && (e.Key == Key.W || e.Key == Key.A || e.Key == Key.S || e.Key == Key.D || e.Key == Key.Q || e.Key == Key.E || e.Key == Key.R || e.Key == Key.V))
             {
@@ -608,7 +669,13 @@ namespace UwEditor.App
                 case Key.G: vm.ShowCeiling = !vm.ShowCeiling; break;
                 case Key.H: vm.ShowGrid = !vm.ShowGrid; break;
                 case Key.M: vm.ShowModels = !vm.ShowModels; break;
-                case Key.Escape: vm.ClearSelection(); break;
+                case Key.Escape:
+                    if (pick != null || carrying != null) { pick = null; carrying = null; vm.EditStatus = "Cancelled."; }
+                    else vm.ClearSelection();
+                    break;
+                case Key.Delete: DeleteSelected(); break;
+                case Key.Insert: _ = AddObject(); break;
+                case Key.P: ToggleFirstPerson(); break;
                 default: return;
             }
             e.Handled = true;

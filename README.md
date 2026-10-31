@@ -1,10 +1,11 @@
 # Underworld Editor (free of Unity)
 
 A level editor for **Ultima Underworld I** and **II** that runs on Windows, Linux and macOS.
-It uses Avalonia 12 for the window and OpenGL for the 3D view. This is the skeleton. It
-opens a game, shows any level in 3D, and shows the properties of the selected object and
-tile. It does not edit or save yet. The plan is in [PLAN.md](PLAN.md); the road to the Unity
-editor's other features is in [ROADMAP.md](ROADMAP.md).
+It uses Avalonia 12 for the window and OpenGL for the 3D view. It opens a game, shows any
+level in 3D, edits tiles and objects, and also edits conversations, strings, keys, the
+player and graphics. Changes can be packed into mods. The plan is in
+[PLAN.md](PLAN.md); the road to the Unity editor's other features is in
+[ROADMAP.md](ROADMAP.md).
 
 ![UW1, level 1, the sack next to the start selected](docs/uw1-level1.png)
 
@@ -16,8 +17,8 @@ editor's other features is in [ROADMAP.md](ROADMAP.md).
   `DATA`.
 - **The camera starts over the start square of a new game.** The square is read from
   `UW.EXE` / `UW2.EXE`, so a patched start square shows too. In a saved game the camera
-  starts over the player, facing where the player faces. The magenta cross marks the
-  spot.
+  starts over the player, facing where the player faces. A large **red arrow** marks the
+  new-game start; in a saved game a **green arrow** marks the player.
 - **Picking a level:**
   - UW1: levels 1–9.
   - UW2: pick the world, then a slot in it. Empty slots are marked.
@@ -37,6 +38,9 @@ editor's other features is in [ROADMAP.md](ROADMAP.md).
     edges name each line, as `X: 30` or `Y: 45`.
   - Darkness, centred on the point the camera looks at.
 - **Finding objects:**
+  - Creatures that talk show their name and unique objects their plot name in brackets,
+    as in "fighter (Corby)" and "shiny sword (Caliburn, the Sword of Justice)".
+    Enchanted objects show their enchantment.
   - The search box matches item names, NPC names ("human (Lord British)"), the text of
     books, scrolls, writings, gravestones and text traps, `#index` and `0x` item ids.
   - The chips narrow the list to weapons, food, monsters, keys, traps or triggers (any of
@@ -145,6 +149,78 @@ editor's other features is in [ROADMAP.md](ROADMAP.md).
 
   A replaced cutscene frame re-encodes only its own delta, the next frame's and the loop
   back to the first. Saving keeps each old file as `.BKP`.
+
+### Editing levels
+
+Each level keeps its own undo history (Ctrl+Z, Ctrl+Y). **Save levels** (Ctrl+S) writes
+LEV.ARK and keeps `LEV.BKP`, plus `LEV.ARK.ORIG` the first time. The toolbar above the
+view chooses the tool:
+- **Select:** a click picks an object or tile; a double click also moves the view to it
+  (so does double-clicking in the list).
+- **Move:** click a square and the selected object goes there, keeping its height above the
+  floor. A critter's home moves with it.
+- **Paint:** drag over tiles to paint the light flag on or off (only that bit), a floor or
+  wall texture from the level's texture list (shown with thumbnails), a tile type, or a
+  floor height.
+- **Ctrl+wheel** raises or lowers the floor under the mouse, and the objects on it with it.
+- **First person** (P): walk the level at eye height. W A S D walk, Q E or a drag turns,
+  R V look up and down, and Esc leaves. Rock and floors more than two steps up stop you.
+
+Any record field can be typed into in the properties panel (decimal or `0x` hex), except
+the list links, which the editor keeps. An owner field has a list of the races to choose
+from. Each race is named by its creatures, from OBJECTS.DAT's race byte.
+
+**Add…** (Insert) opens a window whose form changes with the kind of item:
+- a boulder or food gets quality, owner and quantity;
+- a weapon, armour or ring gets its enchantment, from the weapon/armour list (which names
+  what each really does) or the 64 spells, with how it is stored. In UW2 a warning says
+  that the game's own names swap the Accuracy and Damage enchantments;
+- a wand gets its spell and charges, kept in a spell object inside it;
+- a book or scroll gets its text, previewed;
+- a key gets its lock and description, and a lock gets its number, locked flag and
+  lockpicking difficulty;
+- a creature gets hit points, attitude and conversation;
+- a trap or trigger gets its description.
+
+The new object goes on the selected tile or into the selected container. The player
+window's **Add…** uses the same form for the inventory. **Delete** (Del) frees the object
+and what it holds.
+
+**Traps and triggers:** selecting one shows what its kind does and what each field means,
+from event/TRIGGER.C. The square it acts on gets a **red bullseye**: a trigger's target, a
+teleport's destination, a delete trap's square, or where the chains that reach a trap run.
+**Choose the target in the view** lets you click the square instead of typing it; a
+teleport can aim at another level. **Variable in globals…** opens the global variables
+window on the variable a set or check variable trap uses.
+
+**The start and the player:** with the Move tool, click an arrow and then a square. The
+new-game start can only move on level 1: it is patched into `UW.EXE` / `UW2.EXE`, which is
+kept as `.ORIG`. The player in a saved game can go to any level, and is saved in
+`PLAYER.DAT`. Clicking the green arrow opens the player window. Edit ▸ Move the … here
+uses the selected tile.
+
+### More tools
+
+- **Tools ▸ Keys and locks…** (Ctrl+Shift+K): every lock number with its keys and locks
+  across all levels, where each lies, whether it is locked, and the keys' description
+  (STRINGS.PAK block 5, 100 + the number), which can be edited. Double-click to go there.
+- **Tools ▸ Triggers and traps…** (Ctrl+Shift+T): every trigger of the level, where it
+  lies, the square its chain runs on and each trap in the chain, then the traps no trigger
+  reaches. A line explains itself; double-click goes to it in the map.
+- **Tools ▸ Strings…** (Ctrl+Shift+S): every block of STRINGS.PAK, with the conversations
+  named, searched in one block or all of them. Strings can be edited and added, and
+  characters the file cannot write are refused. Saving updates the names everywhere in the
+  editor. It shares the conversation editor's copy of the file, so edits made in both are
+  never written over each other.
+- **Tools ▸ Mods…** (Ctrl+Shift+M):
+  - **Make a mod** compares the game with the originals the editor kept (`.ORIG`), or with
+    an untouched copy, and writes a `.uwmod` (a zip with `mod.json`). It holds only what
+    changed: LEV.ARK and other archive blocks, single strings, bytes patched in place (an
+    executable's start square, never the program itself), or whole new files. It records
+    the SHA-256 of each file it was made from.
+  - **Load a mod** checks it against the open game, block by block and string by string
+    (fits, already applied, changed since, missing). It then applies it and opens the game
+    again.
 
 Help ▸ Controls lists the mouse and keys.
 

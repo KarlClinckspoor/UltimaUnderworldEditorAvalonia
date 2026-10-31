@@ -173,6 +173,8 @@ namespace UwEditor.Core
             if (o.Name.ToLowerInvariant().Contains(f)) return true;
             string npc = ObjectTexts.NpcName(s, o);
             if (npc != null && npc.ToLowerInvariant().Contains(f)) { MatchedText = npc; return true; }
+            string proper = UwEditor.Core.Editing.NamedItems.Of(s.Kind, o.Item);
+            if (proper != null && proper.ToLowerInvariant().Contains(f)) { MatchedText = proper; return true; }
             string text = ObjectTexts.TextOf(s, o);
             if (text != null && text.ToLowerInvariant().Contains(f)) { MatchedText = Snippet(text, f); return true; }
             return false;
