@@ -1,0 +1,34 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="clr-namespace:UwEditor.App"
+        xmlns:core="clr-namespace:UwEditor.Core;assembly=UwEditor.Core"
+        x:Class="UwEditor.App.ModelsWindow"
+        x:DataType="app:ModelsViewModel"
+        Title="3D models"
+        Width="1000" Height="660" MinWidth="700" MinHeight="420"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top" Text="3D models" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBlock DockPanel.Dock="Top" Classes="muted" TextWrapping="Wrap" Margin="0,0,0,10" Text="{Binding Intro}" />
+    <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto,Auto" Margin="0,10,0,0">
+      <TextBlock Text="{Binding Status}" Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      <Button Grid.Column="1" x:Name="ExportButton" Content="Export OBJ…" Click="OnExport" IsEnabled="{Binding HasModel}" Margin="0,0,8,0" />
+      <Button Grid.Column="2" Content="Export all…" Click="OnExportAll" />
+    </Grid>
+    <Grid ColumnDefinitions="260,16,*,16,300">
+      <ListBox x:Name="ModelList" Grid.Column="0" ItemsSource="{Binding Models}" SelectedItem="{Binding Selected}" Background="{DynamicResource Panel}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="core:ModelEntry">
+            <TextBlock Text="{Binding Label}" FontSize="12" />
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <Border Grid.Column="2" CornerRadius="4" ClipToBounds="True">
+        <app:ModelPreview x:Name="Preview" />
+      </Border>
+      <ScrollViewer Grid.Column="4" HorizontalScrollBarVisibility="Disabled">
+        <SelectableTextBlock x:Name="InfoText" Text="{Binding Info}" TextWrapping="Wrap" FontSize="12" LineHeight="17" />
+      </ScrollViewer>
+    </Grid>
+  </DockPanel>
+</Window>

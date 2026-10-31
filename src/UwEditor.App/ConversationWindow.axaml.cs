@@ -38,6 +38,7 @@ namespace UwEditor.App
             this.goTo = goTo;
             this.showGlobals = showGlobals;
             InitializeComponent();
+            ManualWindow.Attach(this, "Conversations");
             DataContext = Model;
             Model.SelectedChanged += () => Load(Model.Selected == null ? -1 : Model.Selected.Slot);
             Model.TabChanged += () => { if (Model.Tab == 0 && dialogueStale) RefreshDialogue(); };

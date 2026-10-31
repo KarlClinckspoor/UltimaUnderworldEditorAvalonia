@@ -25,6 +25,7 @@ namespace UwEditor.App
             InitializeComponent();
             Model = new AddObjectModel(s, icon, forInventory);
             DataContext = Model;
+            ManualWindow.Attach(this, "Editing levels");
             Heading.Text = forInventory ? "Add to the inventory" : "Add an object to the level";
             WhereText.Text = where;
             if (inside != null)

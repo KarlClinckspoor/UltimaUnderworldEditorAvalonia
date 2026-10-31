@@ -57,6 +57,7 @@
         <MenuItem Header="_Global variables…" Click="OnGlobals" InputGesture="Ctrl+Shift+G" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Player and inventory…" Click="OnPlayer" InputGesture="Ctrl+Shift+P" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="G_raphics…" Click="OnGraphics" InputGesture="Ctrl+Shift+R" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="3D m_odels…" Click="OnModels" InputGesture="Ctrl+Shift+O" IsEnabled="{Binding HasGame}" />
         <Separator />
         <Separator />
         <MenuItem Header="_Keys and locks…" Click="OnKeys" InputGesture="Ctrl+Shift+K" IsEnabled="{Binding HasGame}" />
@@ -66,6 +67,7 @@
         <MenuItem Header="_Mods…" Click="OnMods" InputGesture="Ctrl+Shift+M" IsEnabled="{Binding HasGame}" />
       </MenuItem>
       <MenuItem Header="_Help">
+        <MenuItem Header="_Manual" InputGesture="F1" Click="OnManual" />
         <MenuItem Header="_Controls" Click="OnControls" />
         <MenuItem Header="_About" Click="OnAbout" />
       </MenuItem>

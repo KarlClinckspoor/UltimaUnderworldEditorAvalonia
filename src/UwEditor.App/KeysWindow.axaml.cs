@@ -114,6 +114,7 @@ namespace UwEditor.App
             this.goTo = goTo;
             Model = new KeysViewModel(main, strings);
             DataContext = Model;
+            ManualWindow.Attach(this, "Keys and locks");
             Title = "Keys and locks — " + main.Session.Title;
             Loading = Model.Build();
         }

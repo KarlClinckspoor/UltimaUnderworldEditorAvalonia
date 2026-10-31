@@ -15,6 +15,9 @@
     <PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="../../docs/MANUAL.md" LogicalName="MANUAL.md" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../UwEditor.Core/UwEditor.Core.csproj" />
     <ProjectReference Include="../UwEditor.Render/UwEditor.Render.csproj" />
   </ItemGroup>

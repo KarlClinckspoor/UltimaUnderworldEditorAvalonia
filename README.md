@@ -222,6 +222,14 @@ uses the selected tile.
     (fits, already applied, changed since, missing). It then applies it and opens the game
     again.
 
+- **Tools ▸ 3D models…** (Ctrl+Shift+O): the 32 models built into the executable, shown
+  flat-shaded in their palette colours (drag to turn). For each one it gives the points,
+  faces and colours, its place and room in the executable, and the items drawn with it.
+  **Export OBJ…** writes a Wavefront OBJ file with an MTL of the colours; **Export all…**
+  writes every model.
+
+**Help ▸ Manual** (F1) opens [the manual](docs/MANUAL.md), which is built into the program,
+with its sections and a search box. F1 in a tool window opens that tool's section.
 Help ▸ Controls lists the mouse and keys.
 
 ![UW2, Britannia, the start room](docs/uw2-britannia.png)

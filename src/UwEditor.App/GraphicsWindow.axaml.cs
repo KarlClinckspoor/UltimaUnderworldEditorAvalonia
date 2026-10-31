@@ -26,6 +26,7 @@ namespace UwEditor.App
         public GraphicsWindow(GameSession session)
         {
             InitializeComponent();
+            ManualWindow.Attach(this, "Graphics");
             Model = new GraphicsViewModel(session);
             DataContext = Model;
             Title = "Graphics — " + session.Title;

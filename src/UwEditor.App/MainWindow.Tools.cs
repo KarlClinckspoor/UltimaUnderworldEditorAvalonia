@@ -13,6 +13,19 @@ namespace UwEditor.App
         TriggersWindow triggersWindow;
         StringsWindow stringsWindow;
         ModsWindow modsWindow;
+        ModelsWindow modelsWindow;
+
+        void OnModels(object sender, RoutedEventArgs e) { ShowModels(); }
+
+        public ModelsWindow ShowModels()
+        {
+            if (vm.Session == null) return null;
+            if (modelsWindow != null) { modelsWindow.Activate(); return modelsWindow; }
+            modelsWindow = new ModelsWindow(vm.Session);
+            modelsWindow.Closed += (s, e) => modelsWindow = null;
+            modelsWindow.Show(this);
+            return modelsWindow;
+        }
         StringsEditor strings;
 
         void OnKeys(object sender, RoutedEventArgs e) { ShowKeys(); }
@@ -90,6 +103,8 @@ namespace UwEditor.App
                 case "strings": ShowStrings(4, 0); break;
                 case "triggers": ShowTriggers(); break;
                 case "mods": ShowMods(); break;
+                case "models": ShowModels(); break;
+                case "manual": ManualWindow.ShowAt(this, "Editing levels"); break;
                 case "add":
                     var w = new AddObjectWindow(vm.Session, vm.IconOf, false, "On the selected tile.");
                     if (Program.ItemAtStart >= 0) { w.Model.Filter = "0x" + Program.ItemAtStart.ToString("X3"); w.Model.Selected = w.Model.Items.FirstOrDefault(i => i.Item == Program.ItemAtStart); }

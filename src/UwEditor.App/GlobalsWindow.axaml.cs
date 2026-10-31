@@ -36,6 +36,7 @@ namespace UwEditor.App
             lib = library;
             this.openConversation = openConversation;
             InitializeComponent();
+            ManualWindow.Attach(this, "Global variables");
             DataContext = Model;
             Model.SelectedChanged += ShowSelected;
             AddHandler(KeyDownEvent, (s, e) =>

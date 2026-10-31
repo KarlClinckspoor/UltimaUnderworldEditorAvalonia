@@ -176,7 +176,7 @@ namespace UwEditor.App
             globalsWindow?.Close();
             playerWindow?.Close();
             graphicsWindow?.Close();
-            keysWindow?.Close(); stringsWindow?.Close(); triggersWindow?.Close(); modsWindow?.Close();
+            keysWindow?.Close(); stringsWindow?.Close(); triggersWindow?.Close(); modsWindow?.Close(); modelsWindow?.Close();
             conversations = null;
             strings = null;
             playerSheet = null;
@@ -575,6 +575,8 @@ namespace UwEditor.App
                 (l.CheckOk ? "The level passes the game's check (Obj_ListOkay, obj/OBJECTS.C).\n\n" : "The level fails the game's check (Obj_ListOkay).\n\n") + l.CheckReport);
         }
 
+        void OnManual(object sender, RoutedEventArgs e) { ManualWindow.ShowAt(this); }
+
         void OnControls(object sender, RoutedEventArgs e)
         {
             _ = MessageWindow.Show(this, "Controls",
@@ -614,6 +616,7 @@ namespace UwEditor.App
                 "  Ctrl+Shift+T            triggers and traps\n" +
                 "  Ctrl+Shift+S            strings\n" +
                 "  Ctrl+Shift+M            mods\n" +
+                "  Ctrl+Shift+O            3D models\n" +
                 "  PgUp, PgDn              previous, next level\n" +
                 "  F                       frame the selection\n" +
                 "  T                       look straight down\n" +
@@ -636,17 +639,19 @@ namespace UwEditor.App
         void OnWindowKeyDown(object sender, KeyEventArgs e)
         {
             bool typing = FocusManager?.GetFocusedElement() is TextBox;
-            if (e.Key == Key.O && (e.KeyModifiers & KeyModifiers.Control) != 0) { OnOpen(this, null); e.Handled = true; return; }
+            if (e.Key == Key.O && (e.KeyModifiers & KeyModifiers.Control) != 0 && (e.KeyModifiers & KeyModifiers.Shift) == 0) { OnOpen(this, null); e.Handled = true; return; }
             bool ctrlShift = (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Shift)) == (KeyModifiers.Control | KeyModifiers.Shift);
             if (e.Key == Key.F && ctrlShift) { ShowFind(); e.Handled = true; return; }
             if (e.Key == Key.C && ctrlShift) { ShowConversations(); e.Handled = true; return; }
             if (e.Key == Key.G && ctrlShift) { ShowGlobals(); e.Handled = true; return; }
             if (e.Key == Key.P && ctrlShift) { ShowPlayer(); e.Handled = true; return; }
             if (e.Key == Key.R && ctrlShift) { ShowGraphics(); e.Handled = true; return; }
+            if (e.Key == Key.F1) { ManualWindow.ShowAt(this, vm.ToolIndex == 0 ? null : "Editing levels"); e.Handled = true; return; }
             if (e.Key == Key.K && ctrlShift) { ShowKeys(); e.Handled = true; return; }
             if (e.Key == Key.T && ctrlShift) { ShowTriggers(); e.Handled = true; return; }
             if (e.Key == Key.S && ctrlShift) { ShowStrings(); e.Handled = true; return; }
             if (e.Key == Key.M && ctrlShift) { ShowMods(); e.Handled = true; return; }
+            if (e.Key == Key.O && ctrlShift) { ShowModels(); e.Handled = true; return; }
             bool ctrl = (e.KeyModifiers & KeyModifiers.Control) != 0 && (e.KeyModifiers & KeyModifiers.Shift) == 0;
             if (ctrl && e.Key == Key.S) { SaveAll(); e.Handled = true; return; }
             if (ctrl && !typing && e.Key == Key.Z) { Undo(); e.Handled = true; return; }

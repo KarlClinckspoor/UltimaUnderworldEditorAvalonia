@@ -140,6 +140,7 @@ namespace UwEditor.App
             this.main = main; this.goTo = goTo; this.openVariable = openVariable;
             Model = new TriggersViewModel(main);
             DataContext = Model;
+            ManualWindow.Attach(this, "Triggers and traps");
             Refresh();
             main.LevelChanged += OnMainLevel;
             Closed += (s, e) => main.LevelChanged -= OnMainLevel;

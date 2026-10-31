@@ -1,0 +1,331 @@
+# Underworld Editor manual
+
+The editor opens Ultima Underworld I and II, shows their levels in 3D, and edits levels,
+conversations, strings, keys, the player, graphics and the executables' start square. Its
+changes can be packed into mods. Everything it writes is kept safe: the previous file as
+`NAME.BKP`, and the untouched original as `NAME.EXT.ORIG` the first time a file is written.
+
+Press **F1** or use **Help ▸ Manual** to open this manual. **Help ▸ Controls** lists the keys.
+
+## Opening a game
+
+**File ▸ Open game folder…** (Ctrl+O). Choose the game folder (the one with `DATA` in it),
+the `DATA` folder itself, or a saved game (`SAVE1`…). The game is recognised by its
+files. A saved game takes its levels and player from the save, and everything else from
+`DATA`.
+
+**The camera starts over the start square of a new game.** The square is read from
+`UW.EXE` / `UW2.EXE`, so a patched start square shows too. In a saved game the camera
+starts over the player, facing where the player faces. A large **red arrow** marks the
+new-game start; in a saved game a **green arrow** marks the player.
+
+**Picking a level:**
+- UW1: levels 1–9.
+- UW2: pick the world, then a slot in it. Empty slots are marked.
+- PgUp and PgDn step through the levels.
+
+## The 3D view
+
+**The 3D view:**
+- Floors, walls, slopes and diagonal walls, textured through the level's texture map.
+- The ceiling (G), seen only from below, as in the game.
+- Objects drawn the game's way, from COMOBJ.DAT's render field:
+  - doors in their frames (open doors swung by their flags, the portcullis raised, the
+    secret door in the wall texture);
+  - levers, switches, writings and paintings on their walls;
+  - furniture, pillars, bridges and so on as the 3D models built into `UW.EXE` /
+    `UW2.EXE`;
+  - everything else as its picture, always facing the camera.
+- M switches the models off. Invisible objects and traps or triggers can be shown too.
+- A yellow grid every N tiles (H; N set in the Show box), laid on the floors. The view's
+  edges name each line, as `X: 30` or `Y: 45`.
+- Darkness, centred on the point the camera looks at.
+
+**Moving the camera.** Drag with the left or right button to turn round the point
+looked at. Drag with the middle button, or with Shift, to move that point. Use the wheel
+or + and − to come closer or go farther. W A S D or the arrows move (Shift is faster),
+Q and E turn, and R and V go up and down a floor step. F frames the selection, T looks
+straight down, and Home goes back to the start or the player. A double click selects
+something and moves the view to it.
+
+## Finding and selecting
+
+**Finding objects:**
+- Creatures that talk show their name and unique objects their plot name in brackets,
+  as in "fighter (Corby)" and "shiny sword (Caliburn, the Sword of Justice)".
+  Enchanted objects show their enchantment.
+- The search box matches item names, NPC names ("human (Lord British)"), the text of
+  books, scrolls, writings, gravestones and text traps, `#index` and `0x` item ids.
+- The chips narrow the list to weapons, food, monsters, keys, traps or triggers (any of
+  those chosen), and Enchanted to enchanted objects.
+- Each line shows the object's picture as the game shows it.
+- **Level ▸ Find in all levels…** (Ctrl+Shift+F) runs the same search, with every item
+  kind, over all levels. Double-click a result to open its level with the object selected.
+
+**Selecting:**
+- Click an object or a tile in the view, or pick one in the object list.
+- The list shows the objects lying on tiles in index order. Whatever is inside an object
+  (container contents, inventories, a trigger's trap, a door's lock) hangs under it.
+- The filter takes a name, `#index` or `0x` item id.
+
+**Properties:** every field of the object and tile records, with its value in decimal and
+hex. The tooltip gives the field's meaning and its source in the reconstructed game code.
+Fields whose meaning is only inferred or unknown are marked. The tile panel also shows
+its wall and floor textures.
+
+**Level ▸ Check the object lists:** runs the game's own consistency check (Obj_ListOkay).
+
+## Editing levels
+
+Each level keeps its own undo history (Ctrl+Z, Ctrl+Y). **Save levels** (Ctrl+S) writes
+LEV.ARK and keeps `LEV.BKP`, plus `LEV.ARK.ORIG` the first time. The toolbar above the
+view chooses the tool:
+- **Select:** a click picks an object or tile; a double click also moves the view to it
+  (so does double-clicking in the list).
+- **Move:** click a square and the selected object goes there, keeping its height above the
+  floor. A critter's home moves with it.
+- **Paint:** drag over tiles to paint the light flag on or off (only that bit), a floor or
+  wall texture from the level's texture list (shown with thumbnails), a tile type, or a
+  floor height.
+- **Ctrl+wheel** raises or lowers the floor under the mouse, and the objects on it with it.
+- **First person** (P): walk the level at eye height. W A S D walk, Q E or a drag turns,
+  R V look up and down, and Esc leaves. Rock and floors more than two steps up stop you.
+
+Any record field can be typed into in the properties panel (decimal or `0x` hex), except
+the list links, which the editor keeps. An owner field has a list of the races to choose
+from. Each race is named by its creatures, from OBJECTS.DAT's race byte.
+
+**Add…** (Insert) opens a window whose form changes with the kind of item:
+- a boulder or food gets quality, owner and quantity;
+- a weapon, armour or ring gets its enchantment, from the weapon/armour list (which names
+  what each really does) or the 64 spells, with how it is stored. In UW2 a warning says
+  that the game's own names swap the Accuracy and Damage enchantments;
+- a wand gets its spell and charges, kept in a spell object inside it;
+- a book or scroll gets its text, previewed;
+- a key gets its lock and description, and a lock gets its number, locked flag and
+  lockpicking difficulty;
+- a creature gets hit points, attitude and conversation;
+- a trap or trigger gets its description.
+
+The new object goes on the selected tile or into the selected container. The player
+window's **Add…** uses the same form for the inventory. **Delete** (Del) frees the object
+and what it holds.
+
+**Traps and triggers:** selecting one shows what its kind does and what each field means,
+from event/TRIGGER.C. The square it acts on gets a **red bullseye**: a trigger's target, a
+teleport's destination, a delete trap's square, or where the chains that reach a trap run.
+**Choose the target in the view** lets you click the square instead of typing it; a
+teleport can aim at another level. **Variable in globals…** opens the global variables
+window on the variable a set or check variable trap uses.
+
+**The start and the player:** with the Move tool, click an arrow and then a square. The
+new-game start can only move on level 1: it is patched into `UW.EXE` / `UW2.EXE`, which is
+kept as `.ORIG`. The player in a saved game can go to any level, and is saved in
+`PLAYER.DAT`. Clicking the green arrow opens the player window. Edit ▸ Move the … here
+uses the selected tile.
+
+
+## Conversations
+
+**Tools ▸ Conversations…** (Ctrl+Shift+C): every conversation in CNV.ARK, by slot and the
+name the creature talks under. The list filter matches slots, names and any text a
+conversation says. Four tabs:
+- **Dialogue:** what the script does, rebuilt from its code by following the
+  machine's stack (conv/BABL.C). It shows the say and respond lines with their text, each
+  menu with its numbered choices, and the checks on quests, variables and the talker's
+  state. Simple `if` blocks are folded; other jumps stay as labels. Functions the script
+  never calls (the compiler's small library) are hidden unless you ask. Double-click a
+  line to see its code.
+- **Strings:** the conversation's block of STRINGS.PAK, edited in place. Each string shows
+  where the script uses it. **Add string** appends one, for the script to say.
+- **Script:** the code as assembly, one instruction a line (conv.h's opcodes):
+  - labels for jumps and calls;
+  - imported functions by name;
+  - the header and import table as directives;
+  - comments with each address and the strings.
+  **Apply** (Ctrl+Enter) assembles it. A mistake is reported at its line. Disassembling
+  and assembling every shipped conversation of both games gives back the same bytes.
+- **Who talks:** the creatures in the levels that use the slot (whoami, or the generic
+  slot for whoami 0). Double-click one to go to it in the main window.
+**Save** (Ctrl+S) writes CNV.ARK and STRINGS.PAK in `DATA`, with only the changed blocks
+rewritten. UW2's blocks are compressed again. The old files are kept as `CNV.BKP` and
+`STRINGS.BKP`. Edits stay in memory when the window closes, until the game is closed.
+
+## Global variables
+
+**Tools ▸ Global variables…** (Ctrl+Shift+G): the game state conversations can read and
+change, with the conversations that read and write each:
+- quest flags and quest bytes (`get_quest`, `set_quest`);
+- the game variables traps share (`x_traps`; UW2's numbered variables);
+- UW2's X clocks (`x_clock`);
+- skills (`x_skills`);
+- the talker's and player's variables copied in and out (`npc_attitude`, `play_hp`…);
+- each conversation's own globals, kept in `BGLOBALS.DAT`.
+The uses come from the constant arguments of those calls. With a saved game open, the
+values come from its `PLAYER.DAT` and `BGLOBALS.DAT`; they can be changed and saved, and
+the old files are kept as `.BKP`. With `DATA` open, a new game, they read 0. Double-click a
+use to open its conversation at that line.
+
+## Player and inventory
+
+**Tools ▸ Player and inventory…** (Ctrl+Shift+P), with a saved game open. It edits the
+saved character in `PLAYER.DAT`:
+- name, class, sex, hand and portrait (the HEADS.GR picture shown);
+- attributes, vitality, mana, hunger, fatigue, carrying capacity;
+- level, experience, skill points and the twenty skills.
+
+**Checks** are listed beside it and update as you type:
+- **Game detects:** in UW2, strength + dexterity + intelligence above 64 makes the
+  end-of-game screen add "AND CHEATED ON THEIR CHARACTER" (game/SKILLS.C `game_stats`).
+  UW1 has no such check.
+- **Not reachable:** values creation and play never give. Attributes over 30 or outside
+  the class's start in SKILLS.DAT, skills over 30, a sixth portrait, levels outside 1–16.
+- **Notes:** maxima that disagree with what the game computes (`player_compute`), a level
+  the experience has not earned, and the like. *Set the maxima as the game computes them*
+  fixes those.
+
+The hand bit means right-handed in UW1 and left-handed in UW2: their creation menus list
+the choices the other way round, so the labels come from CHRGEN.DAT. The **Inventory** tab
+shows the worn and held objects, the pack and container contents, with icons:
+- each object's id, quality, owner, quantity or special, flags and slot can be changed;
+- objects can be added to the pack or into a container, or removed.
+
+Saving renumbers the objects depth first, as the game's `InvSaveNexts` does. Rewriting a
+shipped save's inventory unchanged gives the same bytes, except slots 19–27 (an open
+bag's view, which the game rebuilds): those are cleared. The old file is kept as
+`PLAYER.BKP`.
+
+## Graphics
+
+**Tools ▸ Graphics…** (Ctrl+Shift+R), with three tabs:
+- **Pictures:** every `.GR`, `.TR`, `.BYT` and UW2's `BYT.ARK` in DATA, as thumbnails.
+  Each is shown large with a palette of PALS.DAT; UW2's screens start in the palette the
+  game shows them with.
+- **Critter animations:** the CRIT art files by the creatures that use them. Their
+  animations come from the UW1 page headers or UW2's `CR.AN`. Pick an auxiliary palette;
+  play the animation or step through its frames.
+- **Cutscenes:** every CUTS cutscene and its LPF animations, with a frame slider, playing
+  at the file's frame rate.
+
+**Export** writes an indexed PNG whose palette is the picture's own colours (its 16 or 32
+auxiliary colours, or the 256 of the palette), so the indices survive a round trip.
+**Export all frames** writes a cutscene animation as numbered PNG files.
+
+**Import** takes a PNG back and refuses:
+- **another size**;
+- **colours the picture cannot use:** a 4-bit sprite has 15 colours and transparency,
+  a critter frame 31 or 15, an 8-bit picture its palette. The list names each missing
+  colour with its pixel count and the nearest one it has; *Use the nearest colours*
+  maps them instead;
+- **transparency** in a picture the game draws solid (textures, screens);
+- **files the game could not load:**
+  - a critter page over the 0x7FFF bytes `load_cpg` reads;
+  - a cutscene page over its 64 KB window or 256 records;
+  - more than 256 pages;
+  - texture and screen sizes are fixed.
+
+A replaced cutscene frame re-encodes only its own delta, the next frame's and the loop
+back to the first. Saving keeps each old file as `.BKP`.
+
+## Keys and locks
+
+**Tools ▸ Keys and locks…** (Ctrl+Shift+K): every lock number with its keys and locks
+across all levels, where each lies, whether it is locked, and the keys' description
+(STRINGS.PAK block 5, 100 + the number), which can be edited. Double-click to go there.
+
+## Triggers and traps
+
+**Tools ▸ Triggers and traps…** (Ctrl+Shift+T): every trigger of the level, where it
+lies, the square its chain runs on and each trap in the chain, then the traps no trigger
+reaches. A line explains itself; double-click goes to it in the map.
+
+## Strings
+
+**Tools ▸ Strings…** (Ctrl+Shift+S): every block of STRINGS.PAK, with the conversations
+named, searched in one block or all of them. Strings can be edited and added, and
+characters the file cannot write are refused. Saving updates the names everywhere in the
+editor. It shares the conversation editor's copy of the file, so edits made in both are
+never written over each other.
+
+## 3D models
+
+**Tools ▸ 3D models…** (Ctrl+Shift+O) lists the 32 models built into `UW.EXE` or
+`UW2.EXE`. These are the furniture, boulders, doors, the shrine, the moongate and so on.
+Each one is drawn flat-shaded in its palette colours. Drag to turn it and use the wheel to
+zoom. Faces outlined in gold are textured: they take the texture of the object using the
+model. The panel lists:
+- the model's points and faces, and the colours it uses;
+- where it lies in the executable, and how many bytes it has before the next model;
+- the items drawn with it.
+
+**Export OBJ…** writes the model as a Wavefront OBJ file (1.0 is one tile, y up), with an
+MTL file of its palette colours. **Export all…** writes every model that has faces.
+
+The models cannot be replaced yet. The replacement study in the project notes explains
+what that would take.
+
+## Mods
+
+**Tools ▸ Mods…** (Ctrl+Shift+M):
+- **Make a mod** compares the game with the originals the editor kept (`.ORIG`), or with
+  an untouched copy, and writes a `.uwmod` (a zip with `mod.json`). It holds only what
+  changed: LEV.ARK and other archive blocks, single strings, bytes patched in place (an
+  executable's start square, never the program itself), or whole new files. It records
+  the SHA-256 of each file it was made from.
+- **Load a mod** checks it against the open game, block by block and string by string
+  (fits, already applied, changed since, missing). It then applies it and opens the game
+  again.
+
+## Keys and mouse
+
+| Where | Key | What it does |
+|---|---|---|
+| View | Left click | select an object or tile (Move tool: put the selection there) |
+| View | Double click | select and go to it |
+| View | Left or right drag | turn round the point looked at |
+| View | Middle or Shift+drag | move the point |
+| View | Wheel, + and − | closer, farther |
+| View | Ctrl+wheel | raise or lower the floor under the mouse |
+| View | W A S D, arrows | move (Shift: faster) |
+| View | Q, E | turn |
+| View | R, V | up, down a floor step |
+| First person | P | start or stop walking |
+| First person | W A S D, wheel | walk |
+| First person | Q E, drag | turn |
+| First person | R, V | look up, down |
+| First person | Esc | stop walking |
+| Anywhere | Ctrl+O | open a game |
+| Anywhere | Ctrl+S | save the levels (and a moved player) |
+| Anywhere | Ctrl+Z, Ctrl+Y | undo, redo |
+| Anywhere | Insert, Delete | add an object, delete the selected one |
+| Anywhere | Ctrl+Shift+F | find in all levels |
+| Anywhere | Ctrl+Shift+C | conversations |
+| Anywhere | Ctrl+Shift+G | global variables |
+| Anywhere | Ctrl+Shift+P | player and inventory |
+| Anywhere | Ctrl+Shift+R | graphics |
+| Anywhere | Ctrl+Shift+K | keys and locks |
+| Anywhere | Ctrl+Shift+T | triggers and traps |
+| Anywhere | Ctrl+Shift+S | strings |
+| Anywhere | Ctrl+Shift+O | 3D models |
+| Anywhere | Ctrl+Shift+M | mods |
+| Anywhere | PgUp, PgDn | previous, next level |
+| Anywhere | F | frame the selection |
+| Anywhere | T | look straight down |
+| Anywhere | G, H, M | ceiling, grid, 3D models on or off |
+| Anywhere | Home | back to the start or the player |
+| Anywhere | Esc | cancel a target choice, or clear the selection |
+| Anywhere | F1 | this manual |
+
+## Files the editor writes
+
+| File | When |
+|---|---|
+| `LEV.ARK` | Save levels (in the open save, or in `DATA`) |
+| `CNV.ARK`, `STRINGS.PAK` | Conversations, Strings, Keys and locks |
+| `PLAYER.DAT`, `BGLOBALS.DAT` | Player window, Global variables, a moved player (saved games only) |
+| `UW.EXE`, `UW2.EXE` | the new-game start square, patched in place |
+| `.GR`, `.TR`, `.BYT`, CRIT, CUTS files | Graphics imports |
+
+Before writing, the old file is kept as `NAME.BKP`. The first time the editor writes a file,
+it also keeps the untouched original as `NAME.EXT.ORIG`. The mods window compares with
+those originals.

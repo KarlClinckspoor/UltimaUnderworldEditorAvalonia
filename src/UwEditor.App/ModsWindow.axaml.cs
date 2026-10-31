@@ -124,6 +124,7 @@ namespace UwEditor.App
             this.hasUnsaved = hasUnsaved; this.reopen = reopen;
             Model = new ModsViewModel(s);
             DataContext = Model;
+            ManualWindow.Attach(this, "Mods");
             Title = "Mods — " + s.Title;
         }
 

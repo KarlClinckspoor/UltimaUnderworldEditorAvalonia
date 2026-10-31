@@ -65,6 +65,7 @@ namespace UwEditor.App
             this.main = main;
             this.goTo = goTo;
             InitializeComponent();
+            ManualWindow.Attach(this, "Finding and selecting");
             DataContext = Model;
             Opened += (s, e) => QueryBox.Focus();
             KeyDown += (s, e) => { if (e.Key == Key.Escape) Close(); };

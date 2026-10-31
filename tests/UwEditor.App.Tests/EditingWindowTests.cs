@@ -369,5 +369,52 @@ namespace UwEditor.App.Tests
                 w.Close();
             }
         }
+    
+        [AvaloniaFact]
+        public void Models_window_shows_the_built_in_models_and_exports_obj()
+        {
+            if (Uw1 == null) return;
+            var w = OpenQuiet(Uw1);
+            var mw = w.ShowModels();
+            Ui.Pump();
+            var m = mw.Model;
+            Assert.Equal(32, m.Models.Count);
+            var frame = m.Models.First(x => x.Index == 1);
+            Assert.Equal(528, frame.Budget);
+            Assert.True(frame.FaceCount > 0);
+            mw.Select(0x0B);
+            Assert.Contains("Shrine", m.Info);
+            Assert.Contains("0x157", m.Info);
+            string dir = Path.Combine(Path.GetTempPath(), "uwedit-obj-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                int n = m.ExportAll(dir);
+                Assert.True(n >= 20);
+                string obj = File.ReadAllText(Path.Combine(dir, ModelsViewModel.FileName(m.Models.First(x => x.Index == 0x0B))));
+                Assert.Contains("mtllib", obj);
+                Assert.True(obj.Split('\n').Count(l => l.StartsWith("v ")) == m.Models.First(x => x.Index == 0x0B).VertexCount);
+                Assert.Contains("\nf ", obj);
+                Assert.True(Directory.GetFiles(dir, "*.mtl").Length == n);
+            }
+            finally { Directory.Delete(dir, true); }
+            mw.Close();
+            w.Close();
+        }
+
+        [AvaloniaFact]
+        public void The_manual_opens_with_its_sections_and_finds_text()
+        {
+            var w = Ui.Open(null);
+            var mw = ManualWindow.ShowAt(w, "3D models");
+            Ui.Pump();
+            Assert.Contains("Editing levels", mw.Sections);
+            Assert.Contains("Mods", mw.Sections);
+            Assert.True(mw.GoTo("triggers"));
+            Assert.True(mw.Find("Ctrl+wheel", true) >= 2);
+            Assert.Equal(0, mw.Find("no such words anywhere", true));
+            mw.Close();
+            w.Close();
+        }
     }
 }

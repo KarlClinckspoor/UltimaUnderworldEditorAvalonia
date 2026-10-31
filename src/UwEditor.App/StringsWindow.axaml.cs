@@ -167,6 +167,7 @@ namespace UwEditor.App
             InitializeComponent();
             Model = new StringsViewModel(editor);
             DataContext = Model;
+            ManualWindow.Attach(this, "Strings");
             Title = "Strings — " + editor.Session.Title;
             EditBox.AddHandler(KeyDownEvent, (s, e) =>
             {

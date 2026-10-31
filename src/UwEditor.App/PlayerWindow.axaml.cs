@@ -25,6 +25,7 @@ namespace UwEditor.App
         public PlayerWindow(PlayerSheet sheet, GameSession session, Func<int, Bitmap> icon)
         {
             InitializeComponent();
+            ManualWindow.Attach(this, "Player and inventory");
             PictureFile heads = null;
             Palettes pals = null;
             try
