@@ -67,6 +67,12 @@ namespace UwEditor.App
                     vm.Select(o.Index, o.TileX, o.TileY, true);
                     Frame();
                 }
+                if (Program.ConversationAtStart != int.MinValue && vm.Session != null)
+                {
+                    var cw = ShowConversations(Program.ConversationAtStart);
+                    if (cw != null) cw.Model.Tab = Program.TabAtStart;
+                }
+                if (Program.GlobalsAtStart && vm.Session != null) ShowGlobals();
                 if (Program.ReadyFile != null) WriteReadyFileAfterFrames(3);
                 View.Focus();
             };
@@ -155,6 +161,9 @@ namespace UwEditor.App
             atlas = SpriteAtlas.Build(s.Graphics.ObjectPictures);
             Resources["Accent"] = new SolidColorBrush(s.IsUw2 ? Uw2Accent : Uw1Accent);
             Title = "Underworld Editor — " + s.Title;
+            conversationWindow?.Close();
+            globalsWindow?.Close();
+            conversations = null;
             settings.AddRecent(s.SaveFolder ?? s.GameFolder);
             settings.Save();
             BuildRecentMenu();
@@ -388,6 +397,74 @@ namespace UwEditor.App
         }
 
         FindWindow findWindow;
+        ConversationWindow conversationWindow;
+        GlobalsWindow globalsWindow;
+        UwEditor.Core.Conversations.ConversationLibrary conversations;
+
+        /// <summary>The open game's conversations, read once and kept with their unsaved edits.</summary>
+        public UwEditor.Core.Conversations.ConversationLibrary Conversations()
+        {
+            if (vm.Session == null) return null;
+            if (conversations == null || conversations.Session != vm.Session)
+            {
+                try { conversations = UwEditor.Core.Conversations.ConversationLibrary.Open(vm.Session); }
+                catch (Exception ex) { _ = MessageWindow.Show(this, "No conversations", ex.Message); return null; }
+            }
+            return conversations;
+        }
+
+        void OnConversations(object sender, RoutedEventArgs e) { ShowConversations(); }
+        void OnGlobals(object sender, RoutedEventArgs e) { ShowGlobals(); }
+
+        /// <summary>The conversation window, one at a time; on a slot and a code address if given.</summary>
+        public ConversationWindow ShowConversations(int slot = -1, int address = -1)
+        {
+            var lib = Conversations();
+            if (lib == null) return null;
+            if (conversationWindow == null)
+            {
+                conversationWindow = new ConversationWindow(lib, GoToUser, s => { var g = ShowGlobals(); if (g != null && s >= 0) _ = ShowConversationGlobals(g, s); });
+                conversationWindow.Closed += (s, e) => conversationWindow = null;
+                conversationWindow.Show(this);
+            }
+            else conversationWindow.Activate();
+            if (slot >= 0) conversationWindow.SelectSlot(slot);
+            else if (conversationWindow.Model.Selected == null && conversationWindow.Model.Rows.Count > 0) conversationWindow.Model.Selected = conversationWindow.Model.Rows[0];
+            if (address >= 0) conversationWindow.ShowAddress(address);
+            return conversationWindow;
+        }
+
+        static async Task ShowConversationGlobals(GlobalsWindow g, int slot)
+        {
+            await g.Loading;
+            g.ShowConversation(slot);
+        }
+
+        /// <summary>The global variables window, one at a time.</summary>
+        public GlobalsWindow ShowGlobals()
+        {
+            var lib = Conversations();
+            if (lib == null) return null;
+            if (globalsWindow == null)
+            {
+                globalsWindow = new GlobalsWindow(lib, (slot, address) => ShowConversations(slot, address));
+                globalsWindow.Closed += (s, e) => globalsWindow = null;
+                globalsWindow.Show(this);
+            }
+            else globalsWindow.Activate();
+            return globalsWindow;
+        }
+
+        /// <summary>Goes to a creature that talks through a conversation.</summary>
+        void GoToUser(UwEditor.Core.Conversations.ConversationUser u)
+        {
+            if (vm.Session == null) return;
+            if (vm.Level == null || vm.Level.Level != u.Level) vm.LoadLevel(u.Level);
+            vm.Select(u.Index, u.TileX, u.TileY, true);
+            if (vm.SelectedNode != null) ObjectTree.ScrollIntoView(vm.SelectedNode);
+            Frame();
+            Activate();
+        }
 
         void OnFindAll(object sender, RoutedEventArgs e) { ShowFind(); }
 
@@ -438,6 +515,8 @@ namespace UwEditor.App
                 "Anywhere\n" +
                 "  Ctrl+O                  open a game\n" +
                 "  Ctrl+Shift+F            find in all levels\n" +
+                "  Ctrl+Shift+C            conversations\n" +
+                "  Ctrl+Shift+G            global variables\n" +
                 "  PgUp, PgDn              previous, next level\n" +
                 "  F                       frame the selection\n" +
                 "  T                       look straight down\n" +
@@ -461,7 +540,10 @@ namespace UwEditor.App
         {
             bool typing = FocusManager?.GetFocusedElement() is TextBox;
             if (e.Key == Key.O && (e.KeyModifiers & KeyModifiers.Control) != 0) { OnOpen(this, null); e.Handled = true; return; }
-            if (e.Key == Key.F && (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Shift)) == (KeyModifiers.Control | KeyModifiers.Shift)) { ShowFind(); e.Handled = true; return; }
+            bool ctrlShift = (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Shift)) == (KeyModifiers.Control | KeyModifiers.Shift);
+            if (e.Key == Key.F && ctrlShift) { ShowFind(); e.Handled = true; return; }
+            if (e.Key == Key.C && ctrlShift) { ShowConversations(); e.Handled = true; return; }
+            if (e.Key == Key.G && ctrlShift) { ShowGlobals(); e.Handled = true; return; }
             if (typing || (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt)) != 0) return;
             // the camera keys work whichever panel has the focus (the arrows stay with lists)
             if (!View.IsFocused && (e.Key == Key.W || e.Key == Key.A || e.Key == Key.S || e.Key == Key.D || e.Key == Key.Q || e.Key == Key.E || e.Key == Key.R || e.Key == Key.V))

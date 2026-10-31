@@ -126,6 +126,13 @@
   </Style>
 
 
+  <!-- tabs in the tool windows -->
+  <Style Selector="TabControl > TabItem">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="Padding" Value="10,0" />
+  </Style>
+
   <!-- the object list's quick filters -->
   <Style Selector="ToggleButton.chip">
     <Setter Property="FontSize" Value="11" />

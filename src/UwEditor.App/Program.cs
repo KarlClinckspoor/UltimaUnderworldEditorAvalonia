@@ -18,6 +18,12 @@ namespace UwEditor.App
         public static string StateFile;
         /// <summary>--size WxH: the window's size.</summary>
         public static int Width, Height;
+        /// <summary>--conversations [N]: open the conversation window at start (on slot N).</summary>
+        public static int ConversationAtStart = int.MinValue;
+        /// <summary>--globals: open the global variables window at start.</summary>
+        public static bool GlobalsAtStart;
+        /// <summary>--tab N: the conversation window's tab at start (0 dialogue, 1 strings, 2 script, 3 who talks).</summary>
+        public static int TabAtStart;
 
         [STAThread]
         public static void Main(string[] args)
@@ -34,6 +40,13 @@ namespace UwEditor.App
                     var wh = args[++i].Split('x');
                     if (wh.Length == 2) { int.TryParse(wh[0], out Width); int.TryParse(wh[1], out Height); }
                 }
+                else if (a == "--conversations")
+                {
+                    ConversationAtStart = -1;
+                    if (i + 1 < args.Length && int.TryParse(args[i + 1], out int slot)) { ConversationAtStart = slot; i++; }
+                }
+                else if (a == "--globals") GlobalsAtStart = true;
+                else if (a == "--tab" && i + 1 < args.Length) int.TryParse(args[++i], out TabAtStart);
                 else if (a == "--trace") System.Diagnostics.Trace.Listeners.Add(new System.Diagnostics.ConsoleTraceListener());
                 else if (!a.StartsWith("-")) OpenAtStart = a;
             }

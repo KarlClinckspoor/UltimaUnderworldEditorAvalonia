@@ -1,0 +1,150 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="clr-namespace:UwEditor.App"
+        x:Class="UwEditor.App.ConversationWindow"
+        x:DataType="app:ConversationViewModel"
+        Title="Conversations"
+        Width="1280" Height="820" MinWidth="820" MinHeight="480"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel>
+    <!-- toolbar -->
+    <Border DockPanel.Dock="Top" Classes="panel" Padding="12,8" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <TextBlock Grid.Column="0" Text="Conversations" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+          <Button x:Name="GlobalsButton" Content="Global variables…" Click="OnGlobals" ToolTip.Tip="The quest flags, game variables and private globals conversations read and write (Ctrl+G)" />
+          <Button x:Name="RevertButton" Content="Revert conversation" Click="OnRevert" IsEnabled="{Binding HasSelection}"
+                  ToolTip.Tip="Drop this conversation's unsaved changes (its script and its strings)" />
+          <Button x:Name="SaveButton" Content="Save" Click="OnSave" MinWidth="80" HorizontalContentAlignment="Center"
+                  ToolTip.Tip="Write CNV.ARK and STRINGS.PAK in DATA (Ctrl+S); the old files are kept as CNV.BKP and STRINGS.BKP" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- status -->
+    <Border DockPanel.Dock="Bottom" Classes="status">
+      <TextBlock x:Name="StatusText" Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
+    </Border>
+
+    <Grid x:Name="Columns" ColumnDefinitions="280,4,*">
+      <!-- the list -->
+      <DockPanel Grid.Column="0" Background="{DynamicResource Panel}">
+        <TextBox x:Name="FilterBox" DockPanel.Dock="Top" Margin="8" Text="{Binding Filter}" PlaceholderText="Filter: slot, name or text" />
+        <ListBox x:Name="List" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}" Background="Transparent">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="app:ConversationRow">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="{Binding Title}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="  ●" Classes="badge" IsVisible="{Binding Changed}" ToolTip.Tip="Changed, not saved" />
+                </StackPanel>
+                <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+
+      <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <!-- the conversation -->
+      <DockPanel Grid.Column="2" Margin="12,8,12,8">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+          <TextBlock x:Name="HeaderText" Text="{Binding Header}" Classes="title" />
+          <TextBlock Text="{Binding Subheader}" Classes="muted" />
+        </StackPanel>
+        <TabControl x:Name="Tabs" SelectedIndex="{Binding Tab}" Padding="0,6,0,0">
+          <TabItem Header="Dialogue" x:Name="DialogueTab">
+            <DockPanel>
+              <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                <TextBlock Classes="muted" VerticalAlignment="Center"
+                           Text="What the script does, read from its code: say and respond lines, menus and their choices, the quests and variables it checks. Double-click a line to see its code; edit the text in Strings." />
+                <CheckBox Grid.Column="1" x:Name="HideUnusedBox" Content="Hide functions never called" IsChecked="True" Margin="12,0,0,0"
+                          IsCheckedChanged="OnHideUnusedChanged" ToolTip.Tip="The compiler adds a small library to every conversation; most of it is never called" />
+              </Grid>
+              <ListBox x:Name="DialogueList" ItemsSource="{Binding Lines}" Background="{DynamicResource Bg}" DoubleTapped="OnDialogueDoubleTapped"
+                       FontFamily="{DynamicResource Mono}" FontSize="12">
+                <ListBox.Styles>
+                  <Style Selector="ListBoxItem">
+                    <Setter Property="Padding" Value="6,1" />
+                    <Setter Property="MinHeight" Value="0" />
+                  </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="app:DialogueLine">
+                    <Grid ColumnDefinitions="44,*">
+                      <TextBlock Grid.Column="0" Text="{Binding Address}" Foreground="{DynamicResource Muted}" FontSize="10" VerticalAlignment="Top" Margin="0,2,0,0" />
+                      <TextBlock Grid.Column="1" Text="{Binding Text}" Foreground="{Binding Brush}" FontWeight="{Binding Weight}" TextWrapping="Wrap" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+          </TabItem>
+
+          <TabItem Header="Strings" x:Name="StringsTab">
+            <DockPanel>
+              <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
+                           Text="The conversation's block of STRINGS.PAK. Edit a text in place; @ variables such as @GS8 are filled in by the game. A new string gets the next number, for the script to say." />
+                <Button Grid.Column="1" x:Name="AddStringButton" Content="Add string" Click="OnAddString" Margin="8,0,0,0" IsEnabled="{Binding HasSelection}" />
+              </Grid>
+              <ListBox x:Name="StringList" ItemsSource="{Binding Strings}" Background="{DynamicResource Bg}">
+                <ListBox.Styles>
+                  <Style Selector="ListBoxItem">
+                    <Setter Property="Padding" Value="4,2" />
+                  </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="app:StringRow">
+                    <Grid ColumnDefinitions="40,*">
+                      <StackPanel Grid.Column="0" Margin="0,6,0,0">
+                        <TextBlock Text="{Binding Number}" FontFamily="{DynamicResource Mono}" FontSize="11" Foreground="{DynamicResource Muted}" />
+                        <TextBlock Text="●" Classes="badge" Margin="0" IsVisible="{Binding Changed}" ToolTip.Tip="Changed, not saved" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1">
+                        <TextBox Text="{Binding Text, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap" FontSize="12" MinHeight="28" />
+                        <TextBlock Text="{Binding Uses}" Classes="muted" FontSize="10" IsVisible="{Binding HasUses}" Margin="2,1,0,0" />
+                        <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Warn}" FontSize="11" IsVisible="{Binding HasError}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+          </TabItem>
+
+          <TabItem Header="Script" x:Name="ScriptTab">
+            <DockPanel>
+              <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,6">
+                <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
+                           Text="The code, one instruction a line (conv.h's opcodes). Apply assembles it into the conversation; the comments show addresses and strings." />
+                <Button Grid.Column="1" x:Name="ApplyScriptButton" Content="Apply" Click="OnApplyScript" Margin="8,0,0,0" IsEnabled="{Binding ScriptChanged}"
+                        ToolTip.Tip="Assemble the text into the conversation (Ctrl+Enter)" />
+                <Button Grid.Column="2" Content="Undo edits" Click="OnResetScript" Margin="8,0,0,0" IsEnabled="{Binding ScriptChanged}" />
+              </Grid>
+              <TextBlock DockPanel.Dock="Bottom" Text="{Binding ScriptError}" Foreground="{DynamicResource Warn}" IsVisible="{Binding HasScriptError}" Margin="0,6,0,0" TextWrapping="Wrap" />
+              <TextBox x:Name="ScriptBox" Text="{Binding Script, Mode=TwoWay}" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
+                       FontFamily="{DynamicResource Mono}" FontSize="12" Background="{DynamicResource Bg}"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            </DockPanel>
+          </TabItem>
+
+          <TabItem Header="Who talks" x:Name="UsersTab">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="0,0,0,6"
+                         Text="The creatures in the levels that talk through this slot (whoami, or a generic slot for whoami 0). Double-click to go to one." />
+              <ListBox x:Name="UserList" ItemsSource="{Binding Users}" Background="{DynamicResource Bg}" DoubleTapped="OnUserDoubleTapped">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="app:UserRow">
+                    <TextBlock Text="{Binding Text}" FontSize="12" />
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+          </TabItem>
+        </TabControl>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</Window>

@@ -246,6 +246,17 @@ toolkit's grids, lists and pickers, which is why Avalonia was chosen.
 
 This is the biggest port.
 
+**Done already (2026-10-31):**
+- Reading and writing CNV.ARK.
+- Editing a conversation's strings.
+- The code as assembly, with an exact round trip.
+- A readable stack-simulated view.
+- Who talks through each slot.
+- The global variables window: quests, game variables, X clocks, skills, the talker's and
+  player's variables, private globals; their uses; values edited in saves.
+
+What is left below is the high-level language, the graph and the simulator.
+
 - **Strings window:**
   - every block, searchable, editable;
   - Huffman encoding with the loaded tree (UW2's extra characters);

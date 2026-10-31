@@ -61,6 +61,24 @@ So M0, M1 and M2 are done, and most of M3 and M4.
   - headless Avalonia tests of the windows;
   - screenshot tests of the OpenGL view on Xvfb, with picture baselines and a state file.
 
+**Added later the same day: conversations** (in `src/UwEditor.Core/Conversations`):
+- CNV.ARK read and written through the archive code (UW2 compressed). Only changed blocks are
+  written.
+- The format: header, import table, code.
+- A disassembler and assembler, with an exact round trip of every shipped conversation.
+- A readable view by stack simulation, with menus, says and folded ifs.
+- STRINGS.PAK editing: unchanged blocks are copied byte for byte; a changed block is encoded
+  with the file's own tree.
+- The global variables the scripts reach, with values from PLAYER.DAT and BGLOBALS.DAT
+  (offsets from include/player.h; built-in semantics from conv/BABLHACK.C), and every use
+  found from constant arguments.
+- Avalonia windows: Tools ▸ Conversations and Tools ▸ Global variables.
+
+The Unity editor's node-graph compiler (ConversationConverter.cs) is not used yet. It compiles
+the node editor's language and cannot read back the shipped conversations, so editing works on
+the code the game runs. The language and graph views of ROADMAP.md phase E can sit on top
+later.
+
 **Not yet:**
 - Run on Windows and macOS.
 - GitHub Actions.

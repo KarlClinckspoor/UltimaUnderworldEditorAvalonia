@@ -54,6 +54,41 @@ editor's other features is in [ROADMAP.md](ROADMAP.md).
   Fields whose meaning is only inferred or unknown are marked. The tile panel also shows
   its wall and floor textures.
 - **Level ▸ Check the object lists:** runs the game's own consistency check (Obj_ListOkay).
+- **Tools ▸ Conversations…** (Ctrl+Shift+C): every conversation in CNV.ARK, by slot and the
+  name the creature talks under. The list filter matches slots, names and any text a
+  conversation says. Four tabs:
+  - **Dialogue:** what the script does, rebuilt from its code by following the
+    machine's stack (conv/BABL.C). It shows the say and respond lines with their text, each
+    menu with its numbered choices, and the checks on quests, variables and the talker's
+    state. Simple `if` blocks are folded; other jumps stay as labels. Functions the script
+    never calls (the compiler's small library) are hidden unless you ask. Double-click a
+    line to see its code.
+  - **Strings:** the conversation's block of STRINGS.PAK, edited in place. Each string shows
+    where the script uses it. **Add string** appends one, for the script to say.
+  - **Script:** the code as assembly, one instruction a line (conv.h's opcodes):
+    - labels for jumps and calls;
+    - imported functions by name;
+    - the header and import table as directives;
+    - comments with each address and the strings.
+    **Apply** (Ctrl+Enter) assembles it. A mistake is reported at its line. Disassembling
+    and assembling every shipped conversation of both games gives back the same bytes.
+  - **Who talks:** the creatures in the levels that use the slot (whoami, or the generic
+    slot for whoami 0). Double-click one to go to it in the main window.
+  **Save** (Ctrl+S) writes CNV.ARK and STRINGS.PAK in `DATA`, with only the changed blocks
+  rewritten. UW2's blocks are compressed again. The old files are kept as `CNV.BKP` and
+  `STRINGS.BKP`. Edits stay in memory when the window closes, until the game is closed.
+- **Tools ▸ Global variables…** (Ctrl+Shift+G): the game state conversations can read and
+  change, with the conversations that read and write each:
+  - quest flags and quest bytes (`get_quest`, `set_quest`);
+  - the game variables traps share (`x_traps`; UW2's numbered variables);
+  - UW2's X clocks (`x_clock`);
+  - skills (`x_skills`);
+  - the talker's and player's variables copied in and out (`npc_attitude`, `play_hp`…);
+  - each conversation's own globals, kept in `BGLOBALS.DAT`.
+  The uses come from the constant arguments of those calls. With a saved game open, the
+  values come from its `PLAYER.DAT` and `BGLOBALS.DAT`; they can be changed and saved, and
+  the old files are kept as `.BKP`. With `DATA` open, a new game, they read 0. Double-click a
+  use to open its conversation at that line.
 
 Help ▸ Controls lists the mouse and keys.
 
@@ -90,7 +125,7 @@ There are three test projects:
 | Project | What it tests | Needs |
 |---|---|---|
 | `tests/UwEditor.Core.Tests` | loading, levels, geometry, models, picking, the grid, on the shipped data of both games | the game files |
-| `tests/UwEditor.App.Tests` | the main window and the find window in Avalonia's headless mode: typing, clicking chips, keys, selection, the properties panel, find and go to, saved games; plus pictures of the panels compared with baselines | the game files |
+| `tests/UwEditor.App.Tests` | the main window, the find window, the conversation editor and the global variables window in Avalonia's headless mode: typing, clicking chips, keys, selection, the properties panel, find and go to, saved games, editing and saving strings, scripts and values (on a copy of the game); plus pictures of the windows compared with baselines | the game files |
 | `tests/UwEditor.Screenshots` | the real program with its OpenGL view on a private virtual screen (Xvfb + Mesa): what it draws, clicking an object in the view, camera keys, the grid; pictures compared with baselines, facts read from the program's `--state-file` | Linux with `Xvfb`, `xdotool` and ImageMagick; skipped elsewhere |
 
 The game files come from `UW_GAMEDATA`, a folder holding `UW` and/or `UW2`, each with its
@@ -118,23 +153,34 @@ The core tests check, among other things:
 - that levers, doors and furniture become models, and a wall lever lies on its wall;
 - that every shipped open door is 24 above its floor, so it is drawn on the floor (the
   reference's rule);
-- the grid lines and their labels.
+- the grid lines and their labels;
+- conversations:
+  - every shipped conversation of both games (97 and 102) is read and written back to the
+    same bytes;
+  - every one disassembles and assembles to the same bytes;
+  - CNV.ARK and STRINGS.PAK save unchanged to the same bytes;
+  - an edited block leaves the others as they were;
+  - the readable view finds the says, menus and quests;
+  - values edited in a copy of a UW2 save are written to PLAYER.DAT and BGLOBALS.DAT, changing
+    only their own bits.
 
 **Options for scripted runs** (used by the screenshot tests):
 - `--level N`: show this level first;
 - `--select N`: select and frame this object;
 - `--size WxH`: the window's size;
 - `--ready-file F`: written once the first level has been drawn;
-- `--state-file F`: level, selection, camera and view rectangle as JSON after every change.
+- `--state-file F`: level, selection, camera and view rectangle as JSON after every change;
+- `--conversations [N]`: open the conversation window (on slot N); `--tab N` picks its tab;
+- `--globals`: open the global variables window.
 
 ## Layout
 
 | Project | What it is |
 |---|---|
 | `src/Underworld.Formats` | The Unity editor's format code, copied (see its `SOURCE.md`). .NET Standard 2.0. |
-| `src/UwEditor.Core` | Opening games, levels, tiles and objects, the level mesh, the camera, picking, property rows. No UI. |
+| `src/UwEditor.Core` | Opening games, levels, tiles and objects, the level mesh, the camera, picking, property rows; conversations (`Conversations/`: CNV.ARK, the assembler and readable view, STRINGS.PAK editing, global variables). No UI. |
 | `src/UwEditor.Render` | The OpenGL drawing (Silk.NET), GL 3.3 or GLES 3.0. No window toolkit. |
-| `src/UwEditor.App` | The Avalonia program: window, menus, panels, the GL view control. |
+| `src/UwEditor.App` | The Avalonia program: window, menus, panels, the GL view control, the find, conversation and global variables windows. |
 | `tests/UwEditor.Core.Tests` | xUnit tests on the real game files. |
 | `tests/UwEditor.App.Tests` | Headless interface tests of the Avalonia windows. |
 | `tests/UwEditor.Screenshots` | Screenshot tests of the program with its OpenGL view (Linux). |
