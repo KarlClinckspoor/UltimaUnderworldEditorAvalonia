@@ -1,0 +1,71 @@
+using System;
+using System.IO;
+using System.Linq;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
+using UwEditor.Core;
+using UwEditor.Core.Graphics;
+using UwEditor.Core.Player;
+
+namespace UwEditor.App
+{
+    /// <summary>
+    /// Tools ▸ Player: a saved game's character — name, class, sex, hand, portrait, attributes,
+    /// condition, experience, skills — and inventory, with the checks the game makes (UW2 calls
+    /// attributes over 64 cheating) and the values play cannot reach.
+    /// </summary>
+    public partial class PlayerWindow : Window
+    {
+        public PlayerViewModel Model { get; private set; }
+
+        public PlayerWindow() { InitializeComponent(); }
+
+        public PlayerWindow(PlayerSheet sheet, GameSession session, Func<int, Bitmap> icon)
+        {
+            InitializeComponent();
+            PictureFile heads = null;
+            Palettes pals = null;
+            try
+            {
+                string h = UltimateEditor.Games.GameProfile.Find(session.DataFolder, "HEADS.GR");
+                if (h != null) { heads = PictureFile.Load(h, session.Kind); pals = Palettes.Load(session.DataFolder); }
+            }
+            catch (Exception) { heads = null; }
+            Func<int, Bitmap> portrait = n => heads == null || n >= heads.Count ? null : Pictures.ToBitmap(heads.Get(n, pals, 0));
+            Model = new PlayerViewModel(sheet, session, icon, portrait);
+            DataContext = Model;
+            Title = "Player — " + sheet.Name + " — " + session.Title;
+            TitleText.Text = "Player: " + sheet.Name;
+            FileText.Text = sheet.Path ?? "";
+            Model.Status = string.Format("{0}, level {1} {2}, carrying {3} objects. Changes are kept until you save.", sheet.Name, sheet.Level, PlayerSheet.ClassNames[sheet.Class], sheet.Inventory.All().Count());
+            AddHandler(KeyDownEvent, (s, e) =>
+            {
+                if ((e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta)) && e.Key == Key.S) { Save(); e.Handled = true; }
+            }, RoutingStrategies.Tunnel);
+        }
+
+        /// <summary>Shows a tab: 0 the character, 1 the inventory.</summary>
+        public void ShowTab(int i) { Tabs.SelectedIndex = i; }
+
+        void OnRecompute(object sender, RoutedEventArgs e) { Model.Recompute(); }
+        void OnDelete(object sender, RoutedEventArgs e) { Model.Delete(); }
+        void OnAddPack(object sender, RoutedEventArgs e) { Model.Add(false); }
+        void OnAddInto(object sender, RoutedEventArgs e) { Model.Add(true); }
+        void OnSave(object sender, RoutedEventArgs e) { Save(); }
+
+        public bool Save()
+        {
+            try
+            {
+                Model.Sheet.Save();
+                Model.BuildTree();
+                Model.Check();
+                Model.Status = "Saved " + Model.Sheet.Path + " (the old file is kept as PLAYER.BKP).";
+                return true;
+            }
+            catch (Exception ex) { Model.Status = "Not saved: " + ex.Message; return false; }
+        }
+    }
+}

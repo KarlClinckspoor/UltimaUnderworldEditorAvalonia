@@ -41,6 +41,8 @@
       <MenuItem Header="_Tools">
         <MenuItem Header="_Conversations…" Click="OnConversations" InputGesture="Ctrl+Shift+C" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Global variables…" Click="OnGlobals" InputGesture="Ctrl+Shift+G" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Player and inventory…" Click="OnPlayer" InputGesture="Ctrl+Shift+P" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="G_raphics…" Click="OnGraphics" InputGesture="Ctrl+Shift+R" IsEnabled="{Binding HasGame}" />
         <Separator />
         <MenuItem Header="Paint tiles (not yet)" IsEnabled="False" />
         <MenuItem Header="Edit object fields (not yet)" IsEnabled="False" />

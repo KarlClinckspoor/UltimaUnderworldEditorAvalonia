@@ -90,6 +90,62 @@ editor's other features is in [ROADMAP.md](ROADMAP.md).
   the old files are kept as `.BKP`. With `DATA` open, a new game, they read 0. Double-click a
   use to open its conversation at that line.
 
+- **Tools ▸ Player and inventory…** (Ctrl+Shift+P), with a saved game open. It edits the
+  saved character in `PLAYER.DAT`:
+  - name, class, sex, hand and portrait (the HEADS.GR picture shown);
+  - attributes, vitality, mana, hunger, fatigue, carrying capacity;
+  - level, experience, skill points and the twenty skills.
+
+  **Checks** are listed beside it and update as you type:
+  - **Game detects:** in UW2, strength + dexterity + intelligence above 64 makes the
+    end-of-game screen add "AND CHEATED ON THEIR CHARACTER" (game/SKILLS.C `game_stats`).
+    UW1 has no such check.
+  - **Not reachable:** values creation and play never give. Attributes over 30 or outside
+    the class's start in SKILLS.DAT, skills over 30, a sixth portrait, levels outside 1–16.
+  - **Notes:** maxima that disagree with what the game computes (`player_compute`), a level
+    the experience has not earned, and the like. *Set the maxima as the game computes them*
+    fixes those.
+
+  The hand bit means right-handed in UW1 and left-handed in UW2: their creation menus list
+  the choices the other way round, so the labels come from CHRGEN.DAT. The **Inventory** tab
+  shows the worn and held objects, the pack and container contents, with icons:
+  - each object's id, quality, owner, quantity or special, flags and slot can be changed;
+  - objects can be added to the pack or into a container, or removed.
+
+  Saving renumbers the objects depth first, as the game's `InvSaveNexts` does. Rewriting a
+  shipped save's inventory unchanged gives the same bytes, except slots 19–27 (an open
+  bag's view, which the game rebuilds): those are cleared. The old file is kept as
+  `PLAYER.BKP`.
+- **Tools ▸ Graphics…** (Ctrl+Shift+R), with three tabs:
+  - **Pictures:** every `.GR`, `.TR`, `.BYT` and UW2's `BYT.ARK` in DATA, as thumbnails.
+    Each is shown large with a palette of PALS.DAT; UW2's screens start in the palette the
+    game shows them with.
+  - **Critter animations:** the CRIT art files by the creatures that use them. Their
+    animations come from the UW1 page headers or UW2's `CR.AN`. Pick an auxiliary palette;
+    play the animation or step through its frames.
+  - **Cutscenes:** every CUTS cutscene and its LPF animations, with a frame slider, playing
+    at the file's frame rate.
+
+  **Export** writes an indexed PNG whose palette is the picture's own colours (its 16 or 32
+  auxiliary colours, or the 256 of the palette), so the indices survive a round trip.
+  **Export all frames** writes a cutscene animation as numbered PNG files.
+
+  **Import** takes a PNG back and refuses:
+  - **another size**;
+  - **colours the picture cannot use:** a 4-bit sprite has 15 colours and transparency,
+    a critter frame 31 or 15, an 8-bit picture its palette. The list names each missing
+    colour with its pixel count and the nearest one it has; *Use the nearest colours*
+    maps them instead;
+  - **transparency** in a picture the game draws solid (textures, screens);
+  - **files the game could not load:**
+    - a critter page over the 0x7FFF bytes `load_cpg` reads;
+    - a cutscene page over its 64 KB window or 256 records;
+    - more than 256 pages;
+    - texture and screen sizes are fixed.
+
+  A replaced cutscene frame re-encodes only its own delta, the next frame's and the loop
+  back to the first. Saving keeps each old file as `.BKP`.
+
 Help ▸ Controls lists the mouse and keys.
 
 ![UW2, Britannia, the start room](docs/uw2-britannia.png)
@@ -125,7 +181,7 @@ There are three test projects:
 | Project | What it tests | Needs |
 |---|---|---|
 | `tests/UwEditor.Core.Tests` | loading, levels, geometry, models, picking, the grid, on the shipped data of both games | the game files |
-| `tests/UwEditor.App.Tests` | the main window, the find window, the conversation editor and the global variables window in Avalonia's headless mode: typing, clicking chips, keys, selection, the properties panel, find and go to, saved games, editing and saving strings, scripts and values (on a copy of the game); plus pictures of the windows compared with baselines | the game files |
+| `tests/UwEditor.App.Tests` | the main window, the find window, the conversation editor, the global variables window, the player window and the graphics window in Avalonia's headless mode: typing, clicking chips, keys, selection, the properties panel, find and go to, saved games, editing and saving strings, scripts and values (on a copy of the game); plus pictures of the windows compared with baselines | the game files |
 | `tests/UwEditor.Screenshots` | the real program with its OpenGL view on a private virtual screen (Xvfb + Mesa): what it draws, clicking an object in the view, camera keys, the grid; pictures compared with baselines, facts read from the program's `--state-file` | Linux with `Xvfb`, `xdotool` and ImageMagick; skipped elsewhere |
 
 The game files come from `UW_GAMEDATA`, a folder holding `UW` and/or `UW2`, each with its
@@ -162,7 +218,22 @@ The core tests check, among other things:
   - an edited block leaves the others as they were;
   - the readable view finds the says, menus and quests;
   - values edited in a copy of a UW2 save are written to PLAYER.DAT and BGLOBALS.DAT, changing
-    only their own bits.
+    only their own bits;
+- the player:
+  - UW2 saves read with their inventories;
+  - rewriting an inventory numbers it as the game does;
+  - adding and removing objects keeps links and slots right;
+  - UW2's cheat detection is warned;
+  - creation limits come from SKILLS.DAT;
+  - UW1 records (made in the test) keep their appearance bits;
+- graphics:
+  - every picture file of both games reads, saves unchanged to the same bytes, and imports its
+    own exports index for index;
+  - a replaced sprite is written and read back;
+  - imports refuse wrong sizes, missing colours and transparency in solid pictures;
+  - every critter frame decodes, and a replaced frame reads back;
+  - a critter page that would pass 0x7FFF bytes is refused;
+  - cutscene frames decode, a replaced frame is re-encoded and the others stay as they were.
 
 **Options for scripted runs** (used by the screenshot tests):
 - `--level N`: show this level first;
@@ -171,16 +242,17 @@ The core tests check, among other things:
 - `--ready-file F`: written once the first level has been drawn;
 - `--state-file F`: level, selection, camera and view rectangle as JSON after every change;
 - `--conversations [N]`: open the conversation window (on slot N); `--tab N` picks its tab;
-- `--globals`: open the global variables window.
+- `--globals`: open the global variables window;
+- `--player` / `--graphics`: open the player or graphics window (`--tab N` picks the tab).
 
 ## Layout
 
 | Project | What it is |
 |---|---|
 | `src/Underworld.Formats` | The Unity editor's format code, copied (see its `SOURCE.md`). .NET Standard 2.0. |
-| `src/UwEditor.Core` | Opening games, levels, tiles and objects, the level mesh, the camera, picking, property rows; conversations (`Conversations/`: CNV.ARK, the assembler and readable view, STRINGS.PAK editing, global variables). No UI. |
+| `src/UwEditor.Core` | Opening games, levels, tiles and objects, the level mesh, the camera, picking, property rows; conversations (`Conversations/`: CNV.ARK, the assembler and readable view, STRINGS.PAK editing, global variables); the player record and inventory (`Player/`); pictures, critter art, cutscenes and PNG (`Graphics/`). No UI. |
 | `src/UwEditor.Render` | The OpenGL drawing (Silk.NET), GL 3.3 or GLES 3.0. No window toolkit. |
-| `src/UwEditor.App` | The Avalonia program: window, menus, panels, the GL view control, the find, conversation and global variables windows. |
+| `src/UwEditor.App` | The Avalonia program: window, menus, panels, the GL view control, the find, conversation, global variables, player and graphics windows. |
 | `tests/UwEditor.Core.Tests` | xUnit tests on the real game files. |
 | `tests/UwEditor.App.Tests` | Headless interface tests of the Avalonia windows. |
 | `tests/UwEditor.Screenshots` | Screenshot tests of the program with its OpenGL view (Linux). |

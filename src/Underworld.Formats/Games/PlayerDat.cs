@@ -23,6 +23,9 @@ namespace UltimateEditor.Games
 
 		PlayerDat(GameKind game, byte[] record, byte[] rest) { Game = game; Record = record; Rest = rest; }
 
+		/// <summary>The same record with another tail (count word and inventory workspace), for an edited inventory.</summary>
+		public PlayerDat WithRest(byte[] rest) { return new PlayerDat(Game, Record, rest); }
+
 		public static int RecordSizeFor(GameKind g) { return g == GameKind.UW2 ? 0x37D : 0xD2; }
 
 		/// <summary>The game this file belongs to, by its length (1 + record + 2 + 0x5B + 8 * count); null if neither fits.</summary>

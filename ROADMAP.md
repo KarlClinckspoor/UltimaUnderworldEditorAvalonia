@@ -284,6 +284,11 @@ What is left below is the high-level language, the graph and the simulator.
 
 ---
 
+**Also done (2026-10-31):**
+- The player and inventory editor (part of phase F).
+- Picture, critter animation and cutscene viewers with PNG export and guarded import (part of
+  phase D).
+
 ## 7. Saved games, mods, the rest (phases F–I, about 8–10 days)
 
 - **F, saved games:**

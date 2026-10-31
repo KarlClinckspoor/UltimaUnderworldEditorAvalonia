@@ -22,6 +22,8 @@ namespace UwEditor.App
         public static int ConversationAtStart = int.MinValue;
         /// <summary>--globals: open the global variables window at start.</summary>
         public static bool GlobalsAtStart;
+        /// <summary>--player / --graphics: open those windows at start (--tab picks the tab).</summary>
+        public static bool PlayerAtStart, GraphicsAtStart;
         /// <summary>--tab N: the conversation window's tab at start (0 dialogue, 1 strings, 2 script, 3 who talks).</summary>
         public static int TabAtStart;
 
@@ -46,6 +48,8 @@ namespace UwEditor.App
                     if (i + 1 < args.Length && int.TryParse(args[i + 1], out int slot)) { ConversationAtStart = slot; i++; }
                 }
                 else if (a == "--globals") GlobalsAtStart = true;
+                else if (a == "--player") PlayerAtStart = true;
+                else if (a == "--graphics") GraphicsAtStart = true;
                 else if (a == "--tab" && i + 1 < args.Length) int.TryParse(args[++i], out TabAtStart);
                 else if (a == "--trace") System.Diagnostics.Trace.Listeners.Add(new System.Diagnostics.ConsoleTraceListener());
                 else if (!a.StartsWith("-")) OpenAtStart = a;

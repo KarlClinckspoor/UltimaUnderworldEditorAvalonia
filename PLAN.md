@@ -79,6 +79,21 @@ the node editor's language and cannot read back the shipped conversations, so ed
 the code the game runs. The language and graph views of ROADMAP.md phase E can sit on top
 later.
 
+**Added after that: the player and graphics** (`src/UwEditor.Core/Player`, `src/UwEditor.Core/Graphics`):
+- **Player record editor** with checks:
+  - UW2's end-screen cheat flag, from STR + DEX + INT > 64 (game/SKILLS.C);
+  - values creation cannot give, from SKILLS.DAT and the caps;
+  - derived maxima (`player_compute`), and experience levels from `level_table`.
+- **Inventory** (inv/INVSAVE.C): the tree, slots, editing; saving renumbers depth first.
+- **The hand bit's meaning differs** between the games (CHRGEN.DAT option strings).
+- **A PNG codec** (indexed export; every non-interlaced PNG read back).
+- **Pictures:** GR/TR/BYT/BYT.ARK, including PANELS.GR's bare panels.
+- **Critter art:** UW1 pages and UW2 pages with CR.AN, PG.MP and AS.AN; 4- and 5-bit
+  run-length frames.
+- **LPF cutscenes:** decoding, a run/skip/dump encoder, repacking pages within the player's
+  limits.
+- **Import guards** for size, colours, transparency and the games' buffer limits.
+
 **Not yet:**
 - Run on Windows and macOS.
 - GitHub Actions.

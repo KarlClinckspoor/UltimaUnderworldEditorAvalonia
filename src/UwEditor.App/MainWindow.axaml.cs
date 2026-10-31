@@ -73,6 +73,8 @@ namespace UwEditor.App
                     if (cw != null) cw.Model.Tab = Program.TabAtStart;
                 }
                 if (Program.GlobalsAtStart && vm.Session != null) ShowGlobals();
+                if (Program.PlayerAtStart && vm.Session != null) { var pw = ShowPlayer(); if (pw != null) pw.Tabs.SelectedIndex = Program.TabAtStart; }
+                if (Program.GraphicsAtStart && vm.Session != null) ShowGraphics()?.ShowTab(Program.TabAtStart);
                 if (Program.ReadyFile != null) WriteReadyFileAfterFrames(3);
                 View.Focus();
             };
@@ -163,6 +165,8 @@ namespace UwEditor.App
             Title = "Underworld Editor — " + s.Title;
             conversationWindow?.Close();
             globalsWindow?.Close();
+            playerWindow?.Close();
+            graphicsWindow?.Close();
             conversations = null;
             settings.AddRecent(s.SaveFolder ?? s.GameFolder);
             settings.Save();
@@ -413,6 +417,45 @@ namespace UwEditor.App
             return conversations;
         }
 
+        PlayerWindow playerWindow;
+        GraphicsWindow graphicsWindow;
+
+        void OnPlayer(object sender, RoutedEventArgs e) { ShowPlayer(); }
+        void OnGraphics(object sender, RoutedEventArgs e) { ShowGraphics(); }
+
+        /// <summary>The player window for the open saved game; with DATA open, says why there is none.</summary>
+        public PlayerWindow ShowPlayer()
+        {
+            var s = vm.Session;
+            if (s == null) return null;
+            if (playerWindow != null) { playerWindow.Activate(); return playerWindow; }
+            string path = s.IsSave ? UltimateEditor.Games.GameProfile.Find(s.SaveFolder, "PLAYER.DAT") : null;
+            if (path == null)
+            {
+                _ = MessageWindow.Show(this, "No saved player", s.IsSave ? "This saved game has no PLAYER.DAT."
+                    : "The player lives in a saved game's PLAYER.DAT. Open a SAVE folder (File ▸ Open game folder…); DATA's PLAYER.DAT is a 301-byte template the game never reads.");
+                return null;
+            }
+            UwEditor.Core.Player.PlayerSheet sheet;
+            try { sheet = UwEditor.Core.Player.PlayerSheet.Load(path, s.Kind, s.DataFolder); }
+            catch (Exception ex) { _ = MessageWindow.Show(this, "Could not read PLAYER.DAT", ex.Message); return null; }
+            playerWindow = new PlayerWindow(sheet, s, vm.IconOf);
+            playerWindow.Closed += (o, e) => playerWindow = null;
+            playerWindow.Show(this);
+            return playerWindow;
+        }
+
+        /// <summary>The graphics window, one at a time.</summary>
+        public GraphicsWindow ShowGraphics()
+        {
+            if (vm.Session == null) return null;
+            if (graphicsWindow != null) { graphicsWindow.Activate(); return graphicsWindow; }
+            graphicsWindow = new GraphicsWindow(vm.Session);
+            graphicsWindow.Closed += (o, e) => graphicsWindow = null;
+            graphicsWindow.Show(this);
+            return graphicsWindow;
+        }
+
         void OnConversations(object sender, RoutedEventArgs e) { ShowConversations(); }
         void OnGlobals(object sender, RoutedEventArgs e) { ShowGlobals(); }
 
@@ -517,6 +560,8 @@ namespace UwEditor.App
                 "  Ctrl+Shift+F            find in all levels\n" +
                 "  Ctrl+Shift+C            conversations\n" +
                 "  Ctrl+Shift+G            global variables\n" +
+                "  Ctrl+Shift+P            player and inventory (a saved game)\n" +
+                "  Ctrl+Shift+R            graphics\n" +
                 "  PgUp, PgDn              previous, next level\n" +
                 "  F                       frame the selection\n" +
                 "  T                       look straight down\n" +
@@ -544,6 +589,8 @@ namespace UwEditor.App
             if (e.Key == Key.F && ctrlShift) { ShowFind(); e.Handled = true; return; }
             if (e.Key == Key.C && ctrlShift) { ShowConversations(); e.Handled = true; return; }
             if (e.Key == Key.G && ctrlShift) { ShowGlobals(); e.Handled = true; return; }
+            if (e.Key == Key.P && ctrlShift) { ShowPlayer(); e.Handled = true; return; }
+            if (e.Key == Key.R && ctrlShift) { ShowGraphics(); e.Handled = true; return; }
             if (typing || (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt)) != 0) return;
             // the camera keys work whichever panel has the focus (the arrows stay with lists)
             if (!View.IsFocused && (e.Key == Key.W || e.Key == Key.A || e.Key == Key.S || e.Key == Key.D || e.Key == Key.Q || e.Key == Key.E || e.Key == Key.R || e.Key == Key.V))
