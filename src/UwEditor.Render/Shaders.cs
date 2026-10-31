@@ -44,8 +44,23 @@ uniform vec3 uEye;
 uniform sampler2DArray uTex;
 uniform int uSelTile;
 uniform int uHoverTile;
-uniform float uFadeStart;
-uniform float uFadeEnd;
+uniform vec4 uShading;
+uniform float uLight[16];
+uniform float uMono;
+// the game's light (3d/VIEW3D.C preset_grid): the colour map of a square d whole squares away
+vec3 gameLight(vec3 rgb, float dist)
+{
+    if (uShading.w < 0.0) return rgb;
+    int d = int(floor(dist));
+    if (float(d) > uShading.w) return vec3(0.0);
+    int u = int(sqrt(2.0 * float(8 * d) * float(8 * d)));
+    int t = ((u * int(uShading.x)) >> 6) + int(uShading.y);
+    if (t < 0) t = 0;
+    int m = min(14, t + int(uShading.z));
+    float k = uLight[m];
+    if (uMono > 0.5) { float g = dot(rgb, vec3(0.299, 0.587, 0.114)); rgb = vec3(g); }
+    return rgb * k;
+}
 out vec4 fragColor;
 void main()
 {
@@ -53,8 +68,7 @@ void main()
     if (vShade < 0.0 && uEye.y > 3.98) discard;
     vec4 c = texture(uTex, vec3(vUv, vLayer));
     vec3 rgb = c.rgb * abs(vShade);
-    float fade = clamp((uFadeEnd - vDist) / max(0.001, uFadeEnd - uFadeStart), 0.0, 1.0);
-    rgb *= fade;
+    rgb = gameLight(rgb, vDist);
     if (vTile == uSelTile) rgb = mix(rgb, vec3(1.0, 0.82, 0.25), 0.35);
     else if (vTile == uHoverTile) rgb = rgb * 1.25 + vec3(0.04);
     fragColor = vec4(rgb, 1.0);
@@ -92,16 +106,30 @@ flat in int vObject;
 uniform sampler2D uAtlas;
 uniform int uSelObject;
 uniform int uHoverObject;
-uniform float uFadeStart;
-uniform float uFadeEnd;
+uniform vec4 uShading;
+uniform float uLight[16];
+uniform float uMono;
+// the game's light (3d/VIEW3D.C preset_grid): the colour map of a square d whole squares away
+vec3 gameLight(vec3 rgb, float dist)
+{
+    if (uShading.w < 0.0) return rgb;
+    int d = int(floor(dist));
+    if (float(d) > uShading.w) return vec3(0.0);
+    int u = int(sqrt(2.0 * float(8 * d) * float(8 * d)));
+    int t = ((u * int(uShading.x)) >> 6) + int(uShading.y);
+    if (t < 0) t = 0;
+    int m = min(14, t + int(uShading.z));
+    float k = uLight[m];
+    if (uMono > 0.5) { float g = dot(rgb, vec3(0.299, 0.587, 0.114)); rgb = vec3(g); }
+    return rgb * k;
+}
 out vec4 fragColor;
 void main()
 {
     vec4 c = texture(uAtlas, vUv);
     if (c.a < 0.5) discard;
     vec3 rgb = c.rgb;
-    float fade = clamp((uFadeEnd - vDist) / max(0.001, uFadeEnd - uFadeStart), 0.0, 1.0);
-    rgb *= fade;
+    rgb = gameLight(rgb, vDist);
     if (vObject == uSelObject) rgb = mix(rgb, vec3(1.0, 0.85, 0.2), 0.5) + vec3(0.1);
     else if (vObject == uHoverObject) rgb = rgb * 1.3 + vec3(0.06);
     fragColor = vec4(rgb, vAlpha);
@@ -139,16 +167,30 @@ flat in int vObject;
 uniform sampler2DArray uTex;
 uniform int uSelObject;
 uniform int uHoverObject;
-uniform float uFadeStart;
-uniform float uFadeEnd;
+uniform vec4 uShading;
+uniform float uLight[16];
+uniform float uMono;
+// the game's light (3d/VIEW3D.C preset_grid): the colour map of a square d whole squares away
+vec3 gameLight(vec3 rgb, float dist)
+{
+    if (uShading.w < 0.0) return rgb;
+    int d = int(floor(dist));
+    if (float(d) > uShading.w) return vec3(0.0);
+    int u = int(sqrt(2.0 * float(8 * d) * float(8 * d)));
+    int t = ((u * int(uShading.x)) >> 6) + int(uShading.y);
+    if (t < 0) t = 0;
+    int m = min(14, t + int(uShading.z));
+    float k = uLight[m];
+    if (uMono > 0.5) { float g = dot(rgb, vec3(0.299, 0.587, 0.114)); rgb = vec3(g); }
+    return rgb * k;
+}
 out vec4 fragColor;
 void main()
 {
     vec4 c = vLayer < 0.0 ? vec4(1.0) : texture(uTex, vec3(clamp(vUv, 0.0, 1.0), vLayer));
     if (c.a < 0.5) discard;
     vec3 rgb = c.rgb * vColor;
-    float fade = clamp((uFadeEnd - vDist) / max(0.001, uFadeEnd - uFadeStart), 0.0, 1.0);
-    rgb *= fade;
+    rgb = gameLight(rgb, vDist);
     if (vObject == uSelObject) rgb = mix(rgb, vec3(1.0, 0.85, 0.2), 0.5) + vec3(0.1);
     else if (vObject == uHoverObject) rgb = rgb * 1.3 + vec3(0.06);
     fragColor = vec4(rgb, 1.0);

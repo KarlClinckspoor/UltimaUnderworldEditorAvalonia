@@ -12,12 +12,33 @@
         <TextBlock Classes="badge" Text="{Binding Certainty}" />
       </StackPanel>
       <TextBlock Grid.Column="1" Classes="value" Text="{Binding Value}" Margin="6,0,4,0" IsVisible="{Binding ReadOnly}" />
-      <TextBox Grid.Column="1" x:Name="Box" Text="{Binding Value, Mode=OneWay}" IsVisible="{Binding Editable}" FontSize="12"
-               MinHeight="0" Height="22" Padding="5,0" VerticalContentAlignment="Center" Margin="4,0,4,0"
-               KeyDown="OnKeyDown" LostFocus="OnLostFocus" />
+      <LayoutTransformControl Grid.Column="1" IsVisible="{Binding IsFlag}" HorizontalAlignment="Left" Margin="4,0,4,0">
+        <LayoutTransformControl.LayoutTransform>
+          <ScaleTransform ScaleX="0.72" ScaleY="0.72" />
+        </LayoutTransformControl.LayoutTransform>
+        <CheckBox x:Name="Flag" IsChecked="{Binding IsChecked, Mode=OneWay}" Padding="0" Click="OnFlagClick" />
+      </LayoutTransformControl>
+      <DockPanel Grid.Column="1" IsVisible="{Binding IsNumber}" Margin="4,0,4,0">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" IsVisible="{Binding HasSteppers}" Margin="2,0,0,0">
+          <RepeatButton x:Name="Down" Content="−" Classes="step" Click="OnDown" ToolTip.Tip="One less" />
+          <RepeatButton x:Name="Up" Content="+" Classes="step" Click="OnUp" ToolTip.Tip="One more" />
+        </StackPanel>
+        <TextBox x:Name="Box" Text="{Binding Value, Mode=OneWay}" FontSize="12"
+                 MinHeight="0" Height="22" Padding="5,0" VerticalContentAlignment="Center"
+                 KeyDown="OnKeyDown" LostFocus="OnLostFocus" />
+      </DockPanel>
       <Button Grid.Column="2" x:Name="PickButton" Content="▾" IsVisible="{Binding HasChoices}" Padding="6,0" Height="22" MinHeight="0"
               FontSize="11" Click="OnPick" ToolTip.Tip="Choose from a list" HorizontalAlignment="Left" />
       <TextBlock Grid.Column="2" Classes="hex" Text="{Binding Hex}" VerticalAlignment="Center" IsVisible="{Binding !HasChoices}" />
+      <Border Grid.Column="2" IsVisible="{Binding IsHeading}" Width="22" Height="22" CornerRadius="11" BorderThickness="1"
+              BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Left" ToolTip.Tip="The way it faces, seen from above with north up (heading × 45°, clockwise)">
+        <Path Data="M 10,2 L 15,11 L 11.5,11 L 11.5,18 L 8.5,18 L 8.5,11 L 5,11 Z" Fill="{DynamicResource Accent}" Width="20" Height="20"
+              RenderTransformOrigin="50%,50%">
+          <Path.RenderTransform>
+            <RotateTransform Angle="{Binding HeadingAngle}" />
+          </Path.RenderTransform>
+        </Path>
+      </Border>
     </Grid>
   </Panel>
 </UserControl>

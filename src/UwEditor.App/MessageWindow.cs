@@ -14,7 +14,7 @@ namespace UwEditor.App
         {
             var ok = new Button { Content = "OK", HorizontalAlignment = HorizontalAlignment.Right, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsDefault = true, IsCancel = true };
             var body = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 13, LineHeight = 19 };
-            if (mono) { body.FontFamily = (FontFamily)Application.Current.FindResource("Mono"); body.TextWrapping = TextWrapping.NoWrap; }
+            if (mono) { body.FontFamily = Application.Current.FindResource("Mono") as FontFamily ?? FontFamily.Default; body.TextWrapping = TextWrapping.NoWrap; }
             var w = new MessageWindow
             {
                 Title = title,

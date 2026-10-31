@@ -24,7 +24,9 @@ namespace UwEditor.App
 
     public sealed class WarningRow
     {
-        static readonly IBrush Red = new SolidColorBrush(Color.Parse("#E0605A")), Orange = new SolidColorBrush(Color.Parse("#D9A441")), Grey = new SolidColorBrush(Color.Parse("#8E8B85"));
+        static IBrush Red { get { return ColourScheme.Pick("#E0605A", "#B03A2A"); } }
+        static IBrush Orange { get { return ColourScheme.Pick("#D9A441", "#9A6A10"); } }
+        static IBrush Grey { get { return ColourScheme.Pick("#8E8B85", "#6E6A62"); } }
         public PlayerWarning Warning { get; set; }
         public string Label { get { return Warning.Level == WarningLevel.Detected ? "GAME DETECTS" : Warning.Level == WarningLevel.Unreachable ? "NOT REACHABLE" : "NOTE"; } }
         public string Message { get { return Warning.Message; } }

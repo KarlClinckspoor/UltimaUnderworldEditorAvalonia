@@ -10,8 +10,10 @@ namespace UwEditor.Render
     public sealed class ViewState
     {
         public int SelectedTile = -1, HoverTile = -1, SelectedObject = -1, HoverObject = -1;
-        public bool Darkness;
-        public float FadeStart = 1.5f, FadeEnd = 9;
+        /// <summary>The game's light level 0-7 (GameLight), or -1 for the editor's full light.</summary>
+        public int LightLevel = -1;
+        public GameLight Light;
+        public bool Darkness { get { return LightLevel >= 0; } }
     }
 
     /// <summary>
@@ -273,7 +275,18 @@ namespace UwEditor.Render
                 var eye = cam.Eye;
                 // the darkness is a light at the point looked at, so it moves with the orbit's centre
                 var focus = cam.Target;
-                float fs = st.Darkness ? st.FadeStart : 1e5f, fe = st.Darkness ? st.FadeEnd : 2e5f;
+                // the game's shading: smooth_div, smooth_lowpass, smooth_base, range; range < 0 is off
+                var shading = new Vector4(0, 0, 0, -1);
+                var factors = new float[16];
+                bool mono = false;
+                if (st.Darkness && st.Light != null)
+                {
+                    var row = st.Light.Rows[Math.Min(7, st.LightLevel)];
+                    shading = new Vector4(row.Div, row.Lowpass, row.Base, row.Range);
+                    mono = st.LightLevel == 5;
+                    Array.Copy(mono ? st.Light.MonoFactors : st.Light.Factors, factors, 16);
+                }
+                factors[15] = 0;
 
                 if (levelVertices > 0)
                 {
@@ -283,8 +296,7 @@ namespace UwEditor.Render
                     gl.Uniform3(gl.GetUniformLocation(levelProg, "uFadeCentre"), focus.X, focus.Y, focus.Z);
                     gl.Uniform1(gl.GetUniformLocation(levelProg, "uSelTile"), st.SelectedTile);
                     gl.Uniform1(gl.GetUniformLocation(levelProg, "uHoverTile"), st.HoverTile);
-                    gl.Uniform1(gl.GetUniformLocation(levelProg, "uFadeStart"), fs);
-                    gl.Uniform1(gl.GetUniformLocation(levelProg, "uFadeEnd"), fe);
+                    Shading(levelProg, shading, factors, mono);
                     gl.ActiveTexture(TextureUnit.Texture0);
                     gl.BindTexture(TextureTarget.Texture2DArray, levelTex);
                     gl.Uniform1(gl.GetUniformLocation(levelProg, "uTex"), 0);
@@ -298,8 +310,7 @@ namespace UwEditor.Render
                     gl.Uniform3(gl.GetUniformLocation(modelProg, "uFadeCentre"), focus.X, focus.Y, focus.Z);
                     gl.Uniform1(gl.GetUniformLocation(modelProg, "uSelObject"), st.SelectedObject);
                     gl.Uniform1(gl.GetUniformLocation(modelProg, "uHoverObject"), st.HoverObject);
-                    gl.Uniform1(gl.GetUniformLocation(modelProg, "uFadeStart"), fs);
-                    gl.Uniform1(gl.GetUniformLocation(modelProg, "uFadeEnd"), fe);
+                    Shading(modelProg, shading, factors, mono);
                     gl.ActiveTexture(TextureUnit.Texture0);
                     gl.BindTexture(TextureTarget.Texture2DArray, modelTex);
                     gl.Uniform1(gl.GetUniformLocation(modelProg, "uTex"), 0);
@@ -332,8 +343,7 @@ namespace UwEditor.Render
                     gl.Uniform3(gl.GetUniformLocation(spriteProg, "uFadeCentre"), focus.X, focus.Y, focus.Z);
                     gl.Uniform1(gl.GetUniformLocation(spriteProg, "uSelObject"), st.SelectedObject);
                     gl.Uniform1(gl.GetUniformLocation(spriteProg, "uHoverObject"), st.HoverObject);
-                    gl.Uniform1(gl.GetUniformLocation(spriteProg, "uFadeStart"), fs);
-                    gl.Uniform1(gl.GetUniformLocation(spriteProg, "uFadeEnd"), fe);
+                    Shading(spriteProg, shading, factors, mono);
                     gl.ActiveTexture(TextureUnit.Texture0);
                     gl.BindTexture(TextureTarget.Texture2D, atlasTex);
                     gl.Uniform1(gl.GetUniformLocation(spriteProg, "uAtlas"), 0);
@@ -380,6 +390,13 @@ namespace UwEditor.Render
             {
                 Error = e.Message;
             }
+        }
+
+        void Shading(uint prog, Vector4 shading, float[] factors, bool mono)
+        {
+            gl.Uniform4(gl.GetUniformLocation(prog, "uShading"), shading.X, shading.Y, shading.Z, shading.W);
+            fixed (float* f = factors) gl.Uniform1(gl.GetUniformLocation(prog, "uLight"), 16, f);
+            gl.Uniform1(gl.GetUniformLocation(prog, "uMono"), mono ? 1f : 0f);
         }
 
         void Matrix(uint prog, string name, Matrix4x4 m)

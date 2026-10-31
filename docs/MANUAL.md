@@ -39,7 +39,13 @@ new-game start; in a saved game a **green arrow** marks the player.
 - M switches the models off. Invisible objects and traps or triggers can be shown too.
 - A yellow grid every N tiles (H; N set in the Show box), laid on the floors. The view's
   edges name each line, as `X: 30` or `Y: 45`.
-- Darkness, centred on the point the camera looks at.
+- **Light** (in the Show box): full light, or one of the game's eight light levels. These
+  are no light, candle, torch, taper, lantern, night vision, light sphere or Wizard Eye, and
+  the brightest. The view is then shaded as the game shades it. Each square gets one of the
+  16 shading maps of LIGHT.DAT (MONO.DAT's greys for night vision), by its distance in
+  squares and the level's row of SHADES.DAT. Squares beyond the level's range are not drawn.
+  The centre is the point looked at, or the eye in first person. In UW2, a level DL.DAT
+  never lets go darker shows at its minimum.
 
 **Moving the camera.** Drag with the left or right button to turn round the point
 looked at. Drag with the middle button, or with Shift, to move that point. Use the wheel
@@ -92,10 +98,15 @@ view chooses the tool:
   R V look up and down, and Esc leaves. Rock and floors more than two steps up stop you.
 
 Any record field can be typed into in the properties panel (decimal or `0x` hex), except
-the list links, which the editor keeps. An owner field has a list of the races to choose
+the list links, which the editor keeps. Small fields (fine X and Y, height, quality,
+owner, heading) have − and + buttons; hold them down to repeat. One-bit flags (invisible,
+enchanted, is quantity and so on) are checkboxes. The heading shows as an arrow, with north
+up. An owner field has a list of the races to choose
 from. Each race is named by its creatures, from OBJECTS.DAT's race byte.
 
-**Add…** (Insert) opens a window whose form changes with the kind of item:
+**Add…** (Insert) opens a window that lists the items as a tree. The groups are the object
+list's kinds (melee weapons, armour, containers and so on); a search opens the groups that
+match. The form changes with the kind of item:
 - a boulder or food gets quality, owner and quantity;
 - a weapon, armour or ring gets its enchantment, from the weapon/armour list (which names
   what each really does) or the 64 spells, with how it is stored. In UW2 a warning says
@@ -264,6 +275,37 @@ MTL file of its palette colours. **Export all…** writes every model that has f
 The models cannot be replaced yet. The replacement study in the project notes explains
 what that would take.
 
+## Checkpoints
+
+**File ▸ Checkpoints…** While there are unsaved changes, the editor keeps a copy of them
+every few minutes (5 by default; 0 turns it off). Each copy holds the changed levels, and
+STRINGS.PAK or PLAYER.DAT when they have unsaved edits. Only the newest copies are kept: 20
+by default, up to 1000. **Checkpoint now** takes one at once. **Restore** (or a double click)
+loads one back as unsaved edits: each level becomes one undo step, and nothing in the game
+folder changes until you save. The copies live in the editor's settings folder, one folder
+per opened game. Unsaved conversation scripts are not included; their strings are.
+
+## Colour scheme
+
+**View ▸ Colour scheme** switches between dark and light colours for every window. The
+choice is remembered between runs. The 3D view and the pictures keep their own colours.
+
+## What enchantments do
+
+- **A weapon's blow** looks only at a weapon enchantment, major class 12 (COMBAT.C
+  `DoPlayerWeapon`):
+  - In UW1, effects 0–7 add (effect & 7) + 1 to hit, and effects 8–15 add it to damage.
+  - In UW2, effects 0–3 add 2·effect + 1 damage, and effects 4–7 add 2·effect − 7 to hit
+    (the names say the opposite). Effects 8–15 are the special weapons. Their power fires on
+    a critical hit, or on every hit for the sixth: it heals the player, repels the undead,
+    casts a fireball, holds the target, or opens a door.
+- **Anything else on a weapon does nothing** while it is wielded. Only armour slots, rings
+  and a shield in the off hand count as worn (INVDATA.C `ObjWorn`), and only enchantments
+  without flag 11 apply while worn (PLAYDATA.C).
+- **A spell (flag 11) on any object** is cast when the object is used (double-clicked), at
+  most every 0x2FD ticks (USEITEMS.C `checkSpell`). An enchanted object never runs out; only
+  a wand's spell object has charges.
+
 ## Mods
 
 **Tools ▸ Mods…** (Ctrl+Shift+M):
@@ -315,6 +357,7 @@ what that would take.
 | Anywhere | Home | back to the start or the player |
 | Anywhere | Esc | cancel a target choice, or clear the selection |
 | Anywhere | F1 | this manual |
+| Properties | − +, held | step a field down or up |
 
 ## Files the editor writes
 

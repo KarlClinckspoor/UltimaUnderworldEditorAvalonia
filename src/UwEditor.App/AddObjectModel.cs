@@ -9,12 +9,16 @@ using UwEditor.Core.Editing;
 
 namespace UwEditor.App
 {
-    /// <summary>An item in the add window's list.</summary>
-    public sealed class ItemChoice
+    /// <summary>A line of the add window's tree: a kind of item (a group) or an item.</summary>
+    public sealed class ItemChoice : Observable
     {
-        public int Item { get; set; }
+        public int Item { get; set; } = -1;
         public string Label { get; set; }
         public Bitmap Icon { get; set; }
+        public bool IsGroup { get { return Item < 0; } }
+        public ObservableCollection<ItemChoice> Children { get; } = new ObservableCollection<ItemChoice>();
+        bool expanded;
+        public bool IsExpanded { get { return expanded; } set { Set(ref expanded, value); } }
         public override string ToString() { return Label; }
     }
 
@@ -30,7 +34,12 @@ namespace UwEditor.App
         public GameSession Session { get; private set; }
         public bool ForInventory { get; private set; }
         readonly List<ItemChoice> all;
+        /// <summary>The items that match the search, in id order.</summary>
         public ObservableCollection<ItemChoice> Items { get; } = new ObservableCollection<ItemChoice>();
+        /// <summary>The same items by kind, with the object list's categories, for the tree.</summary>
+        public ObservableCollection<ItemChoice> Groups { get; } = new ObservableCollection<ItemChoice>();
+        readonly Dictionary<int, string> groupOf = new Dictionary<int, string>();
+        static readonly KeyValuePair<ItemCategory, string>[] Kinds = ItemCategories.Choices.Where(c => c.Key != ItemCategory.All && c.Key != ItemCategory.Weapon).ToArray();
         public List<Choice> Races { get; private set; }
         public List<EnchantmentChoice> EnchantmentList { get; } = new List<EnchantmentChoice>();
         public List<EnchantmentChoice> SpellList { get; private set; }
@@ -50,6 +59,9 @@ namespace UwEditor.App
                 string n = s.Names.Get(i);
                 string proper = NamedItems.Of(s.Kind, i);
                 all.Add(new ItemChoice { Item = i, Label = string.Format("0x{0:X3}  {1}{2}", i, n, proper != null ? " (" + proper + ")" : ""), Icon = icon?.Invoke(i) });
+                var cat = ItemCategories.Of(i, s.Kind);
+                var kind = Kinds.FirstOrDefault(k => (k.Key & cat) != 0);
+                groupOf[i] = kind.Value ?? "Other";
             }
             Races = UwEditor.Core.Editing.Races.Of(s);
             SpellList = Enchantments.Spells(s.Strings);
@@ -74,13 +86,35 @@ namespace UwEditor.App
             Items.Clear();
             foreach (var c in all)
                 if (f.Length == 0 || c.Label.ToLowerInvariant().Contains(f)) Items.Add(c);
+            var open = new HashSet<string>(Groups.Where(g => g.IsExpanded).Select(g => g.Label.Split('(')[0].Trim()));
+            Groups.Clear();
+            foreach (var name in Kinds.Select(k => k.Value).Concat(new[] { "Other" }))
+            {
+                var members = Items.Where(c => groupOf[c.Item] == name).ToList();
+                if (members.Count == 0) continue;
+                var g = new ItemChoice { Label = string.Format("{0}  ({1})", name, members.Count) };
+                foreach (var m in members) g.Children.Add(m);
+                // a search opens every group it finds something in; otherwise keep what was open
+                g.IsExpanded = f.Length > 0 || open.Contains(name);
+                Groups.Add(g);
+            }
+        }
+
+        /// <summary>Opens the group holding an item (for selecting it from code).</summary>
+        public void Reveal(ItemChoice c)
+        {
+            foreach (var g in Groups) if (g.Children.Contains(c)) g.IsExpanded = true;
         }
 
         ItemChoice selected;
         public ItemChoice Selected
         {
             get { return selected; }
-            set { if (Set(ref selected, value)) SetItem(value == null ? -1 : value.Item); }
+            set
+            {
+                if (value != null && value.IsGroup) { value.IsExpanded = !value.IsExpanded; return; }
+                if (Set(ref selected, value)) { if (value != null) Reveal(value); SetItem(value == null ? -1 : value.Item); }
+            }
         }
 
         int item = -1;
@@ -194,9 +228,21 @@ namespace UwEditor.App
                 if (e == null) return "No enchantment: the link is a quantity of 1.";
                 string where = e.Flag11 ? string.Format("Stored as spell {0} (flag 11 set, link 0x{1:X3}).", e.Link & 0x3F, e.Link)
                     : string.Format("Stored as class 12 effect {0} (link 0x{1:X3}; the name is STRINGS.PAK block 6, 0x{2:X3}).", e.Link & 0xF, e.Link, 0x1C0 + (Enchantments.IsArmourLike(item) ? 0x10 : 0) + (e.Link & 0xF));
-                return (string.IsNullOrEmpty(e.Effect) ? "" : "What it does: " + e.Effect + "\n") + where;
+                return (string.IsNullOrEmpty(e.Effect) ? "" : "What it does: " + e.Effect + "\n") + where + Note(e);
             }
         }
+        /// <summary>What the game does with this enchantment on this kind of item (COMBAT.C DoPlayerWeapon, PLAYDATA.C, USEITEMS.C checkSpell).</summary>
+        string Note(EnchantmentChoice e)
+        {
+            bool weapon = (ItemCategories.Of(item, Session.Kind) & ItemCategory.Weapon) != 0;
+            if (e.Flag11)
+                return "\n" + (weapon ? "A swing ignores it: only weapon enchantments change a blow. " : "Wearing it does nothing: only effects without flag 11 apply while worn. ")
+                    + "The game casts the spell when the object is used (double-clicked), at most every 0x2FD ticks, and never runs out: only a spell object inside a wand has charges.";
+            if (weapon && (e.Link & 0x1F0) >> 4 != 12)
+                return "\nOn a weapon this does nothing: a held weapon is not worn, so only class 12 enchantments count, and only when it strikes.";
+            return "";
+        }
+
         public bool ShowUw2Warning { get { return Session.IsUw2 && (IsEnchantable || IsWand); } }
         public string Uw2Warning { get { return Enchantments.Uw2Warning; } }
 

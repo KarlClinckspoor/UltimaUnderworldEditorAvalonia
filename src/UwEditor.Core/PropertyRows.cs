@@ -23,6 +23,19 @@ namespace UwEditor.Core
         public int TargetIndex { get; set; }
         public bool Editable { get { return Field != null; } }
         public bool ReadOnly { get { return Field == null; } }
+        /// <summary>A one-bit field: a checkbox.</summary>
+        public bool IsFlag { get { return Field != null && Field.Bits == 1 && !Field.Signed; } }
+        /// <summary>A number typed or stepped with arrows.</summary>
+        public bool IsNumber { get { return Field != null && !IsFlag; } }
+        public bool IsChecked { get { return Value == "1"; } }
+        /// <summary>Small fields get arrows to step them by one (fine x/y, height, quality, heading...).</summary>
+        public bool HasSteppers { get { return IsNumber && Field.Bits <= 8 && Field.Name != "Item id" && Field.Name != "Link"; } }
+        public bool IsHeading { get { return Field != null && Field.Name == "Heading" && Field.Bits == 3; } }
+        /// <summary>The heading as a compass angle (0 north, clockwise), for its arrow.</summary>
+        public double HeadingAngle { get { int v; return int.TryParse(Value, out v) ? v * 45 : 0; } }
+        public bool ShowHex { get { return !IsHeading; } }
+        public int Maximum { get { return Field == null ? 0 : Field.Signed ? (1 << (Field.Bits - 1)) - 1 : (1 << Field.Bits) - 1; } }
+        public int Minimum { get { return Field == null || !Field.Signed ? 0 : -(1 << (Field.Bits - 1)); } }
         /// <summary>Values to pick from (an owner's race), or null.</summary>
         public List<UwEditor.Core.Editing.Choice> Choices { get; set; }
         public bool HasChoices { get { return Field != null && Choices != null; } }

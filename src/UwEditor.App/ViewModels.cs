@@ -183,8 +183,47 @@ namespace UwEditor.App
                 Options.GridStep = v; Raise(); OptionsChanged?.Invoke(false);
             }
         }
-        bool darkness;
-        public bool Darkness { get { return darkness; } set { if (Set(ref darkness, value)) OptionsChanged?.Invoke(false); } }
+        // ---- light: the editor's full light, or one of the game's eight light levels
+
+        int lightIndex, lastDark = 3;
+        public GameLight Light { get; private set; }
+        public List<string> LightChoices { get; } = new[] { "Full light (editor)" }.Concat(GameLight.LevelNames.Select(n => "Game light " + n)).ToList();
+        /// <summary>0: full light; 1-8: the game's light level 0-7.</summary>
+        public int LightIndex
+        {
+            get { return lightIndex; }
+            set
+            {
+                if (value < 0 || !Set(ref lightIndex, value)) return;
+                if (value > 0) lastDark = value;
+                Raise(nameof(Darkness)); Raise(nameof(LightNote));
+                OptionsChanged?.Invoke(false);
+            }
+        }
+        /// <summary>The light level the view uses: the one chosen, or UW2's minimum for the level when that is brighter; -1 for full light.</summary>
+        public int EffectiveLight
+        {
+            get
+            {
+                if (lightIndex <= 0) return -1;
+                int l = lightIndex - 1;
+                int min = Light != null && level != null && session != null && session.IsUw2 ? Light.MinimumLight(level.Level) : -1;
+                return Math.Max(l, min);
+            }
+        }
+        public string LightNote
+        {
+            get
+            {
+                if (lightIndex <= 0 || Light == null) return "";
+                int l = EffectiveLight;
+                var r = Light.Rows[l];
+                string s = string.Format("Light {0}: {1} squares seen", l, r.Range);
+                if (l != lightIndex - 1) s += " (this level is never darker: DL.DAT)";
+                return s;
+            }
+        }
+        public bool Darkness { get { return lightIndex > 0; } set { LightIndex = value ? lastDark : 0; } }
 
         // ---- opening
 
@@ -194,6 +233,7 @@ namespace UwEditor.App
         {
             session = s;
             Edits = new UwEditor.Core.Editing.LevelEdits(s);
+            try { Light = GameLight.Load(s.DataFolder, s.Graphics.Palette); } catch (Exception) { Light = null; }
             Edits.Changed += e => { if (level != null && e.Level == level.Level) ScheduleRefresh(); else RaiseEditState(); };
             icons.Clear();
             slots = s.LevelSlots();
@@ -231,6 +271,7 @@ namespace UwEditor.App
             BuildTree();
             RefreshSlots();
             RaiseEditState();
+            Raise(nameof(LightNote));
             LevelChanged?.Invoke(level);
         }
 

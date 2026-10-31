@@ -99,6 +99,13 @@ namespace UwEditor.Core.Editing
             Changed?.Invoke();
         }
 
+        /// <summary>Replaces the whole level (a checkpoint restored), as one undoable change.</summary>
+        public void Replace(byte[] newData, byte[] newTex, string label)
+        {
+            if (newData == null || newData.Length != data.Length) throw new InvalidOperationException("The level block has another size (" + (newData == null ? 0 : newData.Length) + " bytes, not " + data.Length + ").");
+            Change(label, () => { data = (byte[])newData.Clone(); if (newTex != null) tex = (byte[])newTex.Clone(); });
+        }
+
         public void Undo()
         {
             if (undo.Count == 0) return;
@@ -402,6 +409,7 @@ namespace UwEditor.Core.Editing
 
         public LevelEditor Existing(int level) { LevelEditor e; return editors.TryGetValue(level, out e) ? e : null; }
         public bool HasChanges { get { return editors.Values.Any(e => e.Dirty); } }
+        public IEnumerable<LevelEditor> Editors { get { return editors.Values; } }
         public IEnumerable<int> DirtyLevels { get { return editors.Values.Where(e => e.Dirty).Select(e => e.Level).OrderBy(l => l); } }
 
         /// <summary>The level as edited, or as the archive has it.</summary>

@@ -20,16 +20,21 @@
     <Grid ColumnDefinitions="300,16,*">
       <DockPanel Grid.Column="0">
         <TextBox DockPanel.Dock="Top" x:Name="FilterBox" Text="{Binding Filter}" PlaceholderText="Search: name or 0x id" Margin="0,0,0,6" />
-        <ListBox x:Name="ItemList" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" Background="{DynamicResource Panel}">
-          <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="app:ItemChoice">
+        <TreeView x:Name="ItemList" ItemsSource="{Binding Groups}" SelectedItem="{Binding Selected}" Background="{DynamicResource Panel}">
+          <TreeView.Styles>
+            <Style Selector="TreeViewItem" x:DataType="app:ItemChoice">
+              <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+            </Style>
+          </TreeView.Styles>
+          <TreeView.ItemTemplate>
+            <TreeDataTemplate x:DataType="app:ItemChoice" ItemsSource="{Binding Children}">
               <StackPanel Orientation="Horizontal" Spacing="6">
-                <Image Source="{Binding Icon}" Width="16" Height="16" RenderOptions.BitmapInterpolationMode="None" />
+                <Image Source="{Binding Icon}" Width="16" Height="16" RenderOptions.BitmapInterpolationMode="None" IsVisible="{Binding !IsGroup}" />
                 <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
               </StackPanel>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
+            </TreeDataTemplate>
+          </TreeView.ItemTemplate>
+        </TreeView>
       </DockPanel>
       <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="8">
@@ -73,8 +78,8 @@
                        Text="The wand holds a spell object (0x120): its link is the spell (flag 11 set), its quality the charges left." />
           </StackPanel>
 
-          <Border x:Name="Uw2WarningBox" IsVisible="{Binding ShowUw2Warning}" Background="#3A2A10" BorderBrush="#C9934C" BorderThickness="1" CornerRadius="4" Padding="10,8">
-            <TextBlock Text="{Binding Uw2Warning}" TextWrapping="Wrap" FontSize="12" Foreground="#F1D9A8" />
+          <Border x:Name="Uw2WarningBox" IsVisible="{Binding ShowUw2Warning}" Background="{DynamicResource WarnBg}" BorderBrush="{DynamicResource Accent}" BorderThickness="1" CornerRadius="4" Padding="10,8">
+            <TextBlock Text="{Binding Uw2Warning}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource WarnText}" />
           </Border>
 
           <!-- text -->

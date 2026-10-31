@@ -1,15 +1,45 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Styles.Resources>
-    <SolidColorBrush x:Key="Bg">#15161A</SolidColorBrush>
-    <SolidColorBrush x:Key="Panel">#1C1E23</SolidColorBrush>
-    <SolidColorBrush x:Key="PanelAlt">#22252B</SolidColorBrush>
-    <SolidColorBrush x:Key="Line">#2C3038</SolidColorBrush>
-    <SolidColorBrush x:Key="Text">#DCD8CF</SolidColorBrush>
-    <SolidColorBrush x:Key="Muted">#8E8B85</SolidColorBrush>
-    <SolidColorBrush x:Key="Accent">#C9934C</SolidColorBrush>
-    <SolidColorBrush x:Key="Warn">#D9A441</SolidColorBrush>
-    <FontFamily x:Key="Mono">Cascadia Mono, Consolas, Menlo, DejaVu Sans Mono, monospace</FontFamily>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="Bg">#15161A</SolidColorBrush>
+          <SolidColorBrush x:Key="Panel">#1C1E23</SolidColorBrush>
+          <SolidColorBrush x:Key="PanelAlt">#22252B</SolidColorBrush>
+          <SolidColorBrush x:Key="Toolbar">#1C1D22</SolidColorBrush>
+          <SolidColorBrush x:Key="Line">#2C3038</SolidColorBrush>
+          <SolidColorBrush x:Key="Text">#DCD8CF</SolidColorBrush>
+          <SolidColorBrush x:Key="Muted">#8E8B85</SolidColorBrush>
+          <SolidColorBrush x:Key="Accent">#C9934C</SolidColorBrush>
+          <SolidColorBrush x:Key="OnAccent">#15161A</SolidColorBrush>
+          <SolidColorBrush x:Key="Warn">#D9A441</SolidColorBrush>
+          <SolidColorBrush x:Key="Error">#E07060</SolidColorBrush>
+          <SolidColorBrush x:Key="WarnBg">#3A2A10</SolidColorBrush>
+          <SolidColorBrush x:Key="WarnText">#F1D9A8</SolidColorBrush>
+          <SolidColorBrush x:Key="Thumb">#0E0F12</SolidColorBrush>
+          <SolidColorBrush x:Key="Code">#E6C384</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="Bg">#F4F1EA</SolidColorBrush>
+          <SolidColorBrush x:Key="Panel">#FBF9F4</SolidColorBrush>
+          <SolidColorBrush x:Key="PanelAlt">#ECE7DC</SolidColorBrush>
+          <SolidColorBrush x:Key="Toolbar">#EDE9E0</SolidColorBrush>
+          <SolidColorBrush x:Key="Line">#D5CFC2</SolidColorBrush>
+          <SolidColorBrush x:Key="Text">#24221E</SolidColorBrush>
+          <SolidColorBrush x:Key="Muted">#6E6A62</SolidColorBrush>
+          <SolidColorBrush x:Key="Accent">#9A6420</SolidColorBrush>
+          <SolidColorBrush x:Key="OnAccent">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="Warn">#9A6A10</SolidColorBrush>
+          <SolidColorBrush x:Key="Error">#B03A2A</SolidColorBrush>
+          <SolidColorBrush x:Key="WarnBg">#FBEBC8</SolidColorBrush>
+          <SolidColorBrush x:Key="WarnText">#4A3510</SolidColorBrush>
+          <SolidColorBrush x:Key="Thumb">#2A2B30</SolidColorBrush>
+          <SolidColorBrush x:Key="Code">#7A4A10</SolidColorBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+      <FontFamily x:Key="Mono">Cascadia Mono, Consolas, Menlo, DejaVu Sans Mono, monospace</FontFamily>
+    </ResourceDictionary>
   </Styles.Resources>
 
   <Style Selector="Window">
@@ -57,9 +87,21 @@
   </Style>
 
   <!-- the status bar -->
+  <Style Selector="RepeatButton.step">
+    <Setter Property="Width" Value="20" />
+    <Setter Property="Height" Value="22" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="1,0,0,0" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Delay" Value="400" />
+    <Setter Property="Interval" Value="120" />
+  </Style>
   <Style Selector="Border.toolbar">
-    <Setter Property="Background" Value="#1C1D22" />
-    <Setter Property="BorderBrush" Value="#2A2B31" />
+    <Setter Property="Background" Value="{DynamicResource Toolbar}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
     <Setter Property="Padding" Value="8,5" />
   </Style>
@@ -135,7 +177,7 @@
   <Style Selector="Border.thumb">
     <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="Background" Value="#0E0F12" />
+    <Setter Property="Background" Value="{DynamicResource Thumb}" />
     <Setter Property="Width" Value="66" />
     <Setter Property="Height" Value="66" />
   </Style>
@@ -158,6 +200,6 @@
   </Style>
   <Style Selector="ToggleButton.chip:checked /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Accent}" />
-    <Setter Property="Foreground" Value="#15161A" />
+    <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
   </Style>
 </Styles>

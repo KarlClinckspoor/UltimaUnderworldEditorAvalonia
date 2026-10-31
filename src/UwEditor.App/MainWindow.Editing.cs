@@ -43,7 +43,8 @@ namespace UwEditor.App
             View.PaintEnded += () => { vm.Editor?.EndBatch(); };
             View.HeightWheel += OnHeightWheel;
             View.DoublePicked += OnDoublePicked;
-            View.FirstPersonChanged += () => { WalkButton.IsChecked = View.FirstPerson; UpdateViewText(); };
+            View.FirstPersonChanged += () => { WalkButton.IsChecked = View.FirstPerson; UpdateViewText(); UpdateMarkers(); };
+            View.CameraChanged += () => { if (View.FirstPerson) UpdateMarkers(); };
             View.GroundAt = GroundAt;
             PropertyRowView.Committed += OnRowCommitted;
             Closed += (s, e) => PropertyRowView.Committed -= OnRowCommitted;
@@ -221,13 +222,17 @@ namespace UwEditor.App
             var tris = new List<float>();
             var level = vm.Level;
             if (level == null || vm.Session == null) return tris;
+            // walking, an arrow round the eye would fill the view
+            Func<Vector3?, bool> near = p => View.FirstPerson && p != null && new Vector2(p.Value.X - View.Camera.Target.X, p.Value.Z - View.Camera.Target.Z).Length() < 0.7f;
             var start = MarkerPoint(vm.Session.NewGameStart, level);
+            if (near(start)) start = null;
             if (start != null)
             {
                 Markers.ArrowDown(tris, start.Value, Markers.Red);
                 LevelScene.StartMarker(lines, start.Value, (float)vm.Session.NewGameStart.FacingDegrees, new Vector4(1f, 0.3f, 0.25f, 1f));
             }
             var player = MarkerPoint(vm.Session.PlayerPoint, level);
+            if (near(player)) player = null;
             if (player != null)
             {
                 Markers.ArrowDown(tris, player.Value, Markers.Green);
@@ -316,6 +321,7 @@ namespace UwEditor.App
                     double floor = vm.Level.FloorAt(tx, ty, fx, fy);
                     sheet.Dat.SetPosition(level, (int)((tx + fx) * 256), (int)((ty + fy) * 256), (int)Math.Round(floor * 256), sheet.Dat.SavedFacing);
                     sheet.Dirty = true;
+                    NoteEdit();
                     s.PlayerMoved(sheet.Dat);
                     vm.RaiseEditState();
                     vm.EditStatus = string.Format("Player moved to ({0}, {1}) on level {2} (save with Ctrl+S or in the player window).", tx, ty, level);

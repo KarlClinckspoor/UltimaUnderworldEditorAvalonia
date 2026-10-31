@@ -416,5 +416,122 @@ namespace UwEditor.App.Tests
             mw.Close();
             w.Close();
         }
+    
+        [AvaloniaFact]
+        public void The_add_window_groups_items_by_kind_in_a_tree()
+        {
+            if (Uw1 == null) return;
+            var s = GameSession.Open(Uw1);
+            var m = new AddObjectModel(s, null, false);
+            Assert.Contains(m.Groups, g => g.Label.StartsWith("Melee weapons"));
+            Assert.Contains(m.Groups, g => g.Label.StartsWith("Traps"));
+            Assert.All(m.Groups, g => Assert.False(g.IsExpanded));
+            Assert.Equal(m.Items.Count, m.Groups.Sum(g => g.Children.Count));
+            m.Filter = "boulder";
+            Assert.All(m.Groups, g => Assert.True(g.IsExpanded));
+            Assert.All(m.Groups.SelectMany(g => g.Children), c => Assert.Contains("boulder", c.Label));
+            var group = m.Groups[0];
+            m.Selected = group;                     // a group opens or closes, nothing is chosen
+            Assert.Equal(-1, m.Item);
+            m.Filter = "";
+            var sword = m.Items.First(c => c.Item == 0x005);
+            m.Selected = sword;
+            Assert.True(m.Groups.First(g => g.Children.Contains(sword)).IsExpanded);
+            // a spell on a weapon: the note says a swing ignores it
+            m.EnchantmentIndex = m.EnchantmentList.FindIndex(e => e.Flag11);
+            Assert.Contains("swing ignores it", m.EnchantmentEffect);
+        }
+
+        [AvaloniaFact]
+        public void Flags_are_checkboxes_small_fields_have_steppers_and_the_heading_an_arrow()
+        {
+            if (Uw1 == null) return;
+            var w = OpenQuiet(Uw1);
+            var vm = w.ViewModel;
+            vm.Select(942, -1, -1, true);
+            Ui.Pump();
+            var inv = vm.ObjectRows.First(r => r.Name == "Invisible");
+            Assert.True(inv.IsFlag && !inv.IsNumber);
+            var fx = vm.ObjectRows.First(r => r.Name == "Fine X");
+            Assert.True(fx.HasSteppers);
+            Assert.Equal(7, fx.Maximum);
+            var head = vm.ObjectRows.First(r => r.Name == "Heading");
+            Assert.True(head.IsHeading);
+            Assert.False(vm.ObjectRows.First(r => r.Name == "Link").HasSteppers);
+            // the + button steps the field and the edit lands in the level
+            var view = w.GetLogicalDescendants().OfType<PropertyRowView>().First(v => v.DataContext == fx);
+            int before = vm.Level.Objects[942].FineX;
+            var up = view.GetLogicalDescendants().OfType<RepeatButton>().First(b => b.Name == "Up");
+            Ui.Click(w, up);
+            vm.FlushRefresh();
+            Assert.Equal(Math.Min(7, before + 1), vm.Level.Objects[942].FineX);
+            // ticking the invisible box sets the bit
+            var invView = w.GetLogicalDescendants().OfType<PropertyRowView>().First(v => (v.DataContext as PropertyRow)?.Name == "Invisible");
+            var box = invView.GetLogicalDescendants().OfType<CheckBox>().First();
+            Ui.Click(w, box);
+            vm.FlushRefresh();
+            Assert.True(vm.Level.Objects[942].Invisible);
+            w.Close();
+        }
+
+        [AvaloniaFact]
+        public void The_light_levels_follow_the_game_and_the_colour_scheme_switches()
+        {
+            if (Uw1 == null) return;
+            var w = OpenQuiet(Uw1);
+            var vm = w.ViewModel;
+            Assert.Equal(9, vm.LightChoices.Count);
+            Assert.NotNull(vm.Light);
+            Assert.Equal(15, vm.Light.ShadeAt(0, 4));      // with no light nothing past 3 squares shows
+            Assert.Equal(5, vm.Light.ShadeAt(0, 0));
+            Assert.Equal(0, vm.Light.ShadeAt(4, 0));       // a lantern lights the player's square fully
+            Assert.True(vm.Light.ShadeAt(7, 6) < 15);
+            vm.LightIndex = 3;   // torch
+            Assert.True(vm.Darkness);
+            Assert.Equal(2, vm.EffectiveLight);
+            Assert.Contains("4 squares", vm.LightNote);
+            vm.Darkness = false;
+            Assert.Equal(-1, vm.EffectiveLight);
+            w.SetTheme(ColourScheme.Light);
+            Ui.Pump();
+            Assert.True(ColourScheme.IsLight);
+            w.SetTheme(ColourScheme.Dark);
+            Assert.False(ColourScheme.IsLight);
+            w.Close();
+        }
+
+        [AvaloniaFact]
+        public void Checkpoints_keep_unsaved_levels_and_restore_them_as_edits()
+        {
+            if (Uw1 == null) return;
+            string dir = Path.Combine(Path.GetTempPath(), "uwedit-cp-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var w = OpenQuiet(Uw1);
+                var vm = w.ViewModel;
+                Assert.NotNull(w.CheckpointStore);
+                Assert.Null(w.WriteCheckpoint("test", true));          // nothing unsaved yet
+                vm.Select(942, -1, -1, true);
+                vm.EditField(vm.ObjectRows.First(r => r.Name == "Quality"), "7");
+                vm.FlushRefresh();
+                var c = w.WriteCheckpoint("test", true);
+                Assert.NotNull(c);
+                Assert.Equal(new[] { 1 }, c.Levels);
+                w.Undo();
+                Assert.Equal(40, vm.Level.Objects[942].Quality);
+                string said = w.RestoreCheckpoint(c);
+                Assert.Contains("level 1", said);
+                Assert.Equal(7, vm.Level.Objects[942].Quality);
+                Assert.True(vm.CanUndo);
+                // only the newest are kept
+                var store = new Checkpoints(dir, vm.Session);
+                for (int k = 0; k < 4; k++) { store.Write(vm.Edits, null, "k" + k, 2); System.Threading.Thread.Sleep(5); }
+                Assert.Equal(2, store.List().Count);
+                Assert.Equal("k3", store.List()[0].Label);
+                foreach (var x in w.CheckpointStore.List()) w.CheckpointStore.Delete(x);
+                w.Close();
+            }
+            finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+        }
     }
 }

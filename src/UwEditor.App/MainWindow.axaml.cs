@@ -43,11 +43,15 @@ namespace UwEditor.App
             View.FrameDrawn += UpdateViewText;
             AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
             InitEditing();
+            InitCheckpoints();
             Columns.ColumnDefinitions[0].Width = new GridLength(Math.Clamp(settings.LeftWidth, 200, 600));
             Columns.ColumnDefinitions[4].Width = new GridLength(Math.Clamp(settings.RightWidth, 240, 700));
             vm.ShowGrid = settings.Grid;
             vm.GridStep = settings.GridStep;
             vm.ShowModels = settings.Models;
+            ColourScheme.Set(settings.Theme);
+            DarkThemeItem.IsChecked = settings.Theme != ColourScheme.Light;
+            LightThemeItem.IsChecked = settings.Theme == ColourScheme.Light;
             View.CameraChanged += UpdateGridLabels;
             if (Program.StateFile != null)
             {
@@ -77,6 +81,8 @@ namespace UwEditor.App
                 if (Program.PlayerAtStart && vm.Session != null) { var pw = ShowPlayer(); if (pw != null) pw.Tabs.SelectedIndex = Program.TabAtStart; }
                 if (Program.GraphicsAtStart && vm.Session != null) ShowGraphics()?.ShowTab(Program.TabAtStart);
                 if (Program.WindowAtStart != null && vm.Session != null) OpenWindowAtStart(Program.WindowAtStart);
+                if (Program.LightAtStart >= 0 && vm.Session != null) vm.LightIndex = Math.Min(7, Program.LightAtStart) + 1;
+                if (Program.WalkAtStart && vm.Session != null) { vm.Select(-1, (int)vm.Session.Start.X, (int)vm.Session.Start.Y, false); ToggleFirstPerson(); }
                 if (Program.ReadyFile != null) WriteReadyFileAfterFrames(3);
                 View.Focus();
             };
@@ -170,7 +176,7 @@ namespace UwEditor.App
                 return;
             }
             atlas = SpriteAtlas.Build(s.Graphics.ObjectPictures);
-            Resources["Accent"] = new SolidColorBrush(s.IsUw2 ? Uw2Accent : Uw1Accent);
+            ApplyAccent(s.IsUw2);
             Title = "Underworld Editor — " + s.Title;
             conversationWindow?.Close();
             globalsWindow?.Close();
@@ -186,6 +192,7 @@ namespace UwEditor.App
             settings.Save();
             BuildRecentMenu();
             vm.Open(s);
+            CheckpointsFor(s);
         }
 
         void BuildRecentMenu()
@@ -214,6 +221,7 @@ namespace UwEditor.App
             View.State.SelectedObject = View.State.SelectedTile = View.State.HoverObject = View.State.HoverTile = -1;
             vm.HoverText = "";
             PlaceCamera(level);
+            ApplyLight();
             UpdateMarkers();
             UpdateGrid();
         }
@@ -250,9 +258,16 @@ namespace UwEditor.App
             return new Vector3((float)st.X, (float)z, (float)st.Y);
         }
 
+        void ApplyLight()
+        {
+            View.State.Light = vm.Light;
+            View.State.LightLevel = vm.Light == null ? -1 : vm.EffectiveLight;
+            View.Redraw();
+        }
+
         void OnOptionsChanged(bool rebuildMesh)
         {
-            View.State.Darkness = vm.Darkness;
+            ApplyLight();
             if (vm.Level == null || scene == null) return;
             if (rebuildMesh)
             {
@@ -573,6 +588,29 @@ namespace UwEditor.App
             if (l == null) return;
             _ = MessageWindow.Show(this, "Object lists of level " + l.Level,
                 (l.CheckOk ? "The level passes the game's check (Obj_ListOkay, obj/OBJECTS.C).\n\n" : "The level fails the game's check (Obj_ListOkay).\n\n") + l.CheckReport);
+        }
+
+        void ApplyAccent(bool uw2)
+        {
+            var b = new SolidColorBrush(ColourScheme.Accent(uw2));
+            Resources["Accent"] = b;
+            // the tool windows take the game's accent too
+            if (Application.Current != null) Application.Current.Resources["Accent"] = b;
+        }
+
+        void OnDarkTheme(object sender, RoutedEventArgs e) { SetTheme(ColourScheme.Dark); }
+        void OnLightTheme(object sender, RoutedEventArgs e) { SetTheme(ColourScheme.Light); }
+
+        /// <summary>Switches the colour scheme of every window, and remembers it.</summary>
+        public void SetTheme(string name)
+        {
+            ColourScheme.Set(name);
+            settings.Theme = name;
+            settings.Save();
+            DarkThemeItem.IsChecked = name != ColourScheme.Light;
+            LightThemeItem.IsChecked = name == ColourScheme.Light;
+            ApplyAccent(vm.Session != null && vm.Session.IsUw2);
+            vm.EditStatus = (name == ColourScheme.Light ? "Light" : "Dark") + " colours.";
         }
 
         void OnManual(object sender, RoutedEventArgs e) { ManualWindow.ShowAt(this); }

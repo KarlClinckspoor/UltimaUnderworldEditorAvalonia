@@ -44,6 +44,7 @@ namespace UwEditor.App
                 try { strings = StringsEditor.Open(vm.Session, shared); }
                 catch (Exception ex) { _ = MessageWindow.Show(this, "No strings", ex.Message); return null; }
                 strings.Saved += () => { vm.Session.ReloadStrings(); vm.RefreshNames(); };
+                strings.Changed += NoteEdit;
             }
             return strings;
         }
@@ -104,6 +105,7 @@ namespace UwEditor.App
                 case "triggers": ShowTriggers(); break;
                 case "mods": ShowMods(); break;
                 case "models": ShowModels(); break;
+                case "checkpoints": ShowCheckpoints(); break;
                 case "manual": ManualWindow.ShowAt(this, "Editing levels"); break;
                 case "add":
                     var w = new AddObjectWindow(vm.Session, vm.IconOf, false, "On the selected tile.");

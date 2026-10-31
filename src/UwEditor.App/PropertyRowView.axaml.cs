@@ -44,6 +44,31 @@ namespace UwEditor.App
             menu.ShowAt(PickButton);
         }
 
+        void OnFlagClick(object sender, RoutedEventArgs e)
+        {
+            var row = DataContext as PropertyRow;
+            if (row == null || !row.IsFlag) return;
+            Committed?.Invoke(row, Flag.IsChecked == true ? "1" : "0");
+        }
+
+        void Step(int by)
+        {
+            var row = DataContext as PropertyRow;
+            if (row == null || !row.IsNumber) return;
+            int v;
+            if (!int.TryParse((Box.Text ?? "").Trim(), out v) && !int.TryParse(row.Value, out v)) return;
+            int max = row.Maximum, min = row.Minimum;
+            int n = v + by;
+            if (row.IsHeading) n = ((n % 8) + 8) % 8;     // a heading turns round
+            else n = Math.Max(min, Math.Min(max, n));
+            if (n == v) return;
+            Box.Text = n.ToString();
+            Committed?.Invoke(row, n.ToString());
+        }
+
+        void OnUp(object sender, RoutedEventArgs e) { Step(1); }
+        void OnDown(object sender, RoutedEventArgs e) { Step(-1); }
+
         void OnLostFocus(object sender, RoutedEventArgs e) { Commit(); }
     }
 }

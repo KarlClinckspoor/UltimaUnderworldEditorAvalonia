@@ -146,7 +146,7 @@ namespace UwEditor.App
                 {
                     int level = h.Groups[1].Length;
                     var tb = new TextBlock { Text = h.Groups[2].Value, FontWeight = FontWeight.SemiBold, FontSize = level == 1 ? 22 : level == 2 ? 17 : 14, Margin = new Thickness(0, level == 1 ? 0 : 12, 0, 2), TextWrapping = TextWrapping.Wrap };
-                    if (level == 2) tb.Foreground = (IBrush)Application.Current?.FindResource("Accent") ?? Brushes.Goldenrod;
+                    if (level == 2) tb.Bind(TextBlock.ForegroundProperty, tb.GetResourceObservable("Accent"));
                     page.Children.Add(tb);
                     if (level >= 2) headings.Add((h.Groups[2].Value, tb, level));
                     searchable.Add((tb, tb.Text));
@@ -231,7 +231,12 @@ namespace UwEditor.App
             {
                 string t = m.Value;
                 if (t.StartsWith("**") && t.EndsWith("**") && t.Length > 4) tb.Inlines.Add(new Run(t.Substring(2, t.Length - 4)) { FontWeight = FontWeight.SemiBold });
-                else if (t.StartsWith("`") && t.EndsWith("`") && t.Length > 2) tb.Inlines.Add(new Run(t.Substring(1, t.Length - 2)) { FontFamily = mono ?? FontFamily.Default, Foreground = new SolidColorBrush(Color.Parse("#E6C384")) });
+                else if (t.StartsWith("`") && t.EndsWith("`") && t.Length > 2)
+                {
+                    var run = new Run(t.Substring(1, t.Length - 2)) { FontFamily = mono ?? FontFamily.Default };
+                    run.Bind(TextElement.ForegroundProperty, tb.GetResourceObservable("Code"));
+                    tb.Inlines.Add(run);
+                }
                 else tb.Inlines.Add(new Run(t));
             }
             return tb;

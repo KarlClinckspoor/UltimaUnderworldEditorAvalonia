@@ -16,6 +16,8 @@
         <MenuItem Header="_Open game folder…" InputGesture="Ctrl+O" Click="OnOpen" />
         <MenuItem Header="Open _recent" x:Name="RecentMenu" />
         <Separator />
+        <MenuItem Header="_Checkpoints…" Click="OnCheckpoints" IsEnabled="{Binding HasGame}" />
+        <Separator />
         <MenuItem Header="E_xit" Click="OnExit" />
       </MenuItem>
       <MenuItem Header="_Edit">
@@ -44,6 +46,11 @@
         <MenuItem Header="Look _straight down" InputGesture="T" Click="OnTopDown" />
         <MenuItem Header="Go to the _start" InputGesture="Home" Click="OnGoToStart" />
         <MenuItem Header="_First person" InputGesture="P" Click="OnFirstPerson" />
+        <Separator />
+        <MenuItem Header="Colour _scheme">
+          <MenuItem x:Name="DarkThemeItem" Header="_Dark" ToggleType="Radio" GroupName="theme" Click="OnDarkTheme" />
+          <MenuItem x:Name="LightThemeItem" Header="_Light" ToggleType="Radio" GroupName="theme" Click="OnLightTheme" />
+        </MenuItem>
       </MenuItem>
       <MenuItem Header="_Level">
         <MenuItem Header="_Previous level" InputGesture="PageUp" Click="OnPreviousLevel" />
@@ -120,9 +127,14 @@
               <CheckBox Content="Objects" IsChecked="{Binding ShowObjects}" Margin="0,0,14,0" />
               <CheckBox Content="Invisible" IsChecked="{Binding ShowInvisible}" Margin="0,0,14,0" />
               <CheckBox Content="Traps and triggers" IsChecked="{Binding ShowTraps}" Margin="0,0,14,0" />
-              <CheckBox Content="Darkness" IsChecked="{Binding Darkness}" Margin="0,0,14,0" />
               <CheckBox Content="3D models" IsChecked="{Binding ShowModels}" />
             </WrapPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,2">
+              <TextBlock Text="Light" VerticalAlignment="Center" FontSize="12" />
+              <ComboBox x:Name="LightBox" ItemsSource="{Binding LightChoices}" SelectedIndex="{Binding LightIndex}" Width="220" FontSize="12"
+                        ToolTip.Tip="Full light, or the game's own light: the shading the player sees with no light, a candle, a torch, a lantern and so on (SHADES.DAT, LIGHT.DAT), round the point looked at (the eye in first person)." />
+            </StackPanel>
+            <TextBlock Text="{Binding LightNote}" Classes="muted" FontSize="11" IsVisible="{Binding Darkness}" />
             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
               <CheckBox Content="Grid every" IsChecked="{Binding ShowGrid}" />
               <NumericUpDown Value="{Binding GridStep}" Minimum="1" Maximum="32" Increment="1" FormatString="0"
@@ -235,7 +247,7 @@
                 <Button Content="Variable in globals…" Click="OnTrapVariable" IsVisible="{Binding HasTrapVariable}" Margin="0,0,6,6"
                         ToolTip.Tip="Open the global variables window on the variable this trap sets or checks" />
               </WrapPanel>
-              <Border Background="#1F2026" CornerRadius="4" Padding="10,8">
+              <Border Background="{DynamicResource PanelAlt}" CornerRadius="4" Padding="10,8">
                 <SelectableTextBlock x:Name="TrapHelp" Text="{Binding ObjectHelp}" TextWrapping="Wrap" FontSize="12" LineHeight="17" />
               </Border>
             </StackPanel>

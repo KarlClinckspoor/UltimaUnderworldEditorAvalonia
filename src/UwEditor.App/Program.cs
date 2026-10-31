@@ -24,6 +24,10 @@ namespace UwEditor.App
         public static bool GlobalsAtStart;
         /// <summary>--window keys|strings|triggers|mods|add: a tool window to open (screenshots).</summary>
         public static string WindowAtStart;
+        /// <summary>--light n: the game's light level n (0-7) in the view.</summary>
+        public static int LightAtStart = -1;
+        /// <summary>--walk: start in first person.</summary>
+        public static bool WalkAtStart;
         /// <summary>--item hex: the item the add window starts on.</summary>
         public static int ItemAtStart = -1;
         /// <summary>--player / --graphics: open those windows at start (--tab picks the tab).</summary>
@@ -53,6 +57,8 @@ namespace UwEditor.App
                 }
                 else if (a == "--globals") GlobalsAtStart = true;
                 else if (a == "--window" && i + 1 < args.Length) WindowAtStart = args[++i];
+                else if (a == "--light" && i + 1 < args.Length) int.TryParse(args[++i], out LightAtStart);
+                else if (a == "--walk") WalkAtStart = true;
                 else if (a == "--item" && i + 1 < args.Length) int.TryParse(args[++i].Replace("0x", ""), System.Globalization.NumberStyles.HexNumber, null, out ItemAtStart);
                 else if (a == "--player") PlayerAtStart = true;
                 else if (a == "--graphics") GraphicsAtStart = true;

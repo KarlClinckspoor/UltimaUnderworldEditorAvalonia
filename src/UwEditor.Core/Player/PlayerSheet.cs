@@ -62,6 +62,15 @@ namespace UwEditor.Core.Player
             return s;
         }
 
+        /// <summary>A sheet from bytes that belong to a file (a checkpoint restored): unsaved until written there.</summary>
+        public static PlayerSheet FromBytes(byte[] bytes, GameKind kind, string dataFolder, string path)
+        {
+            var s = FromBytes(bytes, kind, dataFolder);
+            s.Path = path;
+            s.Dirty = true;
+            return s;
+        }
+
         public static PlayerSheet FromBytes(byte[] bytes, GameKind kind, string dataFolder)
         {
             var detected = PlayerDat.Detect(bytes);

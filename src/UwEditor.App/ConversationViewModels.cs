@@ -24,9 +24,12 @@ namespace UwEditor.App
     /// <summary>A line of the readable view.</summary>
     public sealed class DialogueLine
     {
-        static readonly IBrush SayBrush = new SolidColorBrush(Color.Parse("#E8E2D4")), RespondBrush = new SolidColorBrush(Color.Parse("#C9934C")),
-            MenuBrush = new SolidColorBrush(Color.Parse("#7FB6E0")), LabelBrush = new SolidColorBrush(Color.Parse("#8E8B85")),
-            FuncBrush = new SolidColorBrush(Color.Parse("#D9A441")), CodeBrush = new SolidColorBrush(Color.Parse("#A9B1A0"));
+        static IBrush SayBrush { get { return ColourScheme.Pick("#E8E2D4", "#2B2A26"); } }
+        static IBrush RespondBrush { get { return ColourScheme.Pick("#C9934C", "#8A5A1C"); } }
+        static IBrush MenuBrush { get { return ColourScheme.Pick("#7FB6E0", "#2F6DA8"); } }
+        static IBrush LabelBrush { get { return ColourScheme.Pick("#8E8B85", "#6E6A62"); } }
+        static IBrush FuncBrush { get { return ColourScheme.Pick("#D9A441", "#8A6210"); } }
+        static IBrush CodeBrush { get { return ColourScheme.Pick("#A9B1A0", "#4A5544"); } }
         public PseudoLine Line { get; set; }
         public string Text { get { return new string(' ', 4 * Line.Indent) + Line.Text; } }
         public string Address { get { return Line.Kind == PseudoKind.Comment && Line.Text.Length == 0 ? "" : Line.Address.ToString("X4"); } }

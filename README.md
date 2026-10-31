@@ -36,7 +36,13 @@ player and graphics. Changes can be packed into mods. The plan is in
   - M switches the models off. Invisible objects and traps or triggers can be shown too.
   - A yellow grid every N tiles (H; N set in the Show box), laid on the floors. The view's
     edges name each line, as `X: 30` or `Y: 45`.
-  - Darkness, centred on the point the camera looks at.
+  - **Light** (in the Show box): full light, or one of the game's eight light levels. These
+    are no light, candle, torch, taper, lantern, night vision, light sphere or Wizard Eye, and
+    the brightest. The view is then shaded as the game shades it. Each square gets one of the
+    16 shading maps of LIGHT.DAT (MONO.DAT's greys for night vision), by its distance in
+    squares and the level's row of SHADES.DAT. Squares beyond the level's range are not drawn.
+    The centre is the point looked at, or the eye in first person. In UW2, a level DL.DAT
+    never lets go darker shows at its minimum.
 - **Finding objects:**
   - Creatures that talk show their name and unique objects their plot name in brackets,
     as in "fighter (Corby)" and "shiny sword (Caliburn, the Sword of Justice)".
@@ -167,10 +173,15 @@ view chooses the tool:
   R V look up and down, and Esc leaves. Rock and floors more than two steps up stop you.
 
 Any record field can be typed into in the properties panel (decimal or `0x` hex), except
-the list links, which the editor keeps. An owner field has a list of the races to choose
+the list links, which the editor keeps. Small fields (fine X and Y, height, quality,
+owner, heading) have − and + buttons; hold them down to repeat. One-bit flags (invisible,
+enchanted, is quantity and so on) are checkboxes. The heading shows as an arrow, with north
+up. An owner field has a list of the races to choose
 from. Each race is named by its creatures, from OBJECTS.DAT's race byte.
 
-**Add…** (Insert) opens a window whose form changes with the kind of item:
+**Add…** (Insert) opens a window that lists the items as a tree. The groups are the object
+list's kinds (melee weapons, armour, containers and so on); a search opens the groups that
+match. The form changes with the kind of item:
 - a boulder or food gets quality, owner and quantity;
 - a weapon, armour or ring gets its enchantment, from the weapon/armour list (which names
   what each really does) or the 64 spells, with how it is stored. In UW2 a warning says
@@ -198,6 +209,14 @@ new-game start can only move on level 1: it is patched into `UW.EXE` / `UW2.EXE`
 kept as `.ORIG`. The player in a saved game can go to any level, and is saved in
 `PLAYER.DAT`. Clicking the green arrow opens the player window. Edit ▸ Move the … here
 uses the selected tile.
+
+**Checkpoints** (File ▸ Checkpoints…): while there are unsaved changes, a copy of them is
+kept every 5 minutes. A copy holds the changed levels, plus STRINGS.PAK or PLAYER.DAT when
+they have unsaved edits. The newest 20 are kept. Both numbers can be changed: the interval
+from 0 (never) upwards, and up to 1000 copies. Restoring loads a checkpoint back as unsaved
+edits that can be undone; the game folder is not touched until you save.
+
+**Colour scheme:** View ▸ Colour scheme ▸ Dark or Light, remembered between runs.
 
 ### More tools
 
