@@ -17,7 +17,9 @@ namespace UwEditor.App
 
         static string PathOf()
         {
-            string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UwEditorFree");
+            // UWEDITOR_SETTINGS_DIR: tests keep their own settings away from the user's
+            string dir = Environment.GetEnvironmentVariable("UWEDITOR_SETTINGS_DIR");
+            if (string.IsNullOrEmpty(dir)) dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UwEditorFree");
             return Path.Combine(dir, "settings.json");
         }
 

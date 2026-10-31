@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Screenshot tests of the real program with its OpenGL view: Linux only. Each test starts
+       the editor on a private virtual screen (Xvfb, Mesa software OpenGL), drives it with
+       xdotool, captures it with ImageMagick and compares with baselines. Without those tools,
+       or off Linux, the tests are skipped. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RollForward>Major</RollForward>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- built first, run from its own folder -->
+    <ProjectReference Include="../../src/UwEditor.App/UwEditor.App.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../src/UwEditor.Core/UwEditor.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/*.cs" Link="Shared/%(Filename)%(Extension)" />
+    <Compile Include="../UwEditor.Core.Tests/GameData.cs" Link="Shared/GameData.cs" />
+  </ItemGroup>
+</Project>

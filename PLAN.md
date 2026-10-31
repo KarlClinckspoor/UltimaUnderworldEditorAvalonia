@@ -52,6 +52,14 @@ So M0, M1 and M2 are done, and most of M3 and M4.
   the wall texture.
 - A yellow grid every N tiles, with `X: n` / `Y: n` labels at the view's edges.
 - The rest of the Unity editor's features are planned in ROADMAP.md.
+- Object list:
+  - search over names, NPC names and object texts;
+  - quick filters by kind and Enchanted;
+  - icons;
+  - Find in all levels.
+- Interface tests, two kinds:
+  - headless Avalonia tests of the windows;
+  - screenshot tests of the OpenGL view on Xvfb, with picture baselines and a state file.
 
 **Not yet:**
 - Run on Windows and macOS.

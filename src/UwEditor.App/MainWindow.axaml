@@ -36,6 +36,7 @@
         <MenuItem Header="_Next level" InputGesture="PageDown" Click="OnNextLevel" />
         <Separator />
         <MenuItem Header="_Check the object lists" Click="OnCheckLevel" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Find in all levels…" Click="OnFindAll" InputGesture="Ctrl+Shift+F" IsEnabled="{Binding HasGame}" />
       </MenuItem>
       <MenuItem Header="_Tools">
         <MenuItem Header="Paint tiles (not yet)" IsEnabled="False" />
@@ -109,7 +110,24 @@
 
           <DockPanel IsVisible="{Binding HasGame}">
             <TextBlock DockPanel.Dock="Top" Classes="h" Text="OBJECTS" />
-            <TextBox DockPanel.Dock="Top" Text="{Binding Filter}" PlaceholderText="Filter: name, #index or 0x item id" Margin="0,0,0,6" />
+            <TextBox x:Name="FilterBox" DockPanel.Dock="Top" Text="{Binding Filter}" Margin="0,0,0,6"
+                     PlaceholderText="Search: name, text, #index, 0x item id"
+                     ToolTip.Tip="Matches item names, NPC names, the text of books, scrolls, writings, gravestones and text traps, #index or 0x item id." />
+            <ItemsControl x:Name="QuickFilterBar" DockPanel.Dock="Top" ItemsSource="{Binding QuickFilters}" Margin="0,0,0,4">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="app:QuickFilter">
+                  <ToggleButton Classes="chip" Content="{Binding Label}" IsChecked="{Binding IsOn, Mode=TwoWay}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+              <TextBlock x:Name="ListSummaryText" Text="{Binding ListSummary}" Classes="muted" VerticalAlignment="Center" />
+              <Button Grid.Column="1" Content="Find in all levels…" Click="OnFindAll" Padding="8,3" FontSize="12"
+                      ToolTip.Tip="Search every level of the game (Ctrl+Shift+F)" />
+            </Grid>
             <TreeView x:Name="ObjectTree" ItemsSource="{Binding Tree}" SelectedItem="{Binding SelectedNode}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
               <TreeView.Styles>
                 <Style Selector="TreeViewItem" x:DataType="app:TreeNode">
@@ -118,7 +136,10 @@
               </TreeView.Styles>
               <TreeView.ItemTemplate>
                 <TreeDataTemplate x:DataType="app:TreeNode" ItemsSource="{Binding Children}">
-                  <TextBlock Text="{Binding Header}" TextTrimming="CharacterEllipsis" />
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Image Source="{Binding Icon}" Width="16" Height="16" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None" />
+                    <TextBlock Text="{Binding Header}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  </StackPanel>
                 </TreeDataTemplate>
               </TreeView.ItemTemplate>
             </TreeView>

@@ -36,6 +36,14 @@ editor's other features is in [ROADMAP.md](ROADMAP.md).
   - A yellow grid every N tiles (H; N set in the Show box), laid on the floors. The view's
     edges name each line, as `X: 30` or `Y: 45`.
   - Darkness, centred on the point the camera looks at.
+- **Finding objects:**
+  - The search box matches item names, NPC names ("human (Lord British)"), the text of
+    books, scrolls, writings, gravestones and text traps, `#index` and `0x` item ids.
+  - The chips narrow the list to weapons, food, monsters, keys, traps or triggers (any of
+    those chosen), and Enchanted to enchanted objects.
+  - Each line shows the object's picture as the game shows it.
+  - **Level ▸ Find in all levels…** (Ctrl+Shift+F) runs the same search, with every item
+    kind, over all levels. Double-click a result to open its level with the object selected.
 - **Selecting:**
   - Click an object or a tile in the view, or pick one in the object list.
   - The list shows the objects lying on tiles in index order. Whatever is inside an object
@@ -77,12 +85,28 @@ way, but it works.
 dotnet test
 ```
 
-The tests read the game files from `UW_GAMEDATA`, a folder holding `UW` and/or `UW2`, each
-with its `DATA` folder and executable. Failing that, they use the repository's
-`gamedata/` folder, which git ignores. Tests whose game is missing pass without checking
-anything. Set `UW_REQUIRE_GAMEDATA=1` to make them fail instead.
+There are three test projects:
 
-They check:
+| Project | What it tests | Needs |
+|---|---|---|
+| `tests/UwEditor.Core.Tests` | loading, levels, geometry, models, picking, the grid, on the shipped data of both games | the game files |
+| `tests/UwEditor.App.Tests` | the main window and the find window in Avalonia's headless mode: typing, clicking chips, keys, selection, the properties panel, find and go to, saved games; plus pictures of the panels compared with baselines | the game files |
+| `tests/UwEditor.Screenshots` | the real program with its OpenGL view on a private virtual screen (Xvfb + Mesa): what it draws, clicking an object in the view, camera keys, the grid; pictures compared with baselines, facts read from the program's `--state-file` | Linux with `Xvfb`, `xdotool` and ImageMagick; skipped elsewhere |
+
+The game files come from `UW_GAMEDATA`, a folder holding `UW` and/or `UW2`, each with its
+`DATA` folder and executable (UW2's `SAVE1`/`SAVE2` are used if present). Failing that, they
+come from the repository's `gamedata/` folder, which git ignores. Tests whose game is missing
+pass without checking anything. Set `UW_REQUIRE_GAMEDATA=1` to make them fail instead.
+
+**Picture baselines.** The first run of a picture test records its baseline under
+`tests/<project>/baselines/` and reports the test as skipped. Look at the pictures; later runs
+compare against them. A pixel differs when a colour channel is off by more than 40, and up to
+1% (headless) or 2% (OpenGL) of the pixels may differ. A mismatch writes the actual picture and
+a diff, with differing pixels in magenta, to `TestResults/snapshots/`. After an intended change
+of the look, run with `UPDATE_SNAPSHOTS=1` to record new baselines. The baselines show the
+game's graphics, so they are made from your own game files and not committed.
+
+The core tests check, among other things:
 - every level of both games loads and passes the game's object-list check;
 - UW2 has 42 levels, and slot 73 has 1,046 open tiles and 427 objects;
 - the start squares in the executables;
@@ -96,6 +120,13 @@ They check:
   reference's rule);
 - the grid lines and their labels.
 
+**Options for scripted runs** (used by the screenshot tests):
+- `--level N`: show this level first;
+- `--select N`: select and frame this object;
+- `--size WxH`: the window's size;
+- `--ready-file F`: written once the first level has been drawn;
+- `--state-file F`: level, selection, camera and view rectangle as JSON after every change.
+
 ## Layout
 
 | Project | What it is |
@@ -105,6 +136,9 @@ They check:
 | `src/UwEditor.Render` | The OpenGL drawing (Silk.NET), GL 3.3 or GLES 3.0. No window toolkit. |
 | `src/UwEditor.App` | The Avalonia program: window, menus, panels, the GL view control. |
 | `tests/UwEditor.Core.Tests` | xUnit tests on the real game files. |
+| `tests/UwEditor.App.Tests` | Headless interface tests of the Avalonia windows. |
+| `tests/UwEditor.Screenshots` | Screenshot tests of the program with its OpenGL view (Linux). |
+| `tests/Shared` | Picture comparison and baselines, shared by the two interface test projects. |
 
 The meaning of the files comes from
 [underworld-exhumed](https://github.com/abedegno/underworld-exhumed), the reconstructed source

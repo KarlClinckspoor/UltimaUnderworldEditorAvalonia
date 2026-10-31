@@ -26,9 +26,13 @@ namespace UwEditor.App
         static readonly Color Uw1Accent = Color.Parse("#C9934C"), Uw2Accent = Color.Parse("#6FA6DC");
         static readonly Vector4 StartColour = new Vector4(1f, 0.25f, 0.85f, 1f), SelColour = new Vector4(1f, 0.85f, 0.25f, 1f), HoverColour = new Vector4(1f, 1f, 1f, 0.45f);
 
+        /// <summary>The window's state, for tests.</summary>
+        public MainViewModel ViewModel { get { return vm; } }
+
         public MainWindow()
         {
             InitializeComponent();
+            if (Program.Width > 0 && Program.Height > 0) { Width = Program.Width; Height = Program.Height; }
             DataContext = vm;
             vm.LevelChanged += OnLevelChanged;
             vm.SelectionChanged += UpdateMarkers;
@@ -44,12 +48,26 @@ namespace UwEditor.App
             vm.GridStep = settings.GridStep;
             vm.ShowModels = settings.Models;
             View.CameraChanged += UpdateGridLabels;
+            if (Program.StateFile != null)
+            {
+                vm.SelectionChanged += WriteState;
+                vm.LevelChanged += l => WriteState();
+                vm.OptionsChanged += b => WriteState();
+                View.CameraChanged += WriteState;
+            }
             View.SizeChanged += (s, e) => UpdateGridLabels();
             BuildRecentMenu();
             Opened += (s, e) =>
             {
                 if (Program.OpenAtStart != null) OpenPath(Program.OpenAtStart);
                 if (Program.LevelAtStart > 0 && vm.Session != null && Program.LevelAtStart <= vm.Session.Profile.LevelSlots) vm.LoadLevel(Program.LevelAtStart);
+                if (Program.SelectAtStart >= 0 && vm.Level != null && Program.SelectAtStart < vm.Level.Objects.Length)
+                {
+                    var o = vm.Level.Objects[Program.SelectAtStart];
+                    vm.Select(o.Index, o.TileX, o.TileY, true);
+                    Frame();
+                }
+                if (Program.ReadyFile != null) WriteReadyFileAfterFrames(3);
                 View.Focus();
             };
             Closing += (s, e) =>
@@ -61,6 +79,45 @@ namespace UwEditor.App
                 settings.Models = vm.ShowModels;
                 settings.Save();
             };
+        }
+
+        /// <summary>For scripted tests: what is shown, as JSON (--state-file).</summary>
+        void WriteState()
+        {
+            try
+            {
+                var c = View.Camera;
+                var p = View.TranslatePoint(new Point(0, 0), this) ?? new Point(0, 0);
+                var state = new
+                {
+                    level = vm.Level?.Level ?? 0,
+                    selectedObject = vm.SelectedObject,
+                    tileX = vm.SelectedTileX, tileY = vm.SelectedTileY,
+                    target = new[] { c.Target.X, c.Target.Y, c.Target.Z },
+                    yaw = c.Yaw, pitch = c.Pitch, distance = c.Distance,
+                    grid = vm.ShowGrid, ceiling = vm.ShowCeiling,
+                    view = new[] { p.X, p.Y, View.Bounds.Width, View.Bounds.Height },
+                    glError = View.GlError,
+                };
+                System.IO.File.WriteAllText(Program.StateFile, System.Text.Json.JsonSerializer.Serialize(state));
+            }
+            catch (Exception) { }
+        }
+
+        /// <summary>For scripted screenshots: writes the ready file once a few frames have been drawn.</summary>
+        void WriteReadyFileAfterFrames(int frames)
+        {
+            int left = frames;
+            Action onFrame = null;
+            onFrame = () =>
+            {
+                if (--left > 0) { View.Redraw(); return; }
+                View.FrameDrawn -= onFrame;
+                if (Program.StateFile != null) WriteState();
+                try { System.IO.File.WriteAllText(Program.ReadyFile, "ready"); } catch (Exception) { }
+            };
+            View.FrameDrawn += onFrame;
+            View.Redraw();
         }
 
         // ---- opening a game
@@ -330,6 +387,35 @@ namespace UwEditor.App
             else PlaceCamera(vm.Level);
         }
 
+        FindWindow findWindow;
+
+        void OnFindAll(object sender, RoutedEventArgs e) { ShowFind(); }
+
+        /// <summary>The find window, one at a time, seeded with the list's search text.</summary>
+        public FindWindow ShowFind()
+        {
+            if (vm.Session == null) return null;
+            if (findWindow == null)
+            {
+                findWindow = new FindWindow(vm, GoTo);
+                findWindow.Model.Text = vm.Filter;
+                findWindow.Closed += (s, e) => findWindow = null;
+                findWindow.Show(this);
+            }
+            else findWindow.Activate();
+            return findWindow;
+        }
+
+        /// <summary>Opens a result's level, selects the object and frames it.</summary>
+        public void GoTo(SearchHit h)
+        {
+            if (vm.Session == null) return;
+            if (vm.Level == null || vm.Level.Level != h.Level) vm.LoadLevel(h.Level);
+            vm.Select(h.Index, h.TileX, h.TileY, true);
+            if (vm.SelectedNode != null) ObjectTree.ScrollIntoView(vm.SelectedNode);
+            Frame();
+        }
+
         void OnCheckLevel(object sender, RoutedEventArgs e)
         {
             var l = vm.Level;
@@ -351,6 +437,7 @@ namespace UwEditor.App
                 "  R, V                    up, down a floor step\n\n" +
                 "Anywhere\n" +
                 "  Ctrl+O                  open a game\n" +
+                "  Ctrl+Shift+F            find in all levels\n" +
                 "  PgUp, PgDn              previous, next level\n" +
                 "  F                       frame the selection\n" +
                 "  T                       look straight down\n" +
@@ -374,6 +461,7 @@ namespace UwEditor.App
         {
             bool typing = FocusManager?.GetFocusedElement() is TextBox;
             if (e.Key == Key.O && (e.KeyModifiers & KeyModifiers.Control) != 0) { OnOpen(this, null); e.Handled = true; return; }
+            if (e.Key == Key.F && (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Shift)) == (KeyModifiers.Control | KeyModifiers.Shift)) { ShowFind(); e.Handled = true; return; }
             if (typing || (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt)) != 0) return;
             // the camera keys work whichever panel has the focus (the arrows stay with lists)
             if (!View.IsFocused && (e.Key == Key.W || e.Key == Key.A || e.Key == Key.S || e.Key == Key.D || e.Key == Key.Q || e.Key == Key.E || e.Key == Key.R || e.Key == Key.V))

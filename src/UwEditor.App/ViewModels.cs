@@ -34,11 +34,24 @@ namespace UwEditor.App
     public sealed class TreeNode : Observable
     {
         public string Header { get; set; }
+        /// <summary>The object's picture from OBJECTS.GR, as the game shows it in the inventory.</summary>
+        public Bitmap Icon { get; set; }
         public ObservableCollection<TreeNode> Children { get; } = new ObservableCollection<TreeNode>();
         public int ObjectIndex = -1, TileX = -1, TileY = -1;
         public TreeNode Parent;
         bool expanded;
         public bool IsExpanded { get { return expanded; } set { Set(ref expanded, value); } }
+    }
+
+    /// <summary>A quick filter of the object list: a kind of item, or "enchanted".</summary>
+    public sealed class QuickFilter : Observable
+    {
+        public string Label { get; set; }
+        public ItemCategory Category;
+        public bool IsEnchanted;
+        public Action Changed;
+        bool on;
+        public bool IsOn { get { return on; } set { if (Set(ref on, value)) Changed?.Invoke(); } }
     }
 
     /// <summary>The window's state. The window's code connects it to the 3D view.</summary>
@@ -175,9 +188,12 @@ namespace UwEditor.App
 
         // ---- opening
 
+        public MainViewModel() { MakeQuickFilters(); }
+
         public void Open(GameSession s)
         {
             session = s;
+            icons.Clear();
             slots = s.LevelSlots();
             worlds = new List<string>();
             for (int w = 0; w < s.Profile.WorldCount; w++)
@@ -226,45 +242,94 @@ namespace UwEditor.App
 
         /// <summary>The objects lying on tiles, by index; what is inside an object (its link
         /// list: contents, inventory, a trigger's trap, a door's lock) hangs under it.</summary>
+        /// <summary>The quick filters above the list: kinds are alternatives, Enchanted narrows them.</summary>
+        public ObservableCollection<QuickFilter> QuickFilters { get; } = new ObservableCollection<QuickFilter>();
+        readonly Dictionary<int, Bitmap> icons = new Dictionary<int, Bitmap>();
+
+        void MakeQuickFilters()
+        {
+            foreach (var q in ItemCategories.Quick)
+                QuickFilters.Add(new QuickFilter { Label = q.Value, Category = q.Key, Changed = BuildTree });
+            QuickFilters.Add(new QuickFilter { Label = "Enchanted", IsEnchanted = true, Changed = BuildTree });
+        }
+
+        /// <summary>What the list shows now: the filter text and the quick filters.</summary>
+        public ObjectQuery CurrentQuery()
+        {
+            var q = new ObjectQuery { Text = filter };
+            var kinds = ItemCategory.None;
+            foreach (var f in QuickFilters)
+                if (f.IsOn) { if (f.IsEnchanted) q.EnchantedOnly = true; else kinds |= f.Category; }
+            if (kinds != ItemCategory.None) q.Categories = kinds;
+            return q;
+        }
+
+        /// <summary>The objects lying on tiles, by index; what is inside an object (its link
+        /// list: contents, inventory, a trigger's trap, a door's lock) hangs under it. With a
+        /// filter, an object shows when it or something inside it matches.</summary>
         void BuildTree()
         {
             Tree.Clear();
             if (level == null) return;
-            string f = filter.Trim().ToLowerInvariant();
+            var q = CurrentQuery();
             foreach (var o in level.Objects)
-                if (o.OnTile && !o.Free) AddObject(null, o, f, true);
+                if (o.OnTile && !o.Free) AddObject(null, o, q, true);
+            Raise(nameof(ListSummary));
         }
 
-        bool AddObject(TreeNode parent, ObjectInfo o, string f, bool top)
+        /// <summary>"534 objects" or "12 of 534 objects match".</summary>
+        public string ListSummary
         {
-            var node = new TreeNode { Header = Label(o, top), ObjectIndex = o.Index, TileX = o.TileX, TileY = o.TileY, Parent = parent };
+            get
+            {
+                if (level == null) return "";
+                int all = 0, shown = 0;
+                foreach (var o in level.Objects) if (o.TileX >= 0 && !o.Free) all++;
+                Action<IEnumerable<TreeNode>> count = null;
+                count = nodes => { foreach (var n in nodes) { shown++; count(n.Children); } };
+                count(Tree);
+                return CurrentQuery().IsEmpty ? all + " objects" : string.Format("{0} of {1} objects shown", shown, all);
+            }
+        }
+
+        bool AddObject(TreeNode parent, ObjectInfo o, ObjectQuery q, bool top)
+        {
+            var node = new TreeNode { Header = Label(o, top), Icon = IconOf(o.Item), ObjectIndex = o.Index, TileX = o.TileX, TileY = o.TileY, Parent = parent };
             bool childMatches = false;
-            foreach (int c in o.Children) childMatches |= AddObject(node, level.Objects[c], f, false);
-            bool matches = f.Length == 0 || Matches(o, f) || childMatches;
+            foreach (int c in o.Children) childMatches |= AddObject(node, level.Objects[c], q, false);
+            bool matches = q.IsEmpty || q.Matches(session, o) || childMatches;
             if (matches)
             {
                 if (parent == null) Tree.Add(node); else parent.Children.Add(node);
             }
-            if (childMatches && f.Length > 0) node.IsExpanded = true;
+            if (childMatches && !q.IsEmpty) node.IsExpanded = true;
             return matches;
         }
 
-        static string Label(ObjectInfo o, bool top)
+        string Label(ObjectInfo o, bool top)
         {
             string s = string.Format("#{0}  {1}", o.Index, o.Name);
+            string npc = ObjectTexts.NpcName(session, o);
+            if (npc != null) s += " (" + npc + ")";
             if (top) s += string.Format("  ({0}, {1})", o.TileX, o.TileY);
+            if (o.Enchanted) s += "  · enchanted";
             if (o.Invisible) s += "  · invisible";
             return s;
         }
 
-        static bool Matches(ObjectInfo o, string f)
+        public Bitmap IconOf(int item)
         {
-            if (o.Name.ToLowerInvariant().Contains(f)) return true;
-            string hex = f.StartsWith("0x") ? f.Substring(2) : f;
-            int v;
-            if (int.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out v) && f.StartsWith("0x") && v == o.Item) return true;
-            if (int.TryParse(f.TrimStart('#'), out v) && v == o.Index) return true;
-            return false;
+            if (session == null) return null;
+            Bitmap b;
+            if (icons.TryGetValue(item, out b)) return b;
+            var g = session.Graphics;
+            var pic = item >= 0 && item < g.ObjectPictures.Count ? g.ObjectPictures[item] : null;
+            // levers, buttons and switches (0x170-0x17F) have no OBJECTS.GR picture: the game
+            // draws them with TMFLAT picture item & 0xF (3d/DRAWOBJ.C), so the list does too
+            if (pic == null && item >= 0x170 && item < 0x180 && (item & 0xF) < g.TmFlat.Count) pic = g.TmFlat[item & 0xF];
+            b = pic != null ? ToBitmap(pic) : null;
+            icons[item] = b;
+            return b;
         }
 
         TreeNode FindNode(IEnumerable<TreeNode> nodes, int obj)

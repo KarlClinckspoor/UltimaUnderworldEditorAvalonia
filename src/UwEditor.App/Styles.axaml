@@ -125,4 +125,17 @@
     <Setter Property="Height" Value="66" />
   </Style>
 
+
+  <!-- the object list's quick filters -->
+  <Style Selector="ToggleButton.chip">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="MinHeight" Value="22" />
+    <Setter Property="Margin" Value="0,0,4,4" />
+    <Setter Property="CornerRadius" Value="11" />
+  </Style>
+  <Style Selector="ToggleButton.chip:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Accent}" />
+    <Setter Property="Foreground" Value="#15161A" />
+  </Style>
 </Styles>

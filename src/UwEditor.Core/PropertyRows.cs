@@ -46,6 +46,11 @@ namespace UwEditor.Core
             string where = o.TileX < 0 ? (o.Free ? "free (unused)" : "not on any tile list") : string.Format("tile ({0}, {1})", o.TileX, o.TileY);
             Add(rows, "Where", where, "", "The tile whose object list holds it.");
             if (o.Parent >= 0) Add(rows, "Inside", level.Objects[o.Parent].ToString(), "", "Reached through this object's link list (container contents, inventory, a trigger's trap, a door's lock).");
+            string npc = ObjectTexts.NpcName(level.Session, o);
+            if (npc != null) Add(rows, "Name", npc, "", "The name the creature talks under: STRINGS.PAK block 7, string whoami + 16.");
+            string text = ObjectTexts.TextOf(level.Session, o);
+            if (text != null) Add(rows, "Text", text.Trim(), "", "The object's text in STRINGS.PAK: block 3 for books and scrolls, 8 for gravestones and writings, 9 for text traps.");
+            Add(rows, "Kind of item", KindName(ItemCategories.Of(o.Item, level.Session.Kind)), "", "The class of the item id (include/items.h).");
             if (o.TileX >= 0)
                 Add(rows, "Position", string.Format("{0:0.###}, {1:0.###}, h {2:0.###}", o.WorldX, o.WorldY, o.WorldZ), "", "In tiles: x east, y north, height (a floor step is 0.25).");
             rows.Add(new PropertyRow { Name = "Record", IsHeader = true, Value = "", Hex = "", Tip = "" });
@@ -67,6 +72,13 @@ namespace UwEditor.Core
             rows.Add(new PropertyRow { Name = "Record", IsHeader = true, Value = "", Hex = "", Tip = "" });
             rows.AddRange(FromSchema(Uw1Schemas.Tile, t.Record));
             return rows;
+        }
+
+        static string KindName(ItemCategory c)
+        {
+            foreach (var choice in ItemCategories.Choices)
+                if (choice.Key != ItemCategory.All && (choice.Key & c) == c) return choice.Value;
+            return c.ToString();
         }
 
         static void Add(List<PropertyRow> rows, string name, string value, string hex, string tip)

@@ -9,6 +9,15 @@ namespace UwEditor.App
         public static string OpenAtStart;
         /// <summary>--level N: the level to show first instead of the start level.</summary>
         public static int LevelAtStart;
+        /// <summary>--select N: the object to select and frame at start.</summary>
+        public static int SelectAtStart = -1;
+        /// <summary>--ready-file PATH: written once the first level has been drawn (for scripted screenshots).</summary>
+        public static string ReadyFile;
+        /// <summary>--state-file PATH: the level, selection, camera and view rectangle as JSON after
+        /// every change (for scripted tests).</summary>
+        public static string StateFile;
+        /// <summary>--size WxH: the window's size.</summary>
+        public static int Width, Height;
 
         [STAThread]
         public static void Main(string[] args)
@@ -17,6 +26,14 @@ namespace UwEditor.App
             {
                 string a = args[i];
                 if (a == "--level" && i + 1 < args.Length) int.TryParse(args[++i], out LevelAtStart);
+                else if (a == "--select" && i + 1 < args.Length) int.TryParse(args[++i], out SelectAtStart);
+                else if (a == "--ready-file" && i + 1 < args.Length) ReadyFile = args[++i];
+                else if (a == "--state-file" && i + 1 < args.Length) StateFile = args[++i];
+                else if (a == "--size" && i + 1 < args.Length)
+                {
+                    var wh = args[++i].Split('x');
+                    if (wh.Length == 2) { int.TryParse(wh[0], out Width); int.TryParse(wh[1], out Height); }
+                }
                 else if (a == "--trace") System.Diagnostics.Trace.Listeners.Add(new System.Diagnostics.ConsoleTraceListener());
                 else if (!a.StartsWith("-")) OpenAtStart = a;
             }

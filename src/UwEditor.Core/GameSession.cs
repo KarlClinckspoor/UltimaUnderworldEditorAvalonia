@@ -35,6 +35,7 @@ namespace UwEditor.Core
         public string LevArkPath { get; private set; }
         public Archive LevArk { get; private set; }
         public ObjectNames Names { get; private set; }
+        public GameStrings Strings { get; private set; }
         public GameGraphics Graphics { get; private set; }
         public PlayerDat Player { get; private set; }
         /// <summary>The 3D models built into UW.EXE / UW2.EXE, or null when the executable is missing.</summary>
@@ -94,7 +95,8 @@ namespace UwEditor.Core
             s.Profile = GameProfile.For(s.Kind);
             s.LevArkPath = GameProfile.Find(save ?? data, "LEV.ARK");
             s.LevArk = Archive.Load(s.LevArkPath, s.Kind);
-            s.Names = ObjectNames.Load(data);
+            s.Strings = GameStrings.Load(data);
+            s.Names = ObjectNames.From(s.Strings);
             s.Graphics = GameGraphics.Load(data, s.Kind);
             string comobj = GameProfile.Find(data, "COMOBJ.DAT");
             s.RenderTypes = ObjectModels.ReadRenderTypes(comobj != null ? File.ReadAllBytes(comobj) : null);

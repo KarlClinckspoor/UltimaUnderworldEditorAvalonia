@@ -17,17 +17,12 @@ namespace UwEditor.Core
 
         public static ObjectNames Load(string dataFolder)
         {
-            string path = GameProfile.Find(dataFolder, "STRINGS.PAK");
-            if (path == null) return new ObjectNames(new string[0]);
-            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                var nodes = StringsPak.ReadHuffmanNodes(fs);
-                var blocks = StringsPak.ReadStringBlocks(fs, nodes.Item2);
-                int i;
-                if (!blocks.Item2.TryGetValue(4, out i)) return new ObjectNames(new string[0]);
-                var list = StringsPak.ReadStrings(fs, blocks.Item1[i], nodes.Item1);
-                return new ObjectNames(list.ToArray());
-            }
+            return From(GameStrings.Load(dataFolder));
+        }
+
+        public static ObjectNames From(GameStrings strings)
+        {
+            return new ObjectNames(strings.Block(4));
         }
 
         public int Count { get { return raw.Length; } }
