@@ -34,6 +34,9 @@ namespace UwEditor.App
         public bool Painting;
         /// <summary>A click floods the connected area instead of painting one tile.</summary>
         public bool FillMode;
+        /// <summary>The fill's highest climb between tiles, in floor steps (going down is never limited).</summary>
+        public int MaxClimb = ZoneFlood.DefaultMaxClimb;
+
         /// <summary>The view shows the zone colours on the floors.</summary>
         public bool ShowOverlay = true;
 
@@ -208,13 +211,16 @@ namespace UwEditor.App
             return true;
         }
 
-        /// <summary>Fills the connected area of the tile's zone (or unassigned tiles) with zone n.</summary>
+        /// <summary>
+        /// Fills with zone n the tiles reachable from (x, y) that share its zone (ZoneFlood: four
+        /// directions, no rock, no door tiles, no climb above MaxClimb; any drop is fine).
+        /// </summary>
         public int FillArea(int level1, int x, int y, int zone)
         {
             EnsureLevel(level1);
             Snapshot();
             Set.EnsureZone(zone);
-            int n = Set.Fill(level1, x, y, (byte)zone);
+            int n = Set.Fill(level1, x, y, (byte)zone, new ZoneFlood(level(level1), MaxClimb));
             if (n == 0) undo.RemoveAt(undo.Count - 1);
             else Raise("tiles");
             return n;

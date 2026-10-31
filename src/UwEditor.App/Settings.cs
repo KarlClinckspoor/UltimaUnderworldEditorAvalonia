@@ -20,6 +20,8 @@ namespace UwEditor.App
         public int CheckpointMinutes { get; set; } = 5;
         /// <summary>How many checkpoints to keep (1-1000).</summary>
         public int CheckpointCopies { get; set; } = 20;
+        /// <summary>The zone fill's highest climb, in floor steps.</summary>
+        public int ZoneClimb { get; set; } = UwEditor.Core.Randomizer.ZoneFlood.DefaultMaxClimb;
 
         /// <summary>The folder the settings (and the checkpoints) live in.</summary>
         public static string Folder { get { return Path.GetDirectoryName(PathOf()); } }

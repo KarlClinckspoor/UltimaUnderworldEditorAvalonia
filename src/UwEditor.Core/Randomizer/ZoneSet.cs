@@ -246,6 +246,18 @@ namespace UwEditor.Core.Randomizer
             return n;
         }
 
+        /// <summary>Fills with zone the tiles the movement rules reach from (x, y) within its zone (<see cref="ZoneFlood.Reach"/>).</summary>
+        public int Fill(int level1, int x, int y, byte zone, ZoneFlood rules)
+        {
+            var t = level1 >= 1 && level1 <= Levels ? Tiles[level1 - 1] : null;
+            if (t == null || x < 0 || y < 0 || x >= Side || y >= Side) return 0;
+            byte from = t[y * Side + x];
+            if (from == zone || from == Solid) return 0;
+            var reach = rules.Reach(t, x, y);
+            foreach (int k in reach) t[k] = zone;
+            return reach.Count;
+        }
+
         /// <summary>Removes a zone: its tiles become unassigned, its links and placements go.</summary>
         public void Remove(int id)
         {

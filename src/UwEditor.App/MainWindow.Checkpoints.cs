@@ -18,6 +18,13 @@ namespace UwEditor.App
         CheckpointsWindow checkpointsWindow;
         public Checkpoints CheckpointStore { get; private set; }
 
+        /// <summary>The zone fill's highest climb in floor steps (0-15), remembered.</summary>
+        public int ZoneClimb
+        {
+            get { return settings.ZoneClimb; }
+            set { settings.ZoneClimb = Math.Max(0, Math.Min(15, value)); settings.Save(); if (zoning != null) zoning.MaxClimb = settings.ZoneClimb; }
+        }
+
         public int CheckpointMinutes
         {
             get { return settings.CheckpointMinutes; }

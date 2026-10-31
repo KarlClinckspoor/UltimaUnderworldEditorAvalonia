@@ -38,7 +38,8 @@ namespace UwEditor.App
         readonly TextBox colorBox = new TextBox { Width = 100, PlaceholderText = "#RRGGBB" };
         readonly Border swatch = new Border { Width = 26, Height = 26, CornerRadius = new CornerRadius(4) };
         readonly ToggleButton paintButton = new ToggleButton { Content = "Paint in the view" };
-        readonly CheckBox fillBox = new CheckBox { Content = "A click fills the area (4-neighbour)" };
+        readonly CheckBox fillBox = new CheckBox { Content = "A click fills the area" };
+        readonly NumericUpDown climbBox = new NumericUpDown { Minimum = 0, Maximum = 15, Increment = 1, FormatString = "0", Width = 110 };
         readonly CheckBox overlayBox = new CheckBox { Content = "Show zone colours in the view", IsChecked = true };
         readonly NumericUpDown fillZone = new NumericUpDown { Minimum = 2, Maximum = 255, Increment = 1, FormatString = "0", Width = 110 };
         readonly TextBox notesBox = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, MaxHeight = 160, PlaceholderText = "Notes about this zone" };
@@ -117,6 +118,14 @@ namespace UwEditor.App
             left.Children.Add(H("PAINTING"));
             left.Children.Add(Row(paintButton, fillBox));
             left.Children.Add(Row(B("Fill the area under the selected tile as zone", FillSelected), fillZone));
+            climbBox.Value = main.ZoneClimb;
+            climbBox.ValueChanged += (s, e) => main.ZoneClimb = (int)(climbBox.Value ?? ZoneFlood.DefaultMaxClimb);
+            left.Children.Add(Row(new TextBlock { Text = "Highest climb (floor steps)", VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center }, climbBox));
+            left.Children.Add(new TextBlock
+            {
+                FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap,
+                Text = "A fill moves left, right, up and down through the tiles of the start tile's zone. Walls, the wall side of diagonal tiles and tiles with a door (any kind, open or closed: they stay out) stop it, and so does going up more than the highest climb; going down is always fine, so a fill from above a drop reaches below it but not the other way.",
+            });
             left.Children.Add(Row(B("Undo painting", () => { z.Undo(); status.Text = "Undone."; }), overlayBox));
             left.Children.Add(levelInfo);
             left.Children.Add(H("NOTES"));
@@ -273,7 +282,7 @@ namespace UwEditor.App
             var vm = main.ViewModel;
             if (vm.Level == null || vm.SelectedTileX < 0) { status.Text = "Select a tile in the view first."; return; }
             int n = z.FillArea(vm.Level.Level, vm.SelectedTileX, vm.SelectedTileY, (int)(fillZone.Value ?? z.CurrentZone));
-            status.Text = n == 0 ? "Nothing to fill there (rock, or already that zone)." : n + " tiles filled.";
+            status.Text = n == 0 ? "Nothing to fill there (rock, a door tile, or already that zone)." : n + " tiles filled.";
         }
 
         void GoToItem()

@@ -319,8 +319,14 @@ notes: 91 zones, 139 links and 50 grants.
   (its tiles become unassigned; its links and grants go), and a colour. Colours default to a
   Glasbey palette: each colour is as far as possible, in CIELAB, from all the ones before it.
 - **Painting:** with **Paint in the view** on, the Paint tool paints the current zone. Drag
-  over tiles, or tick *A click fills the area* to flood the connected area under the mouse.
+  over tiles, or tick *A click fills the area* to fill from the tile under the mouse.
   **Fill the area under the selected tile as zone N** does the same from the selected tile.
+  A fill moves left, right, up and down, only through tiles of the start tile's zone. It is
+  stopped by walls, by the wall side of diagonal tiles, and by tiles holding a door of any
+  kind, open or closed (portcullises and secret doors too); those tiles are not filled. It is
+  also stopped by going up more than the **highest climb** (2 floor steps by default; a walk
+  climbs 1), measured between the touching edges of the two tiles, so slopes count. Going down
+  is never limited: a fill from the top of a drop reaches the bottom, not the other way.
   Rock is never painted, and **Undo painting** steps back through the strokes. While the
   window is open, the view shows each tile's zone colour on its floor.
 - **Key items** of the current zone are listed on the right. The list holds keys (by the lock

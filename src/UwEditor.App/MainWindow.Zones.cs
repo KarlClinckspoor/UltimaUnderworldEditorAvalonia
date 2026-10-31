@@ -23,6 +23,7 @@ namespace UwEditor.App
             if (zoning == null || zoning.Session != vm.Session)
             {
                 zoning = new ZoningState(vm.Session, l => vm.Edits != null ? vm.Edits.Model(l) : vm.Session.LoadLevel(l));
+                zoning.MaxClimb = settings.ZoneClimb;
                 zoning.Changed += ZonesChanged;
                 if (vm.Edits != null) vm.Edits.Changed += e => zoning?.LevelsChanged();
             }

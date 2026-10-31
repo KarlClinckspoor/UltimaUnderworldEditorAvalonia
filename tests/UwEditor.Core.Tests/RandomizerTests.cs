@@ -104,5 +104,39 @@ namespace UwEditor.Core.Tests
             zs.Importance["1:" + items.First(i => i.Token == "npc:bragit").Index] = false;
             Assert.DoesNotContain(KeyItems.Find(s, l => s.LoadLevel(l), zs, new[] { 1 }), i => i.Token == "npc:bragit");
         }
+
+        [Fact]
+        public void Zone_fill_stops_at_walls_doors_and_climbs_but_not_drops()
+        {
+            string g = GameData.Game("UW"); if (g == null) return;
+            var s = GameSession.Open(g);
+            var m = s.LoadLevel(1);
+            var f = new ZoneFlood(m);
+            var zs = new ZoneSet(s.Profile.LevelSlots);
+            zs.InitLevel(1, (x, y) => !m.Tiles[x, y].IsSolid);
+            int n = zs.Fill(1, 32, 2, 5, f);
+            Assert.True(n > 10);
+            Assert.Equal(5, zs.ZoneAt(1, 32, 2));
+            int doors = 0;
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
+                {
+                    if (m.Tiles[x, y].IsSolid) Assert.Equal(ZoneSet.Solid, zs.ZoneAt(1, x, y));
+                    if (f.HasDoor(x, y)) { doors++; Assert.NotEqual(5, zs.ZoneAt(1, x, y)); }
+                }
+            Assert.True(doors > 0);
+            Assert.Empty(f.Reach(zs.Tiles[0], 0, 0));          // rock
+            // two flat neighbours more than the climb apart: down is fine, up is not
+            bool found = false;
+            for (int y = 0; y < 64 && !found; y++)
+                for (int x = 0; x < 63 && !found; x++)
+                {
+                    var a = m.Tiles[x, y]; var b = m.Tiles[x + 1, y];
+                    if (a.Type != TileType.Open || b.Type != TileType.Open || f.HasDoor(x, y) || f.HasDoor(x + 1, y)) continue;
+                    if (b.Height - a.Height > ZoneFlood.DefaultMaxClimb) { found = true; Assert.False(f.CanStep(x, y, 1)); Assert.True(f.CanStep(x + 1, y, 3)); }
+                    if (Math.Abs(b.Height - a.Height) <= ZoneFlood.DefaultMaxClimb) { Assert.True(f.CanStep(x, y, 1)); Assert.True(f.CanStep(x + 1, y, 3)); }
+                }
+            Assert.True(found);
+        }
     }
 }

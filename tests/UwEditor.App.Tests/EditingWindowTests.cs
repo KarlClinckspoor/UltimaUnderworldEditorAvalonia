@@ -584,9 +584,13 @@ namespace UwEditor.App.Tests
                 z.CurrentZone = zone.Id;
                 Assert.True(z.PaintTile(1, 32, 2, true));
                 Assert.Equal(zone.Id, z.Set.ZoneAt(1, 32, 2));
+                int before53 = z.Set.TileCount(53);
                 int n = z.FillArea(1, 31, 2, zone.Id);
                 Assert.True(n > 10);
-                Assert.Equal(0, z.Set.TileCount(53));
+                Assert.Equal(before53 - n, z.Set.TileCount(53));
+                // door tiles stay out of a fill
+                var flood = new UwEditor.Core.Randomizer.ZoneFlood(w.ViewModel.Edits.Model(1));
+                for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++) if (flood.HasDoor(x, y)) Assert.NotEqual(zone.Id, z.Set.ZoneAt(1, x, y));
                 z.Undo(); z.Undo();
                 Assert.Equal(53, z.Set.ZoneAt(1, 32, 2));
                 Assert.False(z.PaintTile(1, 0, 0, true));            // rock stays rock
