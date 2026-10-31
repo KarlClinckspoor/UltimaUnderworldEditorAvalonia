@@ -1,0 +1,127 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <SolidColorBrush x:Key="Bg">#15161A</SolidColorBrush>
+    <SolidColorBrush x:Key="Panel">#1C1E23</SolidColorBrush>
+    <SolidColorBrush x:Key="PanelAlt">#22252B</SolidColorBrush>
+    <SolidColorBrush x:Key="Line">#2C3038</SolidColorBrush>
+    <SolidColorBrush x:Key="Text">#DCD8CF</SolidColorBrush>
+    <SolidColorBrush x:Key="Muted">#8E8B85</SolidColorBrush>
+    <SolidColorBrush x:Key="Accent">#C9934C</SolidColorBrush>
+    <SolidColorBrush x:Key="Warn">#D9A441</SolidColorBrush>
+    <FontFamily x:Key="Mono">Cascadia Mono, Consolas, Menlo, DejaVu Sans Mono, monospace</FontFamily>
+  </Styles.Resources>
+
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource Bg}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+  </Style>
+
+  <Style Selector="Border.panel">
+    <Setter Property="Background" Value="{DynamicResource Panel}" />
+  </Style>
+
+  <Style Selector="TextBlock.h">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="1.2" />
+    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+    <Setter Property="Margin" Value="0,14,0,6" />
+  </Style>
+  <Style Selector="TextBlock.h.first">
+    <Setter Property="Margin" Value="0,2,0,6" />
+  </Style>
+  <Style Selector="TextBlock.title">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="TextBlock.mono">
+    <Setter Property="FontFamily" Value="{DynamicResource Mono}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+
+  <!-- the menu bar -->
+  <Style Selector="Menu">
+    <Setter Property="Background" Value="{DynamicResource Panel}" />
+    <Setter Property="Height" Value="30" />
+  </Style>
+  <Style Selector="Menu > MenuItem">
+    <Setter Property="Padding" Value="10,4" />
+  </Style>
+
+  <!-- the status bar -->
+  <Style Selector="Border.status">
+    <Setter Property="Background" Value="{DynamicResource Panel}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+    <Setter Property="Padding" Value="10,4" />
+  </Style>
+  <Style Selector="Border.status TextBlock">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="GridSplitter">
+    <Setter Property="Background" Value="{DynamicResource Line}" />
+    <Setter Property="MinWidth" Value="3" />
+  </Style>
+
+  <Style Selector="TreeViewItem">
+    <Setter Property="MinHeight" Value="24" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+
+  <Style Selector="CheckBox">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="MinHeight" Value="26" />
+  </Style>
+
+  <!-- a property row -->
+  <Style Selector="Grid.row">
+    <Setter Property="Margin" Value="0,1" />
+  </Style>
+  <Style Selector="Grid.row TextBlock.name">
+    <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+  <Style Selector="Grid.row TextBlock.value">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="Grid.row TextBlock.hex">
+    <Setter Property="FontFamily" Value="{DynamicResource Mono}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+  </Style>
+  <Style Selector="TextBlock.badge">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="Foreground" Value="{DynamicResource Warn}" />
+    <Setter Property="Margin" Value="4,0,0,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.section">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+    <Setter Property="Margin" Value="0,8,0,2" />
+  </Style>
+
+  <Style Selector="Border.thumb">
+    <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="#0E0F12" />
+    <Setter Property="Width" Value="66" />
+    <Setter Property="Height" Value="66" />
+  </Style>
+</Styles>

@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:core="clr-namespace:UwEditor.Core;assembly=UwEditor.Core"
+             x:Class="UwEditor.App.PropertyRowView"
+             x:DataType="core:PropertyRow">
+  <Panel>
+    <TextBlock Classes="section" Text="{Binding Name}" IsVisible="{Binding IsHeader}" />
+    <Grid Classes="row" ColumnDefinitions="118,*,52" IsVisible="{Binding !IsHeader}" Background="Transparent"
+          ToolTip.Tip="{Binding Tip}" ToolTip.ShowDelay="350">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" ClipToBounds="True">
+        <TextBlock Classes="name" Text="{Binding Name}" />
+        <TextBlock Classes="badge" Text="{Binding Certainty}" />
+      </StackPanel>
+      <TextBlock Grid.Column="1" Classes="value" Text="{Binding Value}" Margin="6,0,4,0" />
+      <TextBlock Grid.Column="2" Classes="hex" Text="{Binding Hex}" />
+    </Grid>
+  </Panel>
+</UserControl>

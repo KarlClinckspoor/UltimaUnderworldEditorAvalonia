@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The editor without any UI or GL: opening games, levels, geometry, picking. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>UwEditor.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Underworld.Formats/Underworld.Formats.csproj" />
+  </ItemGroup>
+</Project>

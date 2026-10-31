@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- A copy of the Unity editor's Assets/Scripts/Formats (see SOURCE.md). It keeps the rules
+       of its Unity asmdef: no UnityEngine, .NET Standard 2.0, C# 8. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <AssemblyName>Underworld.Formats</AssemblyName>
+    <NoWarn>$(NoWarn);CS0618;CS0414;CS0169;CS0649;CS0219;CS0162;CS0168</NoWarn>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,180 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="clr-namespace:UwEditor.App"
+        xmlns:core="clr-namespace:UwEditor.Core;assembly=UwEditor.Core"
+        x:Class="UwEditor.App.MainWindow"
+        x:DataType="app:MainViewModel"
+        Title="Underworld Editor"
+        Width="1440" Height="900" MinWidth="900" MinHeight="560"
+        WindowStartupLocation="CenterScreen">
+
+
+  <DockPanel>
+    <!-- menu -->
+    <Menu DockPanel.Dock="Top" x:Name="MainMenu">
+      <MenuItem Header="_File">
+        <MenuItem Header="_Open game folder…" InputGesture="Ctrl+O" Click="OnOpen" />
+        <MenuItem Header="Open _recent" x:Name="RecentMenu" />
+        <Separator />
+        <MenuItem Header="E_xit" Click="OnExit" />
+      </MenuItem>
+      <MenuItem Header="_View">
+        <MenuItem Header="_Ceiling" ToggleType="CheckBox" IsChecked="{Binding ShowCeiling, Mode=TwoWay}" InputGesture="G" />
+        <MenuItem Header="_Objects" ToggleType="CheckBox" IsChecked="{Binding ShowObjects, Mode=TwoWay}" />
+        <MenuItem Header="_Invisible objects" ToggleType="CheckBox" IsChecked="{Binding ShowInvisible, Mode=TwoWay}" />
+        <MenuItem Header="_Traps and triggers" ToggleType="CheckBox" IsChecked="{Binding ShowTraps, Mode=TwoWay}" />
+        <MenuItem Header="_Darkness" ToggleType="CheckBox" IsChecked="{Binding Darkness, Mode=TwoWay}" />
+        <Separator />
+        <MenuItem Header="_Frame the selection" InputGesture="F" Click="OnFrame" />
+        <MenuItem Header="Look _straight down" InputGesture="T" Click="OnTopDown" />
+        <MenuItem Header="Go to the _start" InputGesture="Home" Click="OnGoToStart" />
+      </MenuItem>
+      <MenuItem Header="_Level">
+        <MenuItem Header="_Previous level" InputGesture="PageUp" Click="OnPreviousLevel" />
+        <MenuItem Header="_Next level" InputGesture="PageDown" Click="OnNextLevel" />
+        <Separator />
+        <MenuItem Header="_Check the object lists" Click="OnCheckLevel" IsEnabled="{Binding HasGame}" />
+      </MenuItem>
+      <MenuItem Header="_Tools">
+        <MenuItem Header="Paint tiles (not yet)" IsEnabled="False" />
+        <MenuItem Header="Edit object fields (not yet)" IsEnabled="False" />
+        <MenuItem Header="Place objects (not yet)" IsEnabled="False" />
+        <MenuItem Header="Textures (not yet)" IsEnabled="False" />
+      </MenuItem>
+      <MenuItem Header="_Help">
+        <MenuItem Header="_Controls" Click="OnControls" />
+        <MenuItem Header="_About" Click="OnAbout" />
+      </MenuItem>
+    </Menu>
+
+    <!-- status bar -->
+    <Border DockPanel.Dock="Bottom" Classes="status">
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <TextBlock Grid.Column="0" Text="{Binding HoverText}" TextTrimming="CharacterEllipsis" />
+        <TextBlock Grid.Column="1" Text="{Binding StartText}" Margin="16,0" />
+        <TextBlock Grid.Column="2" Text="{Binding ViewText}" />
+      </Grid>
+    </Border>
+
+    <Grid x:Name="Columns" ColumnDefinitions="290,4,*,4,360">
+
+      <!-- left: level and objects -->
+      <Border Grid.Column="0" Classes="panel" Padding="14,10,10,10">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top">
+            <TextBlock Classes="h first" Text="GAME" />
+            <TextBlock Text="{Binding GameTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding GameFolder}" Classes="muted" Margin="0,2,0,0" />
+            <Button Content="Open game folder…" Click="OnOpen" Margin="0,10,0,0" IsVisible="{Binding NoGame}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+
+            <StackPanel IsVisible="{Binding HasGame}">
+              <TextBlock Classes="h" Text="LEVEL" />
+              <ComboBox ItemsSource="{Binding Worlds}" SelectedIndex="{Binding WorldIndex}" IsVisible="{Binding IsUw2}"
+                        HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button Grid.Column="0" Content="‹" Click="OnPreviousLevel" Padding="10,4" ToolTip.Tip="Previous level (PgUp)" />
+                <ComboBox Grid.Column="1" ItemsSource="{Binding LevelsInWorld}" SelectedItem="{Binding SelectedSlot}"
+                          HorizontalAlignment="Stretch" Margin="6,0">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="core:LevelSlot">
+                      <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Grid.Column="2" Content="›" Click="OnNextLevel" Padding="10,4" ToolTip.Tip="Next level (PgDn)" />
+              </Grid>
+              <TextBlock Text="{Binding LevelSummary}" Classes="muted" Margin="0,6,0,0" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel DockPanel.Dock="Bottom" IsVisible="{Binding HasGame}">
+            <TextBlock Classes="h" Text="SHOW" />
+            <WrapPanel>
+              <CheckBox Content="Ceiling" IsChecked="{Binding ShowCeiling}" Margin="0,0,14,0" />
+              <CheckBox Content="Objects" IsChecked="{Binding ShowObjects}" Margin="0,0,14,0" />
+              <CheckBox Content="Invisible" IsChecked="{Binding ShowInvisible}" Margin="0,0,14,0" />
+              <CheckBox Content="Traps and triggers" IsChecked="{Binding ShowTraps}" Margin="0,0,14,0" />
+              <CheckBox Content="Darkness" IsChecked="{Binding Darkness}" />
+            </WrapPanel>
+          </StackPanel>
+
+          <DockPanel IsVisible="{Binding HasGame}">
+            <TextBlock DockPanel.Dock="Top" Classes="h" Text="OBJECTS" />
+            <TextBox DockPanel.Dock="Top" Text="{Binding Filter}" PlaceholderText="Filter: name, #index or 0x item id" Margin="0,0,0,6" />
+            <TreeView x:Name="ObjectTree" ItemsSource="{Binding Tree}" SelectedItem="{Binding SelectedNode}">
+              <TreeView.Styles>
+                <Style Selector="TreeViewItem" x:DataType="app:TreeNode">
+                  <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                </Style>
+              </TreeView.Styles>
+              <TreeView.ItemTemplate>
+                <TreeDataTemplate x:DataType="app:TreeNode" ItemsSource="{Binding Children}">
+                  <TextBlock Text="{Binding Header}" />
+                </TreeDataTemplate>
+              </TreeView.ItemTemplate>
+            </TreeView>
+          </DockPanel>
+        </DockPanel>
+      </Border>
+
+      <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <!-- centre: the 3D view -->
+      <Panel Grid.Column="2" Background="#0E0E12">
+        <app:LevelView x:Name="View" />
+        <TextBlock x:Name="ViewHint" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   TextAlignment="Center" FontSize="14" IsVisible="{Binding NoGame}"
+                   Text="File ▸ Open game folder… (Ctrl+O)&#10;Choose the game folder, its DATA folder or a SAVE folder." />
+      </Panel>
+
+      <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
+
+      <!-- right: properties -->
+      <Border Grid.Column="4" Classes="panel">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" Padding="14,10,16,14">
+          <StackPanel>
+            <TextBlock Classes="h first" Text="OBJECT" />
+            <Grid ColumnDefinitions="Auto,*">
+              <Border Grid.Column="0" Classes="thumb" Width="42" Height="42" Margin="0,0,10,0" IsVisible="{Binding HasObject}">
+                <Image Source="{Binding ObjectThumb}" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None" Margin="3" />
+              </Border>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Classes="title" Text="{Binding ObjectTitle}" />
+                <TextBlock Classes="muted" Text="{Binding ObjectSubtitle}" Margin="0,2,0,0" />
+              </StackPanel>
+            </Grid>
+            <ItemsControl ItemsSource="{Binding ObjectRows}" Margin="0,8,0,0">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="core:PropertyRow">
+                  <app:PropertyRowView />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <StackPanel IsVisible="{Binding HasTile}">
+              <TextBlock Classes="h" Text="TILE" />
+              <TextBlock Text="{Binding TileTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <StackPanel Orientation="Horizontal" Margin="0,8,0,4" Spacing="12">
+                <StackPanel Spacing="3">
+                  <Border Classes="thumb"><Image Source="{Binding WallThumb}" Stretch="Fill" RenderOptions.BitmapInterpolationMode="None" /></Border>
+                  <TextBlock Classes="muted" Text="Wall" HorizontalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Spacing="3">
+                  <Border Classes="thumb"><Image Source="{Binding FloorThumb}" Stretch="Fill" RenderOptions.BitmapInterpolationMode="None" /></Border>
+                  <TextBlock Classes="muted" Text="Floor" HorizontalAlignment="Center" />
+                </StackPanel>
+              </StackPanel>
+              <ItemsControl ItemsSource="{Binding TileRows}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="core:PropertyRow">
+                    <app:PropertyRowView />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+  </DockPanel>
+</Window>

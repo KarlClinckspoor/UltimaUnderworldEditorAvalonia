@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AvaloniaVersion>12.1.4</AvaloniaVersion>
+    <SilkVersion>2.23.0</SilkVersion>
+  </PropertyGroup>
+</Project>

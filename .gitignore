@@ -1,0 +1,7 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+# game files are never committed: put them in gamedata/UW and gamedata/UW2, or set UW_GAMEDATA
+gamedata/
