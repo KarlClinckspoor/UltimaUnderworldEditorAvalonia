@@ -38,6 +38,9 @@ namespace UwEditor.Core
             }
         }
 
+        /// <summary>The screen's up direction in the world (perpendicular to the view).</summary>
+        public Vector3 Up { get { return Vector3.Normalize(Vector3.Cross(Forward, Right)); } }
+
         public Vector3 Eye { get { return Target - Forward * Distance; } }
 
         static Vector3 Mirror(Vector3 v) { return new Vector3(v.X, v.Y, -v.Z); }

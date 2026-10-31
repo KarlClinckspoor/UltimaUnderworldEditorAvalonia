@@ -11,6 +11,9 @@ namespace UwEditor.App
         public List<string> Recent { get; set; } = new List<string>();
         public double LeftWidth { get; set; } = 290;
         public double RightWidth { get; set; } = 360;
+        public bool Grid { get; set; } = true;
+        public int GridStep { get; set; } = 5;
+        public bool Models { get; set; } = true;
 
         static string PathOf()
         {

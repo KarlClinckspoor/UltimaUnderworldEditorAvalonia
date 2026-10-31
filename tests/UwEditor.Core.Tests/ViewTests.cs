@@ -42,7 +42,7 @@ namespace UwEditor.Core.Tests
             var level = s.LoadLevel(1);
             var mesh = LevelGeometry.Build(level, false);
             // straight down onto the start square
-            var hit = Picking.Pick(new Vector3(32.5f, 10, 2.5f), new Vector3(0, -1, 0), mesh, null, Vector3.UnitX);
+            var hit = Picking.Pick(new Vector3(32.5f, 10, 2.5f), new Vector3(0, -1, 0), mesh, null, Vector3.UnitX, Vector3.UnitY);
             Assert.Equal(32 + 64 * 2, hit.Tile);
             Assert.Equal(level.FloorAt(32, 2, 0.5, 0.5), hit.Point.Y, 3);
             // the sack on (33, 3) is picked before the floor under it
@@ -51,7 +51,7 @@ namespace UwEditor.Core.Tests
             var sack = sprites.First(sp => level.Objects[sp.Object].Name == "sack" && level.Objects[sp.Object].TileX == 33 && level.Objects[sp.Object].TileY == 3);
             var above = sack.Base + new Vector3(0, 2, -0.6f);
             var dir = Vector3.Normalize(sack.Base + new Vector3(0, sack.Height / 2, 0) - above);
-            var hit2 = Picking.Pick(above, dir, mesh, sprites, Vector3.UnitX);
+            var hit2 = Picking.Pick(above, dir, mesh, sprites, Vector3.UnitX, Vector3.UnitY);
             Assert.Equal(sack.Object, hit2.Object);
         }
 

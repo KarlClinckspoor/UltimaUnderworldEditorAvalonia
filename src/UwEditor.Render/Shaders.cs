@@ -68,6 +68,7 @@ layout(location = 3) in float aObject;
 layout(location = 4) in float aAlpha;
 uniform mat4 uViewProj;
 uniform vec3 uRight;
+uniform vec3 uUp;
 uniform vec3 uFadeCentre;
 out vec2 vUv;
 out float vAlpha;
@@ -75,7 +76,7 @@ out float vDist;
 flat out int vObject;
 void main()
 {
-    vec3 p = aBase + uRight * aCorner.x + vec3(0.0, aCorner.y, 0.0);
+    vec3 p = aBase + uRight * aCorner.x + uUp * aCorner.y;   // always facing the camera
     gl_Position = uViewProj * vec4(p, 1.0);
     vUv = aUv;
     vAlpha = aAlpha;
@@ -104,6 +105,53 @@ void main()
     if (vObject == uSelObject) rgb = mix(rgb, vec3(1.0, 0.85, 0.2), 0.5) + vec3(0.1);
     else if (vObject == uHoverObject) rgb = rgb * 1.3 + vec3(0.06);
     fragColor = vec4(rgb, vAlpha);
+}";
+
+        public const string ModelVertex = @"
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec2 aUv;
+layout(location = 2) in float aLayer;
+layout(location = 3) in vec3 aColor;
+layout(location = 4) in float aObject;
+uniform mat4 uViewProj;
+uniform vec3 uFadeCentre;
+out vec2 vUv;
+out float vLayer;
+out vec3 vColor;
+out float vDist;
+flat out int vObject;
+void main()
+{
+    gl_Position = uViewProj * vec4(aPos, 1.0);
+    vUv = aUv;
+    vLayer = aLayer;
+    vColor = aColor;
+    vDist = length(aPos - uFadeCentre);
+    vObject = int(aObject + 0.5);
+}";
+
+        public const string ModelFragment = @"
+in vec2 vUv;
+in float vLayer;
+in vec3 vColor;
+in float vDist;
+flat in int vObject;
+uniform sampler2DArray uTex;
+uniform int uSelObject;
+uniform int uHoverObject;
+uniform float uFadeStart;
+uniform float uFadeEnd;
+out vec4 fragColor;
+void main()
+{
+    vec4 c = vLayer < 0.0 ? vec4(1.0) : texture(uTex, vec3(clamp(vUv, 0.0, 1.0), vLayer));
+    if (c.a < 0.5) discard;
+    vec3 rgb = c.rgb * vColor;
+    float fade = clamp((uFadeEnd - vDist) / max(0.001, uFadeEnd - uFadeStart), 0.0, 1.0);
+    rgb *= fade;
+    if (vObject == uSelObject) rgb = mix(rgb, vec3(1.0, 0.85, 0.2), 0.5) + vec3(0.1);
+    else if (vObject == uHoverObject) rgb = rgb * 1.3 + vec3(0.06);
+    fragColor = vec4(rgb, 1.0);
 }";
 
         public const string LineVertex = @"

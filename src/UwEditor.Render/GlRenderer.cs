@@ -23,11 +23,12 @@ namespace UwEditor.Render
     {
         GL gl;
         bool gles;
-        uint levelProg, spriteProg, lineProg;
-        uint levelVao, levelVbo, spriteVao, spriteVbo, lineVao, lineVbo;
-        uint levelTex, atlasTex;
-        int levelVertices, spriteVertices, lineVertices;
-        float[] pendingLevel, pendingSprites, pendingLines;
+        uint levelProg, spriteProg, lineProg, modelProg;
+        uint levelVao, levelVbo, spriteVao, spriteVbo, lineVao, lineVbo, modelVao, modelVbo, gridVao, gridVbo;
+        uint levelTex, atlasTex, modelTex;
+        int levelVertices, spriteVertices, lineVertices, modelVertices, gridVertices;
+        float[] pendingLevel, pendingSprites, pendingLines, pendingModels, pendingGrid;
+        List<RgbaImage> pendingModelLayers;
         List<RgbaImage> pendingLayers;
         RgbaImage pendingAtlas;
         readonly object gate = new object();
@@ -42,12 +43,18 @@ namespace UwEditor.Render
             levelProg = Program(h + Shaders.LevelVertex, h + Shaders.LevelFragment);
             spriteProg = Program(h + Shaders.SpriteVertex, h + Shaders.SpriteFragment);
             lineProg = Program(h + Shaders.LineVertex, h + Shaders.LineFragment);
+            modelProg = Program(h + Shaders.ModelVertex, h + Shaders.ModelFragment);
             levelVao = gl.GenVertexArray(); levelVbo = gl.GenBuffer();
             Layout(levelVao, levelVbo, new[] { 3, 2, 1, 1, 1 });
             spriteVao = gl.GenVertexArray(); spriteVbo = gl.GenBuffer();
             Layout(spriteVao, spriteVbo, new[] { 3, 2, 2, 1, 1 });
             lineVao = gl.GenVertexArray(); lineVbo = gl.GenBuffer();
             Layout(lineVao, lineVbo, new[] { 3, 4 });
+            modelVao = gl.GenVertexArray(); modelVbo = gl.GenBuffer();
+            Layout(modelVao, modelVbo, new[] { 3, 2, 1, 3, 1 });
+            gridVao = gl.GenVertexArray(); gridVbo = gl.GenBuffer();
+            Layout(gridVao, gridVbo, new[] { 3, 4 });
+            modelTex = gl.GenTexture();
             levelTex = gl.GenTexture();
             atlasTex = gl.GenTexture();
             Info = string.Format("{0} — {1}", gl.GetStringS(StringName.Version), gl.GetStringS(StringName.Renderer));
@@ -110,10 +117,10 @@ namespace UwEditor.Render
                 foreach (var s in sprites)
                 {
                     float u0 = s.Rect.X / aw, u1 = (s.Rect.X + s.Rect.W) / aw, v0 = s.Rect.Y / ah, v1 = (s.Rect.Y + s.Rect.H) / ah;
-                    float hw = s.Width / 2;
-                    // two triangles; the picture's top row (v0) at the top
-                    Corner(f, s, -hw, 0, u0, v1); Corner(f, s, hw, 0, u1, v1); Corner(f, s, hw, s.Height, u1, v0);
-                    Corner(f, s, -hw, 0, u0, v1); Corner(f, s, hw, s.Height, u1, v0); Corner(f, s, -hw, s.Height, u0, v0);
+                    float hw = s.Width / 2, hh = s.Height / 2;
+                    // two triangles round the middle; the picture's top row (v0) at the top
+                    Corner(f, s, -hw, -hh, u0, v1); Corner(f, s, hw, -hh, u1, v1); Corner(f, s, hw, hh, u1, v0);
+                    Corner(f, s, -hw, -hh, u0, v1); Corner(f, s, hw, hh, u1, v0); Corner(f, s, -hw, hh, u0, v0);
                 }
             }
             var arr = f.ToArray();
@@ -122,10 +129,21 @@ namespace UwEditor.Render
 
         static void Corner(List<float> f, SpriteInstance s, float cx, float cy, float u, float v)
         {
-            f.Add(s.Base.X); f.Add(s.Base.Y); f.Add(s.Base.Z); f.Add(cx); f.Add(cy); f.Add(u); f.Add(v); f.Add(s.Object); f.Add(s.Alpha);
+            var c = s.Centre;
+            f.Add(c.X); f.Add(c.Y); f.Add(c.Z); f.Add(cx); f.Add(cy); f.Add(u); f.Add(v); f.Add(s.Object); f.Add(s.Alpha);
         }
 
-        /// <summary>Lines as pairs of (x, y, z, r, g, b, a) points.</summary>
+        /// <summary>The objects drawn as 3D models and the textures their faces use.</summary>
+        public void SetModels(ModelMesh m)
+        {
+            var f = m == null ? new float[0] : m.ToArray();
+            lock (gate) { pendingModels = f; pendingModelLayers = m == null ? new List<RgbaImage>() : m.Layers; }
+        }
+
+        /// <summary>The grid: lines like <see cref="SetLines"/>, but hidden behind walls.</summary>
+        public void SetGrid(float[] lines) { lock (gate) pendingGrid = lines ?? new float[0]; }
+
+        /// <summary>Lines as pairs of (x, y, z, r, g, b, a) points, drawn over everything.</summary>
         public void SetLines(float[] lines) { lock (gate) pendingLines = lines ?? new float[0]; }
 
         void Upload()
@@ -142,21 +160,61 @@ namespace UwEditor.Render
                 levelVertices = pendingLevel.Length / LevelVertex.Floats;
                 pendingLevel = null;
             }
+            if (pendingModels != null)
+            {
+                gl.BindBuffer(BufferTargetARB.ArrayBuffer, modelVbo);
+                gl.BufferData<float>(BufferTargetARB.ArrayBuffer, pendingModels, BufferUsageARB.StaticDraw);
+                modelVertices = pendingModels.Length / ModelVertex.Floats;
+                pendingModels = null;
+            }
+            if (pendingModelLayers != null)
+            {
+                UploadArray(modelTex, pendingModelLayers, false);
+                pendingModelLayers = null;
+            }
+            if (pendingGrid != null)
+            {
+                gl.BindBuffer(BufferTargetARB.ArrayBuffer, gridVbo);
+                gl.BufferData<float>(BufferTargetARB.ArrayBuffer, pendingGrid, BufferUsageARB.DynamicDraw);
+                gridVertices = pendingGrid.Length / 7;
+                pendingGrid = null;
+            }
             if (pendingLayers != null)
             {
-                int edge = 64, n = Math.Max(1, pendingLayers.Count);
-                var all = new byte[edge * edge * 4 * n];
-                for (int i = 0; i < pendingLayers.Count; i++)
-                    if (pendingLayers[i] != null) Array.Copy(pendingLayers[i].Pixels, 0, all, i * edge * edge * 4, edge * edge * 4);
-                gl.BindTexture(TextureTarget.Texture2DArray, levelTex);
-                gl.TexImage3D<byte>(TextureTarget.Texture2DArray, 0, InternalFormat.Rgba8, (uint)edge, (uint)edge, (uint)n, 0, PixelFormat.Rgba, PixelType.UnsignedByte, all);
-                gl.GenerateMipmap(TextureTarget.Texture2DArray);
-                gl.TexParameter(TextureTarget.Texture2DArray, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.NearestMipmapLinear);
-                gl.TexParameter(TextureTarget.Texture2DArray, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
-                gl.TexParameter(TextureTarget.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-                gl.TexParameter(TextureTarget.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+                UploadArray(levelTex, pendingLayers, true);
                 pendingLayers = null;
             }
+            UploadRest();
+        }
+
+        /// <summary>64×64 layers into a texture array: repeating with mipmaps for the level,
+        /// clamped and sharp for the models (each picture fits its face once).</summary>
+        void UploadArray(uint tex, List<RgbaImage> layers, bool repeat)
+        {
+            int edge = 64, n = Math.Max(1, layers.Count);
+            var all = new byte[edge * edge * 4 * n];
+            for (int i = 0; i < layers.Count; i++)
+                if (layers[i] != null) Array.Copy(layers[i].Pixels, 0, all, i * edge * edge * 4, edge * edge * 4);
+            gl.BindTexture(TextureTarget.Texture2DArray, tex);
+            gl.TexImage3D<byte>(TextureTarget.Texture2DArray, 0, InternalFormat.Rgba8, (uint)edge, (uint)edge, (uint)n, 0, PixelFormat.Rgba, PixelType.UnsignedByte, all);
+            if (repeat)
+            {
+                gl.GenerateMipmap(TextureTarget.Texture2DArray);
+                gl.TexParameter(TextureTarget.Texture2DArray, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.NearestMipmapLinear);
+                gl.TexParameter(TextureTarget.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+                gl.TexParameter(TextureTarget.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+            }
+            else
+            {
+                gl.TexParameter(TextureTarget.Texture2DArray, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+                gl.TexParameter(TextureTarget.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+                gl.TexParameter(TextureTarget.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+            }
+            gl.TexParameter(TextureTarget.Texture2DArray, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+        }
+
+        void UploadRest()
+        {
             if (pendingAtlas != null)
             {
                 gl.BindTexture(TextureTarget.Texture2D, atlasTex);
@@ -221,6 +279,34 @@ namespace UwEditor.Render
                     gl.BindVertexArray(levelVao);
                     gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)levelVertices);
                 }
+                if (modelVertices > 0)
+                {
+                    gl.UseProgram(modelProg);
+                    Matrix(modelProg, "uViewProj", vp);
+                    gl.Uniform3(gl.GetUniformLocation(modelProg, "uFadeCentre"), focus.X, focus.Y, focus.Z);
+                    gl.Uniform1(gl.GetUniformLocation(modelProg, "uSelObject"), st.SelectedObject);
+                    gl.Uniform1(gl.GetUniformLocation(modelProg, "uHoverObject"), st.HoverObject);
+                    gl.Uniform1(gl.GetUniformLocation(modelProg, "uFadeStart"), fs);
+                    gl.Uniform1(gl.GetUniformLocation(modelProg, "uFadeEnd"), fe);
+                    gl.ActiveTexture(TextureUnit.Texture0);
+                    gl.BindTexture(TextureTarget.Texture2DArray, modelTex);
+                    gl.Uniform1(gl.GetUniformLocation(modelProg, "uTex"), 0);
+                    gl.BindVertexArray(modelVao);
+                    gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)modelVertices);
+                }
+                if (gridVertices > 0)
+                {
+                    // on the floors, hidden by walls in front of them
+                    gl.Enable(EnableCap.Blend);
+                    gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    gl.DepthMask(false);
+                    gl.UseProgram(lineProg);
+                    Matrix(lineProg, "uViewProj", vp);
+                    gl.BindVertexArray(gridVao);
+                    gl.DrawArrays(PrimitiveType.Lines, 0, (uint)gridVertices);
+                    gl.DepthMask(true);
+                    gl.Disable(EnableCap.Blend);
+                }
                 if (spriteVertices > 0)
                 {
                     gl.Enable(EnableCap.Blend);
@@ -229,6 +315,8 @@ namespace UwEditor.Render
                     Matrix(spriteProg, "uViewProj", vp);
                     var r = cam.Right;
                     gl.Uniform3(gl.GetUniformLocation(spriteProg, "uRight"), r.X, r.Y, r.Z);
+                    var up = cam.Up;
+                    gl.Uniform3(gl.GetUniformLocation(spriteProg, "uUp"), up.X, up.Y, up.Z);
                     gl.Uniform3(gl.GetUniformLocation(spriteProg, "uFadeCentre"), focus.X, focus.Y, focus.Z);
                     gl.Uniform1(gl.GetUniformLocation(spriteProg, "uSelObject"), st.SelectedObject);
                     gl.Uniform1(gl.GetUniformLocation(spriteProg, "uHoverObject"), st.HoverObject);
@@ -273,7 +361,8 @@ namespace UwEditor.Render
         public void Dispose()
         {
             if (gl == null) return;
-            gl.DeleteProgram(levelProg); gl.DeleteProgram(spriteProg); gl.DeleteProgram(lineProg);
+            gl.DeleteProgram(levelProg); gl.DeleteProgram(spriteProg); gl.DeleteProgram(lineProg); gl.DeleteProgram(modelProg);
+            gl.DeleteVertexArray(modelVao); gl.DeleteVertexArray(gridVao); gl.DeleteBuffer(modelVbo); gl.DeleteBuffer(gridVbo); gl.DeleteTexture(modelTex);
             gl.DeleteVertexArray(levelVao); gl.DeleteVertexArray(spriteVao); gl.DeleteVertexArray(lineVao);
             gl.DeleteBuffer(levelVbo); gl.DeleteBuffer(spriteVbo); gl.DeleteBuffer(lineVbo);
             gl.DeleteTexture(levelTex); gl.DeleteTexture(atlasTex);

@@ -44,11 +44,13 @@ namespace UwEditor.Core
         }
     }
 
-    /// <summary>One object drawn as a picture standing on its point, turned to face the camera.</summary>
+    /// <summary>One object drawn as a picture that always faces the camera, its middle half its
+    /// height above the object's point.</summary>
     public struct SpriteInstance
     {
         public int Object;
         public Vector3 Base;
+        public Vector3 Centre { get { return Base + new Vector3(0, Height / 2, 0); } }
         public float Width, Height;
         public AtlasRect Rect;
         public float Alpha;
@@ -57,6 +59,8 @@ namespace UwEditor.Core
     public sealed class SpriteFilter
     {
         public bool Invisible, TrapsAndTriggers;
+        /// <summary>Objects drawn some other way (as models).</summary>
+        public HashSet<int> Skip;
     }
 
     /// <summary>
@@ -74,6 +78,7 @@ namespace UwEditor.Core
             foreach (var o in level.Objects)
             {
                 if (!o.OnTile || o.Free) continue;
+                if (filter.Skip != null && filter.Skip.Contains(o.Index)) continue;
                 if (o.Invisible && !filter.Invisible) continue;
                 if (o.IsTrapOrTrigger && !filter.TrapsAndTriggers) continue;
                 if (o.Item < 0 || o.Item >= atlas.Rects.Length || atlas.Rects[o.Item].W == 0) continue;

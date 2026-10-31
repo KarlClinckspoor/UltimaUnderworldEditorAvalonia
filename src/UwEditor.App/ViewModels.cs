@@ -157,6 +157,19 @@ namespace UwEditor.App
         public bool ShowObjects { get { return Options.Objects; } set { if (Options.Objects == value) return; Options.Objects = value; Raise(); OptionsChanged?.Invoke(false); } }
         public bool ShowInvisible { get { return Options.Invisible; } set { if (Options.Invisible == value) return; Options.Invisible = value; Raise(); OptionsChanged?.Invoke(false); } }
         public bool ShowTraps { get { return Options.TrapsAndTriggers; } set { if (Options.TrapsAndTriggers == value) return; Options.TrapsAndTriggers = value; Raise(); OptionsChanged?.Invoke(false); } }
+        public bool ShowModels { get { return Options.Models; } set { if (Options.Models == value) return; Options.Models = value; Raise(); OptionsChanged?.Invoke(false); } }
+        public bool ShowGrid { get { return Options.Grid; } set { if (Options.Grid == value) return; Options.Grid = value; Raise(); OptionsChanged?.Invoke(false); } }
+        /// <summary>Tiles between grid lines, 1-32.</summary>
+        public decimal? GridStep
+        {
+            get { return Options.GridStep; }
+            set
+            {
+                int v = Math.Clamp((int)(value ?? 5), 1, 32);
+                if (Options.GridStep == v) return;
+                Options.GridStep = v; Raise(); OptionsChanged?.Invoke(false);
+            }
+        }
         bool darkness;
         public bool Darkness { get { return darkness; } set { if (Set(ref darkness, value)) OptionsChanged?.Invoke(false); } }
 
@@ -211,40 +224,37 @@ namespace UwEditor.App
 
         // ---- the object list
 
+        /// <summary>The objects lying on tiles, by index; what is inside an object (its link
+        /// list: contents, inventory, a trigger's trap, a door's lock) hangs under it.</summary>
         void BuildTree()
         {
             Tree.Clear();
             if (level == null) return;
             string f = filter.Trim().ToLowerInvariant();
-            for (int y = 63; y >= 0; y--)
-                for (int x = 0; x < 64; x++)
-                {
-                    var objs = level.TileObjects(x, y);
-                    if (objs.Count == 0) continue;
-                    var tileNode = new TreeNode { Header = string.Format("({0}, {1})  {2}", x, y, Describe(level.Tiles[x, y], objs.Count)), TileX = x, TileY = y };
-                    foreach (var o in objs) AddObject(tileNode, o, f);
-                    if (tileNode.Children.Count > 0) Tree.Add(tileNode);
-                    if (f.Length > 0) tileNode.IsExpanded = true;
-                }
+            foreach (var o in level.Objects)
+                if (o.OnTile && !o.Free) AddObject(null, o, f, true);
         }
 
-        static string Describe(TileInfo t, int n) { return n == 1 ? "1 object" : n + " objects"; }
-
-        bool AddObject(TreeNode parent, ObjectInfo o, string f)
+        bool AddObject(TreeNode parent, ObjectInfo o, string f, bool top)
         {
-            var node = new TreeNode { Header = Label(o), ObjectIndex = o.Index, TileX = o.TileX, TileY = o.TileY, Parent = parent };
+            var node = new TreeNode { Header = Label(o, top), ObjectIndex = o.Index, TileX = o.TileX, TileY = o.TileY, Parent = parent };
             bool childMatches = false;
-            foreach (int c in o.Children) childMatches |= AddObject(node, level.Objects[c], f);
+            foreach (int c in o.Children) childMatches |= AddObject(node, level.Objects[c], f, false);
             bool matches = f.Length == 0 || Matches(o, f) || childMatches;
-            if (matches) parent.Children.Add(node);
+            if (matches)
+            {
+                if (parent == null) Tree.Add(node); else parent.Children.Add(node);
+            }
             if (childMatches && f.Length > 0) node.IsExpanded = true;
             return matches;
         }
 
-        static string Label(ObjectInfo o)
+        static string Label(ObjectInfo o, bool top)
         {
-            string flags = (o.Invisible ? " · invisible" : "");
-            return string.Format("{0}  #{1}{2}", o.Name, o.Index, flags);
+            string s = string.Format("#{0}  {1}", o.Index, o.Name);
+            if (top) s += string.Format("  ({0}, {1})", o.TileX, o.TileY);
+            if (o.Invisible) s += "  · invisible";
+            return s;
         }
 
         static bool Matches(ObjectInfo o, string f)
@@ -268,10 +278,6 @@ namespace UwEditor.App
             return null;
         }
 
-        TreeNode FindTileNode(int x, int y)
-        {
-            return Tree.FirstOrDefault(n => n.TileX == x && n.TileY == y && n.ObjectIndex < 0);
-        }
 
         // ---- selection
 
@@ -328,9 +334,8 @@ namespace UwEditor.App
             Raise(nameof(HasObject)); Raise(nameof(HasTile));
             if (fromView)
             {
-                var node = obj >= 0 ? FindNode(Tree, obj) : FindTileNode(tx, ty);
+                var node = obj >= 0 ? FindNode(Tree, obj) : null;
                 for (var p = node?.Parent; p != null; p = p.Parent) p.IsExpanded = true;
-                if (node != null && node.Parent == null && obj >= 0) node.IsExpanded = true;
                 selectedNode = node;
                 Raise(nameof(SelectedNode));
             }

@@ -37,6 +37,10 @@ namespace UwEditor.Core
         public ObjectNames Names { get; private set; }
         public GameGraphics Graphics { get; private set; }
         public PlayerDat Player { get; private set; }
+        /// <summary>The 3D models built into UW.EXE / UW2.EXE, or null when the executable is missing.</summary>
+        public UltimateEditor.Uw1.Uw1ExeModels ExeModels { get; private set; }
+        /// <summary>COMOBJ.DAT's render field per item: 0 sprite, 1 critter, 2 model, 3 texture-mapped model.</summary>
+        public int[] RenderTypes { get; private set; }
         public StartPoint Start { get; private set; }
 
         public bool IsSave { get { return SaveFolder != null; } }
@@ -92,6 +96,14 @@ namespace UwEditor.Core
             s.LevArk = Archive.Load(s.LevArkPath, s.Kind);
             s.Names = ObjectNames.Load(data);
             s.Graphics = GameGraphics.Load(data, s.Kind);
+            string comobj = GameProfile.Find(data, "COMOBJ.DAT");
+            s.RenderTypes = ObjectModels.ReadRenderTypes(comobj != null ? File.ReadAllBytes(comobj) : null);
+            try
+            {
+                string exe = StartPosition.ExePath(data, s.Kind);
+                s.ExeModels = exe != null ? UltimateEditor.Uw1.Uw1ExeModels.Load(File.ReadAllBytes(exe)) : null;
+            }
+            catch (Exception) { s.ExeModels = null; }
             if (save != null)
             {
                 string desc = GameProfile.Find(save, "DESC");

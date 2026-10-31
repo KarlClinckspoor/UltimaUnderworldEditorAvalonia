@@ -43,11 +43,21 @@ So M0, M1 and M2 are done, and most of M3 and M4.
 - **UW2 ceiling texture:** found in the reference. The ceiling is floor slot 0xF (uw2
   3d/GRIDDB.C, `gr_ccall(pts, sqmod, 0xF)`); UW1's is slot 9.
 
+**Added the same day:**
+- The object list is ordered by index, with contents nested under their objects.
+- Sprites always face the camera.
+- The built-in 3D models: doors, levers, writings, furniture. Door rules come from 3d/DRAWOBJ.C
+  `do_door`: an open door is drawn 3 steps lower; the leaf turns by flags & 7 sixteenths,
+  one way or the other by bit 13; the portcullis is model 0xC; the secret door is model 0xF in
+  the wall texture.
+- A yellow grid every N tiles, with `X: n` / `Y: n` labels at the view's edges.
+- The rest of the Unity editor's features are planned in ROADMAP.md.
+
 **Not yet:**
 - Run on Windows and macOS.
 - GitHub Actions.
-- Doors, built-in models and wall decals drawn as such (they are sprites for now).
-- Editing and saving.
+- Critter animations.
+- Editing and saving (ROADMAP.md phase A).
 
 ## 1. What the MWE does
 

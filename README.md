@@ -3,7 +3,8 @@
 A level editor for **Ultima Underworld I** and **II** that runs on Windows, Linux and macOS.
 It uses Avalonia 12 for the window and OpenGL for the 3D view. This is the skeleton. It
 opens a game, shows any level in 3D, and shows the properties of the selected object and
-tile. It does not edit or save yet. The plan is in [PLAN.md](PLAN.md).
+tile. It does not edit or save yet. The plan is in [PLAN.md](PLAN.md); the road to the Unity
+editor's other features is in [ROADMAP.md](ROADMAP.md).
 
 ![UW1, level 1, the sack next to the start selected](docs/uw1-level1.png)
 
@@ -24,13 +25,21 @@ tile. It does not edit or save yet. The plan is in [PLAN.md](PLAN.md).
 - **The 3D view:**
   - Floors, walls, slopes and diagonal walls, textured through the level's texture map.
   - The ceiling (G), seen only from below, as in the game.
-  - Objects drawn as their pictures. Invisible objects and traps or triggers can be
-    shown too.
+  - Objects drawn the game's way, from COMOBJ.DAT's render field:
+    - doors in their frames (open doors swung by their flags, the portcullis raised, the
+      secret door in the wall texture);
+    - levers, switches, writings and paintings on their walls;
+    - furniture, pillars, bridges and so on as the 3D models built into `UW.EXE` /
+      `UW2.EXE`;
+    - everything else as its picture, always facing the camera.
+  - M switches the models off. Invisible objects and traps or triggers can be shown too.
+  - A yellow grid every N tiles (H; N set in the Show box), laid on the floors. The view's
+    edges name each line, as `X: 30` or `Y: 45`.
   - Darkness, centred on the point the camera looks at.
 - **Selecting:**
   - Click an object or a tile in the view, or pick one in the object list.
-  - The list shows tile, then object, then contents (container contents, inventories,
-    a trigger's trap, a door's lock).
+  - The list shows the objects lying on tiles in index order. Whatever is inside an object
+    (container contents, inventories, a trigger's trap, a door's lock) hangs under it.
   - The filter takes a name, `#index` or `0x` item id.
 - **Properties:** every field of the object and tile records, with its value in decimal and
   hex. The tooltip gives the field's meaning and its source in the reconstructed game code.
@@ -81,7 +90,11 @@ They check:
 - names, textures and object pictures;
 - that the view is not mirrored;
 - picking;
-- that every level builds a valid mesh.
+- that every level builds a valid mesh;
+- that levers, doors and furniture become models, and a wall lever lies on its wall;
+- that every shipped open door is 24 above its floor, so it is drawn on the floor (the
+  reference's rule);
+- the grid lines and their labels.
 
 ## Layout
 

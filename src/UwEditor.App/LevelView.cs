@@ -95,10 +95,18 @@ namespace UwEditor.App
             Redraw();
         }
 
-        public void RefreshSprites()
+        /// <summary>The scene's objects (models and sprites) changed.</summary>
+        public void RefreshObjects()
         {
             if (scene == null) return;
+            renderer.SetModels(scene.Models);
             renderer.SetSprites(scene.Sprites, scene.Atlas);
+            Redraw();
+        }
+
+        public void SetGrid(List<float> lines)
+        {
+            renderer.SetGrid(lines == null ? new float[0] : lines.ToArray());
             Redraw();
         }
 
@@ -110,8 +118,9 @@ namespace UwEditor.App
 
         void Upload(LevelScene s, bool atlas)
         {
-            if (s == null) { renderer.SetLevel(null, null); renderer.SetSprites(null, null); return; }
+            if (s == null) { renderer.SetLevel(null, null); renderer.SetSprites(null, null); renderer.SetModels(null); return; }
             renderer.SetLevel(s.Mesh, s.Layers);
+            renderer.SetModels(s.Models);
             if (atlas && s.Atlas != null) renderer.SetAtlas(s.Atlas.Image);
             renderer.SetSprites(s.Sprites, s.Atlas);
         }
@@ -128,7 +137,7 @@ namespace UwEditor.App
             if (scene == null) return PickResult.None;
             Vector3 o, d;
             Camera.Ray((float)p.X, (float)p.Y, (float)Bounds.Width, (float)Bounds.Height, out o, out d);
-            return Picking.Pick(o, d, scene.Mesh, scene.Sprites, Camera.Right);
+            return Picking.Pick(o, d, scene.Mesh, scene.Sprites, Camera.Right, Camera.Up, scene.Models);
         }
 
         // ---- mouse
@@ -211,6 +220,12 @@ namespace UwEditor.App
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
+            CameraKey(e);
+        }
+
+        /// <summary>Moves the camera for W/A/S/D, the arrows, Q/E, R/V, + and −; marks the key handled.</summary>
+        public void CameraKey(KeyEventArgs e)
+        {
             float step = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? 4f : 1f;
             switch (e.Key)
             {

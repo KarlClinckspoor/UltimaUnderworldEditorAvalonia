@@ -34,6 +34,9 @@ namespace UwEditor.Core
         public int FloorEdge;
         /// <summary>OBJECTS.GR, by picture number (= item id); null for an empty picture.</summary>
         public readonly List<RgbaImage> ObjectPictures = new List<RgbaImage>();
+        /// <summary>The 3D models' textures: TMFLAT.GR (levers, switches), TMOBJ.GR (writings,
+        /// the bridge, pictures...), DOORS.GR (by the level's door list).</summary>
+        public readonly List<RgbaImage> TmFlat = new List<RgbaImage>(), TmObj = new List<RgbaImage>(), Doors = new List<RgbaImage>();
         int[][] aux;
 
         public static GameGraphics Load(string data, GameKind kind)
@@ -70,6 +73,11 @@ namespace UwEditor.Core
             }
             string objects = GameProfile.Find(data, "OBJECTS.GR");
             if (objects != null) g.ReadPictures(File.ReadAllBytes(objects), g.ObjectPictures);
+            foreach (var pair in new[] { Tuple.Create("TMFLAT.GR", g.TmFlat), Tuple.Create("TMOBJ.GR", g.TmObj), Tuple.Create("DOORS.GR", g.Doors) })
+            {
+                string f = GameProfile.Find(data, pair.Item1);
+                if (f != null) g.ReadPictures(File.ReadAllBytes(f), pair.Item2);
+            }
             return g;
         }
 

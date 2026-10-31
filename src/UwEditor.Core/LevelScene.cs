@@ -11,6 +11,11 @@ namespace UwEditor.Core
         public bool Objects = true;
         public bool Invisible;
         public bool TrapsAndTriggers;
+        /// <summary>Doors, furniture, levers and writings as the game's 3D models, not pictures.</summary>
+        public bool Models = true;
+        /// <summary>Yellow lines every <see cref="GridStep"/> tiles.</summary>
+        public bool Grid = true;
+        public int GridStep = 5;
     }
 
     /// <summary>
@@ -26,20 +31,24 @@ namespace UwEditor.Core
         public List<RgbaImage> Layers { get; private set; }
         public List<SpriteInstance> Sprites { get; private set; }
         public SpriteAtlas Atlas { get; private set; }
+        /// <summary>The objects drawn as the built-in 3D models (empty when they are off).</summary>
+        public ModelMesh Models { get; private set; }
 
         public static LevelScene Build(LevelModel level, SpriteAtlas atlas, SceneOptions opt)
         {
             var s = new LevelScene { Level = level, Atlas = atlas };
             s.Mesh = LevelGeometry.Build(level, opt.Ceiling);
             s.Layers = BuildLayers(level);
-            s.RebuildSprites(opt);
+            s.RebuildObjects(opt);
             return s;
         }
 
-        public void RebuildSprites(SceneOptions opt)
+        /// <summary>The objects as models and sprites, after a change of what is shown.</summary>
+        public void RebuildObjects(SceneOptions opt)
         {
+            Models = opt.Objects && opt.Models ? ObjectModels.Build(Level, opt.Invisible) : new ModelMesh();
             Sprites = opt.Objects && Atlas != null
-                ? ObjectSprites.Build(Level, Atlas, new SpriteFilter { Invisible = opt.Invisible, TrapsAndTriggers = opt.TrapsAndTriggers })
+                ? ObjectSprites.Build(Level, Atlas, new SpriteFilter { Invisible = opt.Invisible, TrapsAndTriggers = opt.TrapsAndTriggers, Skip = Models.Objects })
                 : new List<SpriteInstance>();
         }
 

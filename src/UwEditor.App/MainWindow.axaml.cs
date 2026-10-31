@@ -22,6 +22,7 @@ namespace UwEditor.App
         SpriteAtlas atlas;
         LevelScene scene;
 
+        static readonly IBrush LabelText = new SolidColorBrush(Color.Parse("#FFD72A")), LabelBack = new SolidColorBrush(Color.Parse("#D015161A"));
         static readonly Color Uw1Accent = Color.Parse("#C9934C"), Uw2Accent = Color.Parse("#6FA6DC");
         static readonly Vector4 StartColour = new Vector4(1f, 0.25f, 0.85f, 1f), SelColour = new Vector4(1f, 0.85f, 0.25f, 1f), HoverColour = new Vector4(1f, 1f, 1f, 0.45f);
 
@@ -39,6 +40,11 @@ namespace UwEditor.App
             AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
             Columns.ColumnDefinitions[0].Width = new GridLength(Math.Clamp(settings.LeftWidth, 200, 600));
             Columns.ColumnDefinitions[4].Width = new GridLength(Math.Clamp(settings.RightWidth, 240, 700));
+            vm.ShowGrid = settings.Grid;
+            vm.GridStep = settings.GridStep;
+            vm.ShowModels = settings.Models;
+            View.CameraChanged += UpdateGridLabels;
+            View.SizeChanged += (s, e) => UpdateGridLabels();
             BuildRecentMenu();
             Opened += (s, e) =>
             {
@@ -50,6 +56,9 @@ namespace UwEditor.App
             {
                 settings.LeftWidth = Columns.ColumnDefinitions[0].ActualWidth;
                 settings.RightWidth = Columns.ColumnDefinitions[4].ActualWidth;
+                settings.Grid = vm.ShowGrid;
+                settings.GridStep = (int)(vm.GridStep ?? 5);
+                settings.Models = vm.ShowModels;
                 settings.Save();
             };
         }
@@ -121,6 +130,7 @@ namespace UwEditor.App
             vm.HoverText = "";
             PlaceCamera(level);
             UpdateMarkers();
+            UpdateGrid();
         }
 
         /// <summary>Over the start square (a new game) or the player (a saved game) on that level,
@@ -157,8 +167,8 @@ namespace UwEditor.App
 
         void OnOptionsChanged(bool rebuildMesh)
         {
-            if (vm.Level == null) return;
             View.State.Darkness = vm.Darkness;
+            if (vm.Level == null || scene == null) return;
             if (rebuildMesh)
             {
                 scene = LevelScene.Build(vm.Level, atlas, vm.Options);
@@ -166,10 +176,50 @@ namespace UwEditor.App
             }
             else
             {
-                scene.RebuildSprites(vm.Options);
-                View.RefreshSprites();
+                scene.RebuildObjects(vm.Options);
+                View.RefreshObjects();
             }
+            UpdateGrid();
             View.Redraw();
+        }
+
+        // ---- the grid
+
+        void UpdateGrid()
+        {
+            View.SetGrid(vm.Level != null && vm.Options.Grid ? GridOverlay.Lines(vm.Level, vm.Options.GridStep) : null);
+            UpdateGridLabels();
+        }
+
+        /// <summary>The numbers at the view's edges, kept clear of the corners and of each other's place.</summary>
+        void UpdateGridLabels()
+        {
+            GridLabels.Children.Clear();
+            if (vm.Level == null || !vm.Options.Grid) return;
+            double w = View.Bounds.Width, h = View.Bounds.Height;
+            // the floor under the point looked at, so the numbers sit on the lines drawn there
+            var t = View.Camera.Target;
+            int tx = Math.Clamp((int)Math.Floor(t.X), 0, 63), ty = Math.Clamp((int)Math.Floor(t.Z), 0, 63);
+            float planeY = vm.Level.Tiles[tx, ty].IsSolid ? t.Y : (float)vm.Level.FloorAt(tx, ty, t.X - tx, t.Z - ty);
+            var placed = new List<Rect>();
+            foreach (var l in GridOverlay.Labels(View.Camera, (float)w, (float)h, vm.Options.GridStep, planeY))
+            {
+                var tb = new TextBlock { Text = l.Text, Foreground = LabelText, FontSize = 11, FontWeight = FontWeight.SemiBold };
+                var b = new Border { Child = tb, Background = LabelBack, CornerRadius = new CornerRadius(3), Padding = new Thickness(4, 1) };
+                b.Measure(Size.Infinity);
+                var sz = b.DesiredSize;
+                double x = l.X - sz.Width / 2, y = l.Y - sz.Height / 2;
+                // labels sit just inside the edge the line leaves through
+                x = Math.Clamp(x, 2, Math.Max(2, w - sz.Width - 2));
+                y = Math.Clamp(y, 2, Math.Max(2, h - sz.Height - 2));
+                // nearer lines were placed first; a label that would cover one is left out
+                var r = new Rect(x - 3, y - 2, sz.Width + 6, sz.Height + 4);
+                if (placed.Any(o => o.Intersects(r))) continue;
+                placed.Add(r);
+                Canvas.SetLeft(b, x);
+                Canvas.SetTop(b, y);
+                GridLabels.Children.Add(b);
+            }
         }
 
         // ---- selection and markers
@@ -239,6 +289,15 @@ namespace UwEditor.App
                 var o = level.Objects[vm.SelectedObject];
                 target = new Vector3((float)o.WorldX, (float)o.WorldZ + 0.2f, (float)o.WorldY);
                 distance = 2.5f;
+                // wall objects and doors are seen head-on: looking the way they face (towards the wall)
+                int model;
+                var kind = ObjectModels.Classify(o.Item, vm.Session.RenderTypes, vm.Session.IsUw2, out model);
+                if (kind == ObjectModels.Kind.Door || kind == ObjectModels.Kind.TmapLever || kind == ObjectModels.Kind.TmapWall
+                    || (kind == ObjectModels.Kind.Model && (model == 0x0D || model == 0x10 || model == 0x11 || model == 0x12)))
+                {
+                    View.Camera.Yaw = o.Heading * 45f;
+                    View.Camera.Pitch = Math.Min(View.Camera.Pitch, 30f);
+                }
             }
             else if (vm.SelectedTileX >= 0)
             {
@@ -296,6 +355,8 @@ namespace UwEditor.App
                 "  F                       frame the selection\n" +
                 "  T                       look straight down\n" +
                 "  G                       ceiling on or off\n" +
+                "  H                       grid on or off\n" +
+                "  M                       3D models or pictures\n" +
                 "  Home                    back to the start or the player\n" +
                 "  Esc                     clear the selection", true);
         }
@@ -314,6 +375,12 @@ namespace UwEditor.App
             bool typing = FocusManager?.GetFocusedElement() is TextBox;
             if (e.Key == Key.O && (e.KeyModifiers & KeyModifiers.Control) != 0) { OnOpen(this, null); e.Handled = true; return; }
             if (typing || (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt)) != 0) return;
+            // the camera keys work whichever panel has the focus (the arrows stay with lists)
+            if (!View.IsFocused && (e.Key == Key.W || e.Key == Key.A || e.Key == Key.S || e.Key == Key.D || e.Key == Key.Q || e.Key == Key.E || e.Key == Key.R || e.Key == Key.V))
+            {
+                View.CameraKey(e);
+                return;
+            }
             switch (e.Key)
             {
                 case Key.PageUp: vm.StepLevel(-1); break;
@@ -322,6 +389,8 @@ namespace UwEditor.App
                 case Key.F: Frame(); break;
                 case Key.T: OnTopDown(this, null); break;
                 case Key.G: vm.ShowCeiling = !vm.ShowCeiling; break;
+                case Key.H: vm.ShowGrid = !vm.ShowGrid; break;
+                case Key.M: vm.ShowModels = !vm.ShowModels; break;
                 case Key.Escape: vm.ClearSelection(); break;
                 default: return;
             }

@@ -19,7 +19,7 @@ namespace UwEditor.Core
     /// <summary>What lies under the mouse: the nearest level triangle or object sprite along the ray.</summary>
     public static class Picking
     {
-        public static PickResult Pick(Vector3 origin, Vector3 dir, LevelMesh mesh, IList<SpriteInstance> sprites, Vector3 cameraRight, float spriteSlack = 0.02f)
+        public static PickResult Pick(Vector3 origin, Vector3 dir, LevelMesh mesh, IList<SpriteInstance> sprites, Vector3 cameraRight, Vector3 cameraUp, ModelMesh models = null, float spriteSlack = 0.02f)
         {
             var best = PickResult.None;
             if (mesh != null)
@@ -36,16 +36,29 @@ namespace UwEditor.Core
                     }
                 }
             }
+            if (models != null)
+            {
+                var v = models.Vertices;
+                for (int t = 0; t < models.TriangleCount; t++)
+                {
+                    float d;
+                    if (RayTriangle(origin, dir, v[3 * t].Position, v[3 * t + 1].Position, v[3 * t + 2].Position, out d) && d < best.Distance + 0.02f)
+                    {
+                        best.Distance = Math.Min(d, best.Distance);
+                        best.Object = models.TriangleObject[t];
+                        best.Tile = models.TriangleTile[t];
+                    }
+                }
+            }
             if (sprites != null)
             {
-                var right = cameraRight;
                 foreach (var s in sprites)
                 {
-                    float hw = s.Width / 2 + spriteSlack;
-                    var a = s.Base - right * hw + new Vector3(0, -spriteSlack, 0);
-                    var b = s.Base + right * hw + new Vector3(0, -spriteSlack, 0);
-                    var c = b + new Vector3(0, s.Height + 2 * spriteSlack, 0);
-                    var dd = a + new Vector3(0, s.Height + 2 * spriteSlack, 0);
+                    // the quad as the shader draws it: facing the camera round its middle
+                    var r = cameraRight * (s.Width / 2 + spriteSlack);
+                    var u = cameraUp * (s.Height / 2 + spriteSlack);
+                    var c0 = s.Centre;
+                    Vector3 a = c0 - r - u, b = c0 + r - u, c = c0 + r + u, dd = c0 - r + u;
                     float dist;
                     // a sprite in front of its wall wins over the wall a hair behind it
                     if ((RayTriangle(origin, dir, a, b, c, out dist) || RayTriangle(origin, dir, a, c, dd, out dist)) && dist < best.Distance + 0.05f)
