@@ -183,6 +183,8 @@ namespace UwEditor.App
             playerWindow?.Close();
             graphicsWindow?.Close();
             keysWindow?.Close(); stringsWindow?.Close(); triggersWindow?.Close(); modsWindow?.Close(); modelsWindow?.Close();
+            zonesWindow?.Close(); zoneGraphWindow?.Close();
+            zoning = null; zoneOverlay = null;
             conversations = null;
             strings = null;
             playerSheet = null;

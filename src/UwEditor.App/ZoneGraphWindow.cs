@@ -1,0 +1,526 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using UwEditor.Core.Randomizer;
+
+namespace UwEditor.App
+{
+    /// <summary>The lines between the zone labels: one arrowhead for a one-way link, two for a two-way one, dashed when unsure.</summary>
+    public sealed class LinkLayer : Control
+    {
+        public ZoneGraphWindow Owner;
+
+        public override void Render(DrawingContext dc)
+        {
+            dc.FillRectangle(Brushes.Transparent, new Rect(Bounds.Size));   // so empty space takes clicks
+            Owner?.DrawLinks(dc);
+        }
+    }
+
+    /// <summary>
+    /// Tools ▸ Randomizer ▸ Zone graph (work in progress): a label for each zone, moved by dragging;
+    /// links drawn between them, made by clicking two labels in a connect mode (one-way or two-way),
+    /// and each link's list of requirements, filled from the doors between the zones when there are
+    /// any (a locked door that cannot be picked needs its key).
+    /// </summary>
+    public sealed class ZoneGraphWindow : Window
+    {
+        const double CanvasW = 3600, CanvasH = 2400;
+        readonly MainWindow main;
+        readonly ZoningState z;
+        readonly Canvas canvas = new Canvas { Width = CanvasW, Height = CanvasH };
+        readonly LinkLayer layer = new LinkLayer { Width = CanvasW, Height = CanvasH };
+        readonly ScaleTransform scale = new ScaleTransform(1, 1);
+        readonly Dictionary<int, Border> labels = new Dictionary<int, Border>();
+        readonly ToggleButton moveMode = new ToggleButton { Content = "Select and move", IsChecked = true };
+        readonly ToggleButton oneWayMode = new ToggleButton { Content = "Connect one-way" };
+        readonly ToggleButton twoWayMode = new ToggleButton { Content = "Connect two-way" };
+        readonly CheckBox allText = new CheckBox { Content = "Requirements on every line" };
+        readonly Slider zoom = new Slider { Minimum = 0.3, Maximum = 2, Value = 1, Width = 140 };
+        readonly TextBlock status = new TextBlock { FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.Wrap };
+        readonly StackPanel side = new StackPanel { Spacing = 6 };
+        int selectedZone = -1, connectFrom = -1;
+        ZoneLink selectedLink;
+        int dragZone = -1;
+        Point dragOffset;
+
+        public ZoningState Zoning { get { return z; } }
+        public ZoneLink SelectedLink { get { return selectedLink; } }
+        public int SelectedZone { get { return selectedZone; } }
+
+        public ZoneGraphWindow(MainWindow main, ZoningState zoning)
+        {
+            this.main = main;
+            z = zoning;
+            Title = "Zone graph (randomizer, work in progress) — " + zoning.Session.Title;
+            Width = 1280; Height = 820; MinWidth = 800; MinHeight = 500;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            layer.Owner = this;
+            canvas.Children.Add(layer);
+            layer.PointerPressed += OnLayerPressed;
+            canvas.PointerMoved += OnCanvasMoved;
+            canvas.PointerReleased += (s, e) => { if (dragZone >= 0) { dragZone = -1; z.LinkChanged(); } };
+            var zoomed = new LayoutTransformControl { LayoutTransform = scale, Child = canvas };
+            var scroller = new ScrollViewer { Content = zoomed, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            scroller.Bind(ScrollViewer.BackgroundProperty, scroller.GetResourceObservable("Panel"));
+            zoom.ValueChanged += (s, e) => { scale.ScaleX = scale.ScaleY = zoom.Value; };
+            foreach (var t in new[] { moveMode, oneWayMode, twoWayMode })
+            {
+                var me = t;
+                me.Click += (s, e) => { foreach (var o in new[] { moveMode, oneWayMode, twoWayMode }) o.IsChecked = o == me; connectFrom = -1; Status(me == moveMode ? "Drag the labels; click a label or a line to edit it." : "Click the zone the path starts from, then the zone it leads to."); layer.InvalidateVisual(); };
+            }
+            var bar = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+            allText.IsCheckedChanged += (s, e) => layer.InvalidateVisual();
+            foreach (var c in new Control[] { moveMode, oneWayMode, twoWayMode, Btn("Arrange by level", AutoLayout), allText, new TextBlock { Text = "Zoom", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 4, 0) }, zoom,
+                Btn("Check the logic…", Solve), Btn("Save the zoning", () => { try { z.Save(); Status("Saved " + z.Path + "."); } catch (Exception ex) { Status(ex.Message); } }) })
+            {
+                c.Margin = new Thickness(0, 0, 6, 0);
+                bar.Children.Add(c);
+            }
+            var sideScroll = new ScrollViewer { Content = side, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Width = 360, Margin = new Thickness(12, 0, 0, 0) };
+            var dock = new DockPanel { Margin = new Thickness(16) };
+            var head = new StackPanel();
+            head.Children.Add(new TextBlock { Text = "Zone graph", FontSize = 16, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
+            head.Children.Add(bar);
+            DockPanel.SetDock(head, Dock.Top);
+            DockPanel.SetDock(status, Dock.Bottom);
+            status.Margin = new Thickness(0, 8, 0, 0);
+            DockPanel.SetDock(sideScroll, Dock.Right);
+            dock.Children.Add(head); dock.Children.Add(status); dock.Children.Add(sideScroll); dock.Children.Add(scroller);
+            Content = dock;
+            z.Changed += OnChanged;
+            Closed += (s, e) => z.Changed -= OnChanged;
+            ManualWindow.Attach(this, "Randomizer");
+            AddHandler(KeyDownEvent, (s, e) =>
+            {
+                if (e.Key == Key.Delete && selectedLink != null && !(FocusManager?.GetFocusedElement() is TextBox)) { DeleteLink(); e.Handled = true; }
+                else if (e.Key == Key.Escape) { connectFrom = -1; SelectZone(-1); e.Handled = true; }
+            }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            BuildLabels();
+            Status("Drag the labels; click a label or a line to edit it. Connect modes: click the start zone, then the end zone.");
+            ShowSide();
+        }
+
+        static Button Btn(string t, Action a) { var b = new Button { Content = t }; b.Click += (s, e) => a(); return b; }
+
+        void Status(string s) { status.Text = s; }
+
+        void OnChanged(string what)
+        {
+            if (what == "zones" || what == "file" || what == "tiles") BuildLabels();
+            else if (what == "links") layer.InvalidateVisual();
+            if (what == "file") { selectedLink = null; selectedZone = -1; ShowSide(); }
+        }
+
+        // ---- labels
+
+        static IBrush TextOn(uint c)
+        {
+            double l = 0.299 * (c >> 16 & 0xFF) + 0.587 * (c >> 8 & 0xFF) + 0.114 * (c & 0xFF);
+            return l > 140 ? Brushes.Black : Brushes.White;
+        }
+
+        /// <summary>Places zones without a position: a column per level they first appear on, in id order.</summary>
+        public void AutoLayout() { Layout(true); }
+
+        void Layout(bool all)
+        {
+            var byLevel = new SortedDictionary<int, List<Zone>>();
+            foreach (var zone in z.Set.Zones.Where(x => x.Id > ZoneSet.Unassigned))
+            {
+                if (!all && zone.GraphX.HasValue) continue;
+                var lv = z.Set.LevelsOf(zone.Id);
+                int first = lv.Count > 0 ? lv[0] : 0;
+                List<Zone> l;
+                if (!byLevel.TryGetValue(first, out l)) byLevel[first] = l = new List<Zone>();
+                l.Add(zone);
+            }
+            int col = 0;
+            double maxY = 40;
+            foreach (var kv in byLevel)
+            {
+                double y = 40;
+                foreach (var zone in kv.Value)
+                {
+                    if (y > CanvasH - 80) { col++; y = 40; }
+                    zone.GraphX = 30 + col * 260; zone.GraphY = y;
+                    y += 44;
+                    maxY = Math.Max(maxY, y);
+                }
+                col++;
+            }
+            if (byLevel.Count > 0) z.LinkChanged();
+            BuildLabels();
+        }
+
+        void BuildLabels()
+        {
+            if (z.Set.Zones.Any(x => x.Id > ZoneSet.Unassigned && !x.GraphX.HasValue)) { Layout(false); return; }
+            foreach (var b in labels.Values) canvas.Children.Remove(b);
+            labels.Clear();
+            foreach (var zone in z.Set.Zones.Where(x => x.Id > ZoneSet.Unassigned))
+            {
+                uint c = z.Set.ColorOf(zone.Id);
+                var lv = z.Set.LevelsOf(zone.Id);
+                string levels = lv.Count == 0 ? "" : lv.Count == 1 ? "  L" + lv[0] : string.Format("  L{0}-L{1}", lv.First(), lv.Last());
+                var tb = new TextBlock { Text = zone.Id + "  " + zone.Name + levels, Foreground = TextOn(c), FontSize = 12, FontWeight = zone.Id == z.Set.StartZone || zone.Id == z.Set.GoalZone ? FontWeight.Bold : FontWeight.Normal, MaxWidth = 220, TextTrimming = TextTrimming.CharacterEllipsis };
+                var b = new Border
+                {
+                    Child = tb, Background = new SolidColorBrush(Color.FromArgb(255, (byte)(c >> 16), (byte)(c >> 8), (byte)c)),
+                    CornerRadius = new CornerRadius(6), Padding = new Thickness(8, 4), BorderThickness = new Thickness(zone.Id == selectedZone ? 3 : 1),
+                    BorderBrush = zone.Id == selectedZone ? Brushes.White : new SolidColorBrush(Color.FromArgb(120, 0, 0, 0)), Cursor = new Cursor(StandardCursorType.Hand),
+                    Tag = zone.Id,
+                };
+                ToolTip.SetTip(b, (zone.Id == z.Set.StartZone ? "Start. " : zone.Id == z.Set.GoalZone ? "Goal. " : "") + (string.IsNullOrEmpty(zone.Notes) ? zone.Name : zone.Notes));
+                Canvas.SetLeft(b, zone.GraphX ?? 0);
+                Canvas.SetTop(b, zone.GraphY ?? 0);
+                b.PointerPressed += OnLabelPressed;
+                canvas.Children.Add(b);
+                labels[zone.Id] = b;
+            }
+            layer.InvalidateVisual();
+        }
+
+        Rect LabelRect(int id)
+        {
+            Border b;
+            if (!labels.TryGetValue(id, out b)) return new Rect();
+            var size = b.Bounds.Width > 0 ? b.Bounds.Size : b.DesiredSize.Width > 0 ? b.DesiredSize : new Size(120, 24);
+            return new Rect(Canvas.GetLeft(b), Canvas.GetTop(b), size.Width, size.Height);
+        }
+
+        void OnLabelPressed(object sender, PointerPressedEventArgs e)
+        {
+            int id = (int)((Border)sender).Tag;
+            e.Handled = true;
+            if (oneWayMode.IsChecked == true || twoWayMode.IsChecked == true)
+            {
+                if (connectFrom < 0) { connectFrom = id; Status("From " + z.Label(id) + ": now click the zone it leads to."); layer.InvalidateVisual(); return; }
+                try
+                {
+                    var k = z.Connect(connectFrom, id, twoWayMode.IsChecked == true);
+                    selectedLink = k; selectedZone = -1;
+                    Status(string.Format("Linked {0} {1} {2}: requires {3}.", z.Label(k.From), k.TwoWay ? "<->" : "->", z.Label(k.To), k.Requires));
+                }
+                catch (Exception ex) { Status(ex.Message); }
+                connectFrom = -1;
+                ShowSide();
+                layer.InvalidateVisual();
+                return;
+            }
+            SelectZone(id);
+            dragZone = id;
+            var p = e.GetPosition(canvas);
+            dragOffset = new Point(p.X - Canvas.GetLeft((Border)sender), p.Y - Canvas.GetTop((Border)sender));
+            e.Pointer.Capture(canvas);
+        }
+
+        void OnCanvasMoved(object sender, PointerEventArgs e)
+        {
+            if (dragZone < 0 || !e.GetCurrentPoint(canvas).Properties.IsLeftButtonPressed) return;
+            var p = e.GetPosition(canvas);
+            double x = Math.Max(0, Math.Min(CanvasW - 60, p.X - dragOffset.X)), y = Math.Max(0, Math.Min(CanvasH - 24, p.Y - dragOffset.Y));
+            z.MoveLabel(dragZone, x, y);
+            Canvas.SetLeft(labels[dragZone], x);
+            Canvas.SetTop(labels[dragZone], y);
+            layer.InvalidateVisual();
+        }
+
+        /// <summary>Moves a label (for tests and scripts).</summary>
+        public void MoveLabel(int id, double x, double y)
+        {
+            z.MoveLabel(id, x, y);
+            if (labels.ContainsKey(id)) { Canvas.SetLeft(labels[id], x); Canvas.SetTop(labels[id], y); }
+            layer.InvalidateVisual();
+        }
+
+        public void SelectZone(int id)
+        {
+            selectedZone = id;
+            if (id >= 0) { selectedLink = null; z.CurrentZone = id; }
+            foreach (var kv in labels)
+            {
+                kv.Value.BorderThickness = new Thickness(kv.Key == id ? 3 : 1);
+                kv.Value.BorderBrush = kv.Key == id ? Brushes.White : new SolidColorBrush(Color.FromArgb(120, 0, 0, 0));
+            }
+            ShowSide();
+            layer.InvalidateVisual();
+        }
+
+        // ---- links
+
+        (Point a, Point b) Ends(ZoneLink k)
+        {
+            var ra = LabelRect(k.From); var rb = LabelRect(k.To);
+            var ca = ra.Center; var cb = rb.Center;
+            // links both ways between the same pair sit side by side
+            bool twin = z.Set.Links.Any(o => o != k && ((o.From == k.To && o.To == k.From) || (o.From == k.From && o.To == k.To)));
+            if (twin)
+            {
+                var d = cb - ca; double len = Math.Max(1, Math.Sqrt(d.X * d.X + d.Y * d.Y));
+                int order = z.Set.Links.Where(o => (o.From == k.From && o.To == k.To) || (o.From == k.To && o.To == k.From)).ToList().IndexOf(k);
+                double off = (order % 2 == 0 ? 1 : -1) * (5 + 6 * (order / 2));
+                var n = new Vector(-d.Y / len * off, d.X / len * off);
+                ca += n; cb += n;
+            }
+            return (Clip(ra, ca, cb), Clip(rb, cb, ca));
+        }
+
+        /// <summary>Where the line from inside a rectangle towards a point leaves it.</summary>
+        static Point Clip(Rect r, Point from, Point to)
+        {
+            var d = to - from;
+            double t = 1;
+            if (Math.Abs(d.X) > 1e-6) t = Math.Min(t, Math.Abs((r.Width / 2 + 3) / d.X));
+            if (Math.Abs(d.Y) > 1e-6) t = Math.Min(t, Math.Abs((r.Height / 2 + 3) / d.Y));
+            return from + d * Math.Min(1, t);
+        }
+
+        static readonly Dictionary<string, Color> KindColors = new Dictionary<string, Color>
+        {
+            { "walk", Color.Parse("#9AA0A6") }, { "door", Color.Parse("#D9A441") }, { "portcullis", Color.Parse("#C77D3A") }, { "secret", Color.Parse("#8F7BD6") },
+            { "doorman", Color.Parse("#4FB3A9") }, { "drop", Color.Parse("#5E9BD8") }, { "climb", Color.Parse("#7CC36A") }, { "teleport", Color.Parse("#D66BC7") },
+            { "lever", Color.Parse("#E07060") }, { "stairs", Color.Parse("#B0B0B0") }, { "other", Color.Parse("#888888") },
+        };
+
+        public void DrawLinks(DrawingContext dc)
+        {
+            var font = new Typeface(FontFamily.Default);
+            foreach (var k in z.Set.Links)
+            {
+                if (!labels.ContainsKey(k.From) || !labels.ContainsKey(k.To)) continue;
+                var (a, b) = Ends(k);
+                Color col;
+                if (!KindColors.TryGetValue(k.Kind ?? "", out col)) col = Colors.Gray;
+                bool sel = k == selectedLink;
+                var pen = new Pen(new SolidColorBrush(sel ? Colors.White : col), sel ? 3 : 1.6, k.Confidence == "todo" ? new DashStyle(new double[] { 4, 3 }, 0) : null);
+                dc.DrawLine(pen, a, b);
+                Arrow(dc, a, b, pen.Brush);
+                if (k.TwoWay) Arrow(dc, b, a, pen.Brush);
+                bool related = sel || k.From == selectedZone || k.To == selectedZone;
+                if (k.Requires != "free" && !string.IsNullOrEmpty(k.Requires) && (related || allText.IsChecked == true))
+                {
+                    string t = k.Requires.Length > 30 ? k.Requires.Substring(0, 29) + "…" : k.Requires;
+                    var ft = new FormattedText(t, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, font, 10, Brushes.White);
+                    var mid = new Point((a.X + b.X) / 2 - ft.Width / 2, (a.Y + b.Y) / 2 - ft.Height / 2);
+                    dc.FillRectangle(new SolidColorBrush(Color.FromArgb(200, 20, 20, 24)), new Rect(mid.X - 3, mid.Y - 1, ft.Width + 6, ft.Height + 2), 3);
+                    dc.DrawText(ft, mid);
+                }
+            }
+            if (connectFrom >= 0 && labels.ContainsKey(connectFrom))
+                dc.DrawRectangle(null, new Pen(Brushes.White, 2, new DashStyle(new double[] { 3, 2 }, 0)), LabelRect(connectFrom).Inflate(4), 6, 6);
+        }
+
+        static void Arrow(DrawingContext dc, Point from, Point tip, IBrush brush)
+        {
+            var d = tip - from; double len = Math.Sqrt(d.X * d.X + d.Y * d.Y);
+            if (len < 1) return;
+            var u = d / len; var n = new Vector(-u.Y, u.X);
+            var basePt = tip - u * 10;
+            var geo = new StreamGeometry();
+            using (var g = geo.Open())
+            {
+                g.BeginFigure(tip, true);
+                g.LineTo(basePt + n * 5);
+                g.LineTo(basePt - n * 5);
+                g.EndFigure(true);
+            }
+            dc.DrawGeometry(brush, null, geo);
+        }
+
+        void OnLayerPressed(object sender, PointerPressedEventArgs e)
+        {
+            var p = e.GetPosition(canvas);
+            ZoneLink best = null;
+            double bestD = 7;
+            foreach (var k in z.Set.Links)
+            {
+                if (!labels.ContainsKey(k.From) || !labels.ContainsKey(k.To)) continue;
+                var (a, b) = Ends(k);
+                double d = Dist(p, a, b);
+                if (d < bestD) { bestD = d; best = k; }
+            }
+            SelectLink(best);
+            if (best == null) { selectedZone = -1; connectFrom = -1; SelectZone(-1); }
+        }
+
+        static double Dist(Point p, Point a, Point b)
+        {
+            var ab = b - a; double l2 = ab.X * ab.X + ab.Y * ab.Y;
+            double t = l2 < 1e-6 ? 0 : Math.Max(0, Math.Min(1, ((p.X - a.X) * ab.X + (p.Y - a.Y) * ab.Y) / l2));
+            var q = a + ab * t;
+            return Math.Sqrt((p.X - q.X) * (p.X - q.X) + (p.Y - q.Y) * (p.Y - q.Y));
+        }
+
+        public void SelectLink(ZoneLink k)
+        {
+            selectedLink = k;
+            if (k != null) selectedZone = -1;
+            ShowSide();
+            layer.InvalidateVisual();
+        }
+
+        void DeleteLink()
+        {
+            if (selectedLink == null) return;
+            var k = selectedLink;
+            selectedLink = null;
+            z.RemoveLink(k);
+            Status("Link removed.");
+            ShowSide();
+        }
+
+        // ---- the side panel
+
+        void ShowSide()
+        {
+            side.Children.Clear();
+            if (selectedLink != null) { LinkPanel(selectedLink); return; }
+            if (selectedZone >= 0) { ZonePanel(selectedZone); return; }
+            side.Children.Add(new TextBlock { Classes = { "h", "first" }, Text = "ZONE GRAPH" });
+            side.Children.Add(new TextBlock
+            {
+                TextWrapping = TextWrapping.Wrap, FontSize = 12,
+                Text = string.Format("{0} zones, {1} links, {2} grants. Lines: one arrowhead one-way, two arrowheads two-way, dashed still to check; the colour is the kind (door, portcullis, secret, drop, lever…), and the text what the path needs.", z.Set.Zones.Count(x => x.Id > 1), z.Set.Links.Count, z.Set.Placements.Count),
+            });
+        }
+
+        void ZonePanel(int id)
+        {
+            var zone = z.Set.GetZone(id);
+            side.Children.Add(new TextBlock { Classes = { "h", "first" }, Text = "ZONE " + id });
+            side.Children.Add(new TextBlock { Text = zone?.Name ?? "", FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
+            var lv = z.Set.LevelsOf(id);
+            int items = 0;
+            try { items = z.Items.Count(i => i.Zone == id); } catch (Exception) { }
+            side.Children.Add(new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Text = string.Format("{0} tiles on level{1} {2}; {3} key items; {4} links.", z.Set.TileCount(id), lv.Count == 1 ? "" : "s", string.Join(", ", lv), items, z.Set.Links.Count(k => k.From == id || k.To == id)) });
+            if (!string.IsNullOrEmpty(zone?.Notes)) side.Children.Add(new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.8, Text = zone.Notes });
+            var row = new WrapPanel();
+            row.Children.Add(Btn("Start here", () => { z.Set.StartZone = id; z.LinkChanged(); BuildLabels(); ShowSide(); }));
+            row.Children.Add(Btn("Goal here", () => { z.Set.GoalZone = id; z.LinkChanged(); BuildLabels(); ShowSide(); }));
+            row.Children.Add(Btn("Zones window…", () => main.ShowZones()));
+            foreach (Control c in row.Children) c.Margin = new Thickness(0, 4, 6, 0);
+            side.Children.Add(row);
+            side.Children.Add(new TextBlock { Classes = { "h" }, Text = "LINKS" });
+            foreach (var k in z.Set.Links.Where(k => k.From == id || k.To == id))
+            {
+                var b = new Button { Content = string.Format("{0} {1} {2}: {3}", z.Label(k.From), k.TwoWay ? "↔" : "→", z.Label(k.To), k.Requires), HorizontalAlignment = HorizontalAlignment.Stretch, FontSize = 11 };
+                var kk = k;
+                b.Click += (s, e) => SelectLink(kk);
+                side.Children.Add(b);
+            }
+        }
+
+        void LinkPanel(ZoneLink k)
+        {
+            side.Children.Add(new TextBlock { Classes = { "h", "first" }, Text = "PATH" });
+            var zones = z.Set.Zones.Where(x => x.Id > 1).Select(x => x.Id + "  " + x.Name).ToList();
+            var ids = z.Set.Zones.Where(x => x.Id > 1).Select(x => x.Id).ToList();
+            var from = new ComboBox { ItemsSource = zones, SelectedIndex = ids.IndexOf(k.From), HorizontalAlignment = HorizontalAlignment.Stretch };
+            var to = new ComboBox { ItemsSource = zones, SelectedIndex = ids.IndexOf(k.To), HorizontalAlignment = HorizontalAlignment.Stretch };
+            from.SelectionChanged += (s, e) => { if (from.SelectedIndex >= 0 && ids[from.SelectedIndex] != k.From) { k.From = ids[from.SelectedIndex]; z.LinkChanged(); } };
+            to.SelectionChanged += (s, e) => { if (to.SelectedIndex >= 0 && ids[to.SelectedIndex] != k.To) { k.To = ids[to.SelectedIndex]; z.LinkChanged(); } };
+            side.Children.Add(new TextBlock { Text = "From", FontSize = 12 });
+            side.Children.Add(from);
+            side.Children.Add(new TextBlock { Text = "To", FontSize = 12 });
+            side.Children.Add(to);
+            var two = new CheckBox { Content = "Two-way (also from the second zone back)", IsChecked = k.TwoWay };
+            two.IsCheckedChanged += (s, e) => { k.TwoWay = two.IsChecked == true; z.LinkChanged(); };
+            side.Children.Add(two);
+            var swap = Btn("Swap the direction", () => { int t = k.From; k.From = k.To; k.To = t; z.LinkChanged(); ShowSide(); });
+            side.Children.Add(swap);
+            var kind = new ComboBox { ItemsSource = ZoneLink.Kinds, SelectedItem = ZoneLink.Kinds.Contains(k.Kind) ? k.Kind : "other", HorizontalAlignment = HorizontalAlignment.Stretch };
+            kind.SelectionChanged += (s, e) => { k.Kind = kind.SelectedItem as string ?? "walk"; z.LinkChanged(); };
+            side.Children.Add(new TextBlock { Text = "Kind", FontSize = 12 });
+            side.Children.Add(kind);
+            var conf = new ComboBox { ItemsSource = new[] { "certain", "todo" }, SelectedItem = k.Confidence == "todo" ? "todo" : "certain", HorizontalAlignment = HorizontalAlignment.Stretch };
+            conf.SelectionChanged += (s, e) => { k.Confidence = conf.SelectedItem as string ?? "certain"; z.LinkChanged(); };
+            side.Children.Add(new TextBlock { Text = "Sure?", FontSize = 12 });
+            side.Children.Add(conf);
+
+            side.Children.Add(new TextBlock { Classes = { "h" }, Text = "REQUIREMENTS (ALL OF THEM)" });
+            var terms = new ObservableCollection<string>(k.RequirementList);
+            var list = new ListBox { ItemsSource = terms, MinHeight = 60, MaxHeight = 180 };
+            list.Bind(ListBox.BackgroundProperty, list.GetResourceObservable("PanelAlt"));
+            var check = new TextBlock { FontSize = 11, TextWrapping = TextWrapping.Wrap };
+            Action apply = () =>
+            {
+                k.RequirementList = terms.ToList();
+                string err;
+                Requirement.TryParse(k.Requires, out err);
+                check.Text = err == null ? (terms.Count == 0 ? "Free: nothing needed." : "As an expression: " + k.Requires) : "Not understood: " + err;
+                check.Bind(TextBlock.ForegroundProperty, check.GetResourceObservable(err == null ? "Muted" : "Error"));
+                z.LinkChanged();
+            };
+            var term = new AutoCompleteBox { Watermark = "key:5, pick:3, bash, item:orb, spell:levitate, zone:12, talismans:8 … (| for or)", ItemsSource = Suggestions(), FilterMode = AutoCompleteFilterMode.Contains, MinimumPrefixLength = 1 };
+            var add = Btn("Add", () => { var t = (term.Text ?? "").Trim(); if (t.Length > 0) { terms.Add(t); term.Text = ""; apply(); } });
+            term.KeyDown += (s, e) => { if (e.Key == Key.Enter) { var t = (term.Text ?? "").Trim(); if (t.Length > 0) { terms.Add(t); term.Text = ""; apply(); } e.Handled = true; } };
+            var remove = Btn("Remove", () => { if (list.SelectedItem is string t) { terms.Remove(t); apply(); } });
+            var suggest = Btn("From the doors", () =>
+            {
+                List<DoorPassage> used;
+                string r = ZoneDoors.Suggest(z.Doors, k.From, k.To, out used);
+                if (r == null) { Status("No door joins these two zones (walk, a drop, a lever or a conversation, maybe)."); return; }
+                terms.Clear();
+                foreach (var t in ZoneLink.SplitAnd(r)) terms.Add(t);
+                k.Notes = string.Join("; ", used.Select(u => string.Format("L{0} ({1}, {2}) {3}: {4}", u.Level, u.X, u.Y, u.Kind, u.Notes)));
+                apply();
+                ShowSide();
+                Status(used.Count + " door(s) between the zones.");
+            });
+            side.Children.Add(list);
+            var addRow = new DockPanel();
+            DockPanel.SetDock(add, Dock.Right);
+            add.Margin = new Thickness(6, 0, 0, 0);
+            addRow.Children.Add(add);
+            addRow.Children.Add(term);
+            side.Children.Add(addRow);
+            var r2 = new WrapPanel();
+            r2.Children.Add(remove); r2.Children.Add(suggest);
+            foreach (Control c in r2.Children) c.Margin = new Thickness(0, 0, 6, 0);
+            side.Children.Add(r2);
+            side.Children.Add(check);
+            side.Children.Add(new TextBlock
+            {
+                FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap,
+                Text = "Each line must hold; a line with | holds when any of its parts does. key:N a key with owner N; pick:Z picking a lock of difficulty Z; bash breaking the door; item:, flag:, npc: something a zone grants; spell:NAME; zone:N reaching zone N (a lever there); talismans:N.",
+            });
+            side.Children.Add(new TextBlock { Classes = { "h" }, Text = "NOTES" });
+            var notes = new TextBox { Text = k.Notes, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 60 };
+            notes.LostFocus += (s, e) => { if (notes.Text != k.Notes) { k.Notes = notes.Text ?? ""; z.LinkChanged(); } };
+            side.Children.Add(notes);
+            if (k.Level > 0)
+                side.Children.Add(Btn(string.Format("Go to level {0} ({1}, {2})", k.Level, k.X, k.Y), () => main.GoToTile(k.Level, k.X, k.Y)));
+            side.Children.Add(Btn("Delete the link (Del)", DeleteLink));
+            apply();
+        }
+
+        /// <summary>Terms for the requirement box: what the zones grant, the doors' keys, the spells.</summary>
+        List<string> Suggestions()
+        {
+            var s = new SortedSet<string>(StringComparer.OrdinalIgnoreCase) { "bash", "free", "spell:levitate", "spell:waterwalk", "spell:jump", "spell:reveal", "spell:gate_travel", "talismans:8" };
+            foreach (var p in z.Set.Placements) if (!string.IsNullOrEmpty(p.Grants)) s.Add(Requirement.Normalize(p.Grants));
+            foreach (var k in z.Set.Links) foreach (var t in ZoneLink.SplitAnd(k.Requires)) foreach (var part in t.Split('|')) s.Add(part.Trim());
+            try { foreach (var i in z.Items) s.Add(i.Token); } catch (Exception) { }
+            foreach (var zone in z.Set.Zones.Where(x => x.Id > 1)) s.Add("zone:" + zone.Id);
+            return s.ToList();
+        }
+
+        async void Solve()
+        {
+            try
+            {
+                var res = new ZoneSolver(z.Set, new SolverOptions()).Solve(z.Set.StartZone, z.Set.GoalZone);
+                await MessageWindow.Show(this, "The logic from the start", res.Report(z.Set), true);
+            }
+            catch (Exception ex) { Status("The solver stopped: " + ex.Message); }
+        }
+    }
+}

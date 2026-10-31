@@ -533,5 +533,85 @@ namespace UwEditor.App.Tests
             }
             finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
         }
+    
+        [AvaloniaFact]
+        public void Zones_window_adds_renames_paints_fills_and_lists_key_items()
+        {
+            if (Uw1 == null) return;
+            using (var copy = new GameCopy(Uw1, "DATA"))
+            {
+                var w = OpenQuiet(copy.Folder);
+                var zw = w.ShowZones();
+                Ui.Pump();
+                var z = zw.Zoning;
+                Assert.False(z.FileExists);
+                z.LoadExample();
+                Ui.Pump();
+                Assert.Equal(53, z.CurrentZone);
+                Assert.Contains(z.Items, i => i.Zone == 53 && i.Token == "key:1");
+                var zone = z.AddZone("Test room");
+                Assert.Equal("Test room", z.Set.GetZone(zone.Id).Name);
+                z.Rename(zone.Id, "Renamed room");
+                Assert.Equal("Renamed room", z.Set.GetZone(zone.Id).Name);
+                // paint the starting square, then fill the rest of the starting area
+                z.CurrentZone = zone.Id;
+                Assert.True(z.PaintTile(1, 32, 2, true));
+                Assert.Equal(zone.Id, z.Set.ZoneAt(1, 32, 2));
+                int n = z.FillArea(1, 31, 2, zone.Id);
+                Assert.True(n > 10);
+                Assert.Equal(0, z.Set.TileCount(53));
+                z.Undo(); z.Undo();
+                Assert.Equal(53, z.Set.ZoneAt(1, 32, 2));
+                Assert.False(z.PaintTile(1, 0, 0, true));            // rock stays rock
+                z.RemoveZone(zone.Id);
+                Assert.Null(z.Set.GetZone(zone.Id));
+                // painting through the view's paint tool
+                z.CurrentZone = 53;
+                z.Painting = true;
+                w.ZonePaintingChanged();
+                Assert.Equal(2, w.ViewModel.ToolIndex);
+                z.Save();
+                Assert.True(File.Exists(Path.Combine(copy.Folder, "DATA", "uw1-zones.json")));
+                var back = UwEditor.Core.Randomizer.ZoneSet.Load(Path.Combine(copy.Folder, "DATA", "uw1-zones.json"), 9);
+                Assert.Equal(z.Set.Zones.Count, back.Zones.Count);
+                zw.Close();
+                w.Close();
+            }
+        }
+
+        [AvaloniaFact]
+        public void Zone_graph_connects_zones_with_requirements_from_the_doors()
+        {
+            if (Uw1 == null) return;
+            var w = OpenQuiet(Uw1);
+            var z = w.Zoning();
+            z.LoadExample();
+            var g = w.ShowZoneGraph();
+            Ui.Pump();
+            // every zone has a label position
+            Assert.All(z.Set.Zones.Where(x => x.Id > 1), x => Assert.True(x.GraphX.HasValue && x.GraphY.HasValue));
+            g.MoveLabel(9, 1234, 567);
+            Assert.Contains("\"graph\"", z.Set.ToJson());
+            Assert.Equal(1234, z.Set.GetZone(9).GraphX);
+            int before = z.Set.Links.Count;
+            var k = z.Connect(2, 9, false);
+            Assert.Equal(before + 1, z.Set.Links.Count);
+            Assert.False(k.TwoWay);
+            Assert.Equal("key:2 | pick:0 | bash", k.Requires);    // the pillar room's door
+            Assert.Equal("door", k.Kind);
+            g.SelectLink(k);
+            Ui.Pump();
+            Assert.Same(k, g.SelectedLink);
+            k.RequirementList = new System.Collections.Generic.List<string> { "key:2" };
+            Assert.Equal("key:2", k.Requires);
+            var k2 = z.Connect(53, 72, true);                     // no door between them
+            Assert.True(k2.TwoWay);
+            Assert.Equal("todo", k2.Confidence);
+            z.RemoveLink(k2);
+            Assert.DoesNotContain(k2, z.Set.Links);
+            Assert.Throws<InvalidOperationException>(() => z.Connect(5, 5, true));
+            g.Close();
+            w.Close();
+        }
     }
 }

@@ -306,6 +306,51 @@ choice is remembered between runs. The 3D view and the pictures keep their own c
   most every 0x2FD ticks (USEITEMS.C `checkSpell`). An enchanted object never runs out; only
   a wand's spell object has charges.
 
+## Randomizer (work in progress)
+
+**Tools ▸ Randomizer ▸ Zones…** opens the zoning of the game. A zone is a part of the world
+that can be walked without meeting a requirement. Every tile has a zone id: 0 is rock, 1 is
+open but not in a zone yet (magenta in the view), and 2–255 are the zones. The file is
+`uw1-zones.json` (or `uw2-zones.json`) in `DATA`, the same format the Unity editor uses.
+**Load the UW1 example** starts from Karl's UW1 zoning, built from his painted maps and
+notes: 91 zones, 139 links and 50 grants.
+
+- **Current zone:** the zone painted and listed. **Add zone**, **Rename**, **Remove zone**
+  (its tiles become unassigned; its links and grants go), and a colour. Colours default to a
+  Glasbey palette: each colour is as far as possible, in CIELAB, from all the ones before it.
+- **Painting:** with **Paint in the view** on, the Paint tool paints the current zone. Drag
+  over tiles, or tick *A click fills the area* to flood the connected area under the mouse.
+  **Fill the area under the selected tile as zone N** does the same from the selected tile.
+  Rock is never painted, and **Undo painting** steps back through the strokes. While the
+  window is open, the view shows each tile's zone colour on its floor.
+- **Key items** of the current zone are listed on the right. The list holds keys (by the lock
+  they open), the talismans, quest and unique items, runestones, creatures that talk, and the
+  creatures whose death the game checks. Plants, bridges and furniture are left out. Any
+  object can be marked as a key item, or left out, by hand; the zone file remembers it. **Add
+  them to the zone's grants** turns them into what the zone gives (`key:5`, `talisman:cup`,
+  `npc:corby`…).
+- **Import pictures… / Export pictures…** read and write one 64×64 indexed PNG or BMP per
+  level, in which the pixel's index is the zone id, with north up. `map0` is level 1, as in
+  the Gimp maps.
+
+**Tools ▸ Randomizer ▸ Zone graph…** shows a label for each zone, placed in a column for the
+level it first appears on. Drag the labels to arrange them; the positions are saved in the
+zone file. Lines are the links between zones:
+- one arrowhead means one-way, two mean two-way;
+- dashed means still to check;
+- the colour is the kind (door, portcullis, secret, drop, lever and so on).
+
+- **Connect one-way / two-way:** click the zone the path starts from, then the zone it leads
+  to. If doors join the two zones, the requirement is filled from their locks. A locked door
+  that cannot be picked or broken needs its key (`key:N`). Picking a lock of difficulty Z is
+  `pick:Z` (Pick Lock 3Z; 14 needs 31; 15 never). Breaking a breakable door is `bash`. A door
+  only a lever or a conversation opens becomes a flag to fill in.
+- **A selected path** has its zones, direction, kind, sureness, notes, and its list of
+  requirements. All of them must hold, and a line with `|` holds when any part does. **From
+  the doors** fills the list again. Delete removes the path.
+- **Check the logic…** runs the solver from the start zone: the spheres, the route to the
+  goal, and what blocks each path.
+
 ## Mods
 
 **Tools ▸ Mods…** (Ctrl+Shift+M):

@@ -16,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="../../docs/MANUAL.md" LogicalName="MANUAL.md" />
+    <EmbeddedResource Include="../../docs/examples/uw1-zones.json" LogicalName="uw1-zones.example.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../UwEditor.Core/UwEditor.Core.csproj" />

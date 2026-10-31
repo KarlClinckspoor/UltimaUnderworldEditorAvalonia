@@ -128,6 +128,7 @@ namespace UwEditor.App
 
         void OnPainted(PickResult hit, bool start)
         {
+            if (hit.Tile >= 0 && vm.Level != null && ZonePaint(hit.Tile % 64, hit.Tile / 64, start)) return;
             if (!hit.Hit || hit.Tile < 0 || vm.Editor == null) return;
             if (start) vm.Editor.BeginBatch("Paint " + MainViewModel.PaintModeNames[vm.PaintMode].ToLowerInvariant());
             vm.Paint(hit.Tile % 64, hit.Tile / 64);
@@ -248,6 +249,7 @@ namespace UwEditor.App
                 var c = new Vector4(1f, 0.2f, 0.15f, 1f);
                 LevelScene.Line(lines, new Vector3(t.X + 0.5f, y, t.Y + 0.5f), new Vector3(t.X + 0.5f, y + 1.2f, t.Y + 0.5f), c);
             }
+            AddZoneOverlay(tris);
             return tris;
         }
 

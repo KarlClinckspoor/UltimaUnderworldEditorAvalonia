@@ -54,6 +54,14 @@ namespace UwEditor.Core.Editing
             return d != null && at < d.Length && (d[at] & 0x80) != 0;
         }
 
+        /// <summary>Byte k (0-10) of an item's COMOBJ.DAT record, or -1.</summary>
+        public static int ComObjByte(GameSession s, int item, int k)
+        {
+            var d = ComObj(s);
+            int at = 2 + 11 * item + k;
+            return d != null && at < d.Length ? d[at] : -1;
+        }
+
         static readonly Dictionary<string, byte[]> comobj = new Dictionary<string, byte[]>();
 
         static byte[] ComObj(GameSession s)

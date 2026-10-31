@@ -247,6 +247,14 @@ edits that can be undone; the game folder is not touched until you save.
   **Export OBJ…** writes a Wavefront OBJ file with an MTL of the colours; **Export all…**
   writes every model.
 
+- **Tools ▸ Randomizer** (work in progress):
+  - **Zones** paints a zone id on every tile, with Glasbey colours and an overlay in the
+    view, and lists each zone's key items.
+  - **Zone graph** has movable zone labels, one-way and two-way links, and a list of
+    requirements per link, filled from the locks of the doors between the zones.
+  - Both read and write the Unity editor's `uw1-zones.json`. The UW1 example zoning is in
+    `docs/examples`.
+
 **Help ▸ Manual** (F1) opens [the manual](docs/MANUAL.md), which is built into the program,
 with its sections and a search box. F1 in a tool window opens that tool's section.
 Help ▸ Controls lists the mouse and keys.

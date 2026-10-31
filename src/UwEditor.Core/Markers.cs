@@ -79,6 +79,13 @@ namespace UwEditor.Core
             }
         }
 
+        /// <summary>A coloured sheet over a tile's floor (corner heights given), for the zone overlay.</summary>
+        public static void TileSheet(List<float> f, int x, int y, float h00, float h10, float h01, float h11, Vector4 colour)
+        {
+            var a = new Vector3(x, h00, y); var b = new Vector3(x + 1, h10, y); var c = new Vector3(x, h01, y + 1); var d = new Vector3(x + 1, h11, y + 1);
+            Tri(f, a, b, d, colour); Tri(f, a, d, c, colour);
+        }
+
         /// <summary>A bullseye standing up, facing the camera's way, over a point: seen from any angle.</summary>
         public static void BullseyeStanding(List<float> f, Vector3 centre, Vector3 right, Vector3 up, float radius = 0.3f)
         {
