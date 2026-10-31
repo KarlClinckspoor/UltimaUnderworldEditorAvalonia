@@ -535,6 +535,33 @@ namespace UwEditor.App.Tests
         }
     
         [AvaloniaFact]
+        public void Item_shuffle_window_shuffles_and_undoes_every_change()
+        {
+            if (Uw1 == null) return;
+            using (var copy = new GameCopy(Uw1, "DATA"))
+            {
+                var w = OpenQuiet(copy.Folder);
+                var sw = w.ShowItemShuffle();
+                Ui.Pump();
+                var edits = w.ViewModel.Edits;
+                var before = Enumerable.Range(1, 9).ToDictionary(l => l, l => (byte[])edits.For(l).Data.Clone());
+                sw.Options.Seed = 11;
+                sw.Shuffle();
+                Ui.Pump();
+                Assert.True(sw.CanUndoShuffle);
+                Assert.Contains("Shuffled", sw.ReportText);
+                Assert.True(edits.HasChanges);
+                Assert.Contains(before, kv => !kv.Value.SequenceEqual(edits.For(kv.Key).Data));
+                sw.UndoAll();
+                Ui.Pump();
+                Assert.False(sw.CanUndoShuffle);
+                foreach (var kv in before) Assert.Equal(kv.Value, edits.For(kv.Key).Data);
+                sw.Close();
+                w.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void Zones_window_adds_renames_paints_fills_and_lists_key_items()
         {
             if (Uw1 == null) return;

@@ -351,6 +351,44 @@ zone file. Lines are the links between zones:
 - **Check the logic…** runs the solver from the start zone: the spheres, the route to the
   goal, and what blocks each path.
 
+### Shuffling item properties
+
+**Tools ▸ Randomizer ▸ Shuffle item properties…** changes what items are without moving them,
+unlike the zone shuffle. Every weapon, armour piece, food, light and runestone stays where it
+lies (on the floor, in a container or a creature's inventory) but may become another item of
+its kind. Choose the settings in the four tabs, press **Preview** to see the report, then
+**Shuffle**. **Undo shuffle** puts back every object the shuffles from the window changed; each
+shuffle is also one Edit ▸ Undo step per level, and nothing reaches the game until you save
+the levels. The same seed on the same levels gives the same result. The settings are kept
+between runs (`item-shuffle-uw1.json` / `-uw2.json` in the settings folder).
+
+Weights are relative, from 0 to 100: a weight of 0 removes that kind. Never touched:
+Caliburn (UW1's shiny sword), Altara's jewelled dagger (UW2), talismans, crowns, dragon skin
+boots, fraznium armour and objects that are templates inside traps.
+
+- **Weapons:** weights for axes, swords and daggers, maces and clubs, and ranged weapons with
+  their ammunition; the share of launchers among the ranged objects (the rest become arrows,
+  bolts or sling stones, never enchanted); the quality spread (± around each object's own
+  quality). Then one row per enchantment kind (Accuracy, Damage) with its chance, the mean
+  strength (1 = Minor) and the deviation of a normal draw. Kinds are tried in a random order and
+  the first that succeeds is the weapon's. The **depth adjustment** raises the chance (up to
+  double on the deepest level at 100) and moves the mean towards the strongest; level 1 is
+  never changed (UW2: the depth is the level within its world). **Special weapons** (UW2 only:
+  LifeStealer, Undead Bane, Fire Doom, Stone Strike, the two door openers) are put on that many
+  random melee weapons, 1 each by default.
+- **Armour:** weights for leather, mail, plate and shields. A piece keeps its slot and changes
+  material; shields stay shields. Protection and Toughness rows as for weapons, depth, quality
+  spread, and **Flameproof** (1 by default) on random unenchanted pieces.
+- **Food, lights, tools:** a weight per food and per light source (lit ones stay lit), and the
+  least number of threads (5), poles (3) and fishing poles (3). When there are fewer, random
+  food and lights lying on the floor become them.
+- **Runestones:** a weight and a minimum (1) per rune. Minimums are met by changing runestones
+  of the kinds with the most to spare; the report says when there are too few runestones.
+
+Spells and other enchantments already on objects stay unless **Keep spells and other
+enchantments** is off; an object whose link leads to other objects (contents, a spell object)
+never has its enchantment replaced.
+
 ## Mods
 
 **Tools ▸ Mods…** (Ctrl+Shift+M):

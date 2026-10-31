@@ -182,6 +182,33 @@ namespace UwEditor.Core.Editing
         /// <summary>Fields the editor does not let you type, because they hold the object lists.</summary>
         public static bool IsListField(string name) { return name == "Next" || name == "First object"; }
 
+        /// <summary>
+        /// Rewrites the item, flags, quality and link words of several objects in one undoable
+        /// change (the item shuffle): for each object index, its new item id, quality, flags 9-11,
+        /// enchanted and is-quantity bits, and link. Position, next and owner are kept. Objects whose
+        /// link is a list (containers, critters) keep their link.
+        /// </summary>
+        public void RewriteItems(IList<ItemRewrite> changes, string label)
+        {
+            if (changes.Count == 0) return;
+            Change(label, () =>
+            {
+                foreach (var c in changes)
+                {
+                    int at = LevelBlock.ObjectOffset(c.Index);
+                    int w0 = data[at] | data[at + 1] << 8, w2 = data[at + 4] | data[at + 5] << 8, w3 = data[at + 6] | data[at + 7] << 8;
+                    bool listLink = (w0 & 0x8000) == 0 && (w3 >> 6) != 0;
+                    // tenacious and invisible kept; a list keeps its is-quantity bit (clear)
+                    w0 = (w0 & 0x6000) | (c.Item & 0x1FF) | (c.Flags & 7) << 9 | (c.Enchanted ? 0x1000 : 0) | (listLink ? (w0 & 0x8000) : (c.IsQuantity ? 0x8000 : 0));
+                    w2 = (w2 & ~0x3F) | (c.Quality & 0x3F);
+                    if (!listLink) w3 = (w3 & 0x3F) | (c.Link & 0x3FF) << 6;
+                    data[at] = (byte)w0; data[at + 1] = (byte)(w0 >> 8);
+                    data[at + 4] = (byte)w2; data[at + 5] = (byte)(w2 >> 8);
+                    data[at + 6] = (byte)w3; data[at + 7] = (byte)(w3 >> 8);
+                }
+            });
+        }
+
         public void SetObjectField(int index, FieldDef f, int value)
         {
             if (IsListField(f.Name)) throw new InvalidOperationException("Next is the object list; move or delete the object instead.");
@@ -385,6 +412,13 @@ namespace UwEditor.Core.Editing
 
         /// <summary>The game's object-list check on the edited level.</summary>
         public string Check(out bool ok) { return B.Check(out ok); }
+    }
+
+    /// <summary>The new item words of one object (LevelEditor.RewriteItems).</summary>
+    public struct ItemRewrite
+    {
+        public int Index, Item, Quality, Flags, Link;
+        public bool Enchanted, IsQuantity;
     }
 
     /// <summary>The edited levels of a game, saved into its LEV.ARK together.</summary>

@@ -31,6 +31,26 @@ namespace UwEditor.App
 
         void OnZones(object sender, RoutedEventArgs e) { ShowZones(); }
         void OnZoneGraph(object sender, RoutedEventArgs e) { ShowZoneGraph(); }
+        void OnItemShuffle(object sender, RoutedEventArgs e) { ShowItemShuffle(); }
+
+        ItemShuffleWindow itemShuffleWindow;
+
+        public ItemShuffleWindow ShowItemShuffle()
+        {
+            if (vm.Session == null || vm.Edits == null) return null;
+            if (itemShuffleWindow != null) { itemShuffleWindow.Activate(); return itemShuffleWindow; }
+            itemShuffleWindow = new ItemShuffleWindow(this, vm.Session);
+            itemShuffleWindow.Closed += (s, e) => itemShuffleWindow = null;
+            itemShuffleWindow.Show(this);
+            return itemShuffleWindow;
+        }
+
+        /// <summary>The item shuffle changed objects on many levels: the object list and the edit state are read again.</summary>
+        public void ShuffleApplied()
+        {
+            zoning?.LevelsChanged();
+            vm.EditStatus = "Item properties shuffled; Edit ▸ Undo (per level) or the shuffle window's Undo shuffle puts them back.";
+        }
 
         public ZonesWindow ShowZones()
         {

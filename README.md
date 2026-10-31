@@ -254,6 +254,11 @@ edits that can be undone; the game folder is not touched until you save.
     requirements per link, filled from the locks of the doors between the zones.
   - Both read and write the Unity editor's `uw1-zones.json`. The UW1 example zoning is in
     `docs/examples`.
+  - **Shuffle item properties** turns weapons, armour, food, lights and runestones into other
+    items of their kind in place, by weights per type, rolls their enchantments again (chance,
+    mean and deviation per kind, raised with depth), adds UW2's special weapons and Flameproof
+    armour, and keeps minimums of threads, poles, fishing poles and each rune. Shuffle, then
+    Undo shuffle puts everything back.
 
 **Help ▸ Manual** (F1) opens [the manual](docs/MANUAL.md), which is built into the program,
 with its sections and a search box. F1 in a tool window opens that tool's section.

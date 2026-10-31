@@ -76,6 +76,8 @@
         <MenuItem Header="Randomi_zer (work in progress)">
           <MenuItem Header="_Zones…" Click="OnZones" IsEnabled="{Binding HasGame}" />
           <MenuItem Header="Zone _graph…" Click="OnZoneGraph" IsEnabled="{Binding HasGame}" />
+          <Separator />
+          <MenuItem Header="_Shuffle item properties…" Click="OnItemShuffle" IsEnabled="{Binding HasGame}" />
         </MenuItem>
       </MenuItem>
       <MenuItem Header="_Help">

@@ -108,6 +108,7 @@ namespace UwEditor.App
                 case "checkpoints": ShowCheckpoints(); break;
                 case "zones": ShowZones(); break;
                 case "zonegraph": ShowZoneGraph(); break;
+                case "shuffle": ShowItemShuffle(); break;
                 case "zones-example": { var z = Zoning(); if (z != null && !z.FileExists) z.LoadExample(); ShowZones(); } break;
                 case "zonegraph-example": { var z = Zoning(); if (z != null && !z.FileExists) z.LoadExample(); var g = ShowZoneGraph(); g?.SelectZone(2); } break;
                 case "manual": ManualWindow.ShowAt(this, "Editing levels"); break;
