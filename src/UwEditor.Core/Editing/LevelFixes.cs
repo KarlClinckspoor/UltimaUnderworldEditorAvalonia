@@ -488,7 +488,9 @@ namespace UwEditor.Core.Editing
                 }
 
                 if (i < LevelBlock.Mobiles && IsCritter(it) && onTile && d[Off(i) + 8] == 0 && ((Races.ComObjByte(session, it, 6) >> 2) & 3) < 3
-                    && ((Races.ComObjByte(session, it, 9) >> 2) & 0xF) <= 10)
+                    && ((Races.ComObjByte(session, it, 9) >> 2) & 0xF) <= 10
+                    // kinds without a name (UW1's 0x7D and 0x7E on level 9) are the game's own special objects, left as shipped
+                    && !string.IsNullOrWhiteSpace(session.Strings?.Get(4, it)))
                 {
                     int hp = AverageHp(session, it);
                     var f = add(DeadCreature, i, string.Format("{0} has 0 hit points: the game deletes it when it first moves.", Name(session, d, i)));
@@ -721,6 +723,22 @@ namespace UwEditor.Core.Editing
             if (after.SequenceEqual(before)) return false;
             e.EditBytes("Fix: " + f.Check.Title.ToLowerInvariant(), (data, tex) => Array.Copy(after, data, data.Length));
             return true;
+        }
+
+        /// <summary>Several findings of one level fixed together, as one undoable step. Returns how many changed something.</summary>
+        public static int FixMany(LevelEditor e, IEnumerable<LevelFinding> list, string label)
+        {
+            var copy = (byte[])e.Data.Clone();
+            int n = 0;
+            foreach (var f in list)
+            {
+                if (f.Repair == null || f.Level != e.Level) continue;
+                var before = (byte[])copy.Clone();
+                f.Repair(copy);
+                if (!before.SequenceEqual(copy)) n++;
+            }
+            if (n > 0) e.EditBytes(label, (data, tex) => Array.Copy(copy, data, data.Length));
+            return n;
         }
 
         /// <summary>
