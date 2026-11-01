@@ -80,6 +80,13 @@ namespace UwEditor.Core
             return Math.Min(14, t + r.Base);
         }
 
+        /// <summary>Takes another load's SHADES.DAT rows and DL.DAT (after the game tables saved them), so the view's light follows.</summary>
+        public void CopyFrom(GameLight other)
+        {
+            Array.Copy(other.Rows, Rows, Rows.Length);
+            dl = other.dl == null ? null : (byte[])other.dl.Clone();
+        }
+
         /// <summary>UW2's minimum light for a level (DL.DAT, value 10 and up: value mod 10), or -1.</summary>
         public int MinimumLight(int level)
         {
