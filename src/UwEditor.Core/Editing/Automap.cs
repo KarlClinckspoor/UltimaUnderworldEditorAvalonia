@@ -88,6 +88,9 @@ namespace UwEditor.Core.Editing
         static ushort[] terrainCache;
         static string terrainPath;
 
+        /// <summary>TERRAIN.DAT was written (the game tables): it is read again on the next use.</summary>
+        public static void TerrainChanged() { terrainPath = null; }
+
         static int Terrain(GameSession s, int texture, bool floor)
         {
             string p = GameProfile.Find(s.DataFolder, "TERRAIN.DAT");
