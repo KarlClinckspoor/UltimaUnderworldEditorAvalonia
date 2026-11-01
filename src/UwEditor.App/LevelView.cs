@@ -34,7 +34,7 @@ namespace UwEditor.App
         /// <summary>A double click picked something.</summary>
         public event Action<PickResult> DoublePicked;
         /// <summary>A right click without a drag: the context menu, for what is under the mouse.</summary>
-        public event Action<PickResult> ContextRequested;
+        public event Action<PickResult> MenuRequested;
         /// <summary>Whether a left press on this pick may drag it (the selected objects, in the Select tool).</summary>
         public Func<PickResult, bool> CanDrag;
         /// <summary>An object drag: what is under the mouse now (the start is the press's pick).</summary>
@@ -358,7 +358,7 @@ namespace UwEditor.App
             {
                 LastClick = at;
                 LastModifiers = e.KeyModifiers;
-                ContextRequested?.Invoke(PickAt(at));
+                MenuRequested?.Invoke(PickAt(at));
             }
             else if (!dragging && (leftDown || wasRect || wasDrag) && e.InitialPressMouseButton == MouseButton.Left && (!panning || TopDown))
             {

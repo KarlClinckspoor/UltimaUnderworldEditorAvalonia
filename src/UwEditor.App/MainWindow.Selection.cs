@@ -32,11 +32,11 @@ namespace UwEditor.App
         public IReadOnlyCollection<int> SelectedObjects { get { return selObjects; } }
         /// <summary>The tiles selected together (x + 64 y), or empty.</summary>
         public IReadOnlyCollection<int> SelectedTiles { get { return selTiles; } }
-        public ObjectClip Clip { get { return clip; } }
+        public ObjectClip CopiedObjects { get { return clip; } }
 
         void InitSelection()
         {
-            View.ContextRequested += OnContextRequested;
+            View.MenuRequested += OnContextRequested;
             View.CanDrag = CanDragPick;
             View.DragMoved += OnDragMoved;
             View.DragEnded += OnDragEnded;
