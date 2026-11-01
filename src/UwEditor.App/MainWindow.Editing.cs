@@ -103,7 +103,7 @@ namespace UwEditor.App
         void OnLevelEdited()
         {
             if (vm.Level == null) return;
-            scene = LevelScene.Build(vm.Level, atlas, vm.Options);
+            scene = LevelScene.Update(scene, vm.Level, vm.Options);
             View.UpdateScene(scene);
             UpdateMarkers();
             UpdateGrid();
@@ -150,6 +150,12 @@ namespace UwEditor.App
         {
             if (hit.Tile >= 0 && vm.Level != null && ZonePaint(hit.Tile % 64, hit.Tile / 64, start)) return;
             if (!hit.Hit || hit.Tile < 0 || vm.Editor == null) return;
+            if (vm.PaintFill)
+            {
+                // a fill is one click: the first tile of the stroke
+                if (start) FillFrom(hit.Tile % 64, hit.Tile / 64);
+                return;
+            }
             if (start)
             {
                 EndPaintStroke();
@@ -470,19 +476,22 @@ namespace UwEditor.App
         async void OnAddObject(object sender, RoutedEventArgs e) { await AddObject(); }
 
         /// <summary>Opens the add window for the selected tile (or the one looked at), or for the selected container.</summary>
-        public async Task<int> AddObject()
+        public Task<int> AddObject() { return AddObject(-1, -1, false); }
+
+        /// <summary>The add window for a tile (−1: the selected one), or with inside, for the selected object as the container.</summary>
+        public async Task<int> AddObject(int atX, int atY, bool tileOnly)
         {
             var level = vm.Level;
             if (level == null) return -1;
-            int tx = vm.SelectedTileX, ty = vm.SelectedTileY;
+            int tx = atX >= 0 ? atX : vm.SelectedTileX, ty = atX >= 0 ? atY : vm.SelectedTileY;
             if (tx < 0)
             {
                 tx = Math.Clamp((int)View.Camera.Target.X, 0, 63); ty = Math.Clamp((int)View.Camera.Target.Z, 0, 63);
             }
-            if (level.Tiles[tx, ty].IsSolid && vm.SelectedObject < 0) { vm.EditStatus = string.Format("({0}, {1}) is rock: select an open tile first.", tx, ty); return -1; }
+            if (level.Tiles[tx, ty].IsSolid && (vm.SelectedObject < 0 || tileOnly)) { vm.EditStatus = string.Format("({0}, {1}) is rock: select an open tile first.", tx, ty); return -1; }
             string inside = null;
             int container = -1;
-            if (vm.SelectedObject >= 0)
+            if (vm.SelectedObject >= 0 && !tileOnly)
             {
                 var o = level.Objects[vm.SelectedObject];
                 if (!o.IsQuantity || o.Item == 0x10F || (o.Item >= 0x140 && o.Item < 0x150)) { container = o.Index; inside = o.ToString(); }
@@ -510,7 +519,9 @@ namespace UwEditor.App
 
         public void DeleteSelected()
         {
-            if (vm.Level == null || vm.SelectedObject < 0) return;
+            if (vm.Level == null) return;
+            if (selObjects.Count > 1) { DeleteObjects(selObjects.ToList()); return; }
+            if (vm.SelectedObject < 0) return;
             var o = vm.Level.Objects[vm.SelectedObject];
             int idx = o.Index, tx = o.TileX, ty = o.TileY;
             if (vm.Edit(e => e.DeleteObject(idx), "Deleted #" + idx + " " + o.Name + (o.Children.Count > 0 ? " and what it held" : "") + "."))

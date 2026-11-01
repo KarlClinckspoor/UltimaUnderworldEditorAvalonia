@@ -99,8 +99,12 @@ view chooses the tool:
 - **Move:** click a square and the selected object goes there, keeping its height above the
   floor. A critter's home moves with it.
 - **Paint:** drag over tiles to paint the light flag on or off (only that bit), a floor or
-  wall texture from the level's texture list (shown with thumbnails), a tile type, or a
-  floor height.
+  wall texture from the level's texture list (shown with thumbnails), a tile type, a
+  floor height, or a **tile template**: a tile's type, height, floor and wall texture
+  together (the ticked parts), taken with **From the selected tile** or from the right-click
+  menu. **Fill** makes a click paint every tile the player can walk to from it, by the zone
+  fill's rules (no rock, no doors, climbs of at most two steps). **Paint selection** paints
+  the selected tiles. A stroke, a fill or a selection painted is one undo step.
 - **Ctrl+wheel** raises or lowers the floor under the mouse, and the objects on it with it.
 - **First person** (P): walk the level at eye height. W A S D walk, Q E or a drag turns,
   R V look up and down, and Esc leaves. Rock and floors more than two steps up stop you.
@@ -138,6 +142,75 @@ teleport can aim at another level. A teleport to another level shows its bullsey
 with the level and square written beside it; **Go to the teleport's target** (also in the
 Edit menu) opens that level on the destination square. **Variable in globals…** opens the
 global variables window on the variable a set or check variable trap uses.
+
+### Selecting, copying and moving
+
+- **Ctrl+click** adds an object or a tile to the selection, or takes it out; **Ctrl+drag**
+  selects every open tile inside the rectangle, and the objects on them. Selected tiles are
+  outlined in blue, selected objects' tiles in yellow. Esc clears the selection.
+- **Copy** (Ctrl+C), **Cut** (Ctrl+X), **Paste** (Ctrl+V) and **Duplicate** (Ctrl+D) work on
+  the selected objects with everything inside them: a bag's contents, a wand's spell, a
+  trigger's chain of traps. Paste puts them on the tile under the mouse (or the selected
+  one), keeping their places relative to each other and their heights above the floor; it
+  works on any level of the same game. A creature with a conversation copied makes a second
+  creature with that conversation, which the status line points out.
+- **Drag** a selected object to move it (and the others selected with it) to another tile.
+  Dropping it on a container, a creature or a trigger puts it inside (into the trigger's
+  chain for a trap). Esc cancels a drag.
+- Deleting several objects is one undo step.
+
+**The right-click menu** (a right click without dragging): on an object, copy, cut,
+duplicate, paste inside, add an object inside, delete, choose a trap's target, go to a
+teleport's target, **Make it run a trap** (then click the trap: it joins the trigger's
+chain), **Put inside** (then click the container), frame it, select its tile; on a tile, add
+an object here, paste here, use it as the brush template, fill from here, paint the
+selection, select the tiles walkable from here, play-test from here, and move the new-game
+start or the player there.
+
+### The 2D map
+
+**View ▸ 2D map** (Tab with the mouse over the view) looks straight down without
+perspective, north up. Left and right drags move the map, the wheel zooms; clicks, the
+right-click menu, Ctrl+drag selection and painting work as in 3D. The ceiling is hidden
+while it is on. Tab goes back to the 3D view as it was. **View ▸ Export the map as a
+picture…** writes the level from above as a PNG (16 pixels a tile): floors with their
+textures, lighter where higher, rock dark, edges where the floor steps, and dots for
+objects (creatures red, traps and triggers purple, doors brown, the rest yellow).
+
+### Undo history
+
+**Edit ▸ Undo history…** (Ctrl+H) lists the current level's steps, the newest on top (●
+marks where the level is now) and the steps that can be redone above it (↷). Click a step to
+go to the level as it was after it. Each level keeps its own history, up to 200 steps.
+
+### World check
+
+**Level ▸ World check…** looks across every level, with the unsaved edits:
+- locked locks that no key opens. Keys count wherever they are: on the floor, in
+  containers, carried by creatures, made by create-object traps, and in a saved game the
+  player's inventory. A lock numbered 0 is listed apart: no key opens it (a lockpick, a
+  spell or force does);
+- keys whose lock number no lock in the levels has;
+- each level's objects against the game's limits (255 mobile, 768 static): marked when 90%
+  full, and when full (the game then cannot drop, throw or create objects there either).
+
+Double-click a line to go there.
+
+### Play test
+
+**Level ▸ Play-test from the selected tile** (F5, or Play-test from here in the right-click
+menu) runs the game in DOSBox with the unsaved levels, the player on that square. It works
+on a copy of the game folder, made afresh each time in the editor's settings folder (`Play
+test`); the game folder is never touched.
+- With `DATA` open and a square on level 1, the copy's executable gets the square as the
+  new-game start: start a new game.
+- Anywhere else the player needs a saved game: an open save's own, or with `DATA` open the
+  folder's first save, which then gets `DATA`'s levels as edited. Its `PLAYER.DAT` gets the
+  position: restore that game (the editor says which).
+
+DOSBox is looked for next to the game (GOG's `DOSBOX` folder) and where it is usually
+installed; otherwise the editor asks for it once (**Choose DOSBox for play tests…**). Unsaved
+strings and conversations are not in the copy.
 
 **The start and the player:** with the Move tool, click an arrow and then a square. The
 new-game start can only move on level 1: it is patched into `UW.EXE` / `UW2.EXE`, which is
@@ -556,6 +629,13 @@ and its strongest creature, and the creatures with a conversation.
 | Anywhere | Ctrl+O | open a game |
 | Anywhere | Ctrl+S | save the levels (and a moved player) |
 | Anywhere | Ctrl+Z, Ctrl+Y | undo, redo |
+| Anywhere | Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+D | copy, cut, paste, duplicate the selected objects |
+| Anywhere | Ctrl+H | undo history |
+| Anywhere | F5 | play-test from the selected tile |
+| View | Tab | the 2D map, and back |
+| View | Ctrl+click, Ctrl+drag | add to the selection, select in a rectangle |
+| View | right click | the right-click menu |
+| View | drag a selected object | move it (onto a container: put it inside) |
 | Anywhere | Insert, Delete | add an object, delete the selected one |
 | Anywhere | Ctrl+Shift+F | find in all levels |
 | Anywhere | Ctrl+Shift+C | conversations |

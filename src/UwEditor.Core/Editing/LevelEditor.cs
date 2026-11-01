@@ -18,9 +18,9 @@ namespace UwEditor.Core.Editing
     {
         public GameSession Session { get; private set; }
         public int Level { get; private set; }
-        byte[] data, tex;
+        byte[] data, tex, anim;
         LevelModel model;
-        readonly List<Tuple<string, byte[], byte[]>> undo = new List<Tuple<string, byte[], byte[]>>(), redo = new List<Tuple<string, byte[], byte[]>>();
+        readonly List<Tuple<string, byte[], byte[], byte[]>> undo = new List<Tuple<string, byte[], byte[], byte[]>>(), redo = new List<Tuple<string, byte[], byte[], byte[]>>();
         public const int UndoDepth = 200;
         public bool Dirty { get; private set; }
         /// <summary>Raised after every change, undo and redo.</summary>
@@ -34,7 +34,21 @@ namespace UwEditor.Core.Editing
             var m = s.LoadLevel(level);
             data = (byte[])m.Block.Data.Clone();
             tex = m.TextureBytes;
+            // UW1 keeps the running animations (EFFECT.C animlist, 64 × 6 bytes) in block level + 8; UW2 inside the level block
+            int ab = s.Profile.OverlayBlock(level);
+            if (ab >= 0 && s.LevArk.Has(ab))
+            {
+                var a = s.LevArk.Read(ab);
+                if (a != null && a.Length >= AnimBlockLength) { anim = (byte[])a.Clone(); animOriginal = (byte[])a.Clone(); }
+            }
         }
+
+        /// <summary>The animation list's block (MAX_ANIMS 64 entries of 6 bytes: object link word, frames left, x, y).</summary>
+        public const int AnimBlockLength = 0x180;
+        byte[] animOriginal;
+        /// <summary>UW1's animation block as edited (null when the level has none), and whether it changed.</summary>
+        public byte[] AnimBytes { get { return anim; } }
+        public bool AnimChanged { get { return anim != null && animOriginal != null && !anim.AsSpan().SequenceEqual(animOriginal); } }
 
         public byte[] Data { get { return data; } }
         public byte[] TextureBytes { get { return tex; } }
@@ -49,7 +63,18 @@ namespace UwEditor.Core.Editing
         }
 
         /// <summary>After saving: the level is clean, its history kept.</summary>
-        internal void MarkSaved() { Dirty = false; }
+        internal void MarkSaved() { Dirty = false; if (anim != null) animOriginal = (byte[])anim.Clone(); }
+
+        /// <summary>The undo steps, oldest first, and the redo steps, the next one last.</summary>
+        public IReadOnlyList<string> UndoLabels { get { return undo.Select(u => u.Item1).ToList(); } }
+        public IReadOnlyList<string> RedoLabels { get { return redo.Select(r => r.Item1).ToList(); } }
+
+        /// <summary>Goes back (steps &gt; 0 undoes that many) or forward (steps &lt; 0 redoes) through the history.</summary>
+        public void Step(int steps)
+        {
+            for (; steps > 0 && CanUndo; steps--) Undo();
+            for (; steps < 0 && CanRedo; steps++) Redo();
+        }
 
         public bool CanUndo { get { return undo.Count > 0; } }
         public bool CanRedo { get { return redo.Count > 0; } }
@@ -70,7 +95,7 @@ namespace UwEditor.Core.Editing
 
         void Snapshot(string label)
         {
-            undo.Add(Tuple.Create(label, (byte[])data.Clone(), tex == null ? null : (byte[])tex.Clone()));
+            undo.Add(Tuple.Create(label, (byte[])data.Clone(), tex == null ? null : (byte[])tex.Clone(), anim == null ? null : (byte[])anim.Clone()));
             if (undo.Count > UndoDepth) undo.RemoveAt(0);
         }
 
@@ -86,12 +111,12 @@ namespace UwEditor.Core.Editing
         void Change(string label, Action a)
         {
             if (batchDepth == 0) Snapshot(label);
-            byte[] before = batchDepth == 0 ? null : (byte[])data.Clone();
+            byte[] before = batchDepth == 0 ? null : (byte[])data.Clone(), animBefore = batchDepth == 0 || anim == null ? null : (byte[])anim.Clone();
             try { a(); }
             catch
             {
-                if (batchDepth == 0) { var u = undo[undo.Count - 1]; data = u.Item2; tex = u.Item3; undo.RemoveAt(undo.Count - 1); }
-                else if (before != null) data = before;
+                if (batchDepth == 0) { var u = undo[undo.Count - 1]; data = u.Item2; tex = u.Item3; anim = u.Item4; undo.RemoveAt(undo.Count - 1); }
+                else if (before != null) { data = before; if (animBefore != null) anim = animBefore; }
                 model = null;
                 throw;
             }
@@ -130,8 +155,8 @@ namespace UwEditor.Core.Editing
             if (undo.Count == 0) return;
             var u = undo[undo.Count - 1];
             undo.RemoveAt(undo.Count - 1);
-            redo.Add(Tuple.Create(u.Item1, data, tex));
-            data = u.Item2; tex = u.Item3;
+            redo.Add(Tuple.Create(u.Item1, data, tex, anim));
+            data = u.Item2; tex = u.Item3; anim = u.Item4;
             Done();
         }
 
@@ -141,8 +166,8 @@ namespace UwEditor.Core.Editing
             if (redo.Count == 0) return;
             var r = redo[redo.Count - 1];
             redo.RemoveAt(redo.Count - 1);
-            undo.Add(Tuple.Create(r.Item1, data, tex));
-            data = r.Item2; tex = r.Item3;
+            undo.Add(Tuple.Create(r.Item1, data, tex, anim));
+            data = r.Item2; tex = r.Item3; anim = r.Item4;
             Done();
         }
 
@@ -293,6 +318,7 @@ namespace UwEditor.Core.Editing
 
         void FreeIndex(int i)
         {
+            RemoveAnimation(i);
             var b = B;
             int size = i < LevelBlock.Mobiles ? LevelBlock.MobileSize : LevelBlock.StaticSize;
             Array.Clear(data, LevelBlock.ObjectOffset(i), size);
@@ -329,6 +355,44 @@ namespace UwEditor.Core.Editing
         int HeadOf(int x, int y) { return GetW(TileAt(x, y) + 2) >> 6; }
         void SetHead(int x, int y, int n) { int at = TileAt(x, y) + 2; PutW(at, (GetW(at) & 0x3F) | n << 6); }
         bool IsQuant(int i) { return (GetW(LevelBlock.ObjectOffset(i)) & 0x8000) != 0; }
+
+        // ---- running animations (EFFECT.C animlist): they name objects by index and tile
+
+        /// <summary>The animation list (UW1's own block, UW2's inside the level block at 0x7C08) and its start.</summary>
+        byte[] AnimList(out int at)
+        {
+            if (Session.IsUw2) { at = LevelBlock.Uw2OverlaysAt; return data.Length >= at + AnimBlockLength ? data : null; }
+            at = 0; return anim;
+        }
+
+        static int AnimIndex(byte[] a, int at, int k) { return (a[at + 6 * k] | a[at + 6 * k + 1] << 8) >> 6; }
+
+        /// <summary>A freed object's animation goes (rem_anim_from_list: the last entry fills its place, a zero index ends the list).</summary>
+        void RemoveAnimation(int index)
+        {
+            int at;
+            var a = AnimList(out at);
+            if (a == null) return;
+            int n = 0;
+            while (n < 64 && AnimIndex(a, at, n) != 0) n++;
+            for (int k = 0; k < n; k++)
+                if (AnimIndex(a, at, k) == index)
+                {
+                    if (k != n - 1) Array.Copy(a, at + 6 * (n - 1), a, at + 6 * k, 6);
+                    Array.Clear(a, at + 6 * (n - 1), 6);
+                    return;
+                }
+        }
+
+        /// <summary>A moved object's animation follows it to its new tile (the list keeps x, y).</summary>
+        void MoveAnimation(int index, int x, int y)
+        {
+            int at;
+            var a = AnimList(out at);
+            if (a == null) return;
+            for (int k = 0; k < 64 && AnimIndex(a, at, k) != 0; k++)
+                if (AnimIndex(a, at, k) == index) { a[at + 6 * k + 4] = (byte)x; a[at + 6 * k + 5] = (byte)y; }
+        }
 
         /// <summary>Takes an object off the list it is on (its tile's, or its container's).</summary>
         void Unlink(ObjectInfo o)
@@ -461,6 +525,139 @@ namespace UwEditor.Core.Editing
                 S["Fine Y"].Set(data, fy, at);
                 S["Z"].Set(data, Math.Max(0, Math.Min(127, FloorZ(x, y, fx, fy) + Math.Max(0, above))), at);
                 if (o.IsMobile) { Uw1Schemas.MobileObject["Home X"].Set(data, x, at); Uw1Schemas.MobileObject["Home Y"].Set(data, y, at); }
+                MoveAnimation(index, x, y);
+            });
+        }
+
+        /// <summary>Whether an object can go inside another: the container's link is a list (not a quantity or special value), and it is not the object itself or inside it.</summary>
+        public bool CanPutInside(int index, int container)
+        {
+            if (index <= 0 || container <= 0 || index == container) return false;
+            var m = Model;
+            if (m.Objects[index].Free || m.Objects[container].Free || IsQuant(container)) return false;
+            if (m.Objects[index].IsMobile && !m.Objects[container].IsCritter && !m.Objects[container].IsTrapOrTrigger && m.Objects[index].IsCritter) return false;   // a creature in a bag
+            for (int up = container, g = 0; up >= 0 && g < 1024; up = m.Objects[up].Parent, g++) if (up == index) return false;
+            return true;
+        }
+
+        /// <summary>Puts an object (from a tile or another container) inside a container, a creature's inventory, or a trigger's chain (at the head of its list): one undoable change.</summary>
+        public void PutInside(int index, int container)
+        {
+            if (!CanPutInside(index, container)) throw new InvalidOperationException(Model.Objects[container].Name + " cannot hold " + Model.Objects[index].Name + ".");
+            var o = Model.Objects[index];
+            Change("Put #" + index + " " + o.Name + " in #" + container, () =>
+            {
+                Unlink(o);
+                SetNext(index, LinkOf(container));
+                SetLink(container, index);
+                MoveAnimation(index, Model.Objects[container].TileX, Model.Objects[container].TileY);
+            });
+        }
+
+        // ---- copy and paste
+
+        /// <summary>
+        /// The objects as a clip: each one's record with everything inside it (contents, a wand's
+        /// spell, a trigger's traps), and where it lies relative to the first one.
+        /// </summary>
+        public ObjectClip Copy(IEnumerable<int> indexes)
+        {
+            var m = Model;
+            var list = indexes.Distinct().Where(i => i > 0 && i < m.Objects.Length && !m.Objects[i].Free && (m.Objects[i].OnTile || m.Objects[i].Parent >= 0)).ToList();
+            // an object inside another one copied too goes along with it, not twice
+            var set = new HashSet<int>(list);
+            list = list.Where(i => { for (int up = m.Objects[i].Parent, g = 0; up >= 0 && g < 1024; up = m.Objects[up].Parent, g++) if (set.Contains(up)) return false; return true; }).ToList();
+            var clip = new ObjectClip { Kind = Session.Kind, FromLevel = Level };
+            if (list.Count == 0) return clip;
+            var first = m.Objects[list[0]];
+            int ax = first.OnTile ? first.TileX : -1, ay = first.OnTile ? first.TileY : -1;
+            foreach (int i in list)
+            {
+                var o = m.Objects[i];
+                var n = Node(i, 0);
+                if (o.OnTile && ax >= 0) { n.Dx = o.TileX - ax; n.Dy = o.TileY - ay; n.Above = o.Z - FloorZ(o.TileX, o.TileY, o.FineX, o.FineY); }
+                clip.Roots.Add(n);
+            }
+            return clip;
+        }
+
+        ClipNode Node(int i, int depth)
+        {
+            int size = i < LevelBlock.Mobiles ? LevelBlock.MobileSize : LevelBlock.StaticSize;
+            var n = new ClipNode { Mobile = i < LevelBlock.Mobiles, Record = new byte[size] };
+            Array.Copy(data, LevelBlock.ObjectOffset(i), n.Record, 0, size);
+            if (!IsQuant(i) && depth < 64)
+                for (int c = LinkOf(i), guard = 0; c > 0 && guard++ < 1100; c = NextOf(c)) n.Children.Add(Node(c, depth + 1));
+            return n;
+        }
+
+        /// <summary>
+        /// Puts a clip's objects in the level as one undoable change: on tile (x, y) and the tiles
+        /// the others had relative to the first, at the same height above the floor (or inside a
+        /// container). Objects that would land on rock or off the map are left out. Returns the new
+        /// objects' indexes, the first one first.
+        /// </summary>
+        public List<int> Paste(ObjectClip clip, int x, int y, int container = -1)
+        {
+            if (clip == null || clip.Roots.Count == 0) throw new InvalidOperationException("Nothing to paste: copy objects first.");
+            if (clip.Kind != Session.Kind) throw new InvalidOperationException("These objects come from the other game.");
+            if (container >= 0 && IsQuant(container)) throw new InvalidOperationException("#" + container + " is not a container.");
+            int mob = clip.Count(true), sta = clip.Count(false), freeM = B.MobileTop + 1, freeS = B.StaticTop + 1;
+            if (mob > freeM || sta > freeS) throw new InvalidOperationException(string.Format("Not enough free objects: the clip needs {0} mobile and {1} static, the level has {2} and {3}.", mob, sta, freeM, freeS));
+            var made = new List<int>();
+            Change("Paste " + clip.Describe(Session.Names), () =>
+            {
+                foreach (var r in clip.Roots)
+                {
+                    int tx = x + r.Dx, ty = y + r.Dy;
+                    if (container < 0 && (tx < 0 || ty < 0 || tx > 63 || ty > 63 || Model.Tiles[tx, ty].IsSolid)) continue;
+                    made.Add(PasteNode(r, tx, ty, container, true));
+                }
+                if (made.Count == 0) throw new InvalidOperationException("Every object would land on rock there.");
+            });
+            return made;
+        }
+
+        int PasteNode(ClipNode n, int x, int y, int container, bool root)
+        {
+            int i = Alloc(n.Mobile);
+            int at = LevelBlock.ObjectOffset(i);
+            Array.Copy(n.Record, 0, data, at, Math.Min(n.Record.Length, n.Mobile ? LevelBlock.MobileSize : LevelBlock.StaticSize));
+            SetNext(i, 0);
+            if (!IsQuant(i)) SetLink(i, 0);
+            var S = Uw1Schemas.StaticObject;
+            if (root && container < 0)
+            {
+                int fx = S["Fine X"].Get(data, at), fy = S["Fine Y"].Get(data, at);
+                S["Z"].Set(data, Math.Max(0, Math.Min(127, FloorZ(x, y, fx, fy) + Math.Max(0, n.Above))), at);
+            }
+            if (n.Mobile) { Uw1Schemas.MobileObject["Home X"].Set(data, x, at); Uw1Schemas.MobileObject["Home Y"].Set(data, y, at); }
+            // the contents in their order: each put at the head, last first
+            if (!IsQuant(i)) for (int k = n.Children.Count - 1; k >= 0; k--) PasteNode(n.Children[k], x, y, i, false);
+            if (container >= 0) { SetNext(i, LinkOf(container)); SetLink(container, i); }
+            else if (root) { SetNext(i, HeadOf(x, y)); SetHead(x, y, i); }
+            return i;
+        }
+
+        /// <summary>Moves an object to a tile from wherever it is: another tile (as MoveObject), or out of a container, a creature or a trigger's chain (onto the floor).</summary>
+        public void MoveObjectAnywhere(int index, int x, int y, int? fineX = null, int? fineY = null)
+        {
+            var o = Model.Objects[index];
+            if (o.OnTile) { MoveObject(index, x, y, fineX, fineY); return; }
+            if (o.Parent < 0) throw new InvalidOperationException("#" + index + " is not in the level.");
+            if (Model.Tiles[x, y].IsSolid) throw new InvalidOperationException("(" + x + ", " + y + ") is solid rock.");
+            Change("Take #" + index + " out to (" + x + ", " + y + ")", () =>
+            {
+                Unlink(o);
+                SetNext(index, HeadOf(x, y));
+                SetHead(x, y, index);
+                var S = Uw1Schemas.StaticObject;
+                int at = LevelBlock.ObjectOffset(index);
+                int fx = fineX ?? 3, fy = fineY ?? 3;
+                S["Fine X"].Set(data, fx, at);
+                S["Fine Y"].Set(data, fy, at);
+                S["Z"].Set(data, FloorZ(x, y, fx, fy), at);
+                if (o.IsMobile) { Uw1Schemas.MobileObject["Home X"].Set(data, x, at); Uw1Schemas.MobileObject["Home Y"].Set(data, y, at); }
             });
         }
 
@@ -532,6 +729,7 @@ namespace UwEditor.Core.Editing
             {
                 ark.Write(Session.Profile.LevelBlock(e.Level), e.Data);
                 if (e.TextureBytes != null) ark.Write(Session.Profile.TextureBlock(e.Level), e.TextureBytes);
+                if (e.AnimChanged) ark.Write(Session.Profile.OverlayBlock(e.Level), e.AnimBytes);
             }
             foreach (var a in automaps.Values.Where(x => x.Dirty))
             {

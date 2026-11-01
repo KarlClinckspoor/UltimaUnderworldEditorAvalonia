@@ -23,6 +23,12 @@
       <MenuItem Header="_Edit">
         <MenuItem Header="{Binding UndoText}" InputGesture="Ctrl+Z" Click="OnUndo" IsEnabled="{Binding CanUndo}" />
         <MenuItem Header="{Binding RedoText}" InputGesture="Ctrl+Y" Click="OnRedo" IsEnabled="{Binding CanRedo}" />
+        <MenuItem Header="Undo _history…" InputGesture="Ctrl+H" Click="OnUndoHistory" IsEnabled="{Binding HasGame}" />
+        <Separator />
+        <MenuItem Header="Cu_t" InputGesture="Ctrl+X" Click="OnCut" IsEnabled="{Binding HasObject}" />
+        <MenuItem Header="_Copy" InputGesture="Ctrl+C" Click="OnCopy" IsEnabled="{Binding HasObject}" />
+        <MenuItem Header="_Paste" InputGesture="Ctrl+V" Click="OnPaste" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="D_uplicate" InputGesture="Ctrl+D" Click="OnDuplicate" IsEnabled="{Binding HasObject}" />
         <Separator />
         <MenuItem Header="_Add an object…" InputGesture="Insert" Click="OnAddObject" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Delete the object" InputGesture="Delete" Click="OnDeleteObject" IsEnabled="{Binding HasObject}" />
@@ -45,6 +51,8 @@
         <Separator />
         <MenuItem Header="_Frame the selection" InputGesture="F" Click="OnFrame" />
         <MenuItem Header="Look _straight down" InputGesture="T" Click="OnTopDown" />
+        <MenuItem x:Name="MapItem" Header="2D _map" ToggleType="CheckBox" InputGesture="Tab" Click="OnToggleMap" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Export the map as a picture…" Click="OnExportMap" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="Go to the _start" InputGesture="Home" Click="OnGoToStart" />
         <MenuItem Header="_First person" InputGesture="P" Click="OnFirstPerson" />
         <Separator />
@@ -61,6 +69,10 @@
         <MenuItem Header="_Find in all levels…" Click="OnFindAll" InputGesture="Ctrl+Shift+F" IsEnabled="{Binding HasGame}" />
         <Separator />
         <MenuItem Header="_Automap and map notes…" Click="OnAutomap" InputGesture="Ctrl+Shift+A" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_World check…" Click="OnWorldCheck" IsEnabled="{Binding HasGame}" />
+        <Separator />
+        <MenuItem Header="Play-_test from the selected tile" Click="OnPlayTest" InputGesture="F5" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="Choose _DOSBox for play tests…" Click="OnDosBoxPath" />
       </MenuItem>
       <MenuItem Header="_Tools">
         <MenuItem Header="_Conversations…" Click="OnConversations" InputGesture="Ctrl+Shift+C" IsEnabled="{Binding HasGame}" />
@@ -214,6 +226,16 @@
             </ComboBox>
             <ComboBox ItemsSource="{Binding TileTypes}" SelectedIndex="{Binding PaintType}" IsVisible="{Binding PaintsType}" Width="150" />
             <NumericUpDown Value="{Binding PaintHeight}" Minimum="0" Maximum="15" Increment="1" FormatString="0" IsVisible="{Binding PaintsHeight}" Width="100" />
+            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding PaintsTemplate}">
+              <Button Content="From the selected tile" Click="OnTakeTemplate" ToolTip.Tip="The brush paints this tile's type, height and textures (the ticked parts)" />
+              <CheckBox Content="type" IsChecked="{Binding TemplateType}" />
+              <CheckBox Content="height" IsChecked="{Binding TemplateHeight}" />
+              <CheckBox Content="floor" IsChecked="{Binding TemplateFloor}" />
+              <CheckBox Content="wall" IsChecked="{Binding TemplateWall}" />
+              <TextBlock Text="{Binding TemplateText}" Classes="muted" VerticalAlignment="Center" />
+            </StackPanel>
+            <ToggleButton Content="Fill" IsChecked="{Binding PaintFill}" ToolTip.Tip="A click paints every tile the player can walk to from it (the zones' movement rules: no rock, no doors, climbs of at most two steps)" />
+            <Button Content="Paint selection" Click="OnPaintSelection" ToolTip.Tip="Paint every selected tile with the brush (Ctrl+click or Ctrl+drag selects tiles)" />
           </StackPanel>
           <Button Content="Add…" Click="OnAddObject" ToolTip.Tip="Add an object on the selected tile or into the selected container (Insert)" />
           <Button Content="Delete" Click="OnDeleteObject" IsEnabled="{Binding HasObject}" ToolTip.Tip="Delete the selected object and what is inside it (Del)" />

@@ -112,6 +112,16 @@ namespace UwEditor.App
                 case "swap": ShowItemSwap(); break;
                 case "monsters": ShowMonsterSwap(); break;
                 case "automap": ShowAutomap(); break;
+                case "map": ToggleMap(); break;
+                case "multi":
+                    {
+                        var l = vm.Level;
+                        var tiles = Enumerable.Range(0, 64 * 64).Where(i => !l.Tiles[i % 64, i / 64].IsSolid).Skip(60).Take(14).ToList();
+                        AddToSelection(tiles.SelectMany(i => l.TileObjects(i % 64, i / 64)).Select(o => o.Index).Where(i => i > 0), tiles);
+                        break;
+                    }
+                case "history": ShowUndoHistory(); break;
+                case "worldcheck": ShowWorldCheck(); break;
                 case "zoomout": View.LookAt(View.Camera.Target + new System.Numerics.Vector3(3, 0, 0), 18f, View.Camera.Yaw, 70f); break;
                 case "shuffle-armour": ShowItemShuffle()?.ShowTab(1); break;
                 case "shuffle-armour-end": ShowItemShuffle()?.ShowTab(1, true); break;

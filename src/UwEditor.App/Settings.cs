@@ -22,6 +22,10 @@ namespace UwEditor.App
         public int CheckpointCopies { get; set; } = 20;
         /// <summary>The zone fill's highest climb, in floor steps.</summary>
         public int ZoneClimb { get; set; } = UwEditor.Core.Randomizer.ZoneFlood.DefaultMaxClimb;
+        /// <summary>The DOSBox program the play test runs (found or chosen once).</summary>
+        public string DosBoxPath { get; set; } = "";
+        /// <summary>More DOSBox arguments for the play test (a -conf file, say).</summary>
+        public string DosBoxArgs { get; set; } = "";
 
         /// <summary>The folder the settings (and the checkpoints) live in.</summary>
         public static string Folder { get { return Path.GetDirectoryName(PathOf()); } }

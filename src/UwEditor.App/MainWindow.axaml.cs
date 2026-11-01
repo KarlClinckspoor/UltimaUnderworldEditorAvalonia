@@ -43,6 +43,7 @@ namespace UwEditor.App
             View.FrameDrawn += UpdateViewText;
             AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
             InitEditing();
+            InitSelection();
             InitCheckpoints();
             Columns.ColumnDefinitions[0].Width = new GridLength(Math.Clamp(settings.LeftWidth, 200, 600));
             Columns.ColumnDefinitions[4].Width = new GridLength(Math.Clamp(settings.RightWidth, 240, 700));
@@ -191,6 +192,7 @@ namespace UwEditor.App
                 zonesWindow?.Close(); zoneGraphWindow?.Close();
                 itemShuffleWindow?.Close(); itemSwapWindow?.Close(); monsterSwapWindow?.Close();
                 findWindow?.Close(); automapWindow?.Close(); checkpointsWindow?.Close();
+                historyWindow?.Close(); worldCheckWindow?.Close();
             }
             finally { quietClose = false; }
             zoning = null; zoneOverlay = null;
@@ -353,7 +355,10 @@ namespace UwEditor.App
 
         void OnPicked(PickResult hit)
         {
+            if (ObjectPickClick(hit)) return;
             if (EditClick(hit)) return;
+            if (MultiClick(hit)) return;
+            ClearMulti();
             if (!hit.Hit) { vm.ClearSelection(); return; }
             vm.Select(hit.Object, hit.Tile % 64, hit.Tile / 64, true);
             if (vm.SelectedNode != null) ObjectTree.ScrollIntoView(vm.SelectedNode);
@@ -368,6 +373,7 @@ namespace UwEditor.App
             {
                 tris = BuildMarkers(lines);
                 if (vm.SelectedTileX >= 0) scene.TileOutline(lines, vm.SelectedTileX, vm.SelectedTileY, SelColour);
+                AddSelectionOutlines(lines);
             }
             View.SetMarkers(tris);
             View.State.SelectedObject = vm.SelectedObject;
@@ -668,6 +674,13 @@ namespace UwEditor.App
                 "  Tool: Paint             drag over tiles: light flag, floor or wall texture, type, height\n" +
                 "  Insert, Del             add an object, delete the selected one\n" +
                 "  Ctrl+Z, Ctrl+Y          undo, redo (each level keeps its own)\n" +
+                "  Ctrl+H                  undo history\n" +
+                "  Ctrl+C, X, V, D         copy, cut, paste, duplicate the selected objects\n" +
+                "  Ctrl+click, Ctrl+drag   add to the selection, select tiles in a rectangle\n" +
+                "  Drag a selected object  move it; drop it on a container to put it inside\n" +
+                "  Right click             the right-click menu\n" +
+                "  Tab                     the 2D map, and back\n" +
+                "  F5                      play-test from the selected tile\n" +
                 "  Ctrl+S                  save the levels (and a moved player)\n" +
                 "  Properties panel        type a value and press Enter\n\n" +
                 "First person (P)\n" +
@@ -719,6 +732,7 @@ namespace UwEditor.App
             if (e.Key == Key.G && ctrlShift) { ShowGlobals(); e.Handled = true; return; }
             if (e.Key == Key.P && ctrlShift) { ShowPlayer(); e.Handled = true; return; }
             if (e.Key == Key.R && ctrlShift) { ShowGraphics(); e.Handled = true; return; }
+            if (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.None) { OnPlayTest(this, null); e.Handled = true; return; }
             if (e.Key == Key.F1) { ManualWindow.ShowAt(this, vm.ToolIndex == 0 ? null : "Editing levels"); e.Handled = true; return; }
             if (e.Key == Key.K && ctrlShift) { ShowKeys(); e.Handled = true; return; }
             if (e.Key == Key.T && ctrlShift) { ShowTriggers(); e.Handled = true; return; }
@@ -730,6 +744,12 @@ namespace UwEditor.App
             if (ctrl && e.Key == Key.S) { SaveAll(); e.Handled = true; return; }
             if (ctrl && !typing && e.Key == Key.Z) { Undo(); e.Handled = true; return; }
             if (ctrl && !typing && e.Key == Key.Y) { Redo(); e.Handled = true; return; }
+            if (ctrl && !typing && e.Key == Key.C) { CopySelection(false); e.Handled = true; return; }
+            if (ctrl && !typing && e.Key == Key.X) { CopySelection(true); e.Handled = true; return; }
+            if (ctrl && !typing && e.Key == Key.V) { PasteClip(-1, -1, -1); e.Handled = true; return; }
+            if (ctrl && !typing && e.Key == Key.D) { Duplicate(); e.Handled = true; return; }
+            if (ctrl && !typing && e.Key == Key.H) { ShowUndoHistory(); e.Handled = true; return; }
+            if (e.Key == Key.Tab && !typing && e.KeyModifiers == KeyModifiers.None && (View.IsFocused || View.IsPointerOver)) { ToggleMap(); e.Handled = true; return; }
             if (typing || (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt)) != 0) return;
             if (View.FirstPerson && e.Key == Key.Escape) { View.SetFirstPerson(false); e.Handled = true; return; }
             // the camera keys work whichever panel has the focus (the arrows stay with lists)
@@ -749,8 +769,9 @@ namespace UwEditor.App
                 case Key.H: vm.ShowGrid = !vm.ShowGrid; break;
                 case Key.M: vm.ShowModels = !vm.ShowModels; break;
                 case Key.Escape:
-                    if (pick != null || carrying != null) { pick = null; carrying = null; vm.EditStatus = "Cancelled."; }
-                    else vm.ClearSelection();
+                    View.CancelDrag();
+                    if (pick != null || carrying != null || objectPick != null) { pick = null; carrying = null; objectPick = null; vm.EditStatus = "Cancelled."; }
+                    else { ClearMulti(); vm.ClearSelection(); }
                     break;
                 case Key.Delete: DeleteSelected(); break;
                 case Key.Insert: _ = AddObject(); break;

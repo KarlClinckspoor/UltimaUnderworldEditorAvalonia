@@ -20,6 +20,10 @@ namespace UwEditor.Core
         public const float MinDistance = 0.5f, MaxDistance = 120f;
         /// <summary>How far up (negative) the camera may look; first person looks further up.</summary>
         public float MinPitch = -10;
+        /// <summary>The 2D map: straight down, without perspective; Distance sets the scale (the view is as many tiles high as perspective shows at that distance).</summary>
+        public bool Orthographic;
+        /// <summary>How far above its target an orthographic camera stands (above any ceiling).</summary>
+        public const float OrthoEye = 150f;
 
         public Vector3 Forward
         {
@@ -43,7 +47,10 @@ namespace UwEditor.Core
         /// <summary>The screen's up direction in the world (perpendicular to the view).</summary>
         public Vector3 Up { get { return Vector3.Normalize(Vector3.Cross(Forward, Right)); } }
 
-        public Vector3 Eye { get { return Target - Forward * Distance; } }
+        public Vector3 Eye { get { return Target - Forward * (Orthographic ? OrthoEye : Distance); } }
+
+        /// <summary>Half the view's height in tiles, for the orthographic projection.</summary>
+        public float OrthoHalfHeight { get { return Distance * (float)Math.Tan(FieldOfView * Math.PI / 360); } }
 
         static Vector3 Mirror(Vector3 v) { return new Vector3(v.X, v.Y, -v.Z); }
 
@@ -59,6 +66,15 @@ namespace UwEditor.Core
         /// <summary>An OpenGL projection (depth -1..1).</summary>
         public Matrix4x4 Projection(float aspect)
         {
+            if (Orthographic)
+            {
+                float h = OrthoHalfHeight, w = h * Math.Max(0.01f, aspect), n = 1f, fa = 400f;
+                var o = Matrix4x4.Identity;
+                o.M11 = 1 / w; o.M22 = 1 / h;
+                o.M33 = -2 / (fa - n);
+                o.M43 = -(fa + n) / (fa - n);
+                return o;
+            }
             float near = 0.05f, far = 400f;
             float f = 1f / (float)Math.Tan(FieldOfView * Math.PI / 360);
             var m = new Matrix4x4();

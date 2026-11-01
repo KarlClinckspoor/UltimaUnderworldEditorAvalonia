@@ -107,8 +107,11 @@ namespace UwEditor.Render
         public void SetLevel(LevelMesh mesh, List<RgbaImage> layers)
         {
             var f = mesh == null ? new float[0] : mesh.ToArray();
-            lock (gate) { pendingLevel = f; pendingLayers = layers; }
+            // the same textures as last time (a tile edit) are not sent again
+            lock (gate) { pendingLevel = f; if (!ReferenceEquals(layers, sentLayers) || layers == null) { pendingLayers = layers; sentLayers = layers; } }
         }
+
+        List<RgbaImage> sentLayers;
 
         public void SetAtlas(RgbaImage atlas) { lock (gate) pendingAtlas = atlas; }
 
@@ -416,6 +419,7 @@ namespace UwEditor.Render
             gl = null;
             // a new context starts empty: nothing is drawn until it is sent again
             levelVertices = spriteVertices = lineVertices = markVertices = modelVertices = gridVertices = 0;
+            sentLayers = null;
         }
     }
 }

@@ -33,6 +33,49 @@ namespace UwEditor.App
         public event Action<PickResult, int> HeightWheel;
         /// <summary>A double click picked something.</summary>
         public event Action<PickResult> DoublePicked;
+        /// <summary>A right click without a drag: the context menu, for what is under the mouse.</summary>
+        public event Action<PickResult> ContextRequested;
+        /// <summary>Whether a left press on this pick may drag it (the selected objects, in the Select tool).</summary>
+        public Func<PickResult, bool> CanDrag;
+        /// <summary>An object drag: what is under the mouse now (the start is the press's pick).</summary>
+        public event Action<PickResult> DragMoved;
+        /// <summary>The drag ended over a pick (dropped), or was cancelled (Hit false, Esc or capture lost).</summary>
+        public event Action<PickResult> DragEnded;
+        /// <summary>Ctrl + left drag: the rectangle being drawn (null when it ends), in the view's coordinates.</summary>
+        public event Action<Rect?> RectChanged;
+        /// <summary>Ctrl + left drag ended: the rectangle to select in.</summary>
+        public event Action<Rect> RectSelected;
+        /// <summary>The keys held at the last click.</summary>
+        public KeyModifiers LastModifiers { get; private set; }
+        bool objectDrag, objectDragging, rectSelect;
+
+        // ---- the 2D map
+        /// <summary>The 2D map: looking straight down without perspective; left and right drags pan, the wheel zooms.</summary>
+        public bool TopDown { get; private set; }
+        float savedYaw, savedPitch2D = 45, savedDistance2D = 8;
+        public event Action TopDownChanged;
+
+        /// <summary>Switches the 2D map on or off (the 3D camera comes back as it was).</summary>
+        public void SetTopDown(bool on)
+        {
+            if (on == TopDown) return;
+            if (on && FirstPerson) SetFirstPerson(false);
+            if (on)
+            {
+                savedYaw = Camera.Yaw; savedPitch2D = Camera.Pitch; savedDistance2D = Camera.Distance;
+                Camera.Orthographic = true;
+                Camera.Yaw = 0; Camera.Pitch = 89;
+                Camera.Distance = Math.Max(Camera.Distance, 14);
+            }
+            else
+            {
+                Camera.Orthographic = false;
+                Camera.Yaw = savedYaw; Camera.Pitch = savedPitch2D; Camera.Distance = savedDistance2D;
+            }
+            TopDown = on;
+            TopDownChanged?.Invoke();
+            CameraMoved();
+        }
 
         // ---- first person
         /// <summary>Walking at eye height through the level instead of orbiting over it.</summary>
@@ -155,11 +198,12 @@ namespace UwEditor.App
             Redraw();
         }
 
-        /// <summary>The same level after an edit: new geometry and objects, the atlas kept.</summary>
+        /// <summary>The same level after an edit: new geometry and objects, the atlas kept (the objects only when they changed).</summary>
         public void UpdateScene(LevelScene s)
         {
             scene = s;
-            Upload(s, false);
+            if (s != null && s.ObjectsReused) renderer.SetLevel(s.Mesh, s.Layers);
+            else Upload(s, false);
             Redraw();
         }
 
@@ -197,7 +241,10 @@ namespace UwEditor.App
             pressAt = lastAt = pt.Position;
             dragging = false;
             leftDown = pt.Properties.IsLeftButtonPressed;
-            panning = pt.Properties.IsMiddleButtonPressed || (leftDown && (e.KeyModifiers & KeyModifiers.Shift) != 0);
+            LastModifiers = e.KeyModifiers;
+            panning = pt.Properties.IsMiddleButtonPressed || (leftDown && (e.KeyModifiers & KeyModifiers.Shift) != 0)
+                || (TopDown && (pt.Properties.IsRightButtonPressed || (leftDown && Tool == ViewTool.Select)));   // the 2D map pans; left drags pan only off the selection
+            objectDrag = objectDragging = rectSelect = false;
             e.Pointer.Capture(this);
             e.Handled = true;
             if (leftDown && !panning && e.ClickCount == 2)
@@ -207,11 +254,32 @@ namespace UwEditor.App
                 leftDown = false;
                 return;
             }
+            if (leftDown && Tool == ViewTool.Select && !FirstPerson && (e.KeyModifiers & KeyModifiers.Control) != 0)
+            {
+                rectSelect = true; panning = false;
+                return;
+            }
+            if (leftDown && Tool == ViewTool.Select && (e.KeyModifiers & KeyModifiers.Shift) == 0 && CanDrag != null && CanDrag(PickAt(pt.Position)))
+            {
+                objectDrag = true; panning = false;
+                return;
+            }
             if (leftDown && !panning && Tool == ViewTool.Paint)
             {
                 painting = true;
                 Painted?.Invoke(PickAt(pt.Position), true);
             }
+        }
+
+        Rect DragRect(Point p) { return new Rect(new Point(Math.Min(p.X, pressAt.X), Math.Min(p.Y, pressAt.Y)), new Point(Math.Max(p.X, pressAt.X), Math.Max(p.Y, pressAt.Y))); }
+
+        /// <summary>Stops an object drag without dropping (Esc).</summary>
+        public void CancelDrag()
+        {
+            if (!objectDrag) return;
+            bool was = objectDragging;
+            objectDrag = objectDragging = false;
+            if (was) DragEnded?.Invoke(PickResult.None);
         }
 
         protected override void OnPointerMoved(PointerEventArgs e)
@@ -221,6 +289,14 @@ namespace UwEditor.App
             var p = pt.Position;
             var props = pt.Properties;
             bool any = props.IsLeftButtonPressed || props.IsRightButtonPressed || props.IsMiddleButtonPressed;
+            if ((rectSelect || objectDrag) && props.IsLeftButtonPressed)
+            {
+                if (!dragging && Math.Abs(p.X - pressAt.X) + Math.Abs(p.Y - pressAt.Y) > 5) dragging = true;
+                if (dragging && rectSelect) RectChanged?.Invoke(DragRect(p));
+                if (dragging && objectDrag) { objectDragging = true; DragMoved?.Invoke(PickAt(p)); }
+                lastAt = p;
+                return;
+            }
             if (painting && props.IsLeftButtonPressed)
             {
                 var ph = PickAt(p);
@@ -240,7 +316,7 @@ namespace UwEditor.App
                 if (!dragging && Math.Abs(p.X - pressAt.X) + Math.Abs(p.Y - pressAt.Y) > 4) dragging = true;
                 if (dragging)
                 {
-                    if (panning && !FirstPerson) Camera.Pan((float)d.X, (float)d.Y, (float)Bounds.Height);
+                    if ((panning || TopDown) && !FirstPerson) Camera.Pan((float)d.X, (float)d.Y, (float)Bounds.Height);
                     else if (FirstPerson) Camera.Orbit((float)d.X * 0.3f, (float)d.Y * 0.25f);
                     else Camera.Orbit((float)d.X * 0.35f, (float)d.Y * 0.3f);
                     CameraMoved();
@@ -264,15 +340,27 @@ namespace UwEditor.App
         {
             base.OnPointerCaptureLost(e);
             if (painting) { painting = false; PaintEnded?.Invoke(); }
+            if (rectSelect) { rectSelect = false; RectChanged?.Invoke(null); }
+            if (objectDrag) CancelDrag();
         }
 
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
         {
             base.OnPointerReleased(e);
-            bool wasPainting = painting;
+            bool wasPainting = painting, wasRect = rectSelect, wasDrag = objectDrag, wasDragging = objectDragging;
+            var at = e.GetPosition(this);
+            rectSelect = objectDrag = objectDragging = false;      // before the capture goes (that would cancel them)
             e.Pointer.Capture(null);                                // may end the stroke (capture lost)
             if (wasPainting) { if (painting) { painting = false; PaintEnded?.Invoke(); } }
-            else if (!dragging && leftDown && e.InitialPressMouseButton == MouseButton.Left && !panning)
+            else if (wasRect && dragging) { RectChanged?.Invoke(null); RectSelected?.Invoke(DragRect(at)); }
+            else if (wasDrag && wasDragging) DragEnded?.Invoke(PickAt(at));
+            else if (!dragging && e.InitialPressMouseButton == MouseButton.Right && !FirstPerson)
+            {
+                LastClick = at;
+                LastModifiers = e.KeyModifiers;
+                ContextRequested?.Invoke(PickAt(at));
+            }
+            else if (!dragging && (leftDown || wasRect || wasDrag) && e.InitialPressMouseButton == MouseButton.Left && (!panning || TopDown))
             {
                 LastClick = e.GetPosition(this);
                 Picked?.Invoke(PickAt(LastClick));
@@ -326,8 +414,8 @@ namespace UwEditor.App
                 case Key.S: case Key.Down: Camera.Move(-step, 0); break;
                 case Key.A: case Key.Left: Camera.Move(0, -step); break;
                 case Key.D: case Key.Right: Camera.Move(0, step); break;
-                case Key.Q: Camera.Orbit(-15, 0); break;
-                case Key.E: Camera.Orbit(15, 0); break;
+                case Key.Q: if (!TopDown) Camera.Orbit(-15, 0); break;
+                case Key.E: if (!TopDown) Camera.Orbit(15, 0); break;
                 case Key.R: Camera.Target += new Vector3(0, LevelGeometry.Step, 0); break;
                 case Key.V: Camera.Target -= new Vector3(0, LevelGeometry.Step, 0); break;
                 case Key.Add: case Key.OemPlus: Camera.Zoom(0.8f); break;
@@ -360,6 +448,7 @@ namespace UwEditor.App
         public void SetFirstPerson(bool on, Vector3? at = null)
         {
             if (on == FirstPerson && at == null) return;
+            if (on && TopDown) SetTopDown(false);
             if (on)
             {
                 if (!FirstPerson) { savedDistance = Camera.Distance; savedPitch = Camera.Pitch; }
@@ -433,9 +522,9 @@ namespace UwEditor.App
         public void LookAt(Vector3 target, float? distance = null, float? yaw = null, float? pitch = null)
         {
             Camera.Target = target;
-            if (distance.HasValue) Camera.Distance = distance.Value;
-            if (yaw.HasValue) Camera.Yaw = yaw.Value;
-            if (pitch.HasValue) Camera.Pitch = pitch.Value;
+            if (distance.HasValue) Camera.Distance = TopDown ? Math.Max(distance.Value, 6) : distance.Value;
+            if (yaw.HasValue && !TopDown) Camera.Yaw = yaw.Value;          // the 2D map stays north up, straight down
+            if (pitch.HasValue && !TopDown) Camera.Pitch = pitch.Value;
             CameraMoved();
         }
     }

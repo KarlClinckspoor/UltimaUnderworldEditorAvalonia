@@ -151,10 +151,12 @@ namespace UwEditor.App
         {
             if (level == null) return;
             int obj = selectedObject, tx = selectedTileX, ty = selectedTileY;
+            var before = level;
             level = Edits.Model(level.Level);
             Raise(nameof(Level));
             Raise(nameof(LevelSummary));
-            BuildTree();
+            // a tile edit leaves the objects as they were: the list (and what is open in it) stays
+            if (before == null || before.Level != level.Level || !LevelScene.SameObjects(before, level)) BuildTree();
             if (obj >= 0 && (level.Objects[obj].Free || (level.Objects[obj].TileX < 0 && level.Objects[obj].Parent < 0))) obj = -1;
             if (obj >= 0 || tx >= 0) Select(obj, tx, ty, true); else ClearSelection();
             RaiseEditState();
@@ -203,7 +205,7 @@ namespace UwEditor.App
         public event Action ToolChanged;
         public bool IsPainting { get { return toolIndex == 2; } }
 
-        public static readonly string[] PaintModeNames = { "Light flag on", "Light flag off", "Floor texture", "Wall texture", "Tile type", "Floor height" };
+        public static readonly string[] PaintModeNames = { "Light flag on", "Light flag off", "Floor texture", "Wall texture", "Tile type", "Floor height", "Tile template" };
         public string[] PaintModes { get { return PaintModeNames; } }
         public int PaintMode
         {
@@ -212,12 +214,35 @@ namespace UwEditor.App
             {
                 if (value < 0 || !Set(ref paintMode, value)) return;
                 RefreshSlots();
-                foreach (var n in new[] { nameof(PaintsTexture), nameof(PaintsType), nameof(PaintsHeight) }) Raise(n);
+                foreach (var n in new[] { nameof(PaintsTexture), nameof(PaintsType), nameof(PaintsHeight), nameof(PaintsTemplate) }) Raise(n);
             }
         }
         public bool PaintsTexture { get { return paintMode == 2 || paintMode == 3; } }
         public bool PaintsType { get { return paintMode == 4; } }
         public bool PaintsHeight { get { return paintMode == 5; } }
+        public bool PaintsTemplate { get { return paintMode == 6; } }
+
+        // ---- the tile template: a tile's type, height and textures, painted together
+        int tplType = 1, tplHeight = 4, tplFloor, tplWall;
+        bool useType = true, useHeight = true, useFloor = true, useWall = true, paintFill;
+        public bool TemplateType { get { return useType; } set { Set(ref useType, value); } }
+        public bool TemplateHeight { get { return useHeight; } set { Set(ref useHeight, value); } }
+        public bool TemplateFloor { get { return useFloor; } set { Set(ref useFloor, value); } }
+        public bool TemplateWall { get { return useWall; } set { Set(ref useWall, value); } }
+        /// <summary>A click fills every tile the player can walk to from it (the zones' movement rules) instead of painting one.</summary>
+        public bool PaintFill { get { return paintFill; } set { Set(ref paintFill, value); } }
+        public string TemplateText { get { return string.Format("{0}, height {1}, floor {2}, wall {3}", TileInfo.TypeName((TileType)tplType), tplHeight, tplFloor, tplWall); } }
+
+        /// <summary>Takes the template from a tile of the level shown.</summary>
+        public bool TakeTemplate(int x, int y)
+        {
+            if (level == null || x < 0 || y < 0) return false;
+            var t = level.Tiles[x, y];
+            tplType = (int)t.Type; tplHeight = t.Height; tplFloor = t.FloorIndex; tplWall = t.WallIndex;
+            Raise(nameof(TemplateText));
+            EditStatus = string.Format("Template from ({0}, {1}): {2}.", x, y, TemplateText);
+            return true;
+        }
         public ObservableCollection<SlotItem> Slots { get; } = new ObservableCollection<SlotItem>();
         public int PaintSlot { get { return paintSlot; } set { if (value >= 0) Set(ref paintSlot, value); } }
         public List<string> TileTypes { get; } = Enumerable.Range(0, 10).Select(i => i + ": " + TileInfo.TypeName((TileType)i)).ToList();
@@ -258,6 +283,12 @@ namespace UwEditor.App
                     case 3: e.SetTileField(x, y, "Wall texture", paintSlot); break;
                     case 4: e.SetTileField(x, y, "Type", paintType); break;
                     case 5: e.SetTileField(x, y, "Floor height", Math.Clamp((int)(paintHeight ?? 0), 0, 15)); break;
+                    case 6:
+                        if (useType) e.SetTileField(x, y, "Type", tplType);
+                        if (useHeight) e.SetTileField(x, y, "Floor height", tplHeight);
+                        if (useFloor) e.SetTileField(x, y, "Floor texture", tplFloor);
+                        if (useWall) e.SetTileField(x, y, "Wall texture", tplWall);
+                        break;
                 }
                 EditStatus = string.Format("Painted {0} on ({1}, {2}).", PaintModeNames[paintMode].ToLowerInvariant(), x, y);
             }
