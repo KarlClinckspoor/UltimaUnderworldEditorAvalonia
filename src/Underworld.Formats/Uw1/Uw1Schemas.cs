@@ -234,7 +234,7 @@ namespace UltimateEditor.Uw1
 			F("Value", 4, 0, 16, "Value in gold.", "include/object.h"),
 			F("Touch", 6, 0, 1, "Touch action.", "motion/OBJPHYS.C:163"),
 			F("Usable", 6, 1, 1, "Usable.", "motion/OBJPHYS.C:163"),
-			F("Quality class", 6, 2, 2, "Quality class: class * 6 + quality picks the quality word in string block 5.", "include/object.h qualclass"),
+			F("Quality class", 6, 2, 2, "Toughness: damage to it is shifted right by this; 3 indestructible (and described with the fifth word of its quality type).", "combat/DAMAGE.C damage_object; obj/LOOK.C LookAt"),
 			F("Light", 6, 4, 1, "Gives light.", "include/object.h light"),
 			F("Bounce", 6, 5, 4, "Bounce.", "include/object.h bounce", I),
 			F("Fate", 7, 1, 4, "What happens when it lands after a throw. Editor: ObjectType.", "motion/OBJPHYS.C:440"),
@@ -251,7 +251,7 @@ namespace UltimateEditor.Uw1
 			F("Render", 9, 0, 2, "0 sprite, 1 critter, 2 3D model or door, 3 texture-mapped model.", "3d/DRAWOBJ.C:7"),
 			F("Tenacity", 9, 2, 4, "How far away it may be culled.", "obj/OBJECTS.C:140"),
 			F("Bits 9.6-7", 9, 6, 2, "Unnamed.", "include/object.h b9_6", U),
-			F("Quality type", 10, 0, 4, "Quality type: a group of 6 strings in block 4.", "include/object.h qualtype"),
+			F("Quality type", 10, 0, 4, "Quality words: strings type * 6 + 1..4 of block 5 by quality (quality / 16 + 1), + 5 when indestructible.", "obj/LOOK.C LookAt"),
 			F("Lookable", 10, 4, 1, "Has a printable 'look at' description.", "include/object.h lookable"),
 			F("Bits A.5-7", 10, 5, 3, "Unnamed.", "include/object.h", U));
 
