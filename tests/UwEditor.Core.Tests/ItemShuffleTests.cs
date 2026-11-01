@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using UwEditor.Core.Editing;
 using UwEditor.Core.Randomizer;
@@ -25,6 +26,8 @@ namespace UwEditor.Core.Tests
             var o = ShuffleOptions.Defaults(s);
             o.Seed = 7; o.Axes = 0; o.MinThread = 6; o.MinPole = 6; o.MinFishingPole = 8; o.WeaponSpecials = true;
             o.RuneMinimum[0xE8] = 4;
+            o.ArmourEffectsOn = false;
+            o.ArmourSpecials = true; o.ArmourSpecialList[0].On = true; o.ArmourSpecialList[0].Count = 1;
             var before = s.LevelSlots().Where(x => x.Present).ToDictionary(x => x.Level, x => (byte[])edits.For(x.Level).Data.Clone());
             int kept = CountOf(edits, s, x => x.Item == 0x0A);
 
@@ -42,7 +45,8 @@ namespace UwEditor.Core.Tests
             if (s.IsUw2)
                 for (int e = 8; e <= 13; e++)
                     Assert.Equal(1, CountOf(edits, s, x => x.Item < 0x10 && x.Enchanted && x.IsQuantity && x.Link == (0x200 | 0xC0 | e)));
-            Assert.Equal(1, CountOf(edits, s, x => x.Item >= 0x20 && x.Item < 0x40 && x.Enchanted && x.IsQuantity && x.Link == 0x236) - CountBefore(s, 0x236));
+            // Flameproof is an armour effect the tab rolls again: without other effects, only the one special is left
+            Assert.Equal(1, CountOf(edits, s, x => (ItemTables.Slot(x.Item) >= 0 || ItemTables.ShieldIds.Contains(x.Item)) && x.Enchanted && x.IsQuantity && x.Link == 0x236));
 
             ItemShuffle.Revert(r, edits);
             foreach (var kv in before) Assert.Equal(kv.Value, edits.For(kv.Key).Data);
@@ -156,8 +160,8 @@ namespace UwEditor.Core.Tests
             o.WandCharges = new double[ShuffleOptions.MaxCharges]; o.WandCharges[4] = 100;
             o.WandCircles = new double[o.WandCircles.Length]; o.WandCircles[2] = 100;
             o.ScrollCircles = new double[o.ScrollCircles.Length]; o.ScrollCircles[7] = 100;
-            o.RingMagic = 100; o.CurseShare = 100; o.CurseStrength = new double[] { 0, 100, 0, 0, 0, 0, 0, 0 };
-            o.ShuffleWorn = false;
+            o.RingMagic = 100; o.RingCurseShare = 100; o.CurseStrength = new double[] { 0, 100, 0, 0, 0, 0, 0, 0 };
+            o.ArmourEffectsOn = false;
             var r = ItemShuffle.Run(s, edits.Model, o);
             ItemShuffle.Apply(r, edits, o.Seed);
             var objs = Objects(edits, s);
@@ -168,7 +172,8 @@ namespace UwEditor.Core.Tests
             {
                 bool f11 = (x.Record[1] & 8) != 0;
                 if (x.Parent >= 0 && m.Objects[x.Parent].IsTrapOrTrigger) continue;     // templates inside traps are left alone
-                if (meleeIds.Contains(x.Item) && (x.IsQuantity || x.Link == 0))
+                bool otherEffect = x.Enchanted && x.IsQuantity && x.Link >= 0x200 && (f11 || ((x.Link & 0x1FF) >> 4) != 12);     // kept: not what the tab rolls
+                if (meleeIds.Contains(x.Item) && (x.IsQuantity || x.Link == 0) && !otherEffect)
                 {
                     melee++;
                     Assert.InRange(x.Quality, 20, 20);
@@ -195,6 +200,52 @@ namespace UwEditor.Core.Tests
                     if (s.IsUw2) Assert.Contains(known, k => k.spell == (x.Link & 0x3F) && k.item == x.Item);
                 }
             foreach (int l in s.LevelSlots().Where(x => x.Present).Select(x => x.Level)) { bool ok; edits.For(l).Check(out ok); Assert.True(ok); }
+        }
+
+        [Theory]
+        [InlineData("UW")]
+        [InlineData("UW2")]
+        public void Defaults_follow_the_world_and_the_report_says_what_it_holds(string game)
+        {
+            string g = GameData.Game(game); if (g == null) return;
+            var s = GameSession.Open(g);
+            var o = ShuffleOptions.Defaults(s, s.LoadLevel);
+            var c = ItemShuffle.Census(s, s.LoadLevel);
+            int axes = ItemTables.Axes.Sum(i => c.Items.TryGetValue(i, out int n) ? n : 0);
+            int swords = ItemTables.Swords(s.IsUw2).Sum(i => c.Items.TryGetValue(i, out int n) ? n : 0);
+            Assert.Equal(Math.Round(100.0 * Math.Min(axes, swords) / Math.Max(axes, swords), 1), Math.Min(o.Axes, o.Swords), 1);
+            Assert.Equal(ShuffleOptions.CurrentVersion, o.Version);
+            Assert.InRange(o.LauncherShare, 1, 99);
+            Assert.True(o.WeaponEnchants.All(e => e.Probability >= 0 && e.Mean >= 1 && e.Mean <= e.Effects.Length));
+            Assert.True(o.ArmourEffects.Values.Max() == 100);                 // some armour carries other effects
+            // the world's effect shares come back when shuffling with these settings
+            o.Seed = 1;
+            var e2 = new LevelEdits(s);
+            ItemShuffle.Apply(ItemShuffle.Run(s, e2.Model, o), e2, 1);
+            var c2 = ItemShuffle.Census(s, e2.Model);
+            Assert.InRange(c2.ArmourEffects.Values.Sum() + c2.ArmourCurses, 0, c.ArmourTotal / 4);
+            var rep = ItemShuffle.WorldReport(s, s.LoadLevel);
+            foreach (var w in new[] { "Axes", "Weapons enchanted", "Armour with other effects", "Wand spells", "Potion spells", "Rings with an effect" }) Assert.Contains(w, rep);
+        }
+
+        [Fact]
+        public void Armour_other_effects_and_curses_follow_their_settings()
+        {
+            string g = GameData.Game("UW2"); if (g == null) return;
+            var s = GameSession.Open(g);
+            var e = new LevelEdits(s);
+            var o = ShuffleOptions.Defaults(s, e.Model);
+            o.Seed = 2; o.ArmourEffectChance = 100; o.ArmourCurseShare = 0;
+            foreach (var k in o.ArmourEffects.Keys.ToList()) o.ArmourEffects[k] = k == 0x3A ? 100 : 0;     // Valor
+            o.ArmourEffectSlots = new[] { false, false, true, true, false, false };                       // gloves and boots only
+            ItemShuffle.Apply(ItemShuffle.Run(s, e.Model, o), e, 2);
+            foreach (var (m, x) in Objects(e, s))
+            {
+                if (x.Parent >= 0 && m.Objects[x.Parent].IsTrapOrTrigger) continue;
+                if (!(x.IsQuantity || x.Link == 0)) continue;
+                if (ItemTables.Gloves.Contains(x.Item) || ItemTables.Boots.Contains(x.Item)) Assert.Equal(0x23A, x.Link);
+                else if (ItemTables.Slot(x.Item) >= 0) Assert.NotEqual(0x23A, x.Link);
+            }
         }
     }
 }

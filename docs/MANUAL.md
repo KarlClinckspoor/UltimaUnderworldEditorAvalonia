@@ -359,68 +359,62 @@ zone file. Lines are the links between zones:
 
 ### Shuffling item properties
 
-**Tools ▸ Randomizer ▸ Shuffle item properties…** changes what items are without moving them,
-unlike the zone shuffle. Weapons, armour, food, lights, tools, runestones, wands, spell
-scrolls, potions and rings stay where they lie (on the floor, in a container or a creature's
-inventory) but may become something else. Choose the **mode** and the settings in the tabs,
-press **Preview** to see the report, then **Shuffle**. **Undo shuffle** puts back every object
-the shuffles from the window changed; each shuffle is also one Edit ▸ Undo step per level, and
-nothing reaches the game until you save the levels. The same seed on the same levels gives the
-same result. The settings are kept between runs (`item-shuffle-uw1.json` / `-uw2.json` in the
-settings folder).
+**Tools ▸ Shuffle item properties…** changes what items are without moving them. Weapons,
+armour, food, lights, tools, runestones, wands, spell scrolls, potions and rings stay where
+they lie (on the floor, in a container or a creature's inventory) but may become something
+else. Choose the settings in the tabs, press **Preview** to see the report, then **Shuffle**.
+**Undo shuffle** puts back every object the shuffles from the window changed; each shuffle is
+also one Edit ▸ Undo step per level, and nothing reaches the game until you save the levels.
+The same seed on the same levels gives the same result. The settings are kept between runs
+(`item-shuffle-uw1.json` / `-uw2.json` in the settings folder).
 
-**Modes:**
-- **Shuffle properties** rolls each object again from the tabs' weights, enchantments and
-  curves (below).
-- **Swap existing objects, within their kind** and **across all kinds taking part**: nothing is
-  made or removed. The objects trade places whole (item, quality, enchantment, quantity,
-  owner), among the kinds whose Shuffle box is ticked: a sword may land where a torch was in the
-  second mode. Charged wands swap among themselves with their spells and charges (the charges
-  live in an object inside the wand, which cannot move between levels). The few objects
-  holding triggers stay where they are.
+**Every setting starts from the world**: the relative weights are the counts in the levels
+(the most common kind is 100), the chances, means, deviations and depth slopes are fitted to
+the enchantments the levels hold, and the bars and curves follow them. Each tab has **From
+the game**, which sets its values to what the levels hold now (after your edits); **All from
+the game** does every tab. **World report** writes what the game's levels hold, as saved on
+disk: the items by kind, the enchantments by kind and by level, the other effects and curses,
+the wand, scroll and potion spells, the rings, and the qualities.
 
 Weights are relative, from 0 to 100: a weight of 0 removes that kind. Never touched:
 Caliburn (UW1's shiny sword), Altara's jewelled dagger (UW2), talismans, crowns, dragon skin
-boots, fraznium armour, UW2's Guardian signet rings, and objects that are templates inside
-traps.
+boots, fraznium armour, UW2's Guardian signet rings, objects that are templates inside traps,
+and the ignored objects.
 
 - **Weapons:** weights for axes, swords and daggers, maces and clubs, and ranged weapons with
   their ammunition; the share of launchers among the ranged objects (the rest become arrows,
   bolts or sling stones, never enchanted); the quality spread (± around each object's own
   quality). Then one row per enchantment kind (Accuracy, Damage) with its chance, the mean
   strength (1 = Minor) and the deviation of a normal draw. Kinds are tried in a random order and
-  the first that succeeds is the weapon's. The **depth adjustment** raises the chance (up to
-  double on the deepest level at 100) and moves the mean towards the strongest; level 1 is
-  never changed (UW2: the depth is the level within its world). **Special weapons** (UW2 only:
-  LifeStealer, Undead Bane, Fire Doom, Stone Strike, the two door openers) are put on that many
-  random melee weapons, 1 each by default.
-- **Armour:** weights for leather, mail, plate and shields. A piece keeps its slot and changes
-  material; shields stay shields. Protection and Toughness rows as for weapons, depth, quality
-  spread, and **Flameproof** (1 by default) on random unenchanted pieces.
+  the first that succeeds is the weapon's. **Depth: chance** raises the chance (double on the
+  deepest level at 100); **Depth: strength** moves the mean strength towards the strongest
+  (all the way on the deepest level at 100). Level 1 is never changed; in UW2 the depth is the
+  level within its world. **Special weapons** (UW2 only: LifeStealer, Undead Bane, Fire Doom,
+  Stone Strike, the two door openers) are put on that many random melee weapons.
+- **Armour** (gloves, boots and shields included): weights for leather, mail, plate and
+  shields; a piece keeps its slot and changes material. Protection and Toughness rows as for
+  weapons, with their two depth sliders. **Other effects** are the worn effects without
+  degrees (Valor, Leap, Stealth, Missile Protection, Flameproof, regeneration…): the pieces
+  they can go on, the chance a piece gets one instead of Protection or Toughness, the share
+  **cursed instead**, the curse strength bars, and a bar per effect. **Special armour** puts
+  exactly that many Flameproof pieces on top.
 - **Food, lights, tools:** a weight per food and per light source (lit ones stay lit), and the
   least number of threads (5), poles (3) and fishing poles (3). When there are fewer, random
-  food and lights lying on the floor become them. Whether tools take part in swaps.
+  food and lights lying on the floor become them.
 - **Runestones:** a weight and a minimum (1) per rune. Minimums are met by changing runestones
   of the kinds with the most to spare; the report says when there are too few runestones.
 - **Wands:** bars for the number of charges (1-30) and for the spell's circle. A spell is
   picked by circle, then evenly among that circle's spells (UW1: six to a circle, and a ninth
   bar for Mass Paralyze, Acid, Local Teleport, Mana Boost and Restore Mana, which have no
-  runes; UW2: eight to a circle). **From the game** sets the bars to what the levels hold.
+  runes; UW2: eight to a circle).
 - **Scrolls, potions:** circle bars for spell scrolls and for potions. Potions can be limited
   to spells some potion already holds; in UW2 a potion takes the colour the game uses most for
   its new spell, since the colours tell the effect. Readable scrolls, maps and potions with
   special effects stay.
-- **Rings, gloves, boots:** a weight per ring and the chance a ring carries a worn effect;
-  the chance gloves and boots get a worn effect instead of Protection or Toughness; a weight
-  per worn effect (only those that work worn: light, motion, armour, protection, stealth,
-  resistances, haste, regeneration); and the share **cursed instead**, with bars for the
-  curse's strength. A curse of strength N does N d8 damage, never taking the wearer below 3 hit
-  points, every time what is worn changes.
-- **Ignored:** objects both modes leave alone, picked from the list of everything the
-  shuffles touch (with a filter) or the object selected in the editor. Wands enchanted
-  directly, which never run out, are ignored at first: UW1's bullfrog wand (it works the level
-  4 puzzle), UW2's slightly worn wand of Telekinesis in the Scintillus Academy and its wand of
-  Light.
+- **Rings:** a weight per ring, the chance a ring carries an effect, the share cursed instead,
+  and a bar per worn effect. A curse of strength N does N d8 damage, never taking the wearer
+  below 3 hit points, every time what is worn changes.
+- **Ignored:** the objects both item tools leave alone (shared with Swap items).
 
 **Custom distributions.** Each enchantment row has **Custom…**: bars for the strength (a
 weight per strength) and, for the chance by depth, bars per level (UW1) or a curve over the
@@ -428,12 +422,29 @@ levels of a world (UW2). The quality rows have **Custom curve…** (a weight per
 Each replaces its sliders while ticked, and editing it ticks it. They start from what the
 sliders give (**From the sliders**), or from the game for quality. On a curve, click to add a
 point, drag to move one and right-click to remove one; the ends stay at the ends. The curve
-never swings past its points, so no chance goes below 0. Drag bars up and down; sweeping
-sideways sets each bar crossed.
+never swings past its points, so no chance goes below 0. Drag bars up and down (the effect
+bars left and right); sweeping across sets each bar crossed.
 
 Spells and other enchantments already on objects stay unless **Keep spells and other
 enchantments** is off; an object whose link leads to other objects (contents, a spell object)
 never has its enchantment replaced.
+
+### Swapping items
+
+**Tools ▸ Swap items…** only moves the existing objects around: nothing is made or removed,
+so every item keeps its count, and no weights apply. Tick the kinds taking part (weapons,
+armour, food, lights, tools, runestones, wands, spell scrolls, potions, rings) and choose
+**within each kind** (a sword stays a weapon) or **across all the ticked kinds** (a sword may
+land where a torch was). The objects trade places whole: item, quality, enchantment, quantity
+and owner. Charged wands swap among themselves with their spells and charges, since the
+charges live in an object inside the wand; the few objects holding triggers stay. **Preview**,
+**Swap** and **Undo swap** work as in the shuffle, and the ignore list is the same one.
+
+**Ignored objects** (both tools): pick them from the list of everything the tools touch (with
+a filter), or ignore the object selected in the editor. Wands enchanted directly, which never
+run out, are ignored at first: UW1's bullfrog wand (it works the level 4 puzzle), UW2's
+slightly worn wand of Telekinesis in the Scintillus Academy and its wand of Light. The list is
+kept in `item-ignore-uw1.json` / `-uw2.json` in the settings folder.
 
 ## Mods
 

@@ -53,6 +53,8 @@ namespace UwEditor.App
             Labels = labels;
             Height = 150;
             MaxWidth = 820;
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+            Width = 820;
             ClipToBounds = true;
             Cursor = new Cursor(StandardCursorType.SizeNorthSouth);
         }
@@ -367,6 +369,104 @@ namespace UwEditor.App
             base.OnPointerExited(e);
             hoverPos = null;
             InvalidateVisual();
+        }
+    }
+
+    /// <summary>
+    /// Bars lying down, one row per named value (effects, items): drag a row's bar left or
+    /// right; sweeping up or down sets every row crossed. The share of the total shows at the end.
+    /// </summary>
+    public sealed class BarListEditor : Control
+    {
+        readonly string[] labels;
+        readonly double[] values;
+        public double Max { get; set; } = 100;
+        public event Action Changed;
+        const double Row = 20, LabelWidth = 250, Right = 110;
+        int last = -1;
+        bool dragging;
+
+        public BarListEditor(string[] labels, double[] values)
+        {
+            this.labels = labels;
+            this.values = values;
+            Height = labels.Length * Row + 4;
+            MaxWidth = 880;
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+            Width = 880;
+            ClipToBounds = true;
+            Cursor = new Cursor(StandardCursorType.SizeWestEast);
+        }
+
+        public double[] Values { get { return values; } }
+
+        Rect Track { get { return new Rect(LabelWidth, 2, Math.Max(20, Bounds.Width - LabelWidth - Right), labels.Length * Row); } }
+
+        public override void Render(DrawingContext dc)
+        {
+            var r = Track;
+            var bg = WidgetPaint.Brush(this, "PanelAlt", Brushes.DimGray);
+            var line = WidgetPaint.Brush(this, "Line", Brushes.Gray);
+            var text = WidgetPaint.Brush(this, "Text", Brushes.White);
+            var muted = WidgetPaint.Brush(this, "Muted", Brushes.Gray);
+            var accent = WidgetPaint.Brush(this, "Accent", Brushes.Orange);
+            dc.FillRectangle(Brushes.Transparent, new Rect(Bounds.Size));
+            double sum = values.Sum(v => Math.Max(0, v));
+            for (int i = 0; i < labels.Length; i++)
+            {
+                double y = r.Y + i * Row;
+                var t = WidgetPaint.Text(labels[i], text, 12);
+                dc.DrawText(t, new Point(0, y + (Row - t.Height) / 2));
+                var track = new Rect(r.X, y + 3, r.Width, Row - 6);
+                dc.FillRectangle(bg, track);
+                double w = Math.Max(0, Math.Min(Max, values[i])) / Max * r.Width;
+                dc.FillRectangle(accent, new Rect(r.X, y + 3, w, Row - 6));
+                var v = WidgetPaint.Text(values[i].ToString("0.#") + (sum > 0 ? string.Format("  ({0:0.#}%)", 100 * Math.Max(0, values[i]) / sum) : ""), muted, 11);
+                dc.DrawText(v, new Point(r.Right + 8, y + (Row - v.Height) / 2));
+            }
+            dc.DrawLine(new Pen(line, 1), new Point(r.X, r.Y), new Point(r.X, r.Bottom));
+        }
+
+        void Set(Point p)
+        {
+            var r = Track;
+            int i = (int)Math.Floor((p.Y - r.Y) / Row);
+            if (i < 0 || i >= labels.Length) return;
+            double v = Math.Round(Math.Max(0, Math.Min(Max, (p.X - r.X) / r.Width * Max)));
+            if (last >= 0 && last != i)
+            {
+                double lv = values[last]; int step = i > last ? 1 : -1;
+                for (int k = last + step; k != i; k += step) values[k] = Math.Round(lv + (v - lv) * (k - last) / (double)(i - last));
+            }
+            values[i] = v;
+            last = i;
+            InvalidateVisual();
+            Changed?.Invoke();
+        }
+
+        protected override void OnPointerPressed(PointerPressedEventArgs e)
+        {
+            base.OnPointerPressed(e);
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            var p = e.GetPosition(this);
+            if (p.X < LabelWidth - 4) return;
+            dragging = true; last = -1;
+            e.Pointer.Capture(this);
+            Set(p);
+            e.Handled = true;
+        }
+
+        protected override void OnPointerMoved(PointerEventArgs e)
+        {
+            base.OnPointerMoved(e);
+            if (dragging) Set(e.GetPosition(this));
+        }
+
+        protected override void OnPointerReleased(PointerReleasedEventArgs e)
+        {
+            base.OnPointerReleased(e);
+            dragging = false; last = -1;
+            e.Pointer.Capture(null);
         }
     }
 }

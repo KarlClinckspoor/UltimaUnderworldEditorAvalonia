@@ -562,6 +562,41 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void Item_swap_window_swaps_only_the_ticked_kinds_and_undoes()
+        {
+            if (Uw1 == null) return;
+            using (var copy = new GameCopy(Uw1, "DATA"))
+            {
+                var w = OpenQuiet(copy.Folder);
+                var sw = w.ShowItemSwap();
+                Ui.Pump();
+                var edits = w.ViewModel.Edits;
+                var before = Enumerable.Range(1, 9).ToDictionary(l => l, l => (byte[])edits.For(l).Data.Clone());
+                var set = sw.Settings_;
+                set.Seed = 5; set.AnyKind = false;
+                set.Weapons = true; set.Armour = set.Food = set.Lights = set.Tools = set.Runes = set.Wands = set.Scrolls = set.Potions = set.Rings = false;
+                var o = sw.Options();
+                Assert.Equal("swap-kind", o.Mode);
+                Assert.Contains(o.Ignored, x => x.Label.Contains("bullfrog"));
+                sw.Swap();
+                Ui.Pump();
+                Assert.True(sw.CanUndoSwap);
+                // only weapons moved: every changed object is a weapon, before and after
+                for (int l = 1; l <= 9; l++)
+                {
+                    var a = w.ViewModel.Session.LoadLevel(l); var b = edits.Model(l);
+                    for (int k = 0; k < a.Objects.Length; k++)
+                        if (a.Objects[k].Item != b.Objects[k].Item) { Assert.True(a.Objects[k].Item < 0x20); Assert.True(b.Objects[k].Item < 0x20); }
+                }
+                sw.UndoAll();
+                Ui.Pump();
+                foreach (var kv in before) Assert.Equal(kv.Value, edits.For(kv.Key).Data);
+                sw.Close();
+                w.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void Zones_window_adds_renames_paints_fills_and_lists_key_items()
         {
             if (Uw1 == null) return;
