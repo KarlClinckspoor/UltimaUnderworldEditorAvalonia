@@ -30,6 +30,7 @@
         <MenuItem Header="Move the new-game _start here" Click="OnMoveStart" IsEnabled="{Binding HasTile}" />
         <MenuItem Header="Move the _player here" Click="OnMovePlayer" IsEnabled="{Binding HasTile}" />
         <MenuItem Header="Choose the selected trap's _target…" Click="OnPickTarget" IsEnabled="{Binding HasTargetSquare}" />
+        <MenuItem Header="_Go to the teleport's target" Click="OnGoToTeleportTarget" IsEnabled="{Binding IsTeleportSelected}" />
         <Separator />
         <MenuItem Header="_Save the levels" InputGesture="Ctrl+S" Click="OnSaveLevels" IsEnabled="{Binding HasLevelChanges}" />
       </MenuItem>
@@ -58,6 +59,8 @@
         <Separator />
         <MenuItem Header="_Check the object lists" Click="OnCheckLevel" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Find in all levels…" Click="OnFindAll" InputGesture="Ctrl+Shift+F" IsEnabled="{Binding HasGame}" />
+        <Separator />
+        <MenuItem Header="_Automap and map notes…" Click="OnAutomap" InputGesture="Ctrl+Shift+A" IsEnabled="{Binding HasGame}" />
       </MenuItem>
       <MenuItem Header="_Tools">
         <MenuItem Header="_Conversations…" Click="OnConversations" InputGesture="Ctrl+Shift+C" IsEnabled="{Binding HasGame}" />
@@ -65,7 +68,6 @@
         <MenuItem Header="_Player and inventory…" Click="OnPlayer" InputGesture="Ctrl+Shift+P" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="G_raphics…" Click="OnGraphics" InputGesture="Ctrl+Shift+R" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="3D m_odels…" Click="OnModels" InputGesture="Ctrl+Shift+O" IsEnabled="{Binding HasGame}" />
-        <Separator />
         <Separator />
         <MenuItem Header="_Keys and locks…" Click="OnKeys" InputGesture="Ctrl+Shift+K" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Triggers and traps…" Click="OnTriggers" InputGesture="Ctrl+Shift+T" IsEnabled="{Binding HasGame}" />
@@ -225,6 +227,7 @@
       <Panel Background="#0E0E12">
         <app:LevelView x:Name="View" />
         <Canvas x:Name="GridLabels" IsHitTestVisible="False" ClipToBounds="True" />
+        <Canvas x:Name="MarkerLabels" IsHitTestVisible="False" ClipToBounds="True" />
         <TextBlock x:Name="ViewHint" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
                    TextAlignment="Center" FontSize="14" IsVisible="{Binding NoGame}"
                    Text="File ▸ Open game folder… (Ctrl+O)&#10;Choose the game folder, its DATA folder or a SAVE folder." />
@@ -251,6 +254,8 @@
               <WrapPanel>
                 <Button x:Name="PickTargetButton" Content="Choose the target in the view" Click="OnPickTarget" IsVisible="{Binding HasTargetSquare}" Margin="0,0,6,6"
                         ToolTip.Tip="Then click the square it should act on (the bullseye). A teleport can aim at another level: change level, then click." />
+                <Button Content="Go to the teleport's target" Click="OnGoToTeleportTarget" IsVisible="{Binding IsTeleportSelected}" Margin="0,0,6,6"
+                        ToolTip.Tip="Open the level it teleports to and look at the destination square" />
                 <Button Content="Chains…" Click="OnTriggers" Margin="0,0,6,6" ToolTip.Tip="Every trigger of the level and the traps it sets off (Ctrl+Shift+T)" />
                 <Button Content="Variable in globals…" Click="OnTrapVariable" IsVisible="{Binding HasTrapVariable}" Margin="0,0,6,6"
                         ToolTip.Tip="Open the global variables window on the variable this trap sets or checks" />

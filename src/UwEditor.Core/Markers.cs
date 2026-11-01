@@ -55,15 +55,17 @@ namespace UwEditor.Core
         }
 
         /// <summary>A bullseye lying on the floor: rings of red and white round a point.</summary>
-        public static void Bullseye(List<float> f, Vector3 centre, float radius = 0.48f, Vector4? colour = null)
+        public static void Bullseye(List<float> f, Vector3 centre, float radius = 0.48f, Vector4? colour = null, float alpha = 1f)
         {
             var red = colour ?? Red;
+            var white = White;
+            red.W *= alpha; white.W *= alpha;
             const int rings = 5, seg = 32;
             var p = centre + new Vector3(0, 0.03f, 0);
             for (int r = 0; r < rings; r++)
             {
                 float r0 = radius * r / rings, r1 = radius * (r + 1) / rings;
-                var c = (rings - 1 - r) % 2 == 0 ? red : White;
+                var c = (rings - 1 - r) % 2 == 0 ? red : white;
                 for (int i = 0; i < seg; i++)
                 {
                     double a0 = 2 * Math.PI * i / seg, a1 = 2 * Math.PI * (i + 1) / seg;

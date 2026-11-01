@@ -95,6 +95,9 @@ namespace UwEditor.App
         public bool HasObjectHelp { get { return !string.IsNullOrEmpty(objectHelp); } }
         public bool IsTrapSelected { get { return isTrap; } private set { Set(ref isTrap, value); } }
         public bool HasTargetSquare { get { return hasTargetSquare; } private set { Set(ref hasTargetSquare, value); } }
+        bool isTeleport;
+        /// <summary>A teleport trap is selected (Go to the teleport's target).</summary>
+        public bool IsTeleportSelected { get { return isTeleport; } private set { Set(ref isTeleport, value); } }
         public int TrapVariable { get { return trapVariable; } private set { Set(ref trapVariable, value); Raise(nameof(HasTrapVariable)); } }
         public bool HasTrapVariable { get { return trapVariable >= 0; } }
         /// <summary>Where the selected trap or trigger acts, on any level.</summary>
@@ -104,7 +107,7 @@ namespace UwEditor.App
         {
             if (o == null || session == null || !o.IsTrapOrTrigger)
             {
-                ObjectHelp = ""; IsTrapSelected = false; HasTargetSquare = false; TrapVariable = -1; Targets = new List<TrapTarget>();
+                ObjectHelp = ""; IsTrapSelected = false; HasTargetSquare = false; IsTeleportSelected = false; TrapVariable = -1; Targets = new List<TrapTarget>();
                 return;
             }
             string help = Triggers.Explain(session, o) ?? "";
@@ -113,6 +116,7 @@ namespace UwEditor.App
             ObjectHelp = help;
             IsTrapSelected = true;
             HasTargetSquare = Triggers.HasTargetSquare(o.Item);
+            IsTeleportSelected = Triggers.IsTeleport(o.Item);
             TrapVariable = Triggers.VariableOf(session, o);
         }
 

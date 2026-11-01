@@ -35,6 +35,19 @@ namespace UwEditor.App
         void OnItemShuffle(object sender, RoutedEventArgs e) { ShowItemShuffle(); }
         void OnItemSwap(object sender, RoutedEventArgs e) { ShowItemSwap(); }
         void OnMonsterSwap(object sender, RoutedEventArgs e) { ShowMonsterSwap(); }
+        void OnAutomap(object sender, RoutedEventArgs e) { ShowAutomap(); }
+
+        AutomapWindow automapWindow;
+
+        public AutomapWindow ShowAutomap()
+        {
+            if (vm.Session == null || vm.Edits == null) return null;
+            if (automapWindow != null) { automapWindow.Activate(); return automapWindow; }
+            automapWindow = new AutomapWindow(this);
+            automapWindow.Closed += (s, e) => automapWindow = null;
+            automapWindow.Show(this);
+            return automapWindow;
+        }
 
         MonsterSwapWindow monsterSwapWindow;
 

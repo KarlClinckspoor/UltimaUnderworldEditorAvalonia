@@ -81,7 +81,10 @@ namespace UwEditor.App
             swap.Click += (o, e) => Swap();
             undoButton.Click += (o, e) => UndoAll();
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 6) };
-            buttons.Children.Add(preview); buttons.Children.Add(swap); buttons.Children.Add(undoButton);
+            var world = new Button { Content = "World report" };
+            ToolTip.SetTip(world, "The creatures of the game's levels as saved on disk (before any edits)");
+            world.Click += (o, e) => report.Text = MonsterSwap.WorldReport(session, session.LoadLevel);
+            buttons.Children.Add(preview); buttons.Children.Add(swap); buttons.Children.Add(undoButton); buttons.Children.Add(world);
             buttons.Children.Add(new TextBlock { Text = "One Edit ▸ Undo step per level; nothing is written to the game until you save.", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, FontSize = 12 });
             var foot = new DockPanel { Height = 190 };
             DockPanel.SetDock(buttons, Dock.Top);

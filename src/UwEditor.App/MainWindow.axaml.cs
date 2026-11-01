@@ -53,6 +53,7 @@ namespace UwEditor.App
             DarkThemeItem.IsChecked = settings.Theme != ColourScheme.Light;
             LightThemeItem.IsChecked = settings.Theme == ColourScheme.Light;
             View.CameraChanged += UpdateGridLabels;
+            View.CameraChanged += UpdateMarkerLabels;
             if (Program.StateFile != null)
             {
                 vm.SelectionChanged += WriteState;
@@ -222,10 +223,25 @@ namespace UwEditor.App
             View.SetScene(scene);
             View.State.SelectedObject = View.State.SelectedTile = View.State.HoverObject = View.State.HoverTile = -1;
             vm.HoverText = "";
-            PlaceCamera(level);
+            // going up or down keeps the place and the angle; a new game, or the first level shown, starts at the start square
+            if (level != null && cameraSession == vm.Session && cameraSet) KeepCamera(level);
+            else PlaceCamera(level);
+            cameraSession = vm.Session; cameraSet = level != null;
             ApplyLight();
             UpdateMarkers();
             UpdateGrid();
+        }
+
+        object cameraSession;
+        bool cameraSet;
+
+        /// <summary>Another level of the same game: the same x and y, distance and angles; the height of the new level's floor there.</summary>
+        void KeepCamera(LevelModel level)
+        {
+            var t = View.Camera.Target;
+            int tx = Math.Clamp((int)Math.Floor(t.X), 0, 63), ty = Math.Clamp((int)Math.Floor(t.Z), 0, 63);
+            float y = level.Tiles[tx, ty].IsSolid ? t.Y : (float)level.FloorAt(tx, ty, t.X - tx, t.Z - ty);
+            View.LookAt(new Vector3(t.X, y, t.Z), View.Camera.Distance, View.Camera.Yaw, View.Camera.Pitch);
         }
 
         /// <summary>Over the start square (a new game) or the player (a saved game) on that level,
@@ -348,6 +364,7 @@ namespace UwEditor.App
             View.State.SelectedObject = vm.SelectedObject;
             View.State.SelectedTile = vm.SelectedObject >= 0 ? -1 : (vm.SelectedTileX >= 0 ? vm.SelectedTileX + 64 * vm.SelectedTileY : -1);
             View.SetLines(lines);
+            UpdateMarkerLabels();
             UpdateViewText();
         }
 
@@ -655,6 +672,7 @@ namespace UwEditor.App
                 "  Ctrl+Shift+K            keys and locks\n" +
                 "  Ctrl+Shift+T            triggers and traps\n" +
                 "  Ctrl+Shift+S            strings\n" +
+                "  Ctrl+Shift+A            automap and map notes\n" +
                 "  Ctrl+Shift+M            mods\n" +
                 "  Ctrl+Shift+O            3D models\n" +
                 "  PgUp, PgDn              previous, next level\n" +
@@ -692,6 +710,7 @@ namespace UwEditor.App
             if (e.Key == Key.S && ctrlShift) { ShowStrings(); e.Handled = true; return; }
             if (e.Key == Key.M && ctrlShift) { ShowMods(); e.Handled = true; return; }
             if (e.Key == Key.O && ctrlShift) { ShowModels(); e.Handled = true; return; }
+            if (e.Key == Key.A && ctrlShift) { ShowAutomap(); e.Handled = true; return; }
             bool ctrl = (e.KeyModifiers & KeyModifiers.Control) != 0 && (e.KeyModifiers & KeyModifiers.Shift) == 0;
             if (ctrl && e.Key == Key.S) { SaveAll(); e.Handled = true; return; }
             if (ctrl && !typing && e.Key == Key.Z) { Undo(); e.Handled = true; return; }

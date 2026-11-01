@@ -239,11 +239,20 @@ namespace UwEditor.App
                 Markers.ArrowDown(tris, player.Value, Markers.Green);
                 LevelScene.StartMarker(lines, player.Value, (float)vm.Session.PlayerPoint.FacingDegrees, new Vector4(0.3f, 1f, 0.4f, 1f));
             }
+            markerLabels.Clear();
             foreach (var t in vm.Targets)
             {
-                if (t.Level != level.Level || t.X < 0 || t.X > 63 || t.Y < 0 || t.Y > 63) continue;
+                if (t.X < 0 || t.X > 63 || t.Y < 0 || t.Y > 63) continue;
                 var tile = level.Tiles[t.X, t.Y];
                 float y = tile.IsSolid ? 0 : (float)level.FloorAt(t.X, t.Y, 0.5, 0.5);
+                if (t.Level != level.Level)
+                {
+                    // a teleport to another level: faded, at the same square of this level, with where it leads
+                    Markers.Bullseye(tris, new Vector3(t.X + 0.5f, y, t.Y + 0.5f), alpha: 0.35f);
+                    LevelScene.Line(lines, new Vector3(t.X + 0.5f, y, t.Y + 0.5f), new Vector3(t.X + 0.5f, y + 1.2f, t.Y + 0.5f), new Vector4(1f, 0.2f, 0.15f, 0.4f));
+                    markerLabels.Add((new Vector3(t.X + 0.5f, y + 1.3f, t.Y + 0.5f), "→ " + LevelName(t.Level) + string.Format(" ({0}, {1})", t.X, t.Y)));
+                    continue;
+                }
                 Markers.Bullseye(tris, new Vector3(t.X + 0.5f, y, t.Y + 0.5f));
                 // a post over it, drawn over everything, so it is found behind walls
                 var c = new Vector4(1f, 0.2f, 0.15f, 1f);
@@ -251,6 +260,44 @@ namespace UwEditor.App
             }
             AddZoneOverlay(tris);
             return tris;
+        }
+
+        /// <summary>Text pinned to points of the view (a teleport's other level), drawn on the label layer.</summary>
+        readonly List<(Vector3 At, string Text)> markerLabels = new List<(Vector3, string)>();
+
+        string LevelName(int level)
+        {
+            var slot = vm.Session?.LevelSlots().FirstOrDefault(sl => sl.Level == level);
+            return slot != null && !string.IsNullOrWhiteSpace(slot.Name) ? slot.Name : "level " + level;
+        }
+
+        /// <summary>The selected teleport's destination: opens its level and looks at the square.</summary>
+        public bool GoToTeleportTarget()
+        {
+            var t = vm.Targets.FirstOrDefault(x => x.What.StartsWith("teleports"));
+            if (t == null) { vm.EditStatus = "The selected object is not a teleport trap."; return false; }
+            GoToTile(t.Level, t.X, t.Y);
+            vm.EditStatus = "The teleport's destination: " + LevelName(t.Level) + string.Format(", ({0}, {1}).", t.X, t.Y);
+            return true;
+        }
+
+        void OnGoToTeleportTarget(object sender, RoutedEventArgs e) { GoToTeleportTarget(); }
+
+        /// <summary>Places the marker labels over the view (called when the camera or the markers change).</summary>
+        void UpdateMarkerLabels()
+        {
+            MarkerLabels.Children.Clear();
+            foreach (var l in markerLabels)
+            {
+                var p = Project(l.At);
+                if (p == null) continue;
+                var tb = new TextBlock { Text = l.Text, Foreground = LabelText, FontSize = 12, FontWeight = Avalonia.Media.FontWeight.SemiBold };
+                var b = new Border { Child = tb, Background = LabelBack, CornerRadius = new CornerRadius(3), Padding = new Thickness(5, 2), Opacity = 0.85 };
+                b.Measure(Size.Infinity);
+                Canvas.SetLeft(b, p.Value.X - b.DesiredSize.Width / 2);
+                Canvas.SetTop(b, p.Value.Y - b.DesiredSize.Height - 2);
+                MarkerLabels.Children.Add(b);
+            }
         }
 
         /// <summary>Screen point of a world point, or null behind the camera.</summary>

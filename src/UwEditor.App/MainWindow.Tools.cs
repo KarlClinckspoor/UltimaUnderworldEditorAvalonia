@@ -111,6 +111,8 @@ namespace UwEditor.App
                 case "shuffle": ShowItemShuffle(); break;
                 case "swap": ShowItemSwap(); break;
                 case "monsters": ShowMonsterSwap(); break;
+                case "automap": ShowAutomap(); break;
+                case "zoomout": View.LookAt(View.Camera.Target + new System.Numerics.Vector3(3, 0, 0), 18f, View.Camera.Yaw, 70f); break;
                 case "shuffle-armour": ShowItemShuffle()?.ShowTab(1); break;
                 case "shuffle-armour-end": ShowItemShuffle()?.ShowTab(1, true); break;
                 case "shuffle-wands": ShowItemShuffle()?.ShowTab(4); break;

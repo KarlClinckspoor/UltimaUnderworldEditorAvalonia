@@ -623,6 +623,58 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void Changing_level_keeps_the_place_and_a_teleport_leads_to_its_target()
+        {
+            if (Uw1 == null) return;
+            var w = OpenQuiet(Uw1);
+            var vm = w.ViewModel;
+            var view = w.FindControl<LevelView>("View");
+            view.LookAt(new System.Numerics.Vector3(20.5f, 1f, 30.5f), 9f, 33f, 48f);
+            vm.LoadLevel(2);
+            Ui.Pump();
+            Assert.Equal(2, vm.Level.Level);
+            Assert.Equal(20.5f, view.Camera.Target.X, 3);
+            Assert.Equal(30.5f, view.Camera.Target.Z, 3);
+            Assert.Equal(9f, view.Camera.Distance, 3);
+            Assert.Equal(33f, view.Camera.Yaw, 3);
+            // level 1's teleport #985 leads to (35, 20) on level 2
+            vm.LoadLevel(1);
+            vm.Select(985, -1, -1, false);
+            Ui.Pump();
+            Assert.True(vm.IsTeleportSelected);
+            Assert.Contains(vm.Targets, t => t.Level == 2 && t.X == 35 && t.Y == 20);
+            Assert.True(w.GoToTeleportTarget());
+            Ui.Pump();
+            Assert.Equal(2, vm.Level.Level);
+            Assert.Equal(35, vm.SelectedTileX);
+            Assert.Equal(20, vm.SelectedTileY);
+            w.Close();
+        }
+
+        [AvaloniaFact]
+        public void Automap_window_marks_tiles_seen_and_the_change_is_unsaved_work()
+        {
+            if (Uw2 == null) return;
+            using (var copy = new GameCopy(Uw2, "DATA"))
+            {
+                var w = OpenQuiet(copy.Folder);
+                var aw = w.ShowAutomap();
+                Ui.Pump();
+                var map = aw.View.Map;
+                Assert.NotNull(map);
+                Assert.Equal(14, map.Notes.Count);                 // the castle's notes
+                Assert.False(w.ViewModel.HasLevelChanges);
+                map.Snapshot("all");
+                map.All(w.ViewModel.Session, aw.View.Level, true);
+                w.ViewModel.Edits.AutomapEdited(map);
+                Ui.Pump();
+                Assert.True(w.ViewModel.HasLevelChanges);
+                aw.Close();
+                w.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void Zones_window_adds_renames_paints_fills_and_lists_key_items()
         {
             if (Uw1 == null) return;

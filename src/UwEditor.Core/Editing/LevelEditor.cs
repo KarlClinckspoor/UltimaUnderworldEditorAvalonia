@@ -450,6 +450,21 @@ namespace UwEditor.Core.Editing
 
         public LevelEdits(GameSession s) { Session = s; }
 
+        readonly Dictionary<int, Automap> automaps = new Dictionary<int, Automap>();
+        /// <summary>A level's map or notes changed.</summary>
+        public event Action<Automap> AutomapChanged;
+
+        /// <summary>The player's map and notes of a level, as edited.</summary>
+        public Automap AutomapFor(int level)
+        {
+            Automap a;
+            if (!automaps.TryGetValue(level, out a)) automaps[level] = a = Automap.Load(Session, level);
+            return a;
+        }
+
+        /// <summary>Tells the editor (and the save button) that an automap changed.</summary>
+        public void AutomapEdited(Automap a) { AutomapChanged?.Invoke(a); }
+
         public LevelEditor For(int level)
         {
             LevelEditor e;
@@ -462,9 +477,9 @@ namespace UwEditor.Core.Editing
         }
 
         public LevelEditor Existing(int level) { LevelEditor e; return editors.TryGetValue(level, out e) ? e : null; }
-        public bool HasChanges { get { return editors.Values.Any(e => e.Dirty); } }
+        public bool HasChanges { get { return editors.Values.Any(e => e.Dirty) || automaps.Values.Any(a => a.Dirty); } }
         public IEnumerable<LevelEditor> Editors { get { return editors.Values; } }
-        public IEnumerable<int> DirtyLevels { get { return editors.Values.Where(e => e.Dirty).Select(e => e.Level).OrderBy(l => l); } }
+        public IEnumerable<int> DirtyLevels { get { return editors.Values.Where(e => e.Dirty).Select(e => e.Level).Union(automaps.Values.Where(a => a.Dirty).Select(a => a.Level)).OrderBy(l => l); } }
 
         /// <summary>The level as edited, or as the archive has it.</summary>
         public LevelModel Model(int level) { var e = Existing(level); return e != null ? e.Model : Session.LoadLevel(level); }
@@ -481,6 +496,11 @@ namespace UwEditor.Core.Editing
                 ark.Write(Session.Profile.LevelBlock(e.Level), e.Data);
                 if (e.TextureBytes != null) ark.Write(Session.Profile.TextureBlock(e.Level), e.TextureBytes);
             }
+            foreach (var a in automaps.Values.Where(x => x.Dirty))
+            {
+                ark.Write(Automap.MapBlock(Session.Kind, a.Level), a.Map);
+                ark.Write(Automap.NotesBlock(Session.Kind, a.Level), Automap.WriteNotes(a.Notes));
+            }
             return ark.ToBytes();
         }
 
@@ -493,6 +513,7 @@ namespace UwEditor.Core.Editing
             Conversations.SafeFile.Write(Session.LevArkPath, bytes);
             Session.ReplaceLevArk(bytes);
             foreach (var e in editors.Values) e.MarkSaved();
+            foreach (var a in automaps.Values) a.MarkSaved();
             return levels;
         }
     }

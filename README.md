@@ -63,6 +63,9 @@ player and graphics. Changes can be packed into mods. The plan is in
   hex. The tooltip gives the field's meaning and its source in the reconstructed game code.
   Fields whose meaning is only inferred or unknown are marked. The tile panel also shows
   its wall and floor textures.
+- **Level ▸ Automap and map notes…** (Ctrl+Shift+A) edits the player's map of a level: paint
+  tiles seen or unseen as the game would mark them, and add, move or delete the map notes.
+- Changing level keeps the camera over the same X and Y.
 - **Level ▸ Check the object lists:** runs the game's own consistency check (Obj_ListOkay).
 - **Tools ▸ Conversations…** (Ctrl+Shift+C): every conversation in CNV.ARK, by slot and the
   name the creature talks under. The list filter matches slots, names and any text a
@@ -201,7 +204,8 @@ and what it holds.
 from event/TRIGGER.C. The square it acts on gets a **red bullseye**: a trigger's target, a
 teleport's destination, a delete trap's square, or where the chains that reach a trap run.
 **Choose the target in the view** lets you click the square instead of typing it; a
-teleport can aim at another level. **Variable in globals…** opens the global variables
+teleport can aim at another level; one to another level shows its bullseye faded with the
+level named, and **Go to the teleport's target** opens it. **Variable in globals…** opens the global variables
 window on the variable a set or check variable trap uses.
 
 **The start and the player:** with the Move tool, click an arrow and then a square. The
@@ -264,7 +268,7 @@ edits that can be undone; the game folder is not touched until you save.
   hit points, damage or both, powerful counted), keeping each spot's difficulty or following
   the depth, with a spread from strict to uniform. Creatures with a conversation stay unless
   whitelisted; swimmers, heights and race-bound creatures are respected; hit points can stay
-  with the spot.
+  with the spot. A world report lists the creatures by kind and by level.
 - **Tools ▸ Swap items** only trades the existing objects around, within their kind or across
   the ticked kinds. Both tools share a list of ignored quest objects, and Undo puts everything
   back.

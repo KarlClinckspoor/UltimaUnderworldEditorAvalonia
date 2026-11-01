@@ -235,6 +235,7 @@ namespace UwEditor.App
             Edits = new UwEditor.Core.Editing.LevelEdits(s);
             try { Light = GameLight.Load(s.DataFolder, s.Graphics.Palette); } catch (Exception) { Light = null; }
             Edits.Changed += e => { if (level != null && e.Level == level.Level) ScheduleRefresh(); else RaiseEditState(); };
+            Edits.AutomapChanged += a => RaiseEditState();
             icons.Clear();
             slots = s.LevelSlots();
             worlds = new List<string>();

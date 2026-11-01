@@ -405,6 +405,43 @@ namespace UwEditor.Core.Randomizer
             foreach (var kv in r.Original) edits.For(kv.Key).RewriteRecords(kv.Value, "Undo monster swap");
         }
 
+        /// <summary>
+        /// The world's creatures in words: how many there are and why some never move, every kind
+        /// with its count and experience, and each level's creatures, experience and strongest.
+        /// </summary>
+        public static string WorldReport(GameSession s, Func<int, LevelModel> level)
+        {
+            var all = Survey(s, level, new MonsterSwapOptions { Whitelist = new List<IgnoredObject>(), Ignored = new List<IgnoredObject>() });
+            var b = new StringBuilder();
+            var live = all.Where(x => x.Blocked != "a template inside a trap" && x.Blocked != "inside something").ToList();
+            Func<MonsterSpot, bool> powerful = x => ((x.O.Record[0x0D] | x.O.Record[0x0E] << 8) & 0x400) != 0;
+            Func<MonsterSpot, double> xp = x => Math.Max(0, x.Kind.Exp) * (powerful(x) ? 2.25 : 1);
+            b.AppendLine("The creatures as the levels hold them.").AppendLine();
+            b.AppendFormat("{0} creatures in the world ({1} powerful, {2} swimmers, {3} fliers), {4} could move; {5} templates inside create-object traps.\n",
+                live.Count, live.Count(powerful), live.Count(x => x.Kind.Swims), live.Count(x => x.Kind.Flier), live.Count(x => x.Blocked == null), all.Count(x => x.Blocked == "a template inside a trap"));
+            foreach (var g in live.Where(x => x.Blocked != null).GroupBy(x => x.Blocked)) b.AppendFormat("  never moved, {0}: {1}\n", g.Key, g.Count());
+            foreach (var g in live.Where(x => x.Blocked == null && x.LevelBound != null).GroupBy(x => x.LevelBound)) b.AppendFormat("  only within their level, {0}: {1}\n", g.Key, g.Count());
+            b.AppendLine().AppendLine("By kind (experience each; powerful; with a conversation):");
+            var dup = live.Select(x => x.O.Item).Distinct().GroupBy(i => s.Names.Get(i)).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            Func<int, string> kindName = i => s.Names.Get(i) + (dup.Contains(s.Names.Get(i)) ? string.Format(" (0x{0:X2})", i) : "");
+            foreach (var g in live.GroupBy(x => x.O.Item).OrderBy(g => g.First().Kind.Exp).ThenBy(g => g.Key))
+            {
+                var k = g.First().Kind;
+                b.AppendFormat("  {0,-24} {1,4} × {2,5} xp  hp {3,3}{4}{5}{6}\n", kindName(g.Key), g.Count(), k.Exp, k.AvgHit,
+                    g.Count(powerful) > 0 ? "  powerful " + g.Count(powerful) : "", g.Count(x => x.Whoami > 0) > 0 ? "  talking " + g.Count(x => x.Whoami > 0) : "", k.Swims ? "  swims" : k.Flier ? "  flies" : "");
+            }
+            b.AppendLine().AppendLine("By level (creatures, could move, experience in all and on average, the strongest):");
+            foreach (var g in live.GroupBy(x => x.Level).OrderBy(g => g.Key))
+            {
+                var strongest = g.OrderByDescending(xp).First();
+                b.AppendFormat("  L{0,-3} {1,4} creatures, {2,4} could move, {3,7:0} xp, {4,6:0.0} each; strongest {5} ({6:0} xp)\n",
+                    g.Key, g.Count(), g.Count(x => x.Blocked == null), g.Sum(xp), g.Average(xp), s.Names.Get(strongest.O.Item) + (strongest.Whoami > 0 ? " \"" + (s.Strings.Get(7, strongest.Whoami + 16) ?? "").Trim() + "\"" : ""), xp(strongest));
+            }
+            b.AppendLine().AppendLine("Creatures with a conversation (they stay unless whitelisted):");
+            foreach (var x in live.Where(x => x.Whoami > 0 && x.Blocked == "has a conversation").Take(400)) b.AppendLine("  " + x.Label);
+            return b.ToString();
+        }
+
         /// <summary>The creature kinds with their measures, for the window's strength table.</summary>
         public static string StrengthTable(GameSession s)
         {

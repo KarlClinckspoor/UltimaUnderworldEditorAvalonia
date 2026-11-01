@@ -16,7 +16,7 @@ namespace UwEditor.Core.Tests
         public EditingTests(ITestOutputHelper output) { this.output = output; }
 
         /// <summary>A copy of a game's DATA (and exe) in a temporary folder.</summary>
-        sealed class Copy : IDisposable
+        internal sealed class Copy : IDisposable
         {
             public readonly string Folder = Path.Combine(Path.GetTempPath(), "uwedit-core-" + Guid.NewGuid().ToString("N"));
             public Copy(string game, params string[] dirs)

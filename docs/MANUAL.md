@@ -52,7 +52,8 @@ looked at. Drag with the middle button, or with Shift, to move that point. Use t
 or + and − to come closer or go farther. W A S D or the arrows move (Shift is faster),
 Q and E turn, and R and V go up and down a floor step. F frames the selection, T looks
 straight down, and Home goes back to the start or the player. A double click selects
-something and moves the view to it.
+something and moves the view to it. Going up or down a level keeps the camera over the same X and Y,
+at the new level's floor height.
 
 ## Finding and selecting
 
@@ -126,8 +127,10 @@ and what it holds.
 from event/TRIGGER.C. The square it acts on gets a **red bullseye**: a trigger's target, a
 teleport's destination, a delete trap's square, or where the chains that reach a trap run.
 **Choose the target in the view** lets you click the square instead of typing it; a
-teleport can aim at another level. **Variable in globals…** opens the global variables
-window on the variable a set or check variable trap uses.
+teleport can aim at another level. A teleport to another level shows its bullseye faded,
+with the level and square written beside it; **Go to the teleport's target** (also in the
+Edit menu) opens that level on the destination square. **Variable in globals…** opens the
+global variables window on the variable a set or check variable trap uses.
 
 **The start and the player:** with the Move tool, click an arrow and then a square. The
 new-game start can only move on level 1: it is patched into `UW.EXE` / `UW2.EXE`, which is
@@ -249,6 +252,24 @@ across all levels, where each lies, whether it is locked, and the keys' descript
 **Tools ▸ Triggers and traps…** (Ctrl+Shift+T): every trigger of the level, where it
 lies, the square its chain runs on and each trap in the chain, then the traps no trigger
 reaches. A line explains itself; double-click goes to it in the map.
+
+## Automap and map notes
+
+**Level ▸ Automap and map notes…** (Ctrl+Shift+A) shows the player's map of the current
+level and the notes written on it, as the game's map screen would, and follows the level
+shown in the main window. The map lives in `LEV.ARK` (UW1 blocks 0x1A + level and 0x23 +
+level; UW2 0x9F + level and 0xEF + level). A saved game has its own; a new game starts from
+`DATA`'s, which in Underworld II already holds the castle with 14 notes.
+
+- **Mark seen** paints tiles with the byte the game writes when you see one: the tile's
+  shape, its floor's water, lava or ice, and (UW1) a door. **Mark unseen** clears them. The
+  brush is 1, 3 × 3, 5 × 5 or 9 × 9 tiles; rock is never marked.
+- **Mark everything seen** / **Mark nothing seen** do the whole level.
+- **Notes**: click to add a note, drag one to move it, select it to change its text (printable
+  ASCII, at most 49 characters, the game's limit) or delete it. A level holds up to 100.
+- **Show the level under the map** draws the level faintly behind, to paint by.
+- **Undo** steps back in the window; the changes are saved with the levels (Save levels)
+  and count as unsaved work.
 
 ## Strings
 
@@ -487,6 +508,11 @@ What stays, and why:
 - Swimmers swap only with swimmers, and a monster only goes where its height fits under the
   ceiling.
 
+**World report** lists the creatures as the world holds them now: how many, how many never
+move and why, how many are bound to their level, every kind with its count and the levels it
+lives on, every level with its count, how many could move, its experience total and average
+and its strongest creature, and the creatures with a conversation.
+
 ## Mods
 
 **Tools ▸ Mods…** (Ctrl+Shift+M):
@@ -530,6 +556,7 @@ What stays, and why:
 | Anywhere | Ctrl+Shift+T | triggers and traps |
 | Anywhere | Ctrl+Shift+S | strings |
 | Anywhere | Ctrl+Shift+O | 3D models |
+| Anywhere | Ctrl+Shift+A | automap and map notes |
 | Anywhere | Ctrl+Shift+M | mods |
 | Anywhere | PgUp, PgDn | previous, next level |
 | Anywhere | F | frame the selection |
