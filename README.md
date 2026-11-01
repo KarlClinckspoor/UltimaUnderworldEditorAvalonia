@@ -90,6 +90,10 @@ player and graphics. Changes can be packed into mods. The plan is in
   **Save** (Ctrl+S) writes CNV.ARK and STRINGS.PAK in `DATA`, with only the changed blocks
   rewritten. UW2's blocks are compressed again. The old files are kept as `CNV.ARK.BKP` and
   `STRINGS.PAK.BKP`. Edits stay in memory when the window closes, until the game is closed.
+- **Conversation simulator** and **Conversation graph** (Tools menu, or the conversation
+  window's Simulate… and Graph…): run a conversation with its menus, variables and the game's
+  state, or see its flow as nodes with editable strings. Saving conversations keeps
+  `BABGLOBS.DAT` / `BGLOBALS.DAT` records in step.
 - **Tools ▸ Global variables…** (Ctrl+Shift+G): the game state conversations can read and
   change, with the conversations that read and write each:
   - quest flags and quest bytes (`get_quest`, `set_quest`);
