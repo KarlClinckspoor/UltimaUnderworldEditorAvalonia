@@ -64,12 +64,13 @@ namespace UwEditor.App
                 SayMulti(); UpdateMarkers();
             }, open);
             yield return Item("Play-test _from here…", () => _ = PlayTest(tx, ty), open);
+            yield return Item("Trap _recipes…", () => { vm.Select(-1, tx, ty, true); ShowTrapRecipes(); }, editable);
         }
 
         /// <summary>The right-click menu's extra object commands (trap recipes and the like hook in here).</summary>
         IEnumerable<Control> ExtraObjectItems(ObjectInfo o)
         {
-            yield break;
+            yield return Item("Trap _recipes…", () => ShowTrapRecipes(), vm.Editor != null);
         }
 
         // ---- the 2D map

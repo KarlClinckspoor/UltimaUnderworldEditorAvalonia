@@ -357,6 +357,7 @@ namespace UwEditor.App
 
         void OnPicked(PickResult hit)
         {
+            if (IsPickingPlace) return;                 // a trap recipe waits for this click
             if (ObjectPickClick(hit)) return;
             if (EditClick(hit)) return;
             if (MultiClick(hit)) return;

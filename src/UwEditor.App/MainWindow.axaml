@@ -38,6 +38,7 @@
         <MenuItem Header="Move the _player here" Click="OnMovePlayer" IsEnabled="{Binding HasTile}" />
         <MenuItem Header="Choose the selected trap's _target…" Click="OnPickTarget" IsEnabled="{Binding HasTargetSquare}" />
         <MenuItem Header="_Go to the teleport's target" Click="OnGoToTeleportTarget" IsEnabled="{Binding IsTeleportSelected}" />
+        <MenuItem Header="T_rap recipes…" Click="OnTrapRecipes" IsEnabled="{Binding HasGame}" />
         <Separator />
         <MenuItem Header="_Save the levels" InputGesture="Ctrl+S" Click="OnSaveLevels" IsEnabled="{Binding CanSave}" />
       </MenuItem>

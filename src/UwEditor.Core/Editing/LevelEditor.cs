@@ -375,6 +375,21 @@ namespace UwEditor.Core.Editing
             }
         }
 
+        /// <summary>Takes a mobile off the active list (free_critter's half of it).</summary>
+        void RemoveFromActive(int i)
+        {
+            var b = B;
+            int n = b.ActiveCount;
+            for (int k = 0; k < n; k++)
+                if (data[LevelBlock.ActiveAt + k] == i)
+                {
+                    data[LevelBlock.ActiveAt + k] = data[LevelBlock.ActiveAt + n - 1];
+                    data[LevelBlock.ActiveAt + n - 1] = 0;
+                    b.Put16(LevelBlock.ActiveCountAt, n - 1);
+                    return;
+                }
+        }
+
         int GetW(int at) { return data[at] | data[at + 1] << 8; }
         void PutW(int at, int v) { data[at] = (byte)v; data[at + 1] = (byte)(v >> 8); }
         int NextOf(int i) { return GetW(LevelBlock.ObjectOffset(i) + 4) >> 6; }
@@ -473,6 +488,7 @@ namespace UwEditor.Core.Editing
             spec.Write(rec, z);
             Array.Copy(rec, 0, data, at, 8);
             if (spec.IsMobile) InitMobile(i, spec, x, y);
+            if (spec.IsMobile && container >= 0) RemoveFromActive(i);      // a template inside a trap or container is not a live creature
             if (container >= 0) { SetNext(i, LinkOf(container)); SetLink(container, i); }
             else { SetNext(i, HeadOf(x, y)); SetHead(x, y, i); }
             foreach (var c in spec.Contents) Place(c, x, y, i);
