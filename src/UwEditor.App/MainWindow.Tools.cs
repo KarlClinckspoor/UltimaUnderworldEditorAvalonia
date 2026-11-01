@@ -109,6 +109,12 @@ namespace UwEditor.App
                 case "zones": ShowZones(); break;
                 case "zonegraph": ShowZoneGraph(); break;
                 case "shuffle": ShowItemShuffle(); break;
+                case "shuffle-wands": ShowItemShuffle()?.ShowTab(4); break;
+                case "shuffle-scrolls": ShowItemShuffle()?.ShowTab(5); break;
+                case "shuffle-rings": ShowItemShuffle()?.ShowTab(6); break;
+                case "shuffle-ignored": ShowItemShuffle()?.ShowTab(7); break;
+                case "shuffle-curves": ShowItemShuffle()?.OpenWeaponCurves(0); break;
+                case "shuffle-quality": ShowItemShuffle()?.OpenWeaponQuality(); break;
                 case "zones-example": { var z = Zoning(); if (z != null && !z.FileExists) z.LoadExample(); ShowZones(); } break;
                 case "zonegraph-example": { var z = Zoning(); if (z != null && !z.FileExists) z.LoadExample(); var g = ShowZoneGraph(); g?.SelectZone(2); } break;
                 case "manual": ManualWindow.ShowAt(this, "Editing levels"); break;

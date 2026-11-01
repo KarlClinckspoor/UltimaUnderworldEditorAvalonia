@@ -19,6 +19,33 @@ namespace UwEditor.Core.Randomizer
         /// <summary>Mean strength, 1 = the weakest.</summary>
         public double Mean { get; set; } = 2;
         public double Deviation { get; set; } = 1;
+
+        /// <summary>The strength comes from <see cref="StrengthBars"/> (a weight per strength, weakest first) instead of the mean and deviation.</summary>
+        public bool CustomStrength { get; set; }
+        public double[] StrengthBars { get; set; }
+        /// <summary>The chance comes from the depth curve instead of the chance and depth sliders: UW1 <see cref="DepthBars"/> (a chance % per level), UW2 <see cref="DepthCurve"/> (x the level within its world 1-8, y the chance %).</summary>
+        public bool CustomDepth { get; set; }
+        public double[] DepthBars { get; set; }
+        public List<CurvePoint> DepthCurve { get; set; }
+
+        /// <summary>The strength bars the sliders give (what they start from).</summary>
+        public double[] StrengthFromSliders() { return Distributions.NormalBars(Effects.Length, Mean, Deviation); }
+
+        /// <summary>UW1: the chance per level (1-9) the chance and depth sliders give.</summary>
+        public double[] DepthBarsFromSliders(double depthAdj, int levels)
+        {
+            var b = new double[levels];
+            for (int l = 1; l <= levels; l++) b[l - 1] = Math.Round(Math.Min(100, Probability * (1 + depthAdj / 100 * ItemShuffle.DepthOf(false, l))), 1);
+            return b;
+        }
+
+        /// <summary>UW2: the chance per level within a world (1-8) the sliders give, as curve points.</summary>
+        public List<CurvePoint> DepthCurveFromSliders(double depthAdj)
+        {
+            var l = new List<CurvePoint>();
+            for (int x = 1; x <= 8; x++) l.Add(new CurvePoint(x, Math.Round(Math.Min(100, Probability * (1 + depthAdj / 100 * ItemShuffle.DepthOf(true, x))), 1)));
+            return l;
+        }
     }
 
     /// <summary>A special enchantment to put on a number of objects (UW2's special weapons, Flameproof armour).</summary>
@@ -32,6 +59,15 @@ namespace UwEditor.Core.Randomizer
         public string Note { get; set; } = "";
     }
 
+    /// <summary>An object both shuffles leave alone.</summary>
+    public sealed class IgnoredObject
+    {
+        public int Level { get; set; }
+        public int Index { get; set; }
+        public string Label { get; set; } = "";
+        public override string ToString() { return Label; }
+    }
+
     /// <summary>The item shuffle's settings, saved between runs.</summary>
     public sealed class ShuffleOptions
     {
@@ -40,6 +76,12 @@ namespace UwEditor.Core.Randomizer
         public bool IncludeInventories { get; set; } = true;
         /// <summary>Spells and other class effects already on objects stay; only plain and class 12 objects are rolled.</summary>
         public bool KeepOtherEnchantments { get; set; } = true;
+        /// <summary>"shuffle" (properties rolled by the tabs), "swap-kind" (existing objects trade places within their kind), "swap-any" (across all the kinds taking part).</summary>
+        public string Mode { get; set; } = "shuffle";
+        /// <summary>Objects never touched, by level and index. Null until filled with the game's defaults.</summary>
+        public List<IgnoredObject> Ignored { get; set; }
+        /// <summary>Poles, fishing poles and thread take part in swaps.</summary>
+        public bool SwapTools { get; set; } = true;
 
         // weapons
         public bool ShuffleWeapons { get; set; } = true;
@@ -54,6 +96,9 @@ namespace UwEditor.Core.Randomizer
         public List<SpecialChoice> WeaponSpecialList { get; set; } = new List<SpecialChoice>();
         /// <summary>± this round each object's own quality (0: unchanged).</summary>
         public int WeaponQualitySpread { get; set; } = 10;
+        /// <summary>Weapon quality comes from <see cref="WeaponQualityCurve"/> (x 1-63, y a relative weight) instead of the spread.</summary>
+        public bool CustomWeaponQuality { get; set; }
+        public List<CurvePoint> WeaponQualityCurve { get; set; }
         /// <summary>Of the ranged objects, the share (0-100) that are bows, slings and crossbows; the rest are ammunition.</summary>
         public double LauncherShare { get; set; } = 25;
 
@@ -68,6 +113,8 @@ namespace UwEditor.Core.Randomizer
         public bool ArmourSpecials { get; set; } = true;
         public List<SpecialChoice> ArmourSpecialList { get; set; } = new List<SpecialChoice>();
         public int ArmourQualitySpread { get; set; } = 10;
+        public bool CustomArmourQuality { get; set; }
+        public List<CurvePoint> ArmourQualityCurve { get; set; }
 
         // food, light, tools
         public bool ShuffleFood { get; set; } = true;
@@ -82,6 +129,35 @@ namespace UwEditor.Core.Randomizer
         public bool ShuffleRunes { get; set; } = true;
         public Dictionary<int, double> RuneWeights { get; set; } = new Dictionary<int, double>();
         public Dictionary<int, int> RuneMinimum { get; set; } = new Dictionary<int, int>();
+
+        // rings, gloves and boots
+        public bool ShuffleRings { get; set; } = true;
+        public Dictionary<int, double> RingWeights { get; set; }
+        /// <summary>Chance (0-100) that a ring carries a worn effect (or a curse).</summary>
+        public double RingMagic { get; set; } = 40;
+        public bool ShuffleWorn { get; set; } = true;
+        /// <summary>Chance (0-100) that gloves or boots get a worn effect (or a curse) instead of their Protection or Toughness.</summary>
+        public double WornChance { get; set; } = 6;
+        /// <summary>Weights of the worn effects, by class × 16 + effect (classes 0-3 and 11, as player_affected_by applies them).</summary>
+        public Dictionary<int, double> WornEffects { get; set; }
+        /// <summary>Of the rings, gloves and boots that get an effect, the share (0-100) cursed instead.</summary>
+        public double CurseShare { get; set; } = 15;
+        /// <summary>A weight per curse strength 1-8: the curse does that many d8 of damage, never below 3 hit points, whenever the worn things change (SPELLS.C backfire).</summary>
+        public double[] CurseStrength { get; set; }
+
+        // wands and scrolls
+        public bool ShuffleWands { get; set; } = true;
+        /// <summary>A weight per number of charges, 1 to <see cref="MaxCharges"/>.</summary>
+        public double[] WandCharges { get; set; }
+        /// <summary>A weight per circle (UW1: 1-8 and the spells without runes).</summary>
+        public double[] WandCircles { get; set; }
+        public bool ShuffleScrolls { get; set; } = true;
+        public double[] ScrollCircles { get; set; }
+        public bool ShufflePotions { get; set; } = true;
+        public double[] PotionCircles { get; set; }
+        /// <summary>Potions only get spells some potion in the game already holds (heals, mana, cure poison...), by circle.</summary>
+        public bool PotionsKnownOnly { get; set; } = true;
+        public const int MaxCharges = 30;
 
         static readonly JsonSerializerOptions Json = new JsonSerializerOptions { WriteIndented = true };
         public string ToJson() { return JsonSerializer.Serialize(this, Json); }
@@ -104,7 +180,46 @@ namespace UwEditor.Core.Randomizer
             foreach (int f in ItemTables.Food(s)) o.FoodWeights[f] = 50;
             foreach (int l in ItemTables.LightKinds(s)) o.LightWeights[l] = 50;
             foreach (int r in ItemTables.Runes) { o.RuneWeights[r] = 50; o.RuneMinimum[r] = 1; }
+            o.FillTables(s);
             return o;
+        }
+
+        /// <summary>The defaults, with the wand, scroll and quality distributions taken from the levels as they are.</summary>
+        public static ShuffleOptions Defaults(GameSession s, Func<int, LevelModel> level)
+        {
+            var o = Defaults(s);
+            o.Complete(s, level);
+            return o;
+        }
+
+        /// <summary>Fills what an older settings file lacks: the wand and scroll bars and the quality curves, from the game's levels (or flat without them).</summary>
+        public void Complete(GameSession s, Func<int, LevelModel> level)
+        {
+            var g = level == null ? null : ItemShuffle.Census(s, level);
+            int circles = SpellTables.Circles(s.IsUw2);
+            if (WandCharges == null || WandCharges.Length != MaxCharges) WandCharges = g != null ? Distributions.Scaled(g.Charges) : Enumerable.Repeat(50.0, MaxCharges).ToArray();
+            if (WandCircles == null || WandCircles.Length != circles) WandCircles = g != null ? Distributions.Scaled(g.WandCircles) : Flat(circles, s.IsUw2);
+            if (PotionCircles == null || PotionCircles.Length != circles) PotionCircles = g != null ? Distributions.Scaled(g.PotionCircles) : Flat(circles, s.IsUw2);
+            if (ScrollCircles == null || ScrollCircles.Length != circles) ScrollCircles = g != null ? Distributions.Scaled(g.ScrollCircles) : Flat(circles, s.IsUw2);
+            if (WeaponQualityCurve == null || WeaponQualityCurve.Count < 2) WeaponQualityCurve = g != null ? Distributions.CurveOf(g.WeaponQuality, 1, 8) : new List<CurvePoint> { new CurvePoint(1, 50), new CurvePoint(63, 50) };
+            FillTables(s);
+            if (Ignored == null) Ignored = level == null ? new List<IgnoredObject>() : ItemShuffle.DefaultIgnored(s, level);
+            if (ArmourQualityCurve == null || ArmourQualityCurve.Count < 2) ArmourQualityCurve = g != null ? Distributions.CurveOf(g.ArmourQuality, 1, 8) : new List<CurvePoint> { new CurvePoint(1, 50), new CurvePoint(63, 50) };
+        }
+
+        /// <summary>The ring, worn effect and curse tables (from the game's strings, not its levels).</summary>
+        void FillTables(GameSession s)
+        {
+            if (RingWeights == null || RingWeights.Count == 0) { RingWeights = new Dictionary<int, double>(); foreach (int r in ItemTables.Rings(s)) RingWeights[r] = 50; }
+            if (WornEffects == null || WornEffects.Count == 0) { WornEffects = new Dictionary<int, double>(); foreach (var e in ItemTables.WornEffects(s)) WornEffects[e.Code] = e.Code == 0 ? 0 : 50; }
+            if (CurseStrength == null || CurseStrength.Length != 8) CurseStrength = new double[] { 100, 40, 15, 5, 0, 0, 0, 0 };
+        }
+
+        static double[] Flat(int circles, bool uw2)
+        {
+            var b = Enumerable.Repeat(50.0, circles).ToArray();
+            if (!uw2) b[8] = 0;    // the spells without runes
+            return b;
         }
 
         /// <summary>The class 12 effects grouped by their name's last word (Minor Accuracy … Unsurpassed Accuracy), weakest first.</summary>
@@ -160,6 +275,33 @@ namespace UwEditor.Core.Randomizer
         }
 
         public static readonly int[] Runes = Enumerable.Range(0xE8, 24).ToArray();
+
+        /// <summary>The rings: UW1 iron, gold, silver, red; UW2 copper, gold, silver, red (its Guardian signet rings, 0x35, are quest items and stay).</summary>
+        public static int[] Rings(GameSession s) { return s.IsUw2 ? new[] { 0x37, 0x38, 0x39, 0x3A } : new[] { 0x36, 0x38, 0x39, 0x3A }; }
+        public static readonly int[] Gloves = { 0x26, 0x27, 0x28 };
+        public static readonly int[] Boots = { 0x29, 0x2A, 0x2B };
+
+        public sealed class WornEffect { public int Code; public string Name, Group; }
+
+        /// <summary>
+        /// The effects that do something worn (PLAYDATA.C player_affected_by): light (class 0),
+        /// motion (1), armour (2), protection, stealth and resistances (3), and of class 11 only
+        /// haste, wizard eye, pick distance and the two regenerations. Named by block 6.
+        /// </summary>
+        public static List<WornEffect> WornEffects(GameSession s)
+        {
+            var l = new List<WornEffect>();
+            string[] groups = { "Light", "Motion", "Armour", "Protection" };
+            foreach (int c in new[] { 0, 1, 2, 3, 11 })
+                for (int e = 0; e < 16; e++)
+                {
+                    if (c == 11 && !(e <= 3 || e == 14 || e == 15)) continue;
+                    var n = s.Strings.Get(6, c * 16 + e);
+                    if (string.IsNullOrWhiteSpace(n)) continue;
+                    l.Add(new WornEffect { Code = c * 16 + e, Name = n.Trim(), Group = c == 11 ? "Other" : groups[c] });
+                }
+            return l;
+        }
         public const int Pole = 0xD8, FishingPole = 0x12B;
         public static int Thread(bool uw2) { return uw2 ? 0x12C : 0x11C; }
     }
@@ -192,6 +334,86 @@ namespace UwEditor.Core.Randomizer
             public ItemRewrite R;
             public bool Touched;
             public double Depth;
+            /// <summary>The level for depth curves: UW1 1-9, UW2 the level within its world 1-8.</summary>
+            public int DepthLevel;
+            public int ParentItem = -1, ParentIndex = -1;
+            public bool Flag11 { get { return ((O.Record[1] >> 3) & 1) != 0; } }
+        }
+
+        /// <summary>How deep a level is, 0 (level 1) to 1: UW1 (level - 1) / 7, UW2 the level within its world.</summary>
+        public static double DepthOf(bool uw2, int level)
+        {
+            return uw2 ? ((level - 1) % 8) / 7.0 : Math.Min(1.0, (level - 1) / 7.0);
+        }
+
+        /// <summary>What the levels hold, for the distributions' starting points.</summary>
+        public sealed class GameCensus
+        {
+            public int[] Charges = new int[ShuffleOptions.MaxCharges];
+            public int[] WandCircles, ScrollCircles, PotionCircles;
+            public int[] WeaponQuality = new int[63], ArmourQuality = new int[63];
+        }
+
+        public static GameCensus Census(GameSession s, Func<int, LevelModel> level)
+        {
+            int circles = SpellTables.Circles(s.IsUw2);
+            var g = new GameCensus { WandCircles = new int[circles], ScrollCircles = new int[circles], PotionCircles = new int[circles] };
+            var weapons = new HashSet<int>(ItemTables.Axes.Concat(ItemTables.Swords(s.IsUw2)).Concat(ItemTables.Maces).Concat(ItemTables.Launchers));
+            foreach (var slot in s.LevelSlots())
+            {
+                if (!slot.Present) continue;
+                LevelModel m;
+                try { m = level(slot.Level); } catch (Exception) { continue; }
+                foreach (var o in m.Objects)
+                {
+                    if (o.Free || o.TileX < 0 || o.IsMobile) continue;
+                    bool f11 = ((o.Record[1] >> 3) & 1) != 0;
+                    int q = Math.Max(1, Math.Min(63, o.Quality));
+                    if (weapons.Contains(o.Item)) g.WeaponQuality[q - 1]++;
+                    if (ItemTables.Slot(o.Item) >= 0 || ItemTables.ShieldIds.Contains(o.Item)) g.ArmourQuality[q - 1]++;
+                    int parent = o.Parent >= 0 ? m.Objects[o.Parent].Item : -1;
+                    if (IsWandSpell(o, parent))
+                    {
+                        g.WandCircles[SpellTables.Circle(s.IsUw2, o.Link & 0x3F) - 1]++;
+                        g.Charges[Math.Max(1, Math.Min(ShuffleOptions.MaxCharges, o.Quality)) - 1]++;
+                    }
+                    else if (IsChargedWand(o, f11)) g.WandCircles[SpellTables.Circle(s.IsUw2, o.Link & 0x3F) - 1]++;
+                    else if (IsSpellScroll(o, f11)) g.ScrollCircles[SpellTables.Circle(s.IsUw2, o.Link & 0x3F) - 1]++;
+                    else if (IsSpellPotion(s, o, f11)) g.PotionCircles[SpellTables.Circle(s.IsUw2, o.Link & 0x3F) - 1]++;
+                }
+            }
+            return g;
+        }
+
+        /// <summary>A wand's spell object (0x120 inside a wand 0x98-0x9B): flag 11, link 0x200 + one of the 64 spells, quality the charges (USEITEMS.C decode_obj_spell, useNSpellCharges).</summary>
+        static bool IsWandSpell(ObjectInfo o, int parentItem)
+        {
+            return o.Item == 0x120 && parentItem >= 0x98 && parentItem <= 0x9B && o.IsQuantity && ((o.Record[1] >> 3) & 1) != 0 && o.Link >= 0x200 && ((o.Link & 0x1FF) >> 6) == 0;
+        }
+
+        /// <summary>A wand enchanted directly (is-quantity, flag 11): it casts its spell with no charges counted.</summary>
+        static bool IsChargedWand(ObjectInfo o, bool f11)
+        {
+            return o.Item >= 0x98 && o.Item <= 0x9B && o.Enchanted && o.IsQuantity && f11 && o.Link >= 0x200 && ((o.Link & 0x1FF) >> 6) == 0;
+        }
+
+        /// <summary>The potions: UW1 red and green (0xBB, 0xBC); UW2 0xE0-0xE7, whatever block 4 calls a potion.</summary>
+        public static bool IsPotionItem(GameSession s, int item)
+        {
+            if (!s.IsUw2) return item == 0xBB || item == 0xBC;
+            return item >= 0xE0 && item <= 0xE7 && (s.Names.Get(item) ?? "").Contains("potion");
+        }
+
+        /// <summary>A potion holding one of the 64 spells (flag 11). Potions with special effects (class 13 and up) are not.</summary>
+        static bool IsSpellPotion(GameSession s, ObjectInfo o, bool f11)
+        {
+            return IsPotionItem(s, o.Item) && o.Enchanted && o.IsQuantity && f11 && o.Link >= 0x200 && ((o.Link & 0x1FF) >> 6) == 0;
+        }
+
+        /// <summary>A spell scroll: books, scrolls and maps (0x130-0x13F) enchanted with one of the 64 spells (flag 11).</summary>
+        static bool IsSpellScroll(ObjectInfo o, bool f11)
+        {
+            return o.Item >= 0x130 && o.Item <= 0x13F && o.Enchanted && o.IsQuantity && f11 && o.Link >= 0x200 && ((o.Link & 0x1FF) >> 6) == 0;
         }
 
         public static ShuffleResult Run(GameSession s, Func<int, LevelModel> level, ShuffleOptions opt)
@@ -200,32 +422,47 @@ namespace UwEditor.Core.Randomizer
             var rng = new Random(opt.Seed);
             bool uw2 = s.IsUw2;
             var all = new List<Cand>();
+            var ignored = new HashSet<long>((opt.Ignored ?? new List<IgnoredObject>()).Select(x => (long)x.Level << 32 | (uint)x.Index));
             foreach (var slot in s.LevelSlots())
             {
                 if (!slot.Present) continue;
                 LevelModel m;
                 try { m = level(slot.Level); } catch (Exception) { continue; }
-                double depth = uw2 ? ((slot.Level - 1) % 8) / 7.0 : Math.Min(1.0, (slot.Level - 1) / 7.0);
+                double depth = DepthOf(uw2, slot.Level);
+                int depthLevel = uw2 ? (slot.Level - 1) % 8 + 1 : slot.Level;
                 foreach (var o in m.Objects)
                 {
                     if (o.Free || o.TileX < 0 || o.IsMobile) continue;
                     if (!opt.IncludeInventories && o.Parent >= 0 && m.Objects[o.Parent].IsCritter) continue;
                     // objects inside traps are templates (create object): left alone
                     if (o.Parent >= 0 && m.Objects[o.Parent].IsTrapOrTrigger) continue;
+                    // ignored objects, and a wand's spell object when the wand is ignored
+                    if (ignored.Contains((long)slot.Level << 32 | (uint)o.Index)) continue;
+                    if (o.Parent >= 0 && ignored.Contains((long)slot.Level << 32 | (uint)o.Parent)) continue;
                     all.Add(new Cand
                     {
-                        Level = slot.Level, Index = o.Index, O = o, Depth = depth,
+                        Level = slot.Level, Index = o.Index, O = o, Depth = depth, DepthLevel = depthLevel,
+                        ParentItem = o.Parent >= 0 ? m.Objects[o.Parent].Item : -1, ParentIndex = o.Parent,
                         R = Of(o),
                     });
                 }
             }
             var before = Count(all, false);
 
-            if (opt.ShuffleWeapons) Weapons(s, opt, rng, all, res);
-            if (opt.ShuffleArmour) Armour(s, opt, rng, all, res);
-            if (opt.ShuffleFood || opt.ShuffleLights) FoodAndLights(s, opt, rng, all, res);
-            Tools(s, opt, rng, all, res);
-            if (opt.ShuffleRunes) Runes(s, opt, rng, all, res);
+            if (opt.Mode == "swap-kind" || opt.Mode == "swap-any") Swap(s, opt, rng, all, res, opt.Mode == "swap-any");
+            else
+            {
+                if (opt.ShuffleWeapons) Weapons(s, opt, rng, all, res);
+                if (opt.ShuffleArmour) Armour(s, opt, rng, all, res);
+                if (opt.ShuffleFood || opt.ShuffleLights) FoodAndLights(s, opt, rng, all, res);
+                Tools(s, opt, rng, all, res);
+                if (opt.ShuffleRunes) Runes(s, opt, rng, all, res);
+                if (opt.ShuffleWands) Wands(s, opt, rng, all, res);
+                if (opt.ShuffleScrolls) Scrolls(s, opt, rng, all, res);
+                if (opt.ShufflePotions) Potions(s, opt, rng, all, res);
+                if (opt.ShuffleRings || opt.ShuffleWorn) RingsAndWorn(s, opt, rng, all, res);
+            }
+            if (ignored.Count > 0) res.Report.AppendFormat("{0} ignored object(s) left alone.\n", ignored.Count);
 
             foreach (var c in all.Where(c => c.Touched && Differs(c)))
             {
@@ -249,13 +486,13 @@ namespace UwEditor.Core.Randomizer
 
         static ItemRewrite Of(ObjectInfo o)
         {
-            return new ItemRewrite { Index = o.Index, Item = o.Item, Quality = o.Quality, Flags = (o.Record[1] >> 1) & 7, Link = o.Link, Enchanted = o.Enchanted, IsQuantity = o.IsQuantity };
+            return new ItemRewrite { Index = o.Index, Item = o.Item, Quality = o.Quality, Flags = (o.Record[1] >> 1) & 7, Link = o.Link, Owner = o.Owner, Enchanted = o.Enchanted, IsQuantity = o.IsQuantity, Exact = true };
         }
 
         static bool Differs(Cand c)
         {
             var o = c.O; var r = c.R;
-            return r.Item != o.Item || r.Quality != o.Quality || r.Flags != ((o.Record[1] >> 1) & 7) || r.Enchanted != o.Enchanted || r.IsQuantity != o.IsQuantity || (o.IsQuantity && r.Link != o.Link);
+            return r.Item != o.Item || r.Quality != o.Quality || r.Flags != ((o.Record[1] >> 1) & 7) || r.Enchanted != o.Enchanted || r.IsQuantity != o.IsQuantity || r.Link != o.Link || r.Owner != o.Owner;
         }
 
         static Dictionary<int, int> Count(List<Cand> all, bool after)
@@ -286,6 +523,13 @@ namespace UwEditor.Core.Randomizer
             return Math.Max(1, Math.Min(63, q + rng.Next(-spread, spread + 1)));
         }
 
+        /// <summary>A quality 1-63 drawn from the curve (its value at each quality is the weight); the object's own when the curve is 0 everywhere.</summary>
+        static int Quality(Random rng, List<CurvePoint> curve, int own)
+        {
+            int i = Distributions.Pick(rng, Distributions.Sample(curve, 1, 63));
+            return i < 0 ? own : i + 1;
+        }
+
         /// <summary>Whether an object's enchantment is one the shuffle rolls again: none, or class 12 (flag 11 clear).</summary>
         static bool Rerollable(Cand c, ShuffleOptions opt)
         {
@@ -298,16 +542,29 @@ namespace UwEditor.Core.Randomizer
         }
 
         /// <summary>Rolls a class 12 enchantment; true when one was given.</summary>
-        static bool Enchant(Random rng, Cand c, List<EnchantGroup> groups, double depthAdj, Dictionary<string, int> tally)
+        static bool Enchant(Random rng, Cand c, List<EnchantGroup> groups, double depthAdj, Dictionary<string, int> tally, bool uw2)
         {
             double dep = depthAdj / 100.0 * c.Depth;
             foreach (var g in groups.OrderBy(x => rng.Next()))
             {
                 if (g.Effects == null || g.Effects.Length == 0) continue;
-                double p = Math.Min(1, g.Probability / 100.0 * (1 + dep));
+                double p;
+                if (g.CustomDepth && uw2 && g.DepthCurve != null && g.DepthCurve.Count > 0) p = Distributions.Eval(g.DepthCurve, c.DepthLevel) / 100.0;
+                else if (g.CustomDepth && !uw2 && g.DepthBars != null && g.DepthBars.Length > 0) p = g.DepthBars[Math.Min(g.DepthBars.Length, c.DepthLevel) - 1] / 100.0;
+                else p = g.Probability / 100.0 * (1 + dep);
+                p = Math.Max(0, Math.Min(1, p));
                 if (rng.NextDouble() >= p) continue;
-                double mean = g.Mean + dep * (g.Effects.Length - 1);
-                int strength = (int)Math.Round(mean + g.Deviation * Normal(rng));
+                int strength;
+                if (g.CustomStrength && g.StrengthBars != null && g.StrengthBars.Length == g.Effects.Length)
+                {
+                    strength = Distributions.Pick(rng, g.StrengthBars) + 1;
+                    if (strength == 0) continue;      // every bar at 0: this kind never comes
+                }
+                else
+                {
+                    double mean = g.Mean + dep * (g.Effects.Length - 1);
+                    strength = (int)Math.Round(mean + g.Deviation * Normal(rng));
+                }
                 strength = Math.Max(1, Math.Min(g.Effects.Length, strength));
                 c.R.Enchanted = true; c.R.IsQuantity = true; c.R.Flags &= ~4;
                 c.R.Link = 0x200 | 0xC0 | g.Effects[strength - 1];
@@ -320,6 +577,7 @@ namespace UwEditor.Core.Randomizer
 
         static void Plain(Cand c, int quantity = 1)
         {
+            if (!c.O.IsQuantity && c.O.Link != 0) return;      // a list (contents, a spell object) stays
             c.R.Enchanted = false; c.R.IsQuantity = true; c.R.Flags &= ~4;
             c.R.Link = Math.Max(1, Math.Min(0x1FF, quantity));
         }
@@ -348,11 +606,11 @@ namespace UwEditor.Core.Randomizer
                 }
                 else item = types[t][rng.Next(types[t].Length)];
                 c.R.Item = item;
-                c.R.Quality = Spread(rng, c.O.Quality, opt.WeaponQualitySpread);
+                c.R.Quality = opt.CustomWeaponQuality ? Quality(rng, opt.WeaponQualityCurve, c.O.Quality) : Spread(rng, c.O.Quality, opt.WeaponQualitySpread);
                 c.Touched = true;
                 if (ammo) { Plain(c, wasAmmo && c.O.IsQuantity && c.O.Link < 0x200 ? c.O.Link : rng.Next(3, 13)); continue; }
                 if (!Rerollable(c, opt)) continue;
-                if (Enchant(rng, c, opt.WeaponEnchants, opt.WeaponDepth, tally)) enchanted++;
+                if (Enchant(rng, c, opt.WeaponEnchants, opt.WeaponDepth, tally, uw2)) enchanted++;
                 else Plain(c);
             }
             res.Report.AppendFormat("Weapons: {0} shuffled ({1} kept), {2} enchanted", cands.Count, uw2 ? "the jewelled dagger" : "Caliburn", enchanted);
@@ -397,10 +655,10 @@ namespace UwEditor.Core.Randomizer
                     if (slot < 0) slot = rng.Next(5);
                     c.R.Item = ItemTables.Armour[slot, t];
                 }
-                c.R.Quality = Spread(rng, c.O.Quality, opt.ArmourQualitySpread);
+                c.R.Quality = opt.CustomArmourQuality ? Quality(rng, opt.ArmourQualityCurve, c.O.Quality) : Spread(rng, c.O.Quality, opt.ArmourQualitySpread);
                 c.Touched = true;
                 if (!Rerollable(c, opt)) continue;
-                if (Enchant(rng, c, opt.ArmourEnchants, opt.ArmourDepth, tally)) enchanted++;
+                if (Enchant(rng, c, opt.ArmourEnchants, opt.ArmourDepth, tally, s.IsUw2)) enchanted++;
                 else Plain(c);
             }
             res.Report.AppendFormat("Armour: {0} shuffled (quest armour, crowns and the talisman shield kept), {1} enchanted", cands.Count, enchanted);
@@ -442,7 +700,7 @@ namespace UwEditor.Core.Randomizer
         {
             var food = new HashSet<int>(ItemTables.Food(s));
             var lights = new HashSet<int>(ItemTables.LightKinds(s).SelectMany(k => new[] { k, k + 4 }));
-            var pool = all.Where(c => (food.Contains(c.R.Item) || lights.Contains(c.R.Item)) && c.O.Parent < 0).OrderBy(c => food.Contains(c.R.Item) ? 0 : 1).ThenBy(c => rng.Next()).ToList();
+            var pool = all.Where(c => (food.Contains(c.R.Item) || lights.Contains(c.R.Item)) && c.O.Parent < 0 && (c.O.IsQuantity || c.O.Link == 0)).OrderBy(c => food.Contains(c.R.Item) ? 0 : 1).ThenBy(c => rng.Next()).ToList();
             int used = 0;
             foreach (var (item, min, name) in new[] { (ItemTables.Thread(s.IsUw2), opt.MinThread, "thread"), (ItemTables.Pole, opt.MinPole, "pole"), (ItemTables.FishingPole, opt.MinFishingPole, "fishing pole") })
             {
@@ -483,6 +741,349 @@ namespace UwEditor.Core.Randomizer
             var missing = ids.Where(r => cands.Count(c => c.R.Item == r) < (opt.RuneMinimum.ContainsKey(r) ? opt.RuneMinimum[r] : 0)).ToList();
             res.Report.AppendFormat("Runestones: {0} shuffled, {1} changed again for the minimums{2}.\n", cands.Count, moved,
                 missing.Count > 0 ? "; too few runestones for the minimums of " + string.Join(", ", missing.Select(m => s.Names.Get(m))) : "");
+        }
+
+        /// <summary>The kind an object takes part as (weapon, armour, food, light, tool, rune, wand, scroll), or null. Exempt objects are null.</summary>
+        static string KindOf(GameSession s, ObjectInfo o, bool f11)
+        {
+            int it = o.Item;
+            if (ItemTables.KeptWeapons.Contains(it)) return null;
+            if (ItemTables.Axes.Contains(it) || ItemTables.Swords(s.IsUw2).Contains(it) || ItemTables.Maces.Contains(it) || ItemTables.Launchers.Contains(it) || ItemTables.Ammo.Contains(it)) return "weapon";
+            if (ItemTables.Slot(it) >= 0 || ItemTables.ShieldIds.Contains(it)) return "armour";
+            if (ItemTables.Food(s).Contains(it)) return "food";
+            if (ItemTables.LightKinds(s).Any(k => k == it || k + 4 == it)) return "light";
+            if (it == ItemTables.Pole || it == ItemTables.FishingPole || it == ItemTables.Thread(s.IsUw2)) return "tool";
+            if (ItemTables.Runes.Contains(it)) return "rune";
+            if (it >= 0x98 && it <= 0x9B) return "wand";
+            if (ItemTables.Rings(s).Contains(it)) return "ring";
+            if (IsSpellScroll(o, f11)) return "scroll";
+            if (IsPotionItem(s, it)) return "potion";
+            return null;
+        }
+
+        static bool KindOn(ShuffleOptions opt, string kind)
+        {
+            switch (kind)
+            {
+                case "weapon": return opt.ShuffleWeapons;
+                case "armour": return opt.ShuffleArmour;
+                case "food": return opt.ShuffleFood;
+                case "light": return opt.ShuffleLights;
+                case "tool": return opt.SwapTools;
+                case "rune": return opt.ShuffleRunes;
+                case "wand": return opt.ShuffleWands;
+                case "scroll": return opt.ShuffleScrolls;
+                case "ring": return opt.ShuffleRings;
+                case "potion": return opt.ShufflePotions;
+                default: return false;
+            }
+        }
+
+        /// <summary>
+        /// Swap mode: the existing objects trade places, whole (item, quality, flags, enchantment,
+        /// quantity, contents such as a wand's spell object, owner), within their kind or across
+        /// every kind taking part (the tabs' Shuffle boxes). Nothing new is made: the counts of
+        /// every item stay the same.
+        /// </summary>
+        static void Swap(GameSession s, ShuffleOptions opt, Random rng, List<Cand> all, ShuffleResult res, bool anyKind)
+        {
+            var byKey = all.ToDictionary(c => (long)c.Level << 32 | (uint)c.Index);
+            var groups = new Dictionary<string, List<Cand>>();
+            var wands = new List<Cand[]>();      // a charged wand and its spell object, moved together
+            int stay = 0;
+            foreach (var c in all)
+            {
+                string k = KindOf(s, c.O, c.Flag11);
+                if (k == null || !KindOn(opt, k)) continue;
+                if (!c.O.IsQuantity && c.O.Link != 0)
+                {
+                    // a list (a wand's spell object, a trigger): its link is an index on this level only
+                    Cand child;
+                    if (k == "wand" && byKey.TryGetValue((long)c.Level << 32 | (uint)c.O.Link, out child) && IsWandSpell(child.O, c.O.Item))
+                        wands.Add(new[] { c, child });
+                    else stay++;
+                    continue;
+                }
+                string key = anyKind ? "all" : k;
+                List<Cand> l;
+                if (!groups.TryGetValue(key, out l)) groups[key] = l = new List<Cand>();
+                l.Add(c);
+            }
+            res.Report.AppendLine(anyKind ? "Swap, any kind: existing objects trade places across every kind taking part." : "Swap, same kind: existing objects trade places within their kind.");
+            foreach (var g in groups.OrderBy(x => x.Key))
+            {
+                var list = g.Value;
+                var records = list.Select(c => Of(c.O)).ToList();
+                Shuffle(rng, records);
+                int moved = 0;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var r = records[i];
+                    r.Index = list[i].Index;
+                    list[i].R = r;
+                    list[i].Touched = true;
+                    if (r.Item != list[i].O.Item || r.Link != list[i].O.Link) moved++;
+                }
+                res.Report.AppendFormat("  {0}: {1} objects, {2} changed.\n", anyKind ? "all kinds" : g.Key, list.Count, moved);
+            }
+            if (wands.Count > 0)
+            {
+                // each wand keeps its own list; the wand's item, quality and owner and the spell
+                // object's spell and charges move
+                var units = wands.Select(u => new[] { Of(u[0].O), Of(u[1].O) }).ToList();
+                Shuffle(rng, units);
+                for (int i = 0; i < wands.Count; i++)
+                {
+                    var w = units[i][0]; var sp = units[i][1];
+                    w.Index = wands[i][0].Index; w.Link = wands[i][0].O.Link; w.IsQuantity = false;
+                    sp.Index = wands[i][1].Index;
+                    wands[i][0].R = w; wands[i][1].R = sp;
+                    wands[i][0].Touched = wands[i][1].Touched = true;
+                }
+                res.Report.AppendFormat("  charged wands: {0}, swapped among themselves with their spells and charges (the charges live in an object inside the wand).\n", wands.Count);
+            }
+            if (stay > 0) res.Report.AppendFormat("  {0} object(s) holding triggers or other objects stay where they are.\n", stay);
+            if (groups.Count == 0 && wands.Count == 0) res.Report.AppendLine("  Nothing takes part: tick a kind's Shuffle box in its tab.");
+        }
+
+        static void Shuffle<T>(Random rng, IList<T> l)
+        {
+            for (int i = l.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); var t = l[i]; l[i] = l[j]; l[j] = t; }
+        }
+
+        /// <summary>What an object is, for lists: level, index, name, its spell or enchantment, where.</summary>
+        public static string Describe(GameSession s, LevelModel m, ObjectInfo o)
+        {
+            bool f11 = ((o.Record[1] >> 3) & 1) != 0;
+            string extra = "";
+            if (!o.IsQuantity && o.Link > 0 && o.Link < m.Objects.Length && m.Objects[o.Link].Item == 0x120)
+            {
+                var sp = m.Objects[o.Link];
+                extra = ((sp.Link & 0x1FF) >> 6) == 0 ? string.Format(" of {0}, {1} charges", SpellTables.Name(s, sp.Link & 0x3F), sp.Quality) : " (a special spell)";
+            }
+            else if (o.Enchanted && o.IsQuantity && o.Link >= 0x200)
+            {
+                if (f11 && ((o.Link & 0x1FF) >> 6) == 0) extra = " of " + SpellTables.Name(s, o.Link & 0x3F);
+                else if (f11) extra = string.Format(" (special: class {0} effect {1})", ((o.Link & 0x1FF) >> 6) + 12, o.Link & 0x3F);
+                else { var n = Enchantments.NameOf(o.Item, true, true, o.Link, false, s.Strings); if (!string.IsNullOrWhiteSpace(n)) extra = " (" + n.Trim() + ")"; }
+            }
+            string where = o.Parent >= 0 ? " in #" + o.Parent + " " + s.Names.Get(m.Objects[o.Parent].Item) : "";
+            return string.Format("L{0} #{1} {2}{3} ({4}, {5}){6}", m.Level, o.Index, s.Names.Get(o.Item), extra, o.TileX, o.TileY, where);
+        }
+
+        /// <summary>The objects the shuffles can touch (both modes), for picking ones to ignore.</summary>
+        public static List<IgnoredObject> Candidates(GameSession s, Func<int, LevelModel> level)
+        {
+            var l = new List<IgnoredObject>();
+            foreach (var slot in s.LevelSlots())
+            {
+                if (!slot.Present) continue;
+                LevelModel m;
+                try { m = level(slot.Level); } catch (Exception) { continue; }
+                foreach (var o in m.Objects)
+                {
+                    if (o.Free || o.TileX < 0 || o.IsMobile) continue;
+                    if (o.Parent >= 0 && m.Objects[o.Parent].IsTrapOrTrigger) continue;
+                    if (KindOf(s, o, ((o.Record[1] >> 3) & 1) != 0) == null) continue;
+                    l.Add(new IgnoredObject { Level = slot.Level, Index = o.Index, Label = Describe(s, m, o) });
+                }
+            }
+            return l;
+        }
+
+        /// <summary>
+        /// Objects ignored by default: wands enchanted directly instead of holding a spell object
+        /// with charges. They never run out and are quest wands: UW1's bullfrog wand (class 13
+        /// effect 3, works the level 4 puzzle), UW2's slightly worn wand of Telekinesis in the
+        /// Scintillus Academy (gone when the player leaves its level) and its wand of Light.
+        /// </summary>
+        public static List<IgnoredObject> DefaultIgnored(GameSession s, Func<int, LevelModel> level)
+        {
+            var l = new List<IgnoredObject>();
+            foreach (var c in Candidates(s, level))
+            {
+                var m = level(c.Level);
+                var o = m.Objects[c.Index];
+                bool f11 = ((o.Record[1] >> 3) & 1) != 0;
+                if (o.Item >= 0x98 && o.Item <= 0x9B && o.Enchanted && o.IsQuantity && o.Link >= 0x200)
+                {
+                    if (!s.IsUw2 && ((o.Link & 0x1FF) >> 6) == 1 && (o.Link & 0x3F) == 3) c.Label = Describe(s, m, o).Replace(" (special: class 13 effect 3)", " of the bullfrog (level 4 puzzle)");
+                    l.Add(c);
+                }
+            }
+            return l;
+        }
+
+        /// <summary>
+        /// Rings become another ring by weight and get a worn effect (by weight) or a curse with
+        /// the ring chance; gloves and boots get one with their chance instead of what the
+        /// armour tab gave them. A share of these are curses: class 9, strength by the bars.
+        /// </summary>
+        static void RingsAndWorn(GameSession s, ShuffleOptions opt, Random rng, List<Cand> all, ShuffleResult res)
+        {
+            if (opt.WornEffects == null || opt.RingWeights == null || opt.CurseStrength == null) { res.Report.AppendLine("Rings: no tables set."); return; }
+            var codes = opt.WornEffects.Keys.OrderBy(k => k).ToList();
+            var weights = codes.Select(k => opt.WornEffects[k]).ToList();
+            var tally = new Dictionary<string, int>();
+            Func<Cand, bool> roll = c =>
+            {
+                if (!c.O.IsQuantity && c.O.Link != 0) return false;     // a list stays
+                int code;
+                if (rng.NextDouble() * 100 < opt.CurseShare)
+                {
+                    int st = Distributions.Pick(rng, opt.CurseStrength);
+                    if (st < 0) return false;
+                    code = 0x90 | (st + 1);
+                    string k = "cursed " + (st + 1) + "d8";
+                    int n; tally.TryGetValue(k, out n); tally[k] = n + 1;
+                }
+                else
+                {
+                    int i = Distributions.Pick(rng, weights);
+                    if (i < 0) return false;
+                    code = codes[i];
+                    string k = (s.Strings.Get(6, code) ?? code.ToString()).Trim();
+                    int n; tally.TryGetValue(k, out n); tally[k] = n + 1;
+                }
+                c.R.Enchanted = true; c.R.IsQuantity = true; c.R.Flags &= ~4; c.R.Link = 0x200 | code;
+                c.Touched = true;
+                return true;
+            };
+            int rings = 0, ringMagic = 0, worn = 0;
+            if (opt.ShuffleRings)
+            {
+                var ids = opt.RingWeights.Keys.OrderBy(k => k).ToList();
+                var rw = ids.Select(k => opt.RingWeights[k]).ToList();
+                foreach (var c in all.Where(c => ItemTables.Rings(s).Contains(c.O.Item)))
+                {
+                    int i = Distributions.Pick(rng, rw);
+                    if (i >= 0) c.R.Item = ids[i];
+                    c.Touched = true;
+                    rings++;
+                    if (!c.O.IsQuantity && c.O.Link != 0) continue;
+                    if (rng.NextDouble() * 100 < opt.RingMagic && roll(c)) ringMagic++;
+                    else Plain(c);
+                }
+            }
+            if (opt.ShuffleWorn)
+                foreach (var c in all.Where(c => ItemTables.Gloves.Contains(c.R.Item) || ItemTables.Boots.Contains(c.R.Item)))
+                    if (rng.NextDouble() * 100 < opt.WornChance && roll(c)) worn++;
+            res.Report.AppendFormat("Rings: {0} shuffled, {1} with an effect; gloves and boots: {2} given a worn effect", rings, ringMagic, worn);
+            if (tally.Count > 0) res.Report.Append(": " + string.Join(", ", tally.OrderBy(k => k.Key).Select(k => k.Key + " ×" + k.Value)));
+            res.Report.AppendLine(".");
+        }
+
+        /// <summary>A spell by the circle weights, uniform within the circle; -1 when no weight is above 0.</summary>
+        static int SpellBy(GameSession s, Random rng, double[] circles, List<int>[] pools)
+        {
+            var w = circles.Select((x, i) => pools[i].Count == 0 ? 0 : x).ToArray();
+            int c = Distributions.Pick(rng, w);
+            if (c < 0) return -1;
+            return pools[c][rng.Next(pools[c].Count)];
+        }
+
+        static List<int>[] Pools(GameSession s)
+        {
+            int n = SpellTables.Circles(s.IsUw2);
+            var p = new List<int>[n];
+            for (int i = 0; i < n; i++) p[i] = SpellTables.InCircle(s, i + 1);
+            return p;
+        }
+
+        static void CircleReport(GameSession s, ShuffleResult res, string what, int[] before, int[] after)
+        {
+            res.Report.Append("  " + what + " by circle before → after:");
+            for (int i = 0; i < before.Length; i++)
+                if (before[i] != 0 || after[i] != 0) res.Report.AppendFormat(" {0}: {1}→{2}", SpellTables.CircleLabel(s.IsUw2, i + 1), before[i], after[i]);
+            res.Report.AppendLine();
+        }
+
+        /// <summary>Wands get a spell by the circle weights and, when they count charges, a number of charges by the charge weights.</summary>
+        static void Wands(GameSession s, ShuffleOptions opt, Random rng, List<Cand> all, ShuffleResult res)
+        {
+            if (opt.WandCircles == null || opt.WandCharges == null) { res.Report.AppendLine("Wands: no distributions set."); return; }
+            var pools = Pools(s);
+            int n = pools.Length;
+            int[] before = new int[n], after = new int[n];
+            int count = 0;
+            foreach (var c in all)
+            {
+                bool spellObj = IsWandSpell(c.O, c.ParentItem), direct = !spellObj && IsChargedWand(c.O, c.Flag11);
+                if (!spellObj && !direct) continue;
+                int sp = SpellBy(s, rng, opt.WandCircles, pools);
+                if (sp < 0) { res.Report.AppendLine("Wands: every circle weight is 0, so wands were left as they are."); return; }
+                before[SpellTables.Circle(s.IsUw2, c.O.Link & 0x3F) - 1]++;
+                after[SpellTables.Circle(s.IsUw2, sp) - 1]++;
+                c.R.Link = 0x200 | sp;
+                if (spellObj)
+                {
+                    int ch = Distributions.Pick(rng, opt.WandCharges);
+                    if (ch >= 0) c.R.Quality = ch + 1;
+                }
+                c.Touched = true;
+                count++;
+            }
+            res.Report.AppendFormat("Wands: {0} shuffled (broken wands and wands with other effects kept).\n", count);
+            if (count > 0) CircleReport(s, res, "Spells", before, after);
+        }
+
+        /// <summary>Spell scrolls get a spell by the circle weights.</summary>
+        static void Scrolls(GameSession s, ShuffleOptions opt, Random rng, List<Cand> all, ShuffleResult res)
+        {
+            if (opt.ScrollCircles == null) { res.Report.AppendLine("Scrolls: no distribution set."); return; }
+            var pools = Pools(s);
+            int n = pools.Length;
+            int[] before = new int[n], after = new int[n];
+            int count = 0;
+            foreach (var c in all)
+            {
+                if (!IsSpellScroll(c.O, c.Flag11)) continue;
+                int sp = SpellBy(s, rng, opt.ScrollCircles, pools);
+                if (sp < 0) { res.Report.AppendLine("Scrolls: every circle weight is 0, so scrolls were left as they are."); return; }
+                before[SpellTables.Circle(s.IsUw2, c.O.Link & 0x3F) - 1]++;
+                after[SpellTables.Circle(s.IsUw2, sp) - 1]++;
+                c.R.Link = 0x200 | sp;
+                c.Touched = true;
+                count++;
+            }
+            res.Report.AppendFormat("Scrolls: {0} spell scrolls shuffled (readable scrolls and maps kept).\n", count);
+            if (count > 0) CircleReport(s, res, "Spells", before, after);
+        }
+
+        /// <summary>
+        /// Potions holding one of the 64 spells get a spell by the circle weights (with "known
+        /// only", among the spells potions already hold). In UW2, whose colours tell the effect,
+        /// a potion takes the colour the game uses most for its new spell.
+        /// </summary>
+        static void Potions(GameSession s, ShuffleOptions opt, Random rng, List<Cand> all, ShuffleResult res)
+        {
+            if (opt.PotionCircles == null) { res.Report.AppendLine("Potions: no distribution set."); return; }
+            var cands = all.Where(c => IsSpellPotion(s, c.O, c.Flag11)).ToList();
+            var colour = new Dictionary<int, Dictionary<int, int>>();
+            foreach (var c in cands)
+            {
+                int sp0 = c.O.Link & 0x3F;
+                Dictionary<int, int> d;
+                if (!colour.TryGetValue(sp0, out d)) colour[sp0] = d = new Dictionary<int, int>();
+                int n; d.TryGetValue(c.O.Item, out n); d[c.O.Item] = n + 1;
+            }
+            var pools = Pools(s);
+            if (opt.PotionsKnownOnly) for (int i = 0; i < pools.Length; i++) pools[i] = pools[i].Where(colour.ContainsKey).ToList();
+            int nc = pools.Length;
+            int[] before = new int[nc], after = new int[nc];
+            foreach (var c in cands)
+            {
+                int sp = SpellBy(s, rng, opt.PotionCircles, pools);
+                if (sp < 0) { res.Report.AppendLine("Potions: no circle with a weight above 0 has spells to give, so potions were left as they are."); return; }
+                before[SpellTables.Circle(s.IsUw2, c.O.Link & 0x3F) - 1]++;
+                after[SpellTables.Circle(s.IsUw2, sp) - 1]++;
+                c.R.Link = 0x200 | sp;
+                Dictionary<int, int> d;
+                if (s.IsUw2 && colour.TryGetValue(sp, out d)) c.R.Item = d.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key).First().Key;
+                c.Touched = true;
+            }
+            res.Report.AppendFormat("Potions: {0} shuffled{1} (potions with special effects kept).\n", cands.Count, s.IsUw2 ? ", coloured by their new spell" : "");
+            if (cands.Count > 0) CircleReport(s, res, "Spells", before, after);
         }
 
         /// <summary>Applies a result to the level editors, one undoable change per level.</summary>
