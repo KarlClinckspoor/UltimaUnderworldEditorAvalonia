@@ -76,6 +76,8 @@ namespace UwEditor.Core.Conversations
         public string Choice;
         /// <summary>Goes back up (a loop): drawn round the side.</summary>
         public bool Back;
+        /// <summary>A call of a function called from three places or more (the conversation's end, say): left out of the layout, drawn only for a selected node.</summary>
+        public bool Shared;
         public readonly List<GraphPoint> Points = new List<GraphPoint>();
         public override string ToString() { return From.Title + " → " + To.Title + " " + Kind + (Label == null ? "" : " [" + Label + "]"); }
     }
@@ -248,6 +250,11 @@ namespace UwEditor.Core.Conversations
             g.KeepReached();
             g.Simplify();
             g.LabelAnswers(d);
+            foreach (var n in g.Nodes)
+            {
+                var calls = n.In.Where(e => e.Kind == GraphEdgeKind.Call).ToList();
+                if (calls.Count >= 3) foreach (var e in calls) e.Shared = true;
+            }
             int id = 0;
             foreach (var n in g.Nodes)
             {
@@ -486,7 +493,7 @@ namespace UwEditor.Core.Conversations
                 {
                     var top = stack.Pop();
                     var n = top.Item1;
-                    var outs = n.Out.OrderBy(e => e.Kind == GraphEdgeKind.Call ? 1 : 0).ToList();
+                    var outs = n.Out.Where(e => !e.Shared).OrderBy(e => e.Kind == GraphEdgeKind.Call ? 1 : 0).ToList();
                     if (top.Item2 < outs.Count)
                     {
                         stack.Push(Tuple.Create(n, top.Item2 + 1));
@@ -501,7 +508,7 @@ namespace UwEditor.Core.Conversations
             }
 
             // layers: longest path over the forward edges
-            var forward = Edges.Where(e => !e.Back && e.From != e.To).ToList();
+            var forward = Edges.Where(e => !e.Back && !e.Shared && e.From != e.To).ToList();
             var indeg = real.ToDictionary(n => n, n => 0);
             foreach (var e in forward) indeg[e.To]++;
             var queue = new Queue<GraphNode>(real.Where(n => indeg[n] == 0).OrderBy(n => discovery[n]));
@@ -599,6 +606,12 @@ namespace UwEditor.Core.Conversations
             // edge points
             foreach (var e in Edges)
             {
+                if (e.Shared && !e.Back)
+                {
+                    e.Points.Add(new GraphPoint(e.From.CenterX, e.From.Y + e.From.Height));
+                    e.Points.Add(new GraphPoint(e.To.CenterX, e.To.Y));
+                    continue;
+                }
                 if (e.Back || e.From == e.To)
                 {
                     var a = e.From; var b = e.To;
@@ -611,8 +624,8 @@ namespace UwEditor.Core.Conversations
                     e.Points.Add(new GraphPoint(b.X + b.Width, by));
                     continue;
                 }
-                var outs = e.From.Out.Where(x => !x.Back && x.From != x.To).OrderBy(x => x.To.CenterX).ToList();
-                var ins = e.To.In.Where(x => !x.Back && x.From != x.To).OrderBy(x => x.From.CenterX).ToList();
+                var outs = e.From.Out.Where(x => !x.Back && !x.Shared && x.From != x.To).OrderBy(x => x.To.CenterX).ToList();
+                var ins = e.To.In.Where(x => !x.Back && !x.Shared && x.From != x.To).OrderBy(x => x.From.CenterX).ToList();
                 double sx = e.From.X + e.From.Width * (outs.IndexOf(e) + 1) / (outs.Count + 1);
                 double tx = e.To.X + e.To.Width * (ins.IndexOf(e) + 1) / (ins.Count + 1);
                 e.Points.Add(new GraphPoint(sx, e.From.Y + e.From.Height));

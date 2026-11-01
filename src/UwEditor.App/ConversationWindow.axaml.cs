@@ -21,6 +21,12 @@ namespace UwEditor.App
         public readonly ConversationViewModel Model = new ConversationViewModel();
         /// <summary>Written to disk: names in the main window may have changed (STRINGS.PAK).</summary>
         public event Action Saved;
+        /// <summary>Another conversation is shown, or the shown one's code changed (applied, reverted, saved).</summary>
+        public event Action CurrentChanged;
+        /// <summary>A string of the shown conversation was edited.</summary>
+        public event Action StringsChanged;
+        ConversationSimulatorWindow simulatorWindow;
+        ConversationGraphWindow graphWindow;
         readonly ConversationLibrary lib;
         readonly Action<ConversationUser> goTo;
         readonly Action<int> showGlobals;
@@ -45,6 +51,7 @@ namespace UwEditor.App
             Model.SelectedChanged += () => Load(Model.Selected == null ? -1 : Model.Selected.Slot);
             Model.TabChanged += () => { if (Model.Tab == 0 && dialogueStale) RefreshDialogue(); };
             AddHandler(KeyDownEvent, OnKey, RoutingStrategies.Tunnel);
+            Closed += (o, e) => { simulatorWindow?.Close(); graphWindow?.Close(); };
             if (lib != null)
             {
                 Title = "Conversations — " + lib.Session.Title;
@@ -59,6 +66,7 @@ namespace UwEditor.App
             var ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
             if (ctrl && e.Key == Key.S) { Save(); e.Handled = true; }
             else if (ctrl && e.Key == Key.G) { OpenGlobals(); e.Handled = true; }
+            else if (ctrl && e.Key == Key.R && current != null) { ShowSimulator(); e.Handled = true; }
             else if (ctrl && e.Key == Key.Enter && Model.Tab == 2) { ApplyScript(); e.Handled = true; }
         }
 
@@ -129,6 +137,7 @@ namespace UwEditor.App
             RefreshDialogue();
             FillStrings();
             FillUsers(slot);
+            CurrentChanged?.Invoke();
         }
 
         void RefreshDialogue()
@@ -205,6 +214,7 @@ namespace UwEditor.App
             }
             MarkChanged();
             dialogueStale = true;
+            StringsChanged?.Invoke();
         }
 
         void MarkChanged()
@@ -248,8 +258,8 @@ namespace UwEditor.App
             if (line != null) ShowAddress(line.Line.Address);
         }
 
-        /// <summary>Opens the Script tab with the caret on the instruction at a code address.</summary>
-        public void ShowAddress(int address)
+        /// <summary>Opens the Script tab with the caret on the instruction at a code address (focus: move the keyboard focus there too).</summary>
+        public void ShowAddress(int address, bool focus = true)
         {
             Model.Tab = 2;
             string key = "; " + address.ToString("X4");
@@ -264,7 +274,7 @@ namespace UwEditor.App
             int lineStart = s.LastIndexOf('\n', at) + 1;
             Dispatcher.UIThread.Post(() =>
             {
-                ScriptBox.Focus();
+                if (focus) ScriptBox.Focus();
                 ScriptBox.CaretIndex = lineStart;
                 ScriptBox.SelectionStart = lineStart;
                 ScriptBox.SelectionEnd = s.IndexOf('\n', at) < 0 ? s.Length : s.IndexOf('\n', at);
@@ -291,6 +301,7 @@ namespace UwEditor.App
                 RefreshDialogue();
                 MarkChanged();
                 Model.Status = string.Format("Conversation {0} assembled: {1} words of code (not saved).", current.Slot, current.Code.Length);
+                CurrentChanged?.Invoke();
                 return true;
             }
             catch (AssemblyError ex)
@@ -333,6 +344,7 @@ namespace UwEditor.App
             Load(slot);
             MarkChanged();
             Model.Status = "Conversation " + slot + " is as it was saved.";
+            StringsChanged?.Invoke();
         }
 
         void OnSave(object sender, RoutedEventArgs e) { Save(); }
@@ -360,6 +372,47 @@ namespace UwEditor.App
         }
 
         void OnGlobals(object sender, RoutedEventArgs e) { OpenGlobals(); }
+
+        /// <summary>The creatures in the levels that talk through a slot (empty until the levels have been read).</summary>
+        public List<ConversationUser> UsersOf(int slot)
+        {
+            List<ConversationUser> list;
+            return users != null && users.TryGetValue(slot, out list) ? list : new List<ConversationUser>();
+        }
+
+        /// <summary>The shown conversation's strings, with unsaved edits.</summary>
+        public List<string> CurrentStrings { get { return current == null ? new List<string>() : lib.StringsOf(current); } }
+
+        /// <summary>The Strings tab's row of string n of the shown conversation, or null: editing its Text edits the string.</summary>
+        public StringRow StringRowOf(int index) { return Model.Strings.FirstOrDefault(r => r.Index == index); }
+
+        /// <summary>The script text has edits not yet applied.</summary>
+        public bool ScriptPending { get { return Model.ScriptChanged; } }
+
+        void OnSimulate(object sender, RoutedEventArgs e) { ShowSimulator(); }
+        void OnGraph(object sender, RoutedEventArgs e) { ShowGraph(); }
+
+        /// <summary>The simulator for the shown conversation, one at a time.</summary>
+        public ConversationSimulatorWindow ShowSimulator()
+        {
+            if (lib == null) return null;
+            if (simulatorWindow != null) { simulatorWindow.Activate(); return simulatorWindow; }
+            simulatorWindow = new ConversationSimulatorWindow(this);
+            simulatorWindow.Closed += (o, e) => simulatorWindow = null;
+            simulatorWindow.Show(this);
+            return simulatorWindow;
+        }
+
+        /// <summary>The graph of the shown conversation, one at a time.</summary>
+        public ConversationGraphWindow ShowGraph()
+        {
+            if (lib == null) return null;
+            if (graphWindow != null) { graphWindow.Activate(); return graphWindow; }
+            graphWindow = new ConversationGraphWindow(this);
+            graphWindow.Closed += (o, e) => graphWindow = null;
+            graphWindow.Show(this);
+            return graphWindow;
+        }
 
         void OpenGlobals() { showGlobals?.Invoke(current == null ? -1 : current.Slot); }
     }
