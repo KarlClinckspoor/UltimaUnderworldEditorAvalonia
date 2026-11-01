@@ -194,6 +194,7 @@ namespace UwEditor.App
                 findWindow?.Close(); automapWindow?.Close(); checkpointsWindow?.Close();
                 historyWindow?.Close(); worldCheckWindow?.Close();
                 foreach (var t in ToolWindows().ToList()) t.W.Close();
+                scheduleWindow?.CloseQuietly(); saveSlotsWindow?.Close();
             }
             finally { quietClose = false; }
             zoning = null; zoneOverlay = null;

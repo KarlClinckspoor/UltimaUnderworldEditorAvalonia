@@ -16,6 +16,7 @@
         <MenuItem Header="_Open game folder…" InputGesture="Ctrl+O" Click="OnOpen" />
         <MenuItem Header="Open _recent" x:Name="RecentMenu" />
         <Separator />
+        <MenuItem Header="_Saved games…" Click="OnSavedGames" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Checkpoints…" Click="OnCheckpoints" IsEnabled="{Binding HasGame}" />
         <Separator />
         <MenuItem Header="E_xit" Click="OnExit" />
@@ -71,6 +72,10 @@
         <MenuItem Header="_Automap and map notes…" Click="OnAutomap" InputGesture="Ctrl+Shift+A" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_World check…" Click="OnWorldCheck" IsEnabled="{Binding HasGame}" />
         <Separator />
+        <MenuItem Header="_Make this slot a level…" Click="OnMakeSlotALevel" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="C_lear the level…" Click="OnClearLevel" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="Clear the level and its _tiles…" Click="OnClearLevelAndTiles" IsEnabled="{Binding HasGame}" />
+        <Separator />
         <MenuItem Header="Play-_test from the selected tile" Click="OnPlayTest" InputGesture="F5" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="Choose _DOSBox for play tests…" Click="OnDosBoxPath" />
       </MenuItem>
@@ -81,6 +86,7 @@
         <MenuItem Header="G_raphics…" Click="OnGraphics" InputGesture="Ctrl+Shift+R" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="3D m_odels…" Click="OnModels" InputGesture="Ctrl+Shift+O" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="O_bject tables…" Click="OnObjectTables" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="Sc_hedules…" Click="OnSchedules" IsEnabled="{Binding IsUw2}" />
         <Separator />
         <MenuItem Header="_Keys and locks…" Click="OnKeys" InputGesture="Ctrl+Shift+K" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Triggers and traps…" Click="OnTriggers" InputGesture="Ctrl+Shift+T" IsEnabled="{Binding HasGame}" />

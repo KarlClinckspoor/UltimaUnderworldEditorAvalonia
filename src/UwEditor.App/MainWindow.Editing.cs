@@ -88,6 +88,7 @@ namespace UwEditor.App
         IEnumerable<(Window W, string What, Func<bool> Has, Func<bool> Save)> ToolWindows()
         {
             if (objectTablesWindow != null) { var w = objectTablesWindow; yield return (w, "object tables (OBJECTS.DAT, COMOBJ.DAT)", () => w.HasChanges, w.SaveAll); }
+            if (scheduleWindow != null) { var w = scheduleWindow; yield return (w, "schedules (SCD.ARK)", () => w.HasChanges, w.SaveAll); }
         }
 
         bool HasUnsaved() { return UnsavedParts().Count > 0; }

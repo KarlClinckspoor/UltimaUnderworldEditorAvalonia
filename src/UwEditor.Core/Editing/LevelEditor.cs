@@ -727,9 +727,14 @@ namespace UwEditor.Core.Editing
             var ark = Archive.Open(Session.LevArk.ToBytes(), Session.Kind);
             foreach (var e in editors.Values.Where(x => x.Dirty))
             {
-                ark.Write(Session.Profile.LevelBlock(e.Level), e.Data);
+                int block = Session.Profile.LevelBlock(e.Level);
+                // a slot made a level and then undone holds no level again: nothing to write
+                if (!ark.Has(block) && !new LevelBlock(e.Data, Session.Kind).MagicOk) continue;
+                ark.Write(block, e.Data);
                 if (e.TextureBytes != null) ark.Write(Session.Profile.TextureBlock(e.Level), e.TextureBytes);
+                // the editor's own list first (deletes and moves keep it), then anything a raw change (a cleared level) left pointing at free records
                 if (e.AnimChanged) ark.Write(Session.Profile.OverlayBlock(e.Level), e.AnimBytes);
+                if (Session.Kind == GameKind.UW1) PruneUw1Animations(ark, e);
             }
             foreach (var a in automaps.Values.Where(x => x.Dirty))
             {
@@ -737,6 +742,47 @@ namespace UwEditor.Core.Editing
                 ark.Write(Automap.NotesBlock(Session.Kind, a.Level), Automap.WriteNotes(a.Notes));
             }
             return ark.ToBytes();
+        }
+
+        /// <summary>
+        /// UW1 keeps a level's animation list in its own block, level + 8 (obj/EFFECT.C
+        /// Anim_Load), outside what the editor edits. Entries whose object is now free (deleted,
+        /// or the level cleared) are taken out, so the game does not animate a free record;
+        /// the list stays as it was when none are.
+        /// </summary>
+        void PruneUw1Animations(Archive ark, LevelEditor e)
+        {
+            int ab = Session.Profile.OverlayBlock(e.Level);
+            if (ab < 0 || !ark.Has(ab)) return;
+            var list = ark.Read(ab);
+            if (list == null || list.Length != 0x180) return;
+            int[] free, reached;
+            new LevelBlock(e.Data, Session.Kind).Counts(out free, out reached);
+            int n = 0;
+            while (n < 64 && ((list[n * 6] | list[n * 6 + 1] << 8) >> 6) != 0) n++;
+            var keep = new List<int>();
+            for (int i = 0; i < n; i++)
+            {
+                int obj = (list[i * 6] | list[i * 6 + 1] << 8) >> 6;
+                if (obj < LevelBlock.Objects && free[obj] == 0) keep.Add(i);
+            }
+            if (keep.Count == n) return;
+            var nl = (byte[])list.Clone();
+            for (int k = 0; k < keep.Count; k++) Array.Copy(list, keep[k] * 6, nl, k * 6, 6);
+            Array.Clear(nl, keep.Count * 6, (n - keep.Count) * 6);       // a zero object ends the list (Anim_Save)
+            ark.Write(ab, nl);
+        }
+
+        /// <summary>
+        /// Puts a whole new level into a slot (an empty one, say, whose model is not Present):
+        /// the block and texture map, as one undoable step of that level's editor, saved with
+        /// the levels. Returns the editor.
+        /// </summary>
+        public LevelEditor CreateLevel(int level, byte[] data, byte[] tex, string label)
+        {
+            var e = For(level);
+            e.Replace(data, tex, label);
+            return e;
         }
 
         /// <summary>Writes LEV.ARK (the old file kept as LEV.ARK.BKP). Returns the levels written.</summary>
