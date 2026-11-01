@@ -446,6 +446,47 @@ run out, are ignored at first: UW1's bullfrog wand (it works the level 4 puzzle)
 slightly worn wand of Telekinesis in the Scintillus Academy and its wand of Light. The list is
 kept in `item-ignore-uw1.json` / `-uw2.json` in the settings folder.
 
+### Swapping monsters
+
+**Tools ▸ Swap monsters…** makes the monsters trade places. Each spot keeps its position,
+home, goal and (by default) whatever lies in its inventory, and takes another monster's kind,
+hit points, powerful flag and attitude. **Preview**, **Swap** and **Undo swap** work as in the
+item tools; each swap is one Edit ▸ Undo step per level.
+
+- **Swap** within each level, within each world (UW2), or across all levels.
+- **Strength**: the game's own **experience value** for the kind (the default), hit points,
+  damage per round (the three attacks weighted by how often each is used, damage plus
+  strength / 5, and attack spells by how often the creature casts: missiles at their
+  OBJECTS.DAT damage, area spells counted as 12), **combined** (√(hit points × (1 + armour /
+  8) × damage), so neither side outweighs the other), or none (uniform). The **Strength
+  table** tab lists every kind with these measures.
+- **Target**: at 0 each spot keeps its difficulty, taking a monster about as strong as the one
+  that was there, which already follows the game's depth curve; at 100 stronger monsters go
+  deeper; between, a blend.
+- **Spread**: at 0 the strongest monster goes to the hardest spot, strictly; at 100 the swap
+  is uniform.
+- **Keep the hit points at the spot**: a golem put where a 5-hit-point worm was gets 5 hit
+  points, and the worm gets the golem's.
+- **Carried items go with the monster**: otherwise they stay with the spot, keeping each
+  level's loot where it was. Monsters carrying something then only swap within their level.
+- **Powerful**: counted in every measure (armour × 5/3, +7..12 attack skill, +4..15 damage,
+  experience × 1.5..3). **Roll it again** gives each moved monster a chance, raised with depth.
+
+What stays, and why:
+- Creatures with a conversation: the game finds them by their conversation number, and only
+  on their own level (plot deaths, schedules, some traps). An option lets them move within
+  their level. The **Whitelist** lets chosen ones move anywhere: their conversation and special
+  death go with them, only the directions to them stop being right. UW1's level 2 gazer
+  (Goldthirst's quest) and UW2's Listener (Altara's dagger) are whitelisted at first.
+- Templates inside create-object traps, summoned creatures, creatures with no hit points, the
+  Ethereal Void's nameless creatures, and the **Ignored** ones.
+- Within their level only: creatures the game calls by race (UW2's liches, the trilkhun (race 0xB),
+  level 1's guards, level 4's bloodworms; UW1's men on Tybal's level), creatures
+  whose goal targets another creature, and (when carried items go along) creatures carrying
+  something.
+- Swimmers swap only with swimmers, and a monster only goes where its height fits under the
+  ceiling.
+
 ## Mods
 
 **Tools ▸ Mods…** (Ctrl+Shift+M):

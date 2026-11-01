@@ -34,6 +34,19 @@ namespace UwEditor.App
         void OnZoneGraph(object sender, RoutedEventArgs e) { ShowZoneGraph(); }
         void OnItemShuffle(object sender, RoutedEventArgs e) { ShowItemShuffle(); }
         void OnItemSwap(object sender, RoutedEventArgs e) { ShowItemSwap(); }
+        void OnMonsterSwap(object sender, RoutedEventArgs e) { ShowMonsterSwap(); }
+
+        MonsterSwapWindow monsterSwapWindow;
+
+        public MonsterSwapWindow ShowMonsterSwap()
+        {
+            if (vm.Session == null || vm.Edits == null) return null;
+            if (monsterSwapWindow != null) { monsterSwapWindow.Activate(); return monsterSwapWindow; }
+            monsterSwapWindow = new MonsterSwapWindow(this, vm.Session);
+            monsterSwapWindow.Closed += (s, e) => monsterSwapWindow = null;
+            monsterSwapWindow.Show(this);
+            return monsterSwapWindow;
+        }
 
         ItemSwapWindow itemSwapWindow;
 

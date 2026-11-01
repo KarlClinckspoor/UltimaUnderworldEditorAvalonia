@@ -79,6 +79,7 @@
         </MenuItem>
         <MenuItem Header="Shuffle item _properties…" Click="OnItemShuffle" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="S_wap items…" Click="OnItemSwap" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="Swap _monsters…" Click="OnMonsterSwap" IsEnabled="{Binding HasGame}" />
       </MenuItem>
       <MenuItem Header="_Help">
         <MenuItem Header="_Manual" InputGesture="F1" Click="OnManual" />

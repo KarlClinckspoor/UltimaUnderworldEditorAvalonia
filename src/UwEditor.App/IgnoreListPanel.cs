@@ -49,24 +49,39 @@ namespace UwEditor.App
         public event Action Changed;
         public int Count { get { return list.Count; } }
 
+        readonly Action save;
+        readonly Func<IgnoredObject, string> reject;
+
+        /// <summary>The item tools' shared ignore list.</summary>
         public IgnoreListPanel(MainWindow main, GameSession s, Func<int, LevelModel> level, List<IgnoredObject> list)
+            : this(main, s, list, ItemShuffle.Candidates(s, level), () => IgnoreStore.Save(s, list),
+                  "The item shuffle and the item swap both leave these objects alone (a wand's spell object goes with its wand); the list is shared. Wands enchanted directly are ignored at first: Ultima Underworld's bullfrog wand, Underworld II's slightly worn wand of Telekinesis and wand of Light.",
+                  "Objects the tools touch", "Ignored", "Ignore →", "← Stop ignoring", "Ignore the object selected in the editor", null)
+        {
+        }
+
+        /// <summary>A pick list: candidates on the left, the chosen on the right. save runs after every change; reject says why a selected object cannot be added (or null).</summary>
+        public IgnoreListPanel(MainWindow main, GameSession s, List<IgnoredObject> list, List<IgnoredObject> candidates, Action save,
+            string introText, string leftTitle, string rightTitle, string addText, string removeText, string selectedText, Func<IgnoredObject, string> reject)
         {
             this.main = main;
             session = s;
             this.list = list;
-            all = ItemShuffle.Candidates(s, level);
+            this.save = save;
+            this.reject = reject;
+            all = candidates;
             left.Bind(ListBox.BackgroundProperty, left.GetResourceObservable("Panel"));
             right.Bind(ListBox.BackgroundProperty, right.GetResourceObservable("Panel"));
             filter.TextChanged += (o, e) => Refresh();
-            var addB = new Button { Content = "Ignore →" };
+            var addB = new Button { Content = addText };
             addB.Click += (o, e) => Add(left.SelectedItem as IgnoredObject);
             left.DoubleTapped += (o, e) => Add(left.SelectedItem as IgnoredObject);
-            var remB = new Button { Content = "← Stop ignoring" };
+            var remB = new Button { Content = removeText };
             remB.Click += (o, e) =>
             {
                 if (right.SelectedItem is IgnoredObject c) { list.RemoveAll(x => x.Level == c.Level && x.Index == c.Index); Save(); }
             };
-            var selB = new Button { Content = "Ignore the object selected in the editor" };
+            var selB = new Button { Content = selectedText };
             selB.Click += (o, e) =>
             {
                 var vm = main.ViewModel;
@@ -83,14 +98,14 @@ namespace UwEditor.App
             var intro = new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7, Margin = new Thickness(0, 2, 0, 6),
-                Text = "The item shuffle and the item swap both leave these objects alone (a wand's spell object goes with its wand); the list is shared. Wands enchanted directly are ignored at first: Ultima Underworld's bullfrog wand, Underworld II's slightly worn wand of Telekinesis and wand of Light.",
+                Text = introText,
             };
             SetColumnSpan(intro, 3); Children.Add(intro);
             var lh = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4) };
-            lh.Children.Add(new TextBlock { Text = "Objects the tools touch", FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center });
+            lh.Children.Add(new TextBlock { Text = leftTitle, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center });
             lh.Children.Add(filter);
             SetRow(lh, 1); Children.Add(lh);
-            var rh = new TextBlock { Text = "Ignored", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8) };
+            var rh = new TextBlock { Text = rightTitle, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8) };
             SetRow(rh, 1); SetColumn(rh, 2); Children.Add(rh);
             SetRow(left, 2); Children.Add(left);
             var mid = new StackPanel { Spacing = 8, Margin = new Thickness(10, 0), VerticalAlignment = VerticalAlignment.Center };
@@ -107,14 +122,18 @@ namespace UwEditor.App
         void Add(IgnoredObject c)
         {
             if (c == null || list.Any(x => x.Level == c.Level && x.Index == c.Index)) return;
+            string why = reject?.Invoke(c);
+            if (why != null) { status.Text = why; return; }
+            var known = all.FirstOrDefault(x => x.Level == c.Level && x.Index == c.Index);
+            if (known != null) c = known;
             list.Add(c);
-            status.Text = "Ignored: " + c.Label;
+            status.Text = "Added: " + c.Label;
             Save();
         }
 
         void Save()
         {
-            IgnoreStore.Save(session, list);
+            save();
             Refresh();
             Changed?.Invoke();
         }

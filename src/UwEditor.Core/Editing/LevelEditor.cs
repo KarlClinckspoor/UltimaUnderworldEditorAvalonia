@@ -182,6 +182,21 @@ namespace UwEditor.Core.Editing
         /// <summary>Fields the editor does not let you type, because they hold the object lists.</summary>
         public static bool IsListField(string name) { return name == "Next" || name == "First object"; }
 
+        /// <summary>Writes whole object records (the monster swap, and putting them back) as one undoable change.</summary>
+        public void RewriteRecords(IList<KeyValuePair<int, byte[]>> records, string label)
+        {
+            if (records.Count == 0) return;
+            Change(label, () =>
+            {
+                foreach (var r in records)
+                {
+                    int at = LevelBlock.ObjectOffset(r.Key);
+                    int size = r.Key < LevelBlock.Mobiles ? LevelBlock.MobileSize : LevelBlock.StaticSize;
+                    Array.Copy(r.Value, 0, data, at, Math.Min(size, r.Value.Length));
+                }
+            });
+        }
+
         /// <summary>
         /// Rewrites the item, flags, quality and link words of several objects in one undoable
         /// change (the item shuffle): for each object index, its new item id, quality, flags 9-11,

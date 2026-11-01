@@ -597,6 +597,32 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void Monster_swap_window_swaps_and_undoes()
+        {
+            if (Uw1 == null) return;
+            using (var copy = new GameCopy(Uw1, "DATA"))
+            {
+                var w = OpenQuiet(copy.Folder);
+                var mw = w.ShowMonsterSwap();
+                Ui.Pump();
+                var edits = w.ViewModel.Edits;
+                var before = Enumerable.Range(1, 9).ToDictionary(l => l, l => (byte[])edits.For(l).Data.Clone());
+                Assert.Contains(mw.Options.Whitelist, x => x.Level == 2);           // the gazer
+                mw.Options.Seed = 8; mw.Options.Scope = "level";
+                mw.Swap();
+                Ui.Pump();
+                Assert.True(mw.CanUndoSwap);
+                Assert.Contains("took another's place", mw.ReportText);
+                Assert.Contains(before, kv => !kv.Value.SequenceEqual(edits.For(kv.Key).Data));
+                mw.UndoAll();
+                Ui.Pump();
+                foreach (var kv in before) Assert.Equal(kv.Value, edits.For(kv.Key).Data);
+                mw.Close();
+                w.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void Zones_window_adds_renames_paints_fills_and_lists_key_items()
         {
             if (Uw1 == null) return;

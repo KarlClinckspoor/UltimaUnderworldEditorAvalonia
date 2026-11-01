@@ -110,6 +110,7 @@ namespace UwEditor.App
                 case "zonegraph": ShowZoneGraph(); break;
                 case "shuffle": ShowItemShuffle(); break;
                 case "swap": ShowItemSwap(); break;
+                case "monsters": ShowMonsterSwap(); break;
                 case "shuffle-armour": ShowItemShuffle()?.ShowTab(1); break;
                 case "shuffle-armour-end": ShowItemShuffle()?.ShowTab(1, true); break;
                 case "shuffle-wands": ShowItemShuffle()?.ShowTab(4); break;

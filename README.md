@@ -260,6 +260,11 @@ edits that can be undone; the game folder is not touched until you save.
   hand-drawn bars and curves), with UW2's special weapons, other armour effects, ring effects
   and curses, and minimums of tools and runes. Every setting starts from what the world holds,
   each tab can be refitted to the levels, and a world report lists what they hold.
+- **Tools ▸ Swap monsters** makes the monsters trade places by strength (experience value,
+  hit points, damage or both, powerful counted), keeping each spot's difficulty or following
+  the depth, with a spread from strict to uniform. Creatures with a conversation stay unless
+  whitelisted; swimmers, heights and race-bound creatures are respected; hit points can stay
+  with the spot.
 - **Tools ▸ Swap items** only trades the existing objects around, within their kind or across
   the ticked kinds. Both tools share a list of ignored quest objects, and Undo puts everything
   back.
