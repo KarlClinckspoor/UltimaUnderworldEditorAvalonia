@@ -451,3 +451,9 @@ The core tests check, among other things:
 The meaning of the files comes from
 [underworld-exhumed](https://github.com/abedegno/underworld-exhumed), the reconstructed source
 of both games, which is the reference.
+
+## License
+
+The editor's source code is under the [MIT License](LICENSE). Ultima Underworld and its game
+files belong to their rights holders and are not covered: the repository holds none of them,
+except the application icon, which is drawn from UW1's black sword picture.
