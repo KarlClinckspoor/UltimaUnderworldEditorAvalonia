@@ -169,8 +169,9 @@ view chooses the tool:
 - **Move:** click a square and the selected object goes there, keeping its height above the
   floor. A critter's home moves with it.
 - **Paint:** drag over tiles to paint the light flag on or off (only that bit), a floor or
-  wall texture from the level's texture list (shown with thumbnails), a tile type, or a
-  floor height.
+  wall texture from the level's texture list (shown with thumbnails), a tile type, a
+  floor height, or a tile template (type, height and textures together). **Fill** paints
+  every tile walkable from the one clicked; **Paint selection** paints the selected tiles.
 - **Ctrl+wheel** raises or lowers the floor under the mouse, and the objects on it with it.
 - **First person** (P): walk the level at eye height. W A S D walk, Q E or a drag turns,
   R V look up and down, and Esc leaves. Rock and floors more than two steps up stop you.
@@ -207,6 +208,25 @@ teleport's destination, a delete trap's square, or where the chains that reach a
 teleport can aim at another level; one to another level shows its bullseye faded with the
 level named, and **Go to the teleport's target** opens it. **Variable in globals…** opens the global variables
 window on the variable a set or check variable trap uses.
+
+**Selecting several, copying, dragging:** Ctrl+click adds objects or tiles to the
+selection and Ctrl+drag selects tiles in a rectangle. Copy, cut, paste and duplicate
+(Ctrl+C, X, V, D) take objects with everything inside them (contents, a wand's spell, a
+trigger's traps) to any level of the same game. A selected object can be dragged to another
+tile, or onto a container, creature or trigger to go inside. A right click opens a menu of
+what can be done with the object or tile under the mouse.
+
+**2D map** (View menu, Tab): the level straight down without perspective; the map can be
+exported as a PNG. **Undo history** (Ctrl+H) lists a level's steps and goes back to any.
+**World check** (Level menu) finds locked locks no key opens, keys with no lock, and levels
+near the object limits. **Play test** (F5) runs the game in DOSBox from a copy with the
+unsaved levels and the player on the selected square. **Trap recipes** (Edit menu) build a
+lever for a door, teleports there and back (also to another level), pressure plates and
+pick-up, use or look triggers running damage, a message, a variable, a new object or
+creature, a door or a removal, each as one undo step. **Fixes** (Level menu) finds and
+repairs object-list and game-logic problems; the **Item cleaner** removes debris, bones,
+junk or any loose items while keeping quest items, keys, texts and trap-linked objects.
+**Make this slot a level** and **Clear the level** (Level menu) create or empty levels.
 
 **The start and the player:** with the Move tool, click an arrow and then a square. The
 new-game start can only move on level 1: it is patched into `UW.EXE` / `UW2.EXE`, which is
@@ -245,6 +265,14 @@ edits that can be undone; the game folder is not touched until you save.
     (fits, already applied, changed since, missing). It then applies it and opens the game
     again.
 
+- **Tools ▸ Object tables…**: OBJECTS.DAT (weapons, missiles, armour, creatures,
+  containers, lights, food, trigger modes, animations) and COMOBJ.DAT (every item's common
+  properties) in grids, with range checks and what each field means.
+- **Tools ▸ Game tables…**: the terrain of each texture, class skills, item combinations,
+  light levels and UW2's minimum light; **Level ▸ Level textures…** changes the textures a
+  level uses, with thumbnails.
+- **Tools ▸ Schedules…** (UW2): SCD.ARK's scheduled events with named fields.
+  **File ▸ Saved games…**: rename the save slots, copy one to another (with a backup), open one.
 - **Tools ▸ 3D models…** (Ctrl+Shift+O): the 32 models built into the executable, shown
   flat-shaded in their palette colours (drag to turn). For each one it gives the points,
   faces and colours, its place and room in the executable, and the items drawn with it.

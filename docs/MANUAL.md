@@ -212,12 +212,66 @@ DOSBox is looked for next to the game (GOG's `DOSBOX` folder) and where it is us
 installed; otherwise the editor asks for it once (**Choose DOSBox for play tests…**). Unsaved
 strings and conversations are not in the copy.
 
+### New and cleared levels
+
+**Level ▸ Make this slot a level…** turns an empty slot of Underworld II's `LEV.ARK` into a
+level (the game cannot enter an empty slot: it stops with error A003). The new level has no
+objects, the free object lists of a new level, the texture map of another level of its world
+(or the game's default one), and either a small open room in the middle (5 by 5 tiles at
+(30, 30)-(34, 34)) or nothing but rock. **Level ▸ Clear the level…** removes every object of
+the level shown, and **Clear the level and its tiles…** also makes every tile solid rock;
+textures stay. Underworld II's animations and timers go with the objects, and so does
+Ultima Underworld's animation list when the level is saved. Both are one Edit ▸ Undo step
+and are written when you save the levels. To reach the new level in the game, point a
+teleport trap at it.
+
 **The start and the player:** with the Move tool, click an arrow and then a square. The
 new-game start can only move on level 1: it is patched into `UW.EXE` / `UW2.EXE`, which is
 kept as `.ORIG`. The player in a saved game can go to any level, and is saved in
 `PLAYER.DAT`. Clicking the green arrow opens the player window. Edit ▸ Move the … here
 uses the selected tile.
 
+
+## Trap recipes
+
+**Edit ▸ Trap recipes…** makes a working trigger and trap in one step. Choose a recipe on
+the left, fill in what it needs and press **Make**. Squares and objects are chosen with
+**Pick in view** (then click in the main view; Esc cancels) or **Use selection** (what is
+selected in the main view). Each recipe is one Edit ▸ Undo step on its level, and the
+level's list check must still pass, or nothing is changed. The new trigger is selected
+afterwards, so the properties panel and the triggers window show its chain.
+
+- **Lever opens a door:** a lever, switch, button or pull chain opens, closes or toggles a
+  door. Use one already in the level (one that holds no trigger yet) or put a new one on a
+  wall of a tile: on the side you choose, or the first wall found. The lever holds a use
+  trigger aimed at the door's square, and a door trap lies there. In Ultima Underworld the
+  door trap always takes the door's lock off and puts on the lock it carries, so the
+  recipe gives it a copy of the door's own lock; **Unlock the door** leaves it without one.
+  In Underworld II the lock is left alone unless you unlock it.
+- **Teleport:** stepping on a square sends the player to another square, on this level or
+  another one (change level in the main window before picking). **And a way back** adds a
+  second pair; it must start and arrive on other squares than the first, or the player
+  would be sent straight back. Only the player is teleported.
+- **Pressure plate:** stepping on a square runs a trap. In Underworld II it can be a
+  pressure plate, which fires when weight comes onto the square; otherwise a move trigger.
+- **Object trigger:** picking up, using or looking at an object runs a trap. The object
+  must be a single one (not a stack, a creature or an enchanted item) and hold no trigger
+  yet; it is made to hold the trigger.
+
+The plate and the object trigger run one of these traps:
+- **Damage** to whoever set it off, or poison (strength 1-15, the player only);
+- **Show a message**: a new string added to STRINGS.PAK block 9, the text traps' messages.
+  Save levels does not write it: save it in Tools ▸ Strings (or when the editor asks on
+  closing). Undo removes the trap, not the string;
+- **Set a variable**: in Ultima Underworld a game variable 1-63 or a quest bit 0-31, in
+  Underworld II a numbered variable (0-255 variables, 256-383 quest flags);
+- **Create an object or creature**: a copy appears on the square you choose (or the
+  trigger's) each time; the template is kept inside the trap. A creature can be hostile;
+- **Work a door**: open, close or toggle it, as above;
+- **Remove an object** lying on its tile. Such a trigger works once.
+
+**Works every time** makes the trigger reusable; without it the game deletes the chain
+after it runs once. **Creatures set it off too** sets the trigger's enchanted bit.
 
 ## Conversations
 
@@ -259,6 +313,41 @@ The uses come from the constant arguments of those calls. With a saved game open
 values come from its `PLAYER.DAT` and `BGLOBALS.DAT`; they can be changed and saved, and
 the old files are kept as `.BKP`. With `DATA` open, a new game, they read 0. Double-click a
 use to open its conversation at that line.
+
+## Schedules
+
+**Tools ▸ Schedules…** (Underworld II only) edits `SCD.ARK`, the events that move NPCs about
+by the time of day and carry the plot along. With a saved game open it edits that save's
+own copy; otherwise `DATA`'s, which a new game copies into `SAVE0`. Ultima Underworld has
+no schedules, so the item is disabled there.
+
+The file has 16 schedules (blocks). Block 0 runs by the time of day: 72 steps a day, times
+0-71. Block n runs by X clock n (1 the castle plot, 2 the blackrock gems, 3 the djinn
+capture, 14 pit kills, 15 the changes counter), times 0-255. A row runs once its block's
+clock passes its time, on the level it names (a level, 246 + n for every level of world n,
+255 any level), while the player is on that level. A level the player is away from catches
+up when he comes back.
+
+- The list shows the block's rows in time order: number, time, level, and what the row does,
+  with NPCs named from their conversation (whoami) and races from the creatures.
+- Select a row to edit its fields. Time, level, once (the row deletes itself after it runs)
+  and event come first, then the event's own fields, named as the game reads them: the
+  critters it acts on (by whoami, by race, one object, or every critter), squares, goals,
+  attitudes, quest flags, variables and operations. Bytes the event does not read are listed
+  as unused. Each field takes only its range.
+- Events: 1 change goal, 2 teleport (on the current level only), 3 kill, 4 set a quest flag,
+  5 fire the scheduled triggers on a square, 7 a special case (gargoyle, soldier, freeze
+  floors, close doors, Nystul, Gotha), 8 attitude, 9 set a variable, 10 test variables,
+  11 remove. A negative event is disabled: a test row (10) runs the disabled rows after it
+  when its test passes. An event of 12 or more stops the schedules each time it is reached.
+- A new time moves the row to its place; rows of the same time keep their order (▲ ▼ change
+  it). A test row takes its disabled rows along.
+- **Add row** puts an empty row (event 0, any level) after the selected one, with its time;
+  **Copy row** a copy of it. **Delete row** removes it.
+- **Save SCD.ARK** writes the changed blocks (`SCD.ARK.BKP` keeps the old file). Each level's
+  place in a schedule moves with the rows, so rows already run are not run again.
+  **Revert** goes back to the file on disk. Unsaved changes are asked about when the window
+  closes.
 
 ## Player and inventory
 
@@ -333,6 +422,61 @@ across all levels, where each lies, whether it is locked, and the keys' descript
 lies, the square its chain runs on and each trap in the chain, then the traps no trigger
 reaches. A line explains itself; double-click goes to it in the map.
 
+## Fixes
+
+**Level ▸ Fixes…** checks what the game itself relies on, on the levels as edited, and
+repairs what it can. **This level** or **Every level**; **Check** runs it again. The list
+on the left has each check with its count; pick one to read what it looks for. Each finding
+says what is wrong, where, and what its fix does. Double-click it (or **Go to**) to open its
+level and select the object or tile.
+
+There are three kinds of finding:
+
+- **List errors** fail the game's own check of the object lists (Obj_ListOkay, what
+  **Check the object lists** reports): an object reached twice (a next or contents link
+  that loops or runs into another list), objects that are neither free nor on any tile,
+  contents cut off by Is quantity set on their container, and faults in the free stacks (an
+  index twice, an object in use, a wrong index, a count past the stack, an empty slot on no
+  stack).
+- **Problems** pass that check but make the game misbehave: a creature on the map but not on
+  the active list (it never moves), an active entry that is free, twice or inside a trap; a
+  mobile whose tile bytes are not its tile; a creature with 0 hit points (deleted when it
+  first moves); a trap or trigger linking to a free index, or a trigger linking to something
+  that is not a trap; a delete object trap aimed at the wrong tile; a UW2 animation entry for a
+  free object; a book, scroll, gravestone, writing or text trap naming a string that is not
+  there.
+- **Warnings** may be meant: trap chains that loop, items or creatures in solid rock, items
+  under the floor, UW2 animation entries with another tile, locked locks no key opens.
+
+**Fix** repairs the selected finding; **Fix all of this kind** the ones listed; **Fix all**
+everything with a fix in the levels checked (warnings only when **Fix all fixes warnings
+too** is ticked). Links that arrive a second time are cut (nothing is lost: what follows was
+already reached); lost objects are freed as the game frees them (free stack, active list,
+animation list, and trap links to them cleared), or put back on the tile of the trap or
+trigger that names them; the free stacks and the active list are rebuilt keeping their good
+entries in order. Each fix, and each level's Fix all, is one **Edit ▸ Undo** step. Texts,
+non-trap links, loops and keyless locks have no automatic fix. UW1 keeps its animation list
+in a block of its own, which is not checked.
+
+## Item cleaner
+
+**Level ▸ Item cleaner…** (also from the Fixes window) removes objects by kind from this
+level or every level: debris, bones, junk (broken weapons, blood stains), plants, food,
+weapons and armour, treasure, potions, lights, or every item that can be picked up. By
+default only what lies on the floor; tick **Also inside containers** or **Also what
+creatures carry** for more. **Tiles from … to** and **Name contains** narrow it down.
+
+**Preview** lists what would go, with counts by name, and what of those kinds is kept and
+why. Never removed: keys, locks, quest items, talismans, runestones, books and scrolls with a
+text, maps, anything a trap or trigger names (create-object templates, delete targets), the
+kinds an inventory trap asks for, UW1's emeralds and Garamon's bones, UW2's storage crystals,
+curious implement and lockpick, objects that hold something (contents, a trigger, a lock),
+what characters who talk carry, and creatures, doors, furniture, decals, switches, traps and
+triggers. Conversations can ask for ordinary items too: look before cleaning a quest area.
+
+**Remove listed** deletes them as Delete does, one **Edit ▸ Undo** step a level. Nothing is
+written to the game until you save the levels.
+
 ## Automap and map notes
 
 **Level ▸ Automap and map notes…** (Ctrl+Shift+A) shows the player's map of the current
@@ -350,6 +494,67 @@ level; UW2 0x9F + level and 0xEF + level). A saved game has its own; a new game 
 - **Show the level under the map** draws the level faintly behind, to paint by.
 - **Undo** steps back in the window; the changes are saved with the levels (Save levels)
   and count as unsaved work.
+
+## Game tables
+
+**Tools ▸ Game tables…** edits the small tables in the game's `DATA` folder. They hold for
+the whole game, saved games too, so the `DATA` folder's copy is changed even when a saved
+game is open. Each tab saves its own file (**Save NAME.DAT**); the old file is kept as
+`NAME.DAT.BKP`, and the first version as `NAME.DAT.ORIG`. **Revert** goes back to the file
+as saved. Changed values are marked, and a changed row of a list starts with •. Closing the
+window with unsaved tables asks first.
+
+- **Terrain** (`TERRAIN.DAT`): the terrain of each texture, with its picture. Choose a
+  texture on the left, then its terrain on the right, or type the word itself.
+  - Underworld: the walls (`W64.TR`, 210 textures) and floors (`F32.TR`, 52) have a table
+    each. A wall can be normal, an ankh shrine, stairs, a pipe, a grating, a drain, the
+    chained princess, a window, a tapestry or the textured door (the game looks for these);
+    a floor normal, water or lava. Ice (0x30) is known to the engine but unused.
+  - Underworld II: one table for `T64.TR`'s first 256 textures (the file has 264; the last
+    8 have no terrain). The class is normal, water, lava or ice. Water can have a current
+    that carries a swimmer north, south, east or west; ice is slippery (0-6) or grips (7). A
+    wall can be stairs (3 and 4, drawn as stairs on the automap) or a shaft (5).
+  - The automap's colours for water, lava and ice come from this table.
+- **Class skills** (`SKILLS.DAT`): each class's strength, dexterity, intelligence and
+  bonus points, and its five skill entries. A new character gets the three attributes, then
+  the bonus points spread over them at random, none above 30. Then each entry in turn: an
+  empty one gives nothing, one skill is given, several make a menu to pick one. An empty
+  entry also loses the entries after it (the game does not step past it); **Check** says so.
+- **Combinations** (`CMB.DAT`): ten rules, first item + second item → output. Drop one item
+  on the other in the inventory (either order) to make the output; a source marked
+  *used up* goes away. Neither item may be a stack or hold anything, and the first rule
+  naming both is used. In Underworld a rule needs a source used up or it is ignored; its
+  unused rules are zeros. Underworld II uses every rule; its unused ones are 0xFFFF.
+  **In use** adds or removes a rule.
+- **Light** (`SHADES.DAT`): a row for each of the eight light levels. The six values set
+  how fast the light falls off with distance, how dark the nearest square is, where the
+  darkening starts, how far you see (curvrad, 0-15), and from which shade the textures are
+  drawn flat or smaller. The swatches show the shade at distance 0-15. The **Light** box
+  above the 3D view shows a light level, and follows a saved table.
+  - Underworld II only: **Minimum light** (`DL.DAT`), a byte for each of the 80 levels: a
+    light level 0-9 that the player's light never falls below, and where it applies, on
+    squares with the light flag or on squares without it. Level 1, the castle, has light 4
+    on squares without the flag; its corridors have the flag, so they are dark. The light
+    flag is painted with the Paint tool (Light flag on / off); **Flag every open square** and
+    **Clear every flag** change the whole level at once, as one Edit ▸ Undo step saved with
+    the levels.
+
+## Level textures
+
+**Level ▸ Level textures…** lists the textures the current level can use and follows the
+level shown in the main window. A tile names its wall and floor textures by slot, and the
+level's texture map says which texture each slot shows.
+
+- Underworld: 48 wall slots (`W64.TR`), 10 floor slots (`F32.TR`, the ceiling is slot 9)
+  and 6 door slots (`DOORS.GR`).
+- Underworld II: 64 slots of `T64.TR`; the first 16 are also the floor slots (the ceiling is
+  slot 15). And 6 door slots.
+
+Each slot shows its picture, the texture number, how many open tiles use it, and the
+texture's terrain (water, lava...). Choose a slot, then click another texture on the right
+to show it there; textures already in the list are marked •. Each change is one Edit ▸ Undo
+step, the 3D view and the paint brush's slots follow, and Save levels writes it with the
+level (only the level's texture map block changes).
 
 ## Strings
 
@@ -376,6 +581,45 @@ MTL file of its palette colours. **Export all…** writes every model that has f
 The models cannot be replaced yet. The replacement study in the project notes explains
 what that would take.
 
+## Object tables
+
+**Tools ▸ Object tables…**: the fixed properties of each kind of object, from `DATA\OBJECTS.DAT`
+and `DATA\COMOBJ.DAT`, a tab per table:
+- **Weapons** (0x00-0x0F): slash, bash and stab damage, swing charge and speed, skill
+  (3 sword, 4 axe, 5 mace, 6 unarmed), durability (255 unbreakable). Entry 15 is the bare fist.
+- **Ranged** (0x10-0x1F): ammunition and launchers. A launcher names its ammunition
+  (item - 0x10); ammunition has the damage done when it hits.
+- **Armour** (0x20-0x3F): protection, durability and the category, which decides the
+  paperdoll slot (0 shield, 1 body, 3 leggings, 4 gloves, 5 boots, 8 hat, 9 ring).
+- **Creatures** (0x40-0x7F): armour by hit zone, average hit points, attributes, race,
+  movement, trading temper, the three attacks, senses, the weapons and loot they carry,
+  experience and spells. New creatures and the monster swap read this table.
+- **Containers** (0x80-0x8F): capacity and what they accept (-1 anything, an item id, or
+  0x200 runes, 0x201 missiles, 0x202 scrolls, 0x203 food, 0x204 keys in UW2).
+- **Lights** (0x90-0x9F): burn rate and brightness (light level 0-7) of the lights; lit
+  lights are 4-7. The last 8 entries belong to the wands.
+- **Food** (0xB0-0xBF): nutrition.
+- **Triggers** (0x1A0-0x1AF): the action that sets each trigger off (0 move, 1 step on,
+  2 pick up, 4 use, 5 look, 6 unlock, 7 open). In UW2, 0x1B0-0x1BF share these entries.
+- **Animations** (0x1C0-0x1CF): how animated objects run their frames.
+- **Common properties** (every item, COMOBJ.DAT): height, radius, mass (tenths of a
+  stone), value, the flags (solid, can be picked up, can be owned...), toughness and
+  quality words, fate when thrown, resistances and how it is drawn.
+
+One row per item, with its picture and name. Click a cell to edit it; Enter or Tab keeps
+the value, Shift+Tab goes back, Escape drops it. Numbers are decimal, or hexadecimal with `0x`.
+A value outside the field's range is refused, and one the game cannot use (a weapon skill
+that is not a weapon skill, an armour category no slot takes) is kept with a warning; both
+show in the status line. Changed cells are marked and changed rows have a bar at the left.
+Below the grid is what the selected field means, where it is in the file, its range and
+the value on disk. Click a column heading to read about the field.
+
+**Filter** shows the rows whose name or number matches; *Changed rows only* shows what you
+edited. **Revert row** puts the selected row back as it is in the file; **Revert all** drops
+every change. **Save** writes the changed files (old copies kept as `.BKP` and `.ORIG`).
+The game reads them at start-up. A saved game has no copy of its own: the files in DATA
+apply to every saved game.
+
 ## Checkpoints
 
 **File ▸ Checkpoints…** While there are unsaved changes, the editor keeps a copy of them
@@ -386,6 +630,21 @@ loads one back as unsaved edits: each level becomes one undo step, and nothing i
 folder changes until you save. Restoring the strings or the player cannot be undone, so the
 editor asks first when they have unsaved edits of their own. The copies live in the editor's settings folder, one folder
 per opened game. Unsaved conversation scripts are not included; their strings are.
+
+## Saved games
+
+**File ▸ Saved games…** lists the game folder's four save slots, `SAVE1` to `SAVE4`, with the
+description the game's save menu shows (the slot's `DESC` file; "<not used yet>" when it
+has none). A saved game is a copy of the game's working folder `SAVE0`: `LEV.ARK` (with the
+maps and notes), `PLAYER.DAT`, `BGLOBALS.DAT`, `DESC` and, in Underworld II, `SCD.ARK`.
+
+- **Rename** writes the description: plain characters, at most 30, as the game takes them
+  (`DESC.BKP` keeps the old one).
+- **Copy to** copies every file of the slot to another slot. When that slot already holds a
+  save, the editor asks first and keeps the old one as `SAVEn.BKP` (replacing an older
+  backup). The slot open in the editor cannot be replaced; open `DATA` or another slot first.
+  Copying the open slot copies it as it is on disk, without unsaved level edits.
+- **Open** opens the slot in the editor, asking about unsaved work first.
 
 ## Colour scheme
 
@@ -666,6 +925,10 @@ and its strongest creature, and the creatures with a conversation.
 | `PLAYER.DAT`, `BGLOBALS.DAT` | Player window, Global variables, a moved player (saved games only) |
 | `UW.EXE`, `UW2.EXE` | the new-game start square, patched in place |
 | `.GR`, `.TR`, `.BYT`, CRIT, CUTS files | Graphics imports |
+| `OBJECTS.DAT`, `COMOBJ.DAT` | Object tables |
+| `TERRAIN.DAT`, `SKILLS.DAT`, `CMB.DAT`, `SHADES.DAT`, `DL.DAT` | Game tables |
+| `SCD.ARK` | Schedules (UW2) |
+| `DESC`, save folders | Saved games (rename, copy) |
 
 Before writing, the old file is kept as `NAME.EXT.BKP`. The first time the editor writes a file,
 it also keeps the untouched original as `NAME.EXT.ORIG`. The mods window compares with
