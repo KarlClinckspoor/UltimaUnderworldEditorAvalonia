@@ -1,0 +1,59 @@
+name: Release
+
+# Builds self-contained single-file editors for Windows, Linux and macOS and publishes a
+# GitHub release. Run it from the Actions tab (Run workflow), or push a tag such as v0.2.0-beta.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (no v), e.g. 0.1.0-beta"
+        required: true
+        default: "0.1.0-beta"
+      prerelease:
+        description: "Mark as a pre-release"
+        type: boolean
+        default: true
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Version
+        id: v
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then V="${GITHUB_REF_NAME#v}"; PRE=$([[ "$V" == *-* ]] && echo true || echo false);
+          else V="${{ inputs.version }}"; PRE="${{ inputs.prerelease }}"; fi
+          echo "version=$V" >> $GITHUB_OUTPUT
+          echo "number=${V%%-*}" >> $GITHUB_OUTPUT
+          echo "prerelease=$PRE" >> $GITHUB_OUTPUT
+      - name: Publish
+        run: |
+          V=${{ steps.v.outputs.version }}
+          mkdir -p dist
+          for r in win-x64 linux-x64 osx-x64 osx-arm64; do
+            d=stage/UwEditorFree-$V-$r
+            dotnet publish src/UwEditor.App -c Release -r $r --self-contained true \
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none \
+              -p:Version=${{ steps.v.outputs.number }} -p:InformationalVersion=$V -o $d
+            rm -f $d/*.pdb
+            sed "s/VERSION/$V/" .github/release-readme.txt > $d/README.txt
+            (cd stage && if [ $r = linux-x64 ]; then tar czf ../dist/UwEditorFree-$V-$r.tar.gz UwEditorFree-$V-$r; else zip -qr9 ../dist/UwEditorFree-$V-$r.zip UwEditorFree-$V-$r; fi)
+          done
+          ls -la dist
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=${{ steps.v.outputs.version }}
+          sed "s/0\.1\.0-beta/$V/g" .github/release-notes.md > notes.md
+          PRE=""; [ "${{ steps.v.outputs.prerelease }}" = "true" ] && PRE="--prerelease"
+          gh release create "v$V" dist/* --target "${{ github.sha }}" --title "Underworld Editor $V" --notes-file notes.md $PRE

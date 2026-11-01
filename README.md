@@ -317,6 +317,13 @@ Help ▸ Controls lists the mouse and keys.
 
 ![UW2, Britannia, the start room](docs/uw2-britannia.png)
 
+## Downloads
+
+Ready-made builds for Windows, Linux and macOS are on the
+[Releases page](https://github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia/releases).
+They are made by `.github/workflows/release.yml`: run it from the Actions tab, or push a tag
+such as `v0.2.0-beta`.
+
 ## Building and running
 
 You need the [.NET 10 SDK](https://dotnet.microsoft.com/download).
