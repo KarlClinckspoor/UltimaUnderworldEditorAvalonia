@@ -482,6 +482,31 @@ auxiliary colours, or the 256 of the palette), so the indices survive a round tr
 A replaced cutscene frame re-encodes only its own delta, the next frame's and the loop
 back to the first. Saving keeps each old file as `.BKP`.
 
+## Pixel editor
+
+**Edit pixels…** in the graphics window (pictures, critter frames, cutscene frames), or
+**Edit its picture…** in an object's right-click menu, opens a picture to draw on, enlarged
+with a grid, at its own size. The colours are the ones the picture can use: the palette's 256
+for 8-bit pictures (portraits, textures, screens), or for 4-bit pictures (most item pictures,
+critter frames) the 16 or 32 of its auxiliary palette; a dot marks the colours it uses now,
+and the transparent colour shows as ∅ over a checkerboard.
+
+- **Tools:** pencil (B), eraser (E, the transparent colour), colour picker (I, or Alt+click),
+  fill (G), line (L), rectangle (R) and filled rectangle (Shift+R).
+- **Brush width:** 1 pixel by default, up to 16 ([ and ] change it). The left button draws
+  with the first colour, the right button with the second; X swaps them. Click a colour to make
+  it the first, right-click it for the second.
+- **Zoom** (+ and −) and **Grid**; a preview shows the picture at its size and twice it.
+- **Undo** and **Redo** (Ctrl+Z, Ctrl+Y), and **Revert to the picture as opened**.
+- **Apply** puts the drawing into the picture (not saved yet: the file is saved from the
+  graphics window, the prompt on closing, or **Apply and save**, which writes the file at once,
+  keeping `NAME.EXT.BKP`). Closing with drawing not applied asks first.
+
+An item with no picture (UW1's nameless slots) gets a blank one to draw on, shaped as the
+nearest picture in `OBJECTS.GR`. A critter page must stay under 0x7FFF bytes, and a cutscene
+frame is encoded again with the next one; both say so when a drawing does not fit. After
+`OBJECTS.GR` or a texture file is saved, the 3D view and the object list show the new pictures.
+
 ## Keys and locks
 
 **Tools ▸ Keys and locks…** (Ctrl+Shift+K): every lock number with its keys and locks
@@ -691,6 +716,39 @@ edited. **Revert row** puts the selected row back as it is in the file; **Revert
 every change. **Save** writes the changed files (old copies kept as `.BKP` and `.ORIG`).
 The game reads them at start-up. A saved game has no copy of its own: the files in DATA
 apply to every saved game.
+
+## Item slots
+
+**Tools ▸ Item slots…** (or **Item slot…** in an object's right-click menu): every item id
+(weapons, missiles, armour, and the containers, lights, treasure, food, scenery and special
+items) with what uses it, to turn a slot into a new item. The game has 512 ids and decides
+how an object acts by its class (a weapon, food, a light…), so a new item is an existing id
+given a new name, picture and stats.
+
+For each id it lists:
+- objects of it in every level, as edited: on the floor, in containers, carried by
+  creatures, or made by create-object traps;
+- **conversations** that create, take, look for or delete it (`do_inv_create`,
+  `do_inv_delete`, `take_from_npc`, `take_id_from_npc`, `find_inv`, `find_barter`,
+  `find_barter_total`), with the line; a call that names its whole class (1000 + the class) is
+  marked so. Caliburn, for example, is made by Shak's conversation from the blade and the hilt;
+- the **game's own code**, when a source file of the game names the id (its use, its look, a
+  combination, combat…): that behaviour stays with the id;
+- creature loot and arms in OBJECTS.DAT, and item combinations (CMB.DAT);
+- UW1's quest items by name.
+
+**Free slots only** shows the ids nothing uses. A free slot is safe to make into a new item of
+its class; one only objects use can be freed by moving or deleting them; one the code or a
+conversation uses keeps that behaviour whatever its name. For the selected id:
+- **Name:** article, name and plural, written to STRINGS.PAK block 4 as `a_name&plural`
+  (**Save STRINGS.PAK**, or with the other string edits);
+- **Edit the picture…** opens the pixel editor on its `OBJECTS.GR` picture;
+- **Edit its stats** and **Edit its common properties** open the object tables on its row
+  (damage, protection, nourishment, brightness…; mass, value, size, flags);
+- **Place one on the selected tile** adds one to the level.
+
+Not checked: text that only mentions an item in a conversation's words, and UW2's
+`babl_hack` calls.
 
 ## Checkpoints
 

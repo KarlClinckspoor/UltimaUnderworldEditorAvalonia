@@ -269,6 +269,12 @@ edits that can be undone; the game folder is not touched until you save.
     (fits, already applied, changed since, missing). It then applies it and opens the game
     again.
 
+- **Pixel editor** (graphics window's Edit pixels…, or an object's right-click menu): draw on
+  any picture with its own colours (the palette, or a 4-bit picture's 16), with pencil, eraser,
+  picker, fill, lines and rectangles, a brush of 1-16 pixels and undo; saved in place.
+- **Tools ▸ Item slots…**: what uses each item id (levels, conversations, the game's code,
+  creature loot, combinations, quest items) and free slots, to make a new item from one: name and
+  plural, picture, stats, placing.
 - **Tools ▸ Object tables…**: OBJECTS.DAT (weapons, missiles, armour, creatures,
   containers, lights, food, trigger modes, animations) and COMOBJ.DAT (every item's common
   properties) in grids, with range checks and what each field means.

@@ -197,6 +197,28 @@ namespace UwEditor.Core.Graphics
             return img;
         }
 
+        /// <summary>
+        /// Picture i, or for an empty slot of a .GR file a blank one to draw (all transparent),
+        /// shaped as the nearest picture that is there (its size, type and auxiliary palette), so
+        /// an item without a picture can get one. Null when there is nothing to copy the shape from.
+        /// </summary>
+        public IndexedImage GetOrBlank(int i, Palettes pals, int palette)
+        {
+            var img = Get(i, pals, palette);
+            if (img != null || Kind != PictureFileKind.Gr) return img;
+            for (int d = 1; d < Count; d++)
+                foreach (int j in new[] { i - d, i + d })
+                {
+                    if (j < 0 || j >= Count) continue;
+                    var like = Get(j, pals, palette);
+                    if (like == null) continue;
+                    var b = like.Clone();
+                    b.Pixels = new int[b.Width * b.Height];      // index 0: transparent in sprites and auxiliary palettes
+                    return b;
+                }
+            return null;
+        }
+
         public string Describe(int i, IndexedImage img)
         {
             if (img == null) return "empty";

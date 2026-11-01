@@ -113,6 +113,9 @@ namespace UwEditor.App
                 case "monsters": ShowMonsterSwap(); break;
                 case "automap": ShowAutomap(); break;
                 case "map": ToggleMap(); break;
+                case "pixels": EditItemPicture(0xB5); break;
+                case "pixels-portrait": { var g = ShowGraphics(); g.Model.FileName = vm.Session.IsUw2 ? "HEADS.GR" : "CHARHEAD.GR"; g.EditPicture(); break; }
+                case "itemslots": ShowItemSlots(0x1B); break;
                 case "multi":
                     {
                         var l = vm.Level;

@@ -192,7 +192,7 @@ namespace UwEditor.App
                 zonesWindow?.Close(); zoneGraphWindow?.Close();
                 itemShuffleWindow?.Close(); itemSwapWindow?.Close(); monsterSwapWindow?.Close();
                 findWindow?.Close(); automapWindow?.Close(); checkpointsWindow?.Close();
-                historyWindow?.Close(); worldCheckWindow?.Close();
+                historyWindow?.Close(); worldCheckWindow?.Close(); itemSlotsWindow?.Close();
                 foreach (var t in ToolWindows().ToList()) t.W.Close();
                 scheduleWindow?.CloseQuietly(); saveSlotsWindow?.Close();
                 CloseFixesWindows();
@@ -209,6 +209,7 @@ namespace UwEditor.App
             settings.Save();
             BuildRecentMenu();
             vm.Open(s);
+            s.Pictures.Saved += OnPicturesSaved;
             CheckpointsFor(s);
         }
 

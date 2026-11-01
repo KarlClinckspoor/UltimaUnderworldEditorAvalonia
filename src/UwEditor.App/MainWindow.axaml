@@ -92,6 +92,7 @@
         <MenuItem Header="G_raphics…" Click="OnGraphics" InputGesture="Ctrl+Shift+R" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="3D m_odels…" Click="OnModels" InputGesture="Ctrl+Shift+O" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="O_bject tables…" Click="OnObjectTables" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Item slots…" Click="OnItemSlots" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="Sc_hedules…" Click="OnSchedules" IsEnabled="{Binding IsUw2}" />
         <MenuItem Header="Game t_ables…" Click="OnGameTables" IsEnabled="{Binding HasGame}" />
         <Separator />

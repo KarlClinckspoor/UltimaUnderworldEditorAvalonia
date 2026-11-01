@@ -71,6 +71,8 @@ namespace UwEditor.App
         IEnumerable<Control> ExtraObjectItems(ObjectInfo o)
         {
             yield return Item("Trap _recipes…", () => ShowTrapRecipes(), vm.Editor != null);
+            yield return Item("Edit its _picture…", () => EditItemPicture(o.Item));
+            yield return Item("Item _slot (name, picture, stats, uses)…", () => ShowItemSlots(o.Item));
         }
 
         // ---- the 2D map

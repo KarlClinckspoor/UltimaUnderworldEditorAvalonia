@@ -102,6 +102,38 @@ namespace UwEditor.App
 
         // ---- pictures
 
+        /// <summary>The pixel editor on the picture shown (null when none is).</summary>
+        public PixelEditorWindow EditPicture()
+        {
+            if (Model.Picture == null || Model.File == null) return null;
+            var w = new PixelEditorWindow(Model.Picture, Model.File.Name + " picture " + (Model.PictureThumb?.Index ?? 0), Model.File.Describe(Model.PictureThumb?.Index ?? 0, Model.Picture), Model.ReplacePicturePixels,
+                () => { try { Model.SavePictures(); return null; } catch (Exception ex) { return ex.Message; } }, Model.File.Name);
+            w.Show(this);
+            return w;
+        }
+
+        public PixelEditorWindow EditFrame()
+        {
+            if (Model.CritterImage == null) return null;
+            var w = new PixelEditorWindow(Model.CritterImage, (Model.Critter?.ToString() ?? "critter") + ", frame " + Model.FrameIndex, "A critter frame: its auxiliary palette's colours. The page must stay under 0x7FFF bytes.", Model.ReplaceFramePixels,
+                () => { try { Model.SaveCritter(); return null; } catch (Exception ex) { return ex.Message; } }, "the critter's pages");
+            w.Show(this);
+            return w;
+        }
+
+        public PixelEditorWindow EditCutFrame()
+        {
+            if (Model.CutImage == null || Model.Lpf == null) return null;
+            var w = new PixelEditorWindow(Model.CutImage, Model.Lpf.Name + ", frame " + (Model.CutFrame + 1), "A cutscene frame: the animation's palette. The next frame's change is encoded again.", Model.ReplaceCutPixels,
+                () => { try { Model.SaveCutscene(); return null; } catch (Exception ex) { return ex.Message; } }, Model.Lpf.Name);
+            w.Show(this);
+            return w;
+        }
+
+        void OnEditPicture(object sender, RoutedEventArgs e) { EditPicture(); }
+        void OnEditFrame(object sender, RoutedEventArgs e) { EditFrame(); }
+        void OnEditCutFrame(object sender, RoutedEventArgs e) { EditCutFrame(); }
+
         async void OnExportPicture(object sender, RoutedEventArgs e)
         {
             if (Model.Picture == null) return;

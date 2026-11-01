@@ -37,6 +37,12 @@ namespace UwEditor.Core
         public ObjectNames Names { get; private set; }
         public GameStrings Strings { get; private set; }
         public GameGraphics Graphics { get; private set; }
+        /// <summary>The picture files opened for editing, with their unsaved replacements: one copy of each file for every window (graphics, pixel editor, item slots).</summary>
+        public Graphics.PictureStore Pictures { get { return pictures ?? (pictures = new Graphics.PictureStore(DataFolder, Kind)); } }
+        Graphics.PictureStore pictures;
+
+        /// <summary>Reads the graphics the view draws again (after OBJECTS.GR or the textures were saved).</summary>
+        public void ReloadGraphics() { Graphics = GameGraphics.Load(DataFolder, Kind); }
         public PlayerDat Player { get; private set; }
         /// <summary>The 3D models built into UW.EXE / UW2.EXE, or null when the executable is missing.</summary>
         public UltimateEditor.Uw1.Uw1ExeModels ExeModels { get; private set; }

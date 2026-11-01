@@ -42,7 +42,8 @@ namespace UwEditor.App
 
         public ObservableCollection<string> Files { get; } = new ObservableCollection<string>();
         public ObservableCollection<Thumb> PictureThumbs { get; } = new ObservableCollection<Thumb>();
-        readonly Dictionary<string, PictureFile> open = new Dictionary<string, PictureFile>();
+        /// <summary>The session's shared picture files (one copy per file for every window).</summary>
+        IEnumerable<PictureFile> openFiles { get { return Session.Pictures.Open; } }
         string fileName;
         Thumb pictureThumb;
         int palette;
@@ -65,7 +66,8 @@ namespace UwEditor.App
                 try
                 {
                     PictureFile f;
-                    if (!open.TryGetValue(value, out f)) open[value] = f = PictureFile.Load(Path.Combine(Session.DataFolder, value), Session.Kind);
+                    f = Session.Pictures.Get(value);
+                    if (f == null) throw new FileNotFoundException("No " + value + " in DATA.");
                     File = f;
                     palette = f.DefaultPalette(0);
                     Raise(nameof(PaletteIndex));
@@ -135,6 +137,45 @@ namespace UwEditor.App
             return r;
         }
 
+        /// <summary>Puts drawn pixels into the picture shown (the pixel editor); null, or why not.</summary>
+        public string ReplacePicturePixels(int[] pixels)
+        {
+            if (Picture == null || pictureThumb == null) return "No picture is shown.";
+            try { File.Replace(pictureThumb.Index, Picture, pixels); }
+            catch (Exception ex) { return ex.Message; }
+            int i = pictureThumb.Index;
+            pictureThumb.Bitmap = Pictures.ToBitmap(File.Get(i, Palettes, palette));
+            pictureThumb.Label = i + " ●";
+            ShowPicture();
+            Status = string.Format("Picture {0} drawn (not saved).", i);
+            return null;
+        }
+
+        /// <summary>Puts drawn pixels into the critter frame shown; null, or why not.</summary>
+        public string ReplaceFramePixels(int[] pixels)
+        {
+            var f = CurrentFrame;
+            if (f == null || CritterImage == null) return "No frame is shown.";
+            try { f.Item1.Replace(f.Item2, pixels); }
+            catch (Exception ex) { return ex.Message; }
+            int keep = frame;
+            FillFrames();
+            frame = -1; FrameIndex = keep;
+            Status = string.Format("Frame {0} of {1} drawn (not saved).", f.Item2, f.Item1.Name);
+            return null;
+        }
+
+        /// <summary>Puts drawn pixels into the cutscene frame shown; null, or why not.</summary>
+        public string ReplaceCutPixels(int[] pixels)
+        {
+            if (Lpf == null || CutImage == null) return "No frame is shown.";
+            try { Lpf.Replace(cutFrame, pixels); }
+            catch (Exception ex) { return ex.Message; }
+            ShowCut();
+            Status = string.Format("Frame {0} of {1} drawn (not saved).", cutFrame + 1, Lpf.Name);
+            return null;
+        }
+
         public void RevertPicture()
         {
             if (File == null || pictureThumb == null) return;
@@ -145,19 +186,19 @@ namespace UwEditor.App
         }
 
         /// <summary>Replaced pictures or critter frames not yet written.</summary>
-        public bool HasChanges { get { return open.Values.Any(f => f.HasChanges) || (critters != null && critters.Any(c => c.Pages.Any(p => p.HasChanges))); } }
+        public bool HasChanges { get { return openFiles.Any(f => f.HasChanges) || (critters != null && critters.Any(c => c.Pages.Any(p => p.HasChanges))); } }
 
         /// <summary>Writes every replaced picture and critter frame.</summary>
         public void SaveAll()
         {
-            foreach (var f in open.Values.Where(f => f.HasChanges).ToList()) { if (f == File) SavePictures(); else f.Save(); }
+            foreach (var f in openFiles.Where(f => f.HasChanges).ToList()) { if (f == File) SavePictures(); else Session.Pictures.Save(f); }
             if (critters != null) foreach (var c in critters) foreach (var p in c.Pages.Where(p => p.HasChanges).ToList()) p.Save();
         }
 
         public List<string> SavePictures()
         {
             if (File == null || !File.HasChanges) { Status = "Nothing to save."; return new List<string>(); }
-            var notes = File.Save();
+            var notes = Session.Pictures.Save(File);
             FillThumbs();
             Status = "Saved " + File.Path + " (the old file is kept as .BKP). " + string.Join(" ", notes);
             return notes;
