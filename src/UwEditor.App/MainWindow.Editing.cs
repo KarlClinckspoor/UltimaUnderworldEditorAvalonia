@@ -80,7 +80,14 @@ namespace UwEditor.App
             if (globalsWindow?.Globals != null && globalsWindow.Globals.Dirty) l.Add("global variables");
             if (graphicsWindow != null && graphicsWindow.Model.HasChanges) l.Add("pictures");
             if (zoning != null && zoning.Dirty) l.Add("zones");
+            foreach (var t in ToolWindows()) if (t.Has()) l.Add(t.What);
             return l;
+        }
+
+        /// <summary>The tool windows that keep unsaved work of their own (files they write), with what they hold and how to save it.</summary>
+        IEnumerable<(Window W, string What, Func<bool> Has, Func<bool> Save)> ToolWindows()
+        {
+            if (objectTablesWindow != null) { var w = objectTablesWindow; yield return (w, "object tables (OBJECTS.DAT, COMOBJ.DAT)", () => w.HasChanges, w.SaveAll); }
         }
 
         bool HasUnsaved() { return UnsavedParts().Count > 0; }
@@ -592,6 +599,12 @@ namespace UwEditor.App
                     }
                     if (graphicsWindow != null && graphicsWindow.Model.HasChanges) { graphicsWindow.Model.SaveAll(); said.Add("pictures"); }
                     if (zoning != null && zoning.Dirty) { zoning.Save(); said.Add("zones"); }
+                    foreach (var t in ToolWindows().ToList())
+                        if (t.Has())
+                        {
+                            if (!t.Save()) throw new InvalidOperationException(t.What + " could not be saved: see its window.");
+                            said.Add(t.What);
+                        }
                 }
             }
             catch (Exception ex)

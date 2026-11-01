@@ -193,6 +193,7 @@ namespace UwEditor.App
                 itemShuffleWindow?.Close(); itemSwapWindow?.Close(); monsterSwapWindow?.Close();
                 findWindow?.Close(); automapWindow?.Close(); checkpointsWindow?.Close();
                 historyWindow?.Close(); worldCheckWindow?.Close();
+                foreach (var t in ToolWindows().ToList()) t.W.Close();
             }
             finally { quietClose = false; }
             zoning = null; zoneOverlay = null;

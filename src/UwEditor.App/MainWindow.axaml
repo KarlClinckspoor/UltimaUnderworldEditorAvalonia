@@ -80,6 +80,7 @@
         <MenuItem Header="_Player and inventory…" Click="OnPlayer" InputGesture="Ctrl+Shift+P" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="G_raphics…" Click="OnGraphics" InputGesture="Ctrl+Shift+R" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="3D m_odels…" Click="OnModels" InputGesture="Ctrl+Shift+O" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="O_bject tables…" Click="OnObjectTables" IsEnabled="{Binding HasGame}" />
         <Separator />
         <MenuItem Header="_Keys and locks…" Click="OnKeys" InputGesture="Ctrl+Shift+K" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Triggers and traps…" Click="OnTriggers" InputGesture="Ctrl+Shift+T" IsEnabled="{Binding HasGame}" />
