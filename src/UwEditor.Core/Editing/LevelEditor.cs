@@ -114,6 +114,16 @@ namespace UwEditor.Core.Editing
             Change(label, () => { data = (byte[])newData.Clone(); if (newTex != null) tex = (byte[])newTex.Clone(); });
         }
 
+        /// <summary>
+        /// A change written straight on the level block bytes (and the texture map, which may be
+        /// null): one undoable step, the model rebuilt after. For tools that know the format
+        /// (repairs, recipes, new levels); a change that throws is rolled back.
+        /// </summary>
+        public void EditBytes(string label, Action<byte[], byte[]> change)
+        {
+            Change(label, () => change(data, tex));
+        }
+
         public void Undo()
         {
             CloseBatch();
