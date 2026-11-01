@@ -130,6 +130,13 @@ namespace UwEditor.Core
             return s;
         }
 
+        /// <summary>Reads what the session keeps from COMOBJ.DAT again (the render types), after the object tables were saved.</summary>
+        public void ReloadObjectData()
+        {
+            string comobj = GameProfile.Find(DataFolder, "COMOBJ.DAT");
+            RenderTypes = ObjectModels.ReadRenderTypes(comobj != null ? File.ReadAllBytes(comobj) : null);
+        }
+
         /// <summary>The new-game start square (from the executable) or the saved player's position.</summary>
         StartPoint FindPlayer()
         {

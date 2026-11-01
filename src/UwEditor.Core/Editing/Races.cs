@@ -64,6 +64,12 @@ namespace UwEditor.Core.Editing
 
         static readonly Dictionary<string, byte[]> comobj = new Dictionary<string, byte[]>();
 
+        /// <summary>Drops the COMOBJ.DAT kept for a DATA folder (after it was written), so the next look reads the file again.</summary>
+        public static void Forget(string dataFolder)
+        {
+            lock (comobj) comobj.Remove(dataFolder ?? "");
+        }
+
         static byte[] ComObj(GameSession s)
         {
             lock (comobj)
