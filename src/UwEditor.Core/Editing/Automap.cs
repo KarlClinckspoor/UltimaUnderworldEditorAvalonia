@@ -53,7 +53,7 @@ namespace UwEditor.Core.Editing
                 int len = 0;
                 while (len < TextSize && b[i + len] != 0) len++;
                 if (len >= TextSize) len = TextSize - 1;           // AUTOMAP.C note_copy: at most 49 characters
-                var n = new MapNote { Text = Encoding.ASCII.GetString(b, i, len), X = (short)(b[i + 0x32] | b[i + 0x33] << 8), Y = (short)(b[i + 0x34] | b[i + 0x35] << 8) };
+                var n = new MapNote { Text = Encoding.Latin1.GetString(b, i, len), X = (short)(b[i + 0x32] | b[i + 0x33] << 8), Y = (short)(b[i + 0x34] | b[i + 0x35] << 8) };
                 if (n.X >= 0) l.Add(n);                            // -1: erased
             }
             return l;
@@ -65,7 +65,7 @@ namespace UwEditor.Core.Editing
             for (int k = 0; k < notes.Count && k < MaxNotes; k++)
             {
                 int i = k * NoteSize;
-                var t = Encoding.ASCII.GetBytes(Clean(notes[k].Text));
+                var t = Encoding.Latin1.GetBytes(Clean(notes[k].Text));
                 Array.Copy(t, 0, b, i, Math.Min(t.Length, TextSize - 1));
                 b[i + 0x32] = (byte)notes[k].X; b[i + 0x33] = (byte)(notes[k].X >> 8);
                 b[i + 0x34] = (byte)notes[k].Y; b[i + 0x35] = (byte)(notes[k].Y >> 8);
@@ -73,11 +73,11 @@ namespace UwEditor.Core.Editing
             return b;
         }
 
-        /// <summary>Printable ASCII, at most 49 characters (the game's font and buffer).</summary>
+        /// <summary>One byte a character, at most 49 (the game's buffer): control characters dropped; bytes 0x80 and up kept (localized versions' letters).</summary>
         public static string Clean(string s)
         {
             var sb = new StringBuilder();
-            foreach (char c in s ?? "") if (c >= 32 && c < 127 && sb.Length < TextSize - 1) sb.Append(c);
+            foreach (char c in s ?? "") if (c >= 32 && c != 127 && c <= 255 && sb.Length < TextSize - 1) sb.Append(c);
             return sb.ToString();
         }
 
@@ -130,6 +130,15 @@ namespace UwEditor.Core.Editing
             undo.Add(Tuple.Create((byte[])Map.Clone(), Notes.Select(n => new MapNote { Text = n.Text, X = n.X, Y = n.Y }).ToList(), label));
             if (undo.Count > 100) undo.RemoveAt(0);
             Dirty = true;
+        }
+
+        /// <summary>Puts in another map and notes (a checkpoint), as one undo step.</summary>
+        public void Replace(byte[] map, List<MapNote> notes, string label)
+        {
+            Snapshot(label);
+            Map = new byte[64 * 64];
+            Array.Copy(map, Map, Math.Min(map.Length, Map.Length));
+            Notes = notes.Select(n => new MapNote { Text = n.Text, X = n.X, Y = n.Y }).ToList();
         }
 
         public void Undo()

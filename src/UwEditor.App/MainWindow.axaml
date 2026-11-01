@@ -32,7 +32,7 @@
         <MenuItem Header="Choose the selected trap's _target…" Click="OnPickTarget" IsEnabled="{Binding HasTargetSquare}" />
         <MenuItem Header="_Go to the teleport's target" Click="OnGoToTeleportTarget" IsEnabled="{Binding IsTeleportSelected}" />
         <Separator />
-        <MenuItem Header="_Save the levels" InputGesture="Ctrl+S" Click="OnSaveLevels" IsEnabled="{Binding HasLevelChanges}" />
+        <MenuItem Header="_Save the levels" InputGesture="Ctrl+S" Click="OnSaveLevels" IsEnabled="{Binding CanSave}" />
       </MenuItem>
       <MenuItem Header="_View">
         <MenuItem Header="_Ceiling" ToggleType="CheckBox" IsChecked="{Binding ShowCeiling, Mode=TwoWay}" InputGesture="G" />
@@ -219,7 +219,7 @@
           <Button Content="Delete" Click="OnDeleteObject" IsEnabled="{Binding HasObject}" ToolTip.Tip="Delete the selected object and what is inside it (Del)" />
           <Button Content="↶" Click="OnUndo" IsEnabled="{Binding CanUndo}" ToolTip.Tip="{Binding UndoText}" />
           <Button Content="↷" Click="OnRedo" IsEnabled="{Binding CanRedo}" ToolTip.Tip="{Binding RedoText}" />
-          <Button Content="Save levels" Click="OnSaveLevels" IsEnabled="{Binding HasLevelChanges}" ToolTip.Tip="{Binding ChangedLevels}" />
+          <Button Content="Save levels" Click="OnSaveLevels" IsEnabled="{Binding CanSave}" ToolTip.Tip="{Binding ChangedLevels}" />
           <ToggleButton x:Name="WalkButton" Content="First person" Click="OnFirstPerson" ToolTip.Tip="Walk through the level (P; Esc to leave)" />
           <TextBlock Text="{Binding EditStatus}" Classes="muted" VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" MaxWidth="420" />
         </WrapPanel>

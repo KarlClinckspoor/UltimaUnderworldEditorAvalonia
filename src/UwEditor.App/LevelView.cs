@@ -85,6 +85,10 @@ namespace UwEditor.App
                 renderer.Init(gl.GetProcAddress, GlVersion.Type == GlProfileType.OpenGLES);
                 glReady = true;
                 if (scene != null) Upload(scene, true);
+                // a new GL context (the view moved to another window, say) gets the overlays again too
+                if (lastGrid != null) renderer.SetGrid(lastGrid);
+                if (lastLines != null) renderer.SetLines(lastLines);
+                if (lastMarks != null) renderer.SetMarkers(lastMarks);
             }
             catch (Exception e)
             {
@@ -130,22 +134,24 @@ namespace UwEditor.App
             Redraw();
         }
 
+        float[] lastGrid, lastLines, lastMarks;
+
         public void SetGrid(List<float> lines)
         {
-            renderer.SetGrid(lines == null ? new float[0] : lines.ToArray());
+            renderer.SetGrid(lastGrid = lines == null ? new float[0] : lines.ToArray());
             Redraw();
         }
 
         public void SetLines(List<float> lines)
         {
-            renderer.SetLines(lines == null ? new float[0] : lines.ToArray());
+            renderer.SetLines(lastLines = lines == null ? new float[0] : lines.ToArray());
             Redraw();
         }
 
         /// <summary>Solid markers (Core.Markers): arrows and bullseyes.</summary>
         public void SetMarkers(List<float> tris)
         {
-            renderer.SetMarkers(tris == null ? new float[0] : tris.ToArray());
+            renderer.SetMarkers(lastMarks = tris == null ? new float[0] : tris.ToArray());
             Redraw();
         }
 
@@ -254,11 +260,18 @@ namespace UwEditor.App
             }
         }
 
+        protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+        {
+            base.OnPointerCaptureLost(e);
+            if (painting) { painting = false; PaintEnded?.Invoke(); }
+        }
+
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
         {
             base.OnPointerReleased(e);
-            e.Pointer.Capture(null);
-            if (painting) { painting = false; PaintEnded?.Invoke(); }
+            bool wasPainting = painting;
+            e.Pointer.Capture(null);                                // may end the stroke (capture lost)
+            if (wasPainting) { if (painting) { painting = false; PaintEnded?.Invoke(); } }
             else if (!dragging && leftDown && e.InitialPressMouseButton == MouseButton.Left && !panning)
             {
                 LastClick = e.GetPosition(this);

@@ -74,6 +74,9 @@ namespace UwEditor.Core.Graphics
             return ms.ToArray();
         }
 
+        /// <summary>The most pixels a PNG may have to be read: far above any picture of the games (a 320 × 200 screen, 64 × 64 textures).</summary>
+        public const long MaxPixels = 2048L * 2048;
+
         public static PngImage Decode(byte[] file)
         {
             if (file == null || file.Length < 8) throw new InvalidDataException("Not a PNG file.");
@@ -103,11 +106,20 @@ namespace UwEditor.Core.Graphics
             int channels = type == 0 ? 1 : type == 2 ? 3 : type == 3 ? 1 : type == 4 ? 2 : type == 6 ? 4 : 0;
             if (channels == 0) throw new InvalidDataException("Unknown PNG colour type " + type + ".");
             if (type == 3 && plte == null) throw new InvalidDataException("The indexed PNG has no palette.");
+            // the game's largest picture is a 320 × 200 screen; refuse sizes whose buffers would be huge (or overflow)
+            if ((long)width * height > MaxPixels) throw new InvalidDataException(string.Format("The PNG is {0} × {1}: larger than any picture of the game.", width, height));
             int bpp = Math.Max(1, channels * depth / 8);
-            int stride = (width * channels * depth + 7) / 8;
+            int stride = (int)(((long)width * channels * depth + 7) / 8);
+            int want = (stride + 1) * height;
             byte[] raw;
             using (var z = new ZLibStream(new MemoryStream(idat.ToArray()), CompressionMode.Decompress))
-            using (var o = new MemoryStream()) { z.CopyTo(o); raw = o.ToArray(); }
+            {
+                // inflate no more than the picture needs (a "zlib bomb" stops here)
+                raw = new byte[want];
+                int got = 0, r;
+                while (got < want && (r = z.Read(raw, got, want - got)) > 0) got += r;
+                if (got < want) Array.Resize(ref raw, got);
+            }
             if (raw.Length < (stride + 1) * height) throw new InvalidDataException("The PNG's pixel data is cut short.");
             var cur = new byte[stride];
             var prev = new byte[stride];

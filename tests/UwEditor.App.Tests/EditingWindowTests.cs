@@ -652,6 +652,33 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void Unsaved_work_counts_strings_and_the_inventory_and_another_game_closes_the_tools_of_the_old()
+        {
+            if (Uw1 == null || Uw2 == null) return;
+            using (var copy = new GameCopy(Uw2, "DATA", "SAVE1"))
+            {
+                var w = OpenQuiet(System.IO.Path.Combine(copy.Folder, "SAVE1"));
+                Assert.Empty(w.UnsavedParts());
+                var st = w.Strings();
+                st.Set(3, 1, st.Get(3)[1] + " (edited)");
+                Assert.Contains(w.UnsavedParts(), p => p.Contains("strings"));
+                var pw = w.ShowPlayer();
+                Ui.Pump();
+                Assert.NotNull(pw);
+                pw.Model.Sheet.Inventory.Changed = true;            // what an inventory edit marks
+                Assert.Contains(w.UnsavedParts(), p => p.Contains("player"));
+                Assert.True(w.ViewModel.CanSave);
+                var swap = w.ShowMonsterSwap();
+                Ui.Pump();
+                w.OpenPathNow(Uw1);
+                Ui.Pump();
+                Assert.False(swap.IsVisible);
+                Assert.Empty(w.UnsavedParts());
+                w.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void Automap_window_marks_tiles_seen_and_the_change_is_unsaved_work()
         {
             if (Uw2 == null) return;

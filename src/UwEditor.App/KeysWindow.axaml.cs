@@ -45,8 +45,13 @@ namespace UwEditor.App
         public KeysViewModel(MainViewModel main, StringsEditor strings)
         {
             Main = main; Strings = strings;
-            Strings.Changed += () => Raise(nameof(HasChanges));
+            Strings.Changed += OnStringsChanged;
         }
+
+        void OnStringsChanged() { Raise(nameof(HasChanges)); }
+
+        /// <summary>Stops listening to the shared strings (the window closed).</summary>
+        public void Detach() { Strings.Changed -= OnStringsChanged; }
 
         public KeyGroup Selected
         {
@@ -117,6 +122,7 @@ namespace UwEditor.App
             ManualWindow.Attach(this, "Keys and locks");
             Title = "Keys and locks — " + main.Session.Title;
             Loading = Model.Build();
+            Closed += (o, e) => Model.Detach();
         }
 
         void OnRefresh(object sender, RoutedEventArgs e) { Loading = Model.Build(); }

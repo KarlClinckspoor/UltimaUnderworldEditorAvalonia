@@ -45,7 +45,9 @@ namespace UwEditor.Core.Player
         public string Path { get; private set; }
         public ClassStart[] Classes { get; private set; }
         public PlayerInventory Inventory { get; private set; }
-        public bool Dirty { get; set; }
+        bool dirty;
+        /// <summary>Unsaved edits: the record, or the inventory (whose edits mark only it).</summary>
+        public bool Dirty { get { return dirty || (Inventory != null && Inventory.Changed); } set { dirty = value; } }
         bool uw2 { get { return Kind == GameKind.UW2; } }
         byte[] R { get { return Dat.Record; } }
 
@@ -266,7 +268,7 @@ namespace UwEditor.Core.Player
             return Dat.ToBytes();
         }
 
-        /// <summary>Writes PLAYER.DAT (the old file kept as PLAYER.BKP).</summary>
+        /// <summary>Writes PLAYER.DAT (the old file kept as PLAYER.DAT.BKP).</summary>
         public void Save(string path = null)
         {
             path = path ?? Path;

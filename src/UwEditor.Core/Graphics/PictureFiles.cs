@@ -160,6 +160,8 @@ namespace UwEditor.Core.Graphics
                 case PictureFileKind.Tr:
                     {
                         int edge = file[1], o = BitConverter.ToInt32(file, 4 + 4 * i);
+                        // UW2's T64.TR counts 264 textures, but 256-263 point at the end of the file: nothing there to show or replace
+                        if (o < 0 || o + edge * edge > file.Length) return null;
                         var px = new int[edge * edge];
                         for (int k = 0; k < px.Length && o + k < file.Length; k++) px[k] = file[o + k];
                         return new IndexedImage(edge, edge, px, pals.Solid(palette)) { Type = 4 };

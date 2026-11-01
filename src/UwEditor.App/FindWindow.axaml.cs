@@ -84,7 +84,10 @@ namespace UwEditor.App
             Model.Status = "Searching…";
             Model.Hits.Clear();
             List<SearchHit> hits;
-            try { hits = await Task.Run(() => LevelSearch.Run(session, q, MaxHits)); }
+            // the levels with unsaved edits are searched as edited (taken here, on the window's thread)
+            var edited = new Dictionary<int, LevelModel>();
+            if (main.Edits != null) foreach (var e in main.Edits.Editors) if (e.Dirty) edited[e.Level] = e.Model;
+            try { hits = await Task.Run(() => LevelSearch.Run(session, q, MaxHits, l => { LevelModel m; return edited.TryGetValue(l, out m) ? m : null; })); }
             finally { Model.Busy = false; }
             foreach (var h in hits)
             {

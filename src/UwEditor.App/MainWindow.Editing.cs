@@ -18,6 +18,8 @@ namespace UwEditor.App
     {
         /// <summary>Ask about unsaved levels before closing or opening another game (tests turn it off).</summary>
         public bool AskBeforeDiscarding = true;
+        /// <summary>Set while the main window closes tool windows itself, after asking about everything.</summary>
+        bool quietClose;
         bool closeConfirmed;
         PlayerSheet playerSheet;
 
@@ -40,7 +42,8 @@ namespace UwEditor.App
                 else vm.EditStatus = "";
             };
             View.Painted += OnPainted;
-            View.PaintEnded += () => { vm.Editor?.EndBatch(); };
+            View.PaintEnded += EndPaintStroke;
+            vm.OtherUnsaved = () => playerSheet != null && playerSheet.Dirty;
             View.HeightWheel += OnHeightWheel;
             View.DoublePicked += OnDoublePicked;
             View.FirstPersonChanged += () => { WalkButton.IsChecked = View.FirstPerson; UpdateViewText(); UpdateMarkers(); };
@@ -60,21 +63,38 @@ namespace UwEditor.App
 
         async void OnClosingAskSave(object sender, WindowClosingEventArgs e)
         {
-            if (closeConfirmed || !AskBeforeDiscarding || !HasUnsaved()) return;
+            if (closeConfirmed || !AskBeforeDiscarding || !HasUnsaved()) { quietClose = true; return; }
             e.Cancel = true;
             if (await ConfirmDiscard("closing")) { closeConfirmed = true; Close(); }
         }
 
-        bool HasUnsaved() { return vm.HasLevelChanges || (playerSheet != null && playerSheet.Dirty); }
+        /// <summary>Every kind of unsaved work the editor holds: levels and maps, the player, strings and conversations, and what the tool windows keep.</summary>
+        public List<string> UnsavedParts()
+        {
+            var l = new List<string>();
+            if (vm.HasLevelChanges) l.Add(vm.ChangedLevels);
+            if (playerSheet != null && playerSheet.Dirty) l.Add("the player (PLAYER.DAT)");
+            bool talk = (conversations != null && conversations.HasChanges) || (conversationWindow != null && conversationWindow.Model.ScriptChanged);
+            if (talk) l.Add("conversations or strings");
+            else if (strings != null && strings.HasChanges) l.Add("strings (STRINGS.PAK)");
+            if (globalsWindow?.Globals != null && globalsWindow.Globals.Dirty) l.Add("global variables");
+            if (graphicsWindow != null && graphicsWindow.Model.HasChanges) l.Add("pictures");
+            if (zoning != null && zoning.Dirty) l.Add("zones");
+            return l;
+        }
+
+        bool HasUnsaved() { return UnsavedParts().Count > 0; }
 
         /// <summary>Asks to save, discard or cancel; true when it is all right to go on.</summary>
         async Task<bool> ConfirmDiscard(string doing)
         {
-            if (!AskBeforeDiscarding || !HasUnsaved()) return true;
-            string what = vm.ChangedLevels + (playerSheet != null && playerSheet.Dirty ? "; the player was moved" : "");
+            if (!AskBeforeDiscarding) return true;
+            var parts = UnsavedParts();
+            if (parts.Count == 0) return true;
+            string what = "Unsaved: " + string.Join("; ", parts);
             string a = await MessageWindow.Ask(this, "Unsaved changes", what + ". Save them before " + doing + "?", "Save", "Discard", "Cancel");
             if (a == "Cancel") return false;
-            if (a == "Save") return SaveAll();
+            if (a == "Save") return SaveAll(true) && UnsavedParts().Count == 0;
             return true;
         }
 
@@ -130,8 +150,24 @@ namespace UwEditor.App
         {
             if (hit.Tile >= 0 && vm.Level != null && ZonePaint(hit.Tile % 64, hit.Tile / 64, start)) return;
             if (!hit.Hit || hit.Tile < 0 || vm.Editor == null) return;
-            if (start) vm.Editor.BeginBatch("Paint " + MainViewModel.PaintModeNames[vm.PaintMode].ToLowerInvariant());
+            if (start)
+            {
+                EndPaintStroke();
+                strokeEditor = vm.Editor;
+                strokeEditor.BeginBatch("Paint " + MainViewModel.PaintModeNames[vm.PaintMode].ToLowerInvariant());
+            }
+            if (strokeEditor != vm.Editor) return;               // the level changed during the stroke
             vm.Paint(hit.Tile % 64, hit.Tile / 64);
+        }
+
+        /// <summary>The level a paint stroke began on: its undo step closes there, whatever level is shown by then.</summary>
+        LevelEditor strokeEditor;
+
+        void EndPaintStroke()
+        {
+            var e = strokeEditor;
+            strokeEditor = null;
+            e?.EndBatch();
         }
 
         void OnHeightWheel(PickResult hit, int steps)
@@ -509,8 +545,10 @@ namespace UwEditor.App
 
         void OnSaveLevels(object sender, RoutedEventArgs e) { SaveAll(); }
 
-        /// <summary>Writes the changed levels into LEV.ARK and a moved player into PLAYER.DAT.</summary>
-        public bool SaveAll()
+        /// <summary>Writes the changed levels (and their maps) into LEV.ARK and the player into PLAYER.DAT; with everything, also the strings, conversations, global variables, pictures and zones.</summary>
+        public bool SaveAll() { return SaveAll(false); }
+
+        public bool SaveAll(bool everything)
         {
             if (vm.Edits == null) return false;
             var said = new List<string>();
@@ -526,10 +564,29 @@ namespace UwEditor.App
                     playerSheet.Save();
                     said.Add("the player saved in PLAYER.DAT");
                 }
+                if (everything)
+                {
+                    if (conversationWindow != null && (conversationWindow.Model.ScriptChanged || (conversations != null && conversations.HasChanges)))
+                    {
+                        if (conversationWindow.Save() == null) throw new InvalidOperationException("the conversation could not be saved: " + conversationWindow.Model.Status);
+                        said.Add("conversations and strings");
+                    }
+                    else if (conversations != null && conversations.HasChanges) { conversations.Save(); said.Add("conversations and strings"); }
+                    else if (strings != null && strings.HasChanges) { strings.Save(); said.Add("STRINGS.PAK"); }
+                    if (said.Contains("conversations and strings")) { vm.Session.ReloadStrings(); vm.RefreshNames(); }
+                    if (globalsWindow?.Globals != null && globalsWindow.Globals.Dirty)
+                    {
+                        if (globalsWindow.Save() == null) throw new InvalidOperationException("the global variables could not be saved: " + globalsWindow.Model.Status);
+                        said.Add("global variables");
+                    }
+                    if (graphicsWindow != null && graphicsWindow.Model.HasChanges) { graphicsWindow.Model.SaveAll(); said.Add("pictures"); }
+                    if (zoning != null && zoning.Dirty) { zoning.Save(); said.Add("zones"); }
+                }
             }
             catch (Exception ex)
             {
                 _ = MessageWindow.Show(this, "Could not save", ex.Message);
+                vm.RaiseEditState();
                 return false;
             }
             vm.RaiseEditState();

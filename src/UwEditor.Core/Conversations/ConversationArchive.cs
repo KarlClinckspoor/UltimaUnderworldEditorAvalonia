@@ -95,7 +95,7 @@ namespace UwEditor.Core.Conversations
             return copy.ToBytes();
         }
 
-        /// <summary>Writes CNV.ARK (keeping the old file as CNV.BKP) and makes the saved state the new base.</summary>
+        /// <summary>Writes CNV.ARK (keeping the old file as CNV.ARK.BKP) and makes the saved state the new base.</summary>
         public List<int> Save(string path = null)
         {
             path = path ?? Path;
@@ -117,7 +117,7 @@ namespace UwEditor.Core.Conversations
     }
 
     /// <summary>
-    /// Writing a game file safely: to a temporary file first, the old one kept as NAME.BKP.
+    /// Writing a game file safely: to a temporary file first, the old one kept as NAME.EXT.BKP.
     /// The first time the editor writes a file, the file as it was is also kept as
     /// NAME.EXT.ORIG and never overwritten: the reference mods are made against.
     /// </summary>
@@ -132,6 +132,9 @@ namespace UwEditor.Core.Conversations
             return File.Exists(o) ? o : null;
         }
 
+        /// <summary>The copy of the previous version kept when a file is written.</summary>
+        public static string BackupOf(string path) { return path + ".BKP"; }
+
         public static void Write(string path, byte[] bytes)
         {
             if (File.Exists(path) && !File.Exists(path + OriginalSuffix)) File.Copy(path, path + OriginalSuffix);
@@ -140,10 +143,11 @@ namespace UwEditor.Core.Conversations
             File.WriteAllBytes(tmp, bytes);
             if (File.Exists(path))
             {
-                string bkp = System.IO.Path.ChangeExtension(path, ".BKP");
-                File.Copy(path, bkp, true);
-                File.Copy(tmp, path, true);
-                File.Delete(tmp);
+                // NAME.EXT.BKP: CS000.N01 and CS000.N02, or OBJECTS.DAT and OBJECTS.GR, keep backups of their own
+                string bkp = BackupOf(path);
+                try { File.Replace(tmp, path, bkp, true); }       // a rename: the game file is never half written
+                catch (PlatformNotSupportedException) { File.Copy(path, bkp, true); File.Move(tmp, path, true); }
+                catch (IOException) { File.Copy(path, bkp, true); File.Move(tmp, path, true); }
             }
             else File.Move(tmp, path);
         }

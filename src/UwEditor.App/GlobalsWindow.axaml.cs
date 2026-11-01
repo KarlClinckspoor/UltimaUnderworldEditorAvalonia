@@ -31,9 +31,12 @@ namespace UwEditor.App
 
         public GlobalsWindow() : this(null, null) { }
 
-        public GlobalsWindow(ConversationLibrary library, Action<int, int> openConversation)
+        readonly UwEditor.Core.Player.PlayerSheet sheet;
+
+        public GlobalsWindow(ConversationLibrary library, Action<int, int> openConversation, UwEditor.Core.Player.PlayerSheet sheet = null)
         {
             lib = library;
+            this.sheet = sheet;
             this.openConversation = openConversation;
             InitializeComponent();
             ManualWindow.Attach(this, "Global variables");
@@ -56,7 +59,7 @@ namespace UwEditor.App
                 g = await Task.Run(() =>
                 {
                     var uses = GlobalUsage.Collect(lib.Archive, null, lib.Kind);
-                    return GlobalVariables.Load(session, lib.Archive, uses, lib.Name);
+                    return GlobalVariables.Load(session, lib.Archive, uses, lib.Name, sheet);
                 });
             }
             catch (Exception ex) { Model.Status = "Could not read the variables: " + ex.Message; return; }

@@ -75,7 +75,7 @@ namespace UwEditor.App
                 Model.Sheet.Save();
                 Model.BuildTree();
                 Model.Check();
-                Model.Status = "Saved " + Model.Sheet.Path + " (the old file is kept as PLAYER.BKP).";
+                Model.Status = "Saved " + Model.Sheet.Path + " (the old file is kept as PLAYER.DAT.BKP).";
                 return true;
             }
             catch (Exception ex) { Model.Status = "Not saved: " + ex.Message; return false; }

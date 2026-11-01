@@ -293,8 +293,8 @@ namespace UwEditor.Core.Randomizer
 
         public static readonly int[] Runes = Enumerable.Range(0xE8, 24).ToArray();
 
-        /// <summary>The rings: UW1 iron, gold, silver, red; UW2 copper, gold, silver, red (its Guardian signet rings, 0x35, are quest items and stay).</summary>
-        public static int[] Rings(GameSession s) { return s.IsUw2 ? new[] { 0x37, 0x38, 0x39, 0x3A } : new[] { 0x36, 0x38, 0x39, 0x3A }; }
+        /// <summary>The rings: UW1 gold, silver, red (its iron ring, 0x36, is the Ring of Humility, a talisman: never made or changed); UW2 copper, gold, silver, red (its Guardian signet rings, 0x35, are quest items and stay).</summary>
+        public static int[] Rings(GameSession s) { return s.IsUw2 ? new[] { 0x37, 0x38, 0x39, 0x3A } : new[] { 0x38, 0x39, 0x3A }; }
         public static readonly int[] Gloves = { 0x26, 0x27, 0x28 };
         public static readonly int[] Boots = { 0x29, 0x2A, 0x2B };
 
@@ -330,6 +330,8 @@ namespace UwEditor.Core.Randomizer
         /// <summary>The same objects as they were: applying these undoes the shuffle.</summary>
         public readonly Dictionary<int, List<ItemRewrite>> Original = new Dictionary<int, List<ItemRewrite>>();
         public readonly StringBuilder Report = new StringBuilder();
+        /// <summary>Each level's block as Apply left it: Revert only puts back a level that has not been edited since.</summary>
+        public readonly Dictionary<int, byte[]> After = new Dictionary<int, byte[]>();
         public int Changed { get { return ByLevel.Values.Sum(l => l.Count); } }
     }
 
@@ -411,9 +413,18 @@ namespace UwEditor.Core.Randomizer
                 foreach (var o in m.Objects)
                 {
                     if (o.Free || o.TileX < 0 || o.IsMobile) continue;
-                    if (!opt.IncludeInventories && o.Parent >= 0 && m.Objects[o.Parent].IsCritter) continue;
-                    // objects inside traps are templates (create object): left alone
-                    if (o.Parent >= 0 && m.Objects[o.Parent].IsTrapOrTrigger) continue;
+                    // every container up the chain counts: a sack a creature carries is in its inventory,
+                    // and anything inside a trap (however deep) is a create-object template, left alone
+                    bool inCritter = false, inTrap = false;
+                    for (int up = o.Parent, guard = 0; up >= 0 && guard < 1024; up = m.Objects[up].Parent, guard++)
+                    {
+                        if (m.Objects[up].IsCritter) inCritter = true;
+                        if (m.Objects[up].IsTrapOrTrigger) inTrap = true;
+                    }
+                    if (!opt.IncludeInventories && inCritter) continue;
+                    if (inTrap) continue;
+                    // an object holding triggers (pick up, look) is what they are about: it keeps its kind
+                    if (!o.IsQuantity && o.Children.Any(c => m.Objects[c].IsTrapOrTrigger)) continue;
                     // ignored objects, and a wand's spell object when the wand is ignored
                     if (ignored.Contains((long)slot.Level << 32 | (uint)o.Index)) continue;
                     if (o.Parent >= 0 && ignored.Contains((long)slot.Level << 32 | (uint)o.Parent)) continue;
@@ -433,7 +444,7 @@ namespace UwEditor.Core.Randomizer
                 if (opt.ShuffleWeapons) Weapons(s, opt, rng, all, res);
                 if (opt.ShuffleArmour) Armour(s, opt, rng, all, res);
                 if (opt.ShuffleFood || opt.ShuffleLights) FoodAndLights(s, opt, rng, all, res);
-                Tools(s, opt, rng, all, res);
+                if (opt.ShuffleFood || opt.ShuffleLights) Tools(s, opt, rng, all, res);   // tools are made from food and lights
                 if (opt.ShuffleRunes) Runes(s, opt, rng, all, res);
                 if (opt.ShuffleWands) Wands(s, opt, rng, all, res);
                 if (opt.ShuffleScrolls) Scrolls(s, opt, rng, all, res);
@@ -548,38 +559,51 @@ namespace UwEditor.Core.Randomizer
             return true;
         }
 
-        /// <summary>Rolls a class 12 enchantment; true when one was given.</summary>
-        static bool Enchant(Random rng, Cand c, List<EnchantGroup> groups, double depthAdj, double strengthDepth, Dictionary<string, int> tally, bool uw2)
+        /// <summary>
+        /// Rolls a class 12 enchantment; true when one was given. Each kind's chance p is its share of
+        /// the items, so the item is enchanted with chance Σp (at most 1) and the kind is then drawn by
+        /// p: trying the kinds one after another would make every kind rarer than its share. scale
+        /// raises the chances of items that already passed on another roll (armour's worn effects).
+        /// </summary>
+        static bool Enchant(Random rng, Cand c, List<EnchantGroup> groups, double depthAdj, double strengthDepth, Dictionary<string, int> tally, bool uw2, double scale = 1)
         {
             double dep = depthAdj / 100.0 * c.Depth, sdep = strengthDepth / 100.0 * c.Depth;
-            foreach (var g in groups.OrderBy(x => rng.Next()))
+            var live = new List<EnchantGroup>();
+            var ps = new List<double>();
+            foreach (var g in groups)
             {
                 if (g.Effects == null || g.Effects.Length == 0) continue;
+                if (g.CustomStrength && g.StrengthBars != null && g.StrengthBars.Length == g.Effects.Length && g.StrengthBars.All(b => b <= 0)) continue;   // every bar at 0: this kind never comes
                 double p;
                 if (g.CustomDepth && uw2 && g.DepthCurve != null && g.DepthCurve.Count > 0) p = Distributions.Eval(g.DepthCurve, c.DepthLevel) / 100.0;
                 else if (g.CustomDepth && !uw2 && g.DepthBars != null && g.DepthBars.Length > 0) p = g.DepthBars[Math.Min(g.DepthBars.Length, c.DepthLevel) - 1] / 100.0;
                 else p = g.Probability / 100.0 * (1 + dep);
-                p = Math.Max(0, Math.Min(1, p));
-                if (rng.NextDouble() >= p) continue;
-                int strength;
-                if (g.CustomStrength && g.StrengthBars != null && g.StrengthBars.Length == g.Effects.Length)
-                {
-                    strength = Distributions.Pick(rng, g.StrengthBars) + 1;
-                    if (strength == 0) continue;      // every bar at 0: this kind never comes
-                }
-                else
-                {
-                    double mean = g.Mean + sdep * (g.Effects.Length - 1);
-                    strength = (int)Math.Round(mean + g.Deviation * Normal(rng));
-                }
-                strength = Math.Max(1, Math.Min(g.Effects.Length, strength));
-                c.R.Enchanted = true; c.R.IsQuantity = true; c.R.Flags &= ~4;
-                c.R.Link = 0x200 | 0xC0 | g.Effects[strength - 1];
-                string key = g.Name + " " + strength;
-                int n; tally.TryGetValue(key, out n); tally[key] = n + 1;
-                return true;
+                p = Math.Max(0, Math.Min(1, p * scale));
+                if (p <= 0) continue;
+                live.Add(g); ps.Add(p);
             }
-            return false;
+            double sum = ps.Sum();
+            if (sum <= 0 || rng.NextDouble() >= Math.Min(1, sum)) return false;
+            int pick = Distributions.Pick(rng, ps);
+            if (pick < 0) return false;
+            var e = live[pick];
+            int strength;
+            if (e.CustomStrength && e.StrengthBars != null && e.StrengthBars.Length == e.Effects.Length)
+            {
+                strength = Distributions.Pick(rng, e.StrengthBars) + 1;
+                if (strength == 0) return false;
+            }
+            else
+            {
+                double mean = e.Mean + sdep * (e.Effects.Length - 1);
+                strength = (int)Math.Round(mean + e.Deviation * Normal(rng));
+            }
+            strength = Math.Max(1, Math.Min(e.Effects.Length, strength));
+            c.R.Enchanted = true; c.R.IsQuantity = true; c.R.Flags &= ~4;
+            c.R.Link = 0x200 | 0xC0 | e.Effects[strength - 1];
+            string key = e.Name + " " + strength;
+            int n; tally.TryGetValue(key, out n); tally[key] = n + 1;
+            return true;
         }
 
         static void Plain(Cand c, int quantity = 1)
@@ -669,7 +693,10 @@ namespace UwEditor.Core.Randomizer
                 int slot6 = ItemTables.ShieldIds.Contains(c.R.Item) ? 5 : ItemTables.EffectSlot(ItemTables.Slot(c.R.Item));
                 if (opt.ArmourEffectsOn && opt.ArmourEffects != null && opt.ArmourEffectSlots != null && slot6 >= 0 && opt.ArmourEffectSlots[slot6]
                     && rng.NextDouble() * 100 < opt.ArmourEffectChance && RollEffect(s, rng, c, opt.ArmourEffects, opt.ArmourCurseShare, opt.CurseStrength, effects)) { withEffect++; continue; }
-                if (Enchant(rng, c, opt.ArmourEnchants, opt.ArmourDepth, opt.ArmourStrengthDepth, tally, s.IsUw2)) enchanted++;
+                // the worn-effect roll came first and passed this piece over: its class 12 chance is that of the pieces left
+                bool effectSlot = opt.ArmourEffectsOn && opt.ArmourEffects != null && opt.ArmourEffectSlots != null && slot6 >= 0 && opt.ArmourEffectSlots[slot6];
+                double left = effectSlot ? Math.Max(0.05, 1 - opt.ArmourEffectChance / 100.0) : 1;
+                if (Enchant(rng, c, opt.ArmourEnchants, opt.ArmourDepth, opt.ArmourStrengthDepth, tally, s.IsUw2, 1 / left)) enchanted++;
                 else Plain(c);
             }
             res.Report.AppendFormat("Armour: {0} shuffled (quest armour, crowns and the talisman shield kept), {1} enchanted", cands.Count, enchanted);
@@ -822,7 +849,7 @@ namespace UwEditor.Core.Randomizer
                 l.Add(c);
             }
             res.Report.AppendLine(anyKind ? "Swap, any kind: existing objects trade places across every kind taking part." : "Swap, same kind: existing objects trade places within their kind.");
-            foreach (var g in groups.OrderBy(x => x.Key))
+            foreach (var g in groups.OrderBy(x => x.Key, StringComparer.Ordinal))
             {
                 var list = g.Value;
                 var records = list.Select(c => Of(c.O)).ToList();
@@ -1065,13 +1092,30 @@ namespace UwEditor.Core.Randomizer
         /// <summary>Applies a result to the level editors, one undoable change per level.</summary>
         public static void Apply(ShuffleResult r, LevelEdits edits, int seed)
         {
-            foreach (var kv in r.ByLevel) edits.For(kv.Key).RewriteItems(kv.Value, "Shuffle item properties (seed " + seed + ")");
+            foreach (var kv in r.ByLevel)
+            {
+                var e = edits.For(kv.Key);
+                e.RewriteItems(kv.Value, "Shuffle item properties (seed " + seed + ")");
+                r.After[kv.Key] = (byte[])e.Data.Clone();
+            }
         }
 
-        /// <summary>Puts every object a shuffle changed back as it was (itself one undoable change per level).</summary>
-        public static void Revert(ShuffleResult r, LevelEdits edits)
+        /// <summary>
+        /// Puts every object a shuffle changed back as it was (itself one undoable change per level).
+        /// A level edited since the shuffle is left alone, since its old records could undo those edits
+        /// halfway and break its lists; those levels are returned (Edit ▸ Undo still steps back there).
+        /// </summary>
+        public static List<int> Revert(ShuffleResult r, LevelEdits edits)
         {
-            foreach (var kv in r.Original) edits.For(kv.Key).RewriteItems(kv.Value, "Undo item shuffle");
+            var skipped = new List<int>();
+            foreach (var kv in r.Original)
+            {
+                var e = edits.For(kv.Key);
+                byte[] after;
+                if (r.After.TryGetValue(kv.Key, out after) && !e.Data.AsSpan().SequenceEqual(after)) { skipped.Add(kv.Key); continue; }
+                e.RewriteItems(kv.Value, "Undo item shuffle");
+            }
+            return skipped;
         }
     }
 }

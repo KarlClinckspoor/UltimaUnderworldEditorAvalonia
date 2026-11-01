@@ -35,6 +35,8 @@ namespace UwEditor.Core.Tests
             var odd = Automap.ReadNotes(Automap.WriteNotes(new System.Collections.Generic.List<MapNote> { new MapNote { Text = new string('x', 80) + "é", X = 5, Y = 6 }, new MapNote { Text = "gone", X = -1, Y = 0 } }));
             Assert.Single(odd);
             Assert.Equal(49, odd[0].Text.Length);
+            // a localized note's letters (bytes 0x80 and up) come back as they were
+            Assert.Equal("Mühle", Automap.ReadNotes(Automap.WriteNotes(new System.Collections.Generic.List<MapNote> { new MapNote { Text = "Mühle\u0001€", X = 1, Y = 2 } }))[0].Text);
         }
 
         [Theory]

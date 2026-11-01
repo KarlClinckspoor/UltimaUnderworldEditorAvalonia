@@ -257,7 +257,7 @@ namespace UwEditor.App
 
         public void LoadLevel(int l)
         {
-            if (session == null) return;
+            if (session == null || !slots.Any(x => x.Level == l)) return;      // a level of another game (a stale find result, say)
             level = Edits != null ? Edits.Model(l) : session.LoadLevel(l);
             var slot = slots.FirstOrDefault(x => x.Level == l);
             if (slot != null && slot != selectedSlot)

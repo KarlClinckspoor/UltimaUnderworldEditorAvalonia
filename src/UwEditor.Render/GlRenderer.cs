@@ -414,6 +414,8 @@ namespace UwEditor.Render
             gl.DeleteBuffer(levelVbo); gl.DeleteBuffer(spriteVbo); gl.DeleteBuffer(lineVbo);
             gl.DeleteTexture(levelTex); gl.DeleteTexture(atlasTex);
             gl = null;
+            // a new context starts empty: nothing is drawn until it is sent again
+            levelVertices = spriteVertices = lineVertices = markVertices = modelVertices = gridVertices = 0;
         }
     }
 }

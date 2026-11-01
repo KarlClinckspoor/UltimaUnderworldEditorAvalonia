@@ -14,7 +14,8 @@ namespace UwEditor.App
     {
         DispatcherTimer checkpointTimer;
         DateTime lastCheckpoint = DateTime.UtcNow;
-        int editStamp, checkpointStamp;
+        int editStamp;
+        string checkpointPrint = "";
         CheckpointsWindow checkpointsWindow;
         public Checkpoints CheckpointStore { get; private set; }
 
@@ -49,7 +50,7 @@ namespace UwEditor.App
         void CheckpointsFor(UwEditor.Core.GameSession s)
         {
             CheckpointStore = s == null ? null : new Checkpoints(Path.Combine(Settings.Folder, "checkpoints"), s);
-            editStamp = checkpointStamp = 0;
+            editStamp = 0; checkpointPrint = "";
             lastCheckpoint = DateTime.UtcNow;
             if (vm.Edits != null) vm.Edits.Changed += e => editStamp++;
             checkpointsWindow?.Refresh();
@@ -65,22 +66,68 @@ namespace UwEditor.App
             WriteCheckpoint("every " + CheckpointMinutes + " min", false);
         }
 
+        /// <summary>The unsaved files a checkpoint keeps besides the levels: STRINGS.PAK, PLAYER.DAT and the edited automaps and notes.</summary>
+        Dictionary<string, byte[]> CheckpointFiles()
+        {
+            var files = new Dictionary<string, byte[]>();
+            var pak = conversations != null ? conversations.Strings : strings?.Pak;
+            if (pak != null && pak.HasChanges) files["STRINGS.PAK"] = pak.ToBytes();
+            if (playerSheet != null && playerSheet.Dirty) files["PLAYER.DAT"] = playerSheet.ToBytes();
+            if (vm.Edits != null)
+                foreach (var a in vm.Edits.Automaps.Where(a => a.Dirty))
+                {
+                    files[string.Format("automap-{0:D2}.bin", a.Level)] = (byte[])a.Map.Clone();
+                    files[string.Format("notes-{0:D2}.bin", a.Level)] = Automap.WriteNotes(a.Notes);
+                }
+            return files;
+        }
+
+        static string Fingerprint(int stamp, Dictionary<string, byte[]> files)
+        {
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            {
+                foreach (var kv in files.OrderBy(k => k.Key, StringComparer.Ordinal))
+                {
+                    var name = System.Text.Encoding.UTF8.GetBytes(kv.Key);
+                    sha.TransformBlock(name, 0, name.Length, null, 0);
+                    sha.TransformBlock(kv.Value, 0, kv.Value.Length, null, 0);
+                }
+                sha.TransformFinalBlock(new byte[0], 0, 0);
+                return stamp + ":" + Convert.ToHexString(sha.Hash);
+            }
+        }
+
         /// <summary>Writes a checkpoint of the unsaved work (force: even when nothing changed since the last one). Null when there is nothing unsaved.</summary>
         public CheckpointInfo WriteCheckpoint(string label, bool force)
         {
             lastCheckpoint = DateTime.UtcNow;
-            if (CheckpointStore == null || (!force && editStamp == checkpointStamp)) return null;
-            var files = new Dictionary<string, byte[]>();
+            if (CheckpointStore == null) return null;
             try
             {
-                if (strings != null && strings.HasChanges) files["STRINGS.PAK"] = strings.Pak.ToBytes();
-                if (playerSheet != null && playerSheet.Dirty) files["PLAYER.DAT"] = playerSheet.ToBytes();
+                var files = CheckpointFiles();
+                string print = Fingerprint(editStamp, files);
+                if (!force && print == checkpointPrint) return null;
                 var c = CheckpointStore.Write(vm.Edits, files, label, CheckpointCopies);
-                checkpointStamp = editStamp;
+                checkpointPrint = print;
                 if (c != null) { vm.EditStatus = "Checkpoint kept (" + c.Summary.Substring(11) + ")."; checkpointsWindow?.Refresh(); }
                 return c;
             }
             catch (Exception ex) { vm.EditStatus = "Could not write a checkpoint: " + ex.Message; return null; }
+        }
+
+        /// <summary>Asks first when restoring would replace unsaved player or string edits (they have no undo), then restores.</summary>
+        public async System.Threading.Tasks.Task<string> RestoreCheckpointAsk(CheckpointInfo c)
+        {
+            var lost = new List<string>();
+            var pak = conversations != null ? conversations.Strings : strings?.Pak;
+            if (c.Files.Contains("STRINGS.PAK") && pak != null && pak.HasChanges) lost.Add("strings");
+            if (c.Files.Contains("PLAYER.DAT") && playerSheet != null && playerSheet.Dirty) lost.Add("the player");
+            if (lost.Count > 0 && AskBeforeDiscarding)
+            {
+                string a = await MessageWindow.Ask(checkpointsWindow ?? (Avalonia.Controls.Window)this, "Restore the checkpoint", "The unsaved edits of " + string.Join(" and ", lost) + " will be replaced by the checkpoint's, and that cannot be undone. Restore?", "Restore", "Cancel");
+                if (a != "Restore") return "Not restored.";
+            }
+            return RestoreCheckpoint(c);
         }
 
         /// <summary>Loads a checkpoint back as unsaved edits; returns what was done.</summary>
@@ -103,16 +150,32 @@ namespace UwEditor.App
                     if (n > 0) said.Add(n + " string block(s)");
                     stringsWindow?.Close();
                     keysWindow?.Close();
+                    conversationWindow?.Close();
                 }
                 var pd = CheckpointStore.ReadFile(c, "PLAYER.DAT");
                 if (pd != null && vm.Session.IsSave)
                 {
                     string path = UltimateEditor.Games.GameProfile.Find(vm.Session.SaveFolder, "PLAYER.DAT");
                     playerWindow?.Close();
+                    globalsWindow?.Close();             // it shares the player sheet being replaced
                     playerSheet = PlayerSheet.FromBytes(pd, vm.Session.Kind, vm.Session.DataFolder, path);
                     vm.Session.PlayerMoved(playerSheet.Dat);
                     said.Add("the player");
                 }
+                int maps = 0;
+                foreach (var f in c.Files.Where(f => f.StartsWith("automap-", StringComparison.Ordinal)))
+                {
+                    int lv;
+                    if (!int.TryParse(f.Substring(8, 2), out lv)) continue;
+                    var map = CheckpointStore.ReadFile(c, f);
+                    var notes = CheckpointStore.ReadFile(c, string.Format("notes-{0:D2}.bin", lv));
+                    var a = vm.Edits.AutomapFor(lv);
+                    if (map == null || (map.SequenceEqual(a.Map) && (notes ?? new byte[0]).SequenceEqual(Automap.WriteNotes(a.Notes)))) continue;
+                    a.Replace(map, notes == null ? a.Notes : Automap.ReadNotes(notes), "Checkpoint");
+                    vm.Edits.AutomapEdited(a);
+                    maps++;
+                }
+                if (maps > 0) said.Add(maps + " automap(s)");
                 vm.FlushRefresh();
                 UpdateMarkers();
                 vm.RaiseEditState();

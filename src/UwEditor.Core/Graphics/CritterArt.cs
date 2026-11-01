@@ -199,7 +199,7 @@ namespace UwEditor.Core.Graphics
             changed.Clear();
         }
 
-        /// <summary>The run-length code of .GR files, for words up to mask (15 or 31); counts stay below 16 a word.</summary>
+        /// <summary>The run-length code of .GR files, for words up to mask (15 or 31); a count takes one word when it fits it.</summary>
         public static List<int> EncodeRle(int[] pixels, int mask)
         {
             var o = new List<int>();
@@ -214,16 +214,16 @@ namespace UwEditor.Core.Graphics
                     reps.Add(new[] { len, pixels[i] });
                     i += len;
                 }
-                if (reps.Count == 0) Count(o, 1);
+                if (reps.Count == 0) Count(o, mask, 1);
                 else
                 {
-                    if (reps.Count > 1) { Count(o, 2); Count(o, reps.Count); }
-                    foreach (var r in reps) { Count(o, r[0]); o.Add(r[1] & mask); }
+                    if (reps.Count > 1) { Count(o, mask, 2); Count(o, mask, reps.Count); }
+                    foreach (var r in reps) { Count(o, mask, r[0]); o.Add(r[1] & mask); }
                 }
                 if (i >= n) break;
                 int start = i;
                 while (i < n && i - start < 0xFFF && Run(pixels, i) < 3) i++;
-                Count(o, i - start);
+                Count(o, mask, i - start);
                 for (int k = start; k < i; k++) o.Add(pixels[k] & mask);
             }
             return o;
@@ -236,9 +236,10 @@ namespace UwEditor.Core.Graphics
             return j - i;
         }
 
-        static void Count(List<int> o, int c)
+        /// <summary>A count: one word when it fits the word (up to 15, or 31 for 5-bit frames, as the game's own data has), else 0 and nibbles.</summary>
+        static void Count(List<int> o, int mask, int c)
         {
-            if (c < 16) o.Add(c);
+            if (c <= mask) o.Add(c);
             else if (c < 256) { o.Add(0); o.Add(c >> 4); o.Add(c & 0xF); }
             else { o.Add(0); o.Add(0); o.Add(0); o.Add(c >> 8); o.Add((c >> 4) & 0xF); o.Add(c & 0xF); }
         }

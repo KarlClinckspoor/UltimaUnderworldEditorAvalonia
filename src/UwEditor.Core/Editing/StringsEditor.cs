@@ -99,7 +99,7 @@ namespace UwEditor.Core.Editing
             return index >= o.Count || index >= n.Count || o[index] != n[index];
         }
 
-        /// <summary>Writes STRINGS.PAK (STRINGS.BKP and, the first time, STRINGS.PAK.ORIG kept) and reloads the session's strings.</summary>
+        /// <summary>Writes STRINGS.PAK (STRINGS.PAK.BKP and, the first time, STRINGS.PAK.ORIG kept) and reloads the session's strings.</summary>
         public void Save()
         {
             Pak.Save();

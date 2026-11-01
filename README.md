@@ -88,8 +88,8 @@ player and graphics. Changes can be packed into mods. The plan is in
   - **Who talks:** the creatures in the levels that use the slot (whoami, or the generic
     slot for whoami 0). Double-click one to go to it in the main window.
   **Save** (Ctrl+S) writes CNV.ARK and STRINGS.PAK in `DATA`, with only the changed blocks
-  rewritten. UW2's blocks are compressed again. The old files are kept as `CNV.BKP` and
-  `STRINGS.BKP`. Edits stay in memory when the window closes, until the game is closed.
+  rewritten. UW2's blocks are compressed again. The old files are kept as `CNV.ARK.BKP` and
+  `STRINGS.PAK.BKP`. Edits stay in memory when the window closes, until the game is closed.
 - **Tools ▸ Global variables…** (Ctrl+Shift+G): the game state conversations can read and
   change, with the conversations that read and write each:
   - quest flags and quest bytes (`get_quest`, `set_quest`);
@@ -128,7 +128,7 @@ player and graphics. Changes can be packed into mods. The plan is in
   Saving renumbers the objects depth first, as the game's `InvSaveNexts` does. Rewriting a
   shipped save's inventory unchanged gives the same bytes, except slots 19–27 (an open
   bag's view, which the game rebuilds): those are cleared. The old file is kept as
-  `PLAYER.BKP`.
+  `PLAYER.DAT.BKP`.
 - **Tools ▸ Graphics…** (Ctrl+Shift+R), with three tabs:
   - **Pictures:** every `.GR`, `.TR`, `.BYT` and UW2's `BYT.ARK` in DATA, as thumbnails.
     Each is shown large with a palette of PALS.DAT; UW2's screens start in the palette the
@@ -162,7 +162,7 @@ player and graphics. Changes can be packed into mods. The plan is in
 ### Editing levels
 
 Each level keeps its own undo history (Ctrl+Z, Ctrl+Y). **Save levels** (Ctrl+S) writes
-LEV.ARK and keeps `LEV.BKP`, plus `LEV.ARK.ORIG` the first time. The toolbar above the
+LEV.ARK and keeps `LEV.ARK.BKP`, plus `LEV.ARK.ORIG` the first time. The toolbar above the
 view chooses the tool:
 - **Select:** a click picks an object or tile; a double click also moves the view to it
   (so does double-clicking in the list).

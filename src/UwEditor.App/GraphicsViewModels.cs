@@ -144,6 +144,16 @@ namespace UwEditor.App
             ShowPicture();
         }
 
+        /// <summary>Replaced pictures or critter frames not yet written.</summary>
+        public bool HasChanges { get { return open.Values.Any(f => f.HasChanges) || (critters != null && critters.Any(c => c.Pages.Any(p => p.HasChanges))); } }
+
+        /// <summary>Writes every replaced picture and critter frame.</summary>
+        public void SaveAll()
+        {
+            foreach (var f in open.Values.Where(f => f.HasChanges).ToList()) { if (f == File) SavePictures(); else f.Save(); }
+            if (critters != null) foreach (var c in critters) foreach (var p in c.Pages.Where(p => p.HasChanges).ToList()) p.Save();
+        }
+
         public List<string> SavePictures()
         {
             if (File == null || !File.HasChanges) { Status = "Nothing to save."; return new List<string>(); }

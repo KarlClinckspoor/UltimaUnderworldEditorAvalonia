@@ -159,7 +159,7 @@ namespace UwEditor.Core.Conversations
             return o.ToArray();
         }
 
-        /// <summary>Writes the file (the old one kept as STRINGS.BKP) and makes the saved state the base.</summary>
+        /// <summary>Writes the file (the old one kept as STRINGS.PAK.BKP) and makes the saved state the base.</summary>
         public void Save(string path = null)
         {
             path = path ?? Path;

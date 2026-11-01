@@ -479,6 +479,7 @@ namespace UwEditor.Core.Randomizer
                 int off = BitConverter.ToInt32(file, 10), w = BitConverter.ToInt32(file, 18), h = BitConverter.ToInt32(file, 22), bpp = BitConverter.ToUInt16(file, 28);
                 if (w != Side || Math.Abs(h) != Side) return string.Format("The picture is {0}x{1}, not 64x64.", w, h);
                 if (bpp != 8) return "Not an 8-bit indexed BMP (" + bpp + " bits per pixel).";
+                if (off < 54 || (long)off + Side * Side > file.Length) return "The BMP is cut short: its pixels are not all there.";
                 t = new byte[Side * Side];
                 for (int r = 0; r < Side; r++)
                 {

@@ -57,9 +57,12 @@ namespace UwEditor.Core.Graphics
                 int at = 0xB00 + pg.Item1 * PageBytes;
                 int n = pg.Item3;
                 int data = at + 8 + 2 * n;
+                if (at + 8 + 2 * n > d.Length) throw new InvalidDataException("LPF page " + pg.Item1 + " lies past the end of the file.");
                 for (int r = 0; r < n; r++)
                 {
                     int size = U16(d, at + 8 + 2 * r);
+                    // a record never leaves its page (64 KB) or the file: a damaged header stops here, not in memory
+                    if (data + size > d.Length || data + size > at + PageBytes) throw new InvalidDataException("LPF page " + pg.Item1 + ", record " + r + " runs past its page or the file.");
                     var rec = new byte[size];
                     if (data + size <= d.Length) Array.Copy(d, data, rec, 0, size);
                     a.Records.Add(rec);
@@ -119,6 +122,7 @@ namespace UwEditor.Core.Graphics
                 if (cnt > 0) { for (int k = 0; k < cnt && p < s.Length; k++) Put(dst, d++, s[p++]); continue; }
                 if (cnt == 0)
                 {
+                    if (p + 2 > s.Length) return;                       // a run cut short
                     int n = s[p++], v = s[p++];
                     for (int k = 0; k < n; k++) Put(dst, d++, (byte)v);
                     continue;

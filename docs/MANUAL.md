@@ -3,7 +3,7 @@
 The editor opens Ultima Underworld I and II, shows their levels in 3D, and edits levels,
 conversations, strings, keys, the player, graphics and the executables' start square. Its
 changes can be packed into mods. Everything it writes is kept safe: the previous file as
-`NAME.BKP`, and the untouched original as `NAME.EXT.ORIG` the first time a file is written.
+`NAME.EXT.BKP`, and the untouched original as `NAME.EXT.ORIG` the first time a file is written.
 
 Press **F1** or use **Help ▸ Manual** to open this manual. **Help ▸ Controls** lists the keys.
 
@@ -14,6 +14,13 @@ the `DATA` folder itself, or a saved game (`SAVE1`…). The game is recognised b
 files. A saved game takes its levels and player from the save, and everything else from
 `DATA`.
 
+**Unsaved work.** Opening another game or closing the editor asks first when anything is
+unsaved: levels and their maps, the player, strings and conversations, global variables,
+pictures and zones. **Save** there writes all of them; Ctrl+S (Save the levels) writes the
+levels and the player. The global variables and graphics windows also ask when they close
+with unsaved changes, since their edits live in the window. The tool windows of a game close
+when another game opens.
+
 **The camera starts over the start square of a new game.** The square is read from
 `UW.EXE` / `UW2.EXE`, so a patched start square shows too. In a saved game the camera
 starts over the player, facing where the player faces. A large **red arrow** marks the
@@ -21,7 +28,7 @@ new-game start; in a saved game a **green arrow** marks the player.
 
 **Picking a level:**
 - UW1: levels 1–9.
-- UW2: pick the world, then a slot in it. Empty slots are marked.
+- UW2: pick the world, then a slot in it. Empty slots are marked; they cannot be edited.
 - PgUp and PgDn step through the levels.
 
 ## The 3D view
@@ -85,7 +92,7 @@ its wall and floor textures.
 ## Editing levels
 
 Each level keeps its own undo history (Ctrl+Z, Ctrl+Y). **Save levels** (Ctrl+S) writes
-LEV.ARK and keeps `LEV.BKP`, plus `LEV.ARK.ORIG` the first time. The toolbar above the
+LEV.ARK and keeps `LEV.ARK.BKP`, plus `LEV.ARK.ORIG` the first time. The toolbar above the
 view chooses the tool:
 - **Select:** a click picks an object or tile; a double click also moves the view to it
   (so does double-clicking in the list).
@@ -162,8 +169,8 @@ conversation says. Four tabs:
 - **Who talks:** the creatures in the levels that use the slot (whoami, or the generic
   slot for whoami 0). Double-click one to go to it in the main window.
 **Save** (Ctrl+S) writes CNV.ARK and STRINGS.PAK in `DATA`, with only the changed blocks
-rewritten. UW2's blocks are compressed again. The old files are kept as `CNV.BKP` and
-`STRINGS.BKP`. Edits stay in memory when the window closes, until the game is closed.
+rewritten. UW2's blocks are compressed again. The old files are kept as `CNV.ARK.BKP` and
+`STRINGS.PAK.BKP`. Edits stay in memory when the window closes, until the game is closed.
 
 ## Global variables
 
@@ -207,7 +214,7 @@ shows the worn and held objects, the pack and container contents, with icons:
 Saving renumbers the objects depth first, as the game's `InvSaveNexts` does. Rewriting a
 shipped save's inventory unchanged gives the same bytes, except slots 19–27 (an open
 bag's view, which the game rebuilds): those are cleared. The old file is kept as
-`PLAYER.BKP`.
+`PLAYER.DAT.BKP`.
 
 ## Graphics
 
@@ -265,8 +272,8 @@ level; UW2 0x9F + level and 0xEF + level). A saved game has its own; a new game 
   shape, its floor's water, lava or ice, and (UW1) a door. **Mark unseen** clears them. The
   brush is 1, 3 × 3, 5 × 5 or 9 × 9 tiles; rock is never marked.
 - **Mark everything seen** / **Mark nothing seen** do the whole level.
-- **Notes**: click to add a note, drag one to move it, select it to change its text (printable
-  ASCII, at most 49 characters, the game's limit) or delete it. A level holds up to 100.
+- **Notes**: click to add a note, drag one to move it, select it to change its text (one byte
+  a character, at most 49, the game's limit) or delete it. A level holds up to 100.
 - **Show the level under the map** draws the level faintly behind, to paint by.
 - **Undo** steps back in the window; the changes are saved with the levels (Save levels)
   and count as unsaved work.
@@ -299,11 +306,12 @@ what that would take.
 ## Checkpoints
 
 **File ▸ Checkpoints…** While there are unsaved changes, the editor keeps a copy of them
-every few minutes (5 by default; 0 turns it off). Each copy holds the changed levels, and
-STRINGS.PAK or PLAYER.DAT when they have unsaved edits. Only the newest copies are kept: 20
+every few minutes (5 by default; 0 turns it off). Each copy holds the changed levels and
+automaps, and STRINGS.PAK or PLAYER.DAT when they have unsaved edits. Only the newest copies are kept: 20
 by default, up to 1000. **Checkpoint now** takes one at once. **Restore** (or a double click)
 loads one back as unsaved edits: each level becomes one undo step, and nothing in the game
-folder changes until you save. The copies live in the editor's settings folder, one folder
+folder changes until you save. Restoring the strings or the player cannot be undone, so the
+editor asks first when they have unsaved edits of their own. The copies live in the editor's settings folder, one folder
 per opened game. Unsaved conversation scripts are not included; their strings are.
 
 ## Colour scheme
@@ -386,6 +394,8 @@ they lie (on the floor, in a container or a creature's inventory) but may become
 else. Choose the settings in the tabs, press **Preview** to see the report, then **Shuffle**.
 **Undo shuffle** puts back every object the shuffles from the window changed; each shuffle is
 also one Edit ▸ Undo step per level, and nothing reaches the game until you save the levels.
+A level edited after the shuffle is left as it is (its old records could undo those edits
+halfway and break its object lists); the report names it, and Edit ▸ Undo steps back there.
 The same seed on the same levels gives the same result. The settings are kept between runs
 (`item-shuffle-uw1.json` / `-uw2.json` in the settings folder).
 
@@ -577,6 +587,6 @@ and its strongest creature, and the creatures with a conversation.
 | `UW.EXE`, `UW2.EXE` | the new-game start square, patched in place |
 | `.GR`, `.TR`, `.BYT`, CRIT, CUTS files | Graphics imports |
 
-Before writing, the old file is kept as `NAME.BKP`. The first time the editor writes a file,
+Before writing, the old file is kept as `NAME.EXT.BKP`. The first time the editor writes a file,
 it also keeps the untouched original as `NAME.EXT.ORIG`. The mods window compares with
 those originals.

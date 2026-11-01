@@ -19,6 +19,8 @@ namespace UwEditor.App
     public partial class ConversationWindow : Window
     {
         public readonly ConversationViewModel Model = new ConversationViewModel();
+        /// <summary>Written to disk: names in the main window may have changed (STRINGS.PAK).</summary>
+        public event Action Saved;
         readonly ConversationLibrary lib;
         readonly Action<ConversationUser> goTo;
         readonly Action<int> showGlobals;
@@ -347,6 +349,7 @@ namespace UwEditor.App
                 foreach (var r in Model.All) r.Changed = false;
                 if (current != null) { originalStrings = lib.Strings.Original(current.StringBlock); foreach (var r in Model.Strings) r.Changed = false; }
                 Model.Status = "Saved " + string.Join(" and ", done) + " in " + lib.Session.DataFolder + " (the old files are kept as .BKP).";
+                Saved?.Invoke();
                 return done;
             }
             catch (Exception ex)

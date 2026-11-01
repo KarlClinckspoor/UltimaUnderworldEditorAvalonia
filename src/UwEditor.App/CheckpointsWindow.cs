@@ -35,10 +35,10 @@ namespace UwEditor.App
             var now = new Button { Content = "Checkpoint now" };
             now.Click += (s, e) => { var c = main.WriteCheckpoint("by hand", true); status.Text = c == null ? "Nothing unsaved to keep." : "Written: " + c.Summary; Refresh(); };
             var restore = new Button { Content = "Restore" };
-            restore.Click += (s, e) => { if (list.SelectedItem is CheckpointInfo c) { status.Text = main.RestoreCheckpoint(c); } };
+            restore.Click += async (s, e) => { if (list.SelectedItem is CheckpointInfo c) { status.Text = await main.RestoreCheckpointAsk(c); } };
             var delete = new Button { Content = "Delete" };
             delete.Click += (s, e) => { if (list.SelectedItem is CheckpointInfo c) { main.CheckpointStore?.Delete(c); Refresh(); } };
-            list.DoubleTapped += (s, e) => { if (list.SelectedItem is CheckpointInfo c) status.Text = main.RestoreCheckpoint(c); };
+            list.DoubleTapped += async (s, e) => { if (list.SelectedItem is CheckpointInfo c) status.Text = await main.RestoreCheckpointAsk(c); };
 
             var settingsRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 10) };
             settingsRow.Children.Add(new TextBlock { Text = "Every", VerticalAlignment = VerticalAlignment.Center });
@@ -51,7 +51,7 @@ namespace UwEditor.App
             var intro = new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75, Margin = new Thickness(0, 0, 0, 10),
-                Text = "While there are unsaved changes, a copy of them is kept every few minutes: the changed levels, and STRINGS.PAK or PLAYER.DAT when they have unsaved edits. " +
+                Text = "While there are unsaved changes, a copy of them is kept every few minutes: the changed levels and automaps, and STRINGS.PAK or PLAYER.DAT when they have unsaved edits. " +
                        "Restoring loads a checkpoint back as unsaved edits that can be undone; the game folder is not touched until you save. Kept in " + (main.CheckpointStore?.Root ?? "the settings folder") + ".",
             };
             var dock = new DockPanel { Margin = new Thickness(16) };

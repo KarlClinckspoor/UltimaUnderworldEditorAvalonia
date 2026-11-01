@@ -105,6 +105,8 @@ namespace UwEditor.Core.Randomizer
         public readonly Dictionary<int, List<KeyValuePair<int, byte[]>>> ByLevel = new Dictionary<int, List<KeyValuePair<int, byte[]>>>();
         public readonly Dictionary<int, List<KeyValuePair<int, byte[]>>> Original = new Dictionary<int, List<KeyValuePair<int, byte[]>>>();
         public readonly StringBuilder Report = new StringBuilder();
+        /// <summary>Each level's block as Apply left it: Revert only puts back a level that has not been edited since.</summary>
+        public readonly Dictionary<int, byte[]> After = new Dictionary<int, byte[]>();
         public int Changed { get { return ByLevel.Values.Sum(l => l.Count); } }
     }
 
@@ -224,6 +226,8 @@ namespace UwEditor.Core.Randomizer
                         int gt = (goal >> 4) & 0xFF;
                         if (gt > 1 && gt < m.Objects.Length && m.Objects[gt].IsCritter) sp.LevelBound = sp.LevelBound ?? "its goal targets another creature";
                         if (opt.LootWithMonster && o.Children.Count > 0) sp.LevelBound = sp.LevelBound ?? "carries something";
+                        // a talker's inventory is what its conversation gives and takes: it always goes along, so on its level
+                        if (sp.Whoami > 0 && o.Children.Count > 0) sp.LevelBound = sp.LevelBound ?? "carries what its conversation gives or takes";
                     }
                     sp.Water = k.Swims;
                     sp.Strength = Strength(s, objects, k, opt.KeepHp ? k.AvgHit : r[8], ((att >> 10) & 1) != 0, opt.Measure);
@@ -329,9 +333,12 @@ namespace UwEditor.Core.Randomizer
             var groups = moving.GroupBy(x => scopeKey(x) + (x.LevelBound != null && opt.Scope != "level" ? "/bound" : "") + (x.Water ? "/water" : "")).ToList();
             var newRec = new Dictionary<MonsterSpot, byte[]>();
             int moved = 0;
-            foreach (var g in groups.OrderBy(x => x.Key))
+            foreach (var g in groups.OrderBy(x => x.Key, StringComparer.Ordinal))
             {
                 var spots = g.ToList();
+                // inventories trade along with the monsters when asked, or when a talker carrying something is
+                // in the group (such a group is always one level's, so every link stays on its level)
+                bool loot = opt.LootWithMonster || spots.Any(x => x.Whoami > 0 && x.O.Children.Count > 0);
                 var assign = Match(spots, opt, s.IsUw2, rng, headroom);
                 for (int i = 0; i < spots.Count; i++)
                 {
@@ -344,7 +351,7 @@ namespace UwEditor.Core.Randomizer
                     r[0] = (byte)w0; r[1] = (byte)(w0 >> 8);
                     if (!opt.KeepHp) r[8] = src[8];
                     int att = Word(r, 0x0D) & ~(0x400 | 0x2000 | 0xC000) | (Word(src, 0x0D) & (0x2000 | 0xC000)) | (powerful[who] ? 0x400 : 0);
-                    if (opt.LootWithMonster && place.Level == who.Level)
+                    if (loot && place.Level == who.Level)
                     {
                         // the inventory goes along: the link (word 3 bits 6-15) and the inventory-made bit
                         int w3 = Word(r, 6) & 0x3F | (Word(src, 6) & ~0x3F);
@@ -397,12 +404,29 @@ namespace UwEditor.Core.Randomizer
 
         public static void Apply(MonsterSwapResult r, LevelEdits edits, int seed)
         {
-            foreach (var kv in r.ByLevel) edits.For(kv.Key).RewriteRecords(kv.Value, "Swap monsters (seed " + seed + ")");
+            foreach (var kv in r.ByLevel)
+            {
+                var e = edits.For(kv.Key);
+                e.RewriteRecords(kv.Value, "Swap monsters (seed " + seed + ")");
+                r.After[kv.Key] = (byte[])e.Data.Clone();
+            }
         }
 
-        public static void Revert(MonsterSwapResult r, LevelEdits edits)
+        /// <summary>
+        /// Puts the swapped records back. The records hold the object lists (next, link), so a level
+        /// edited since the swap is left alone rather than half undone; those levels are returned.
+        /// </summary>
+        public static List<int> Revert(MonsterSwapResult r, LevelEdits edits)
         {
-            foreach (var kv in r.Original) edits.For(kv.Key).RewriteRecords(kv.Value, "Undo monster swap");
+            var skipped = new List<int>();
+            foreach (var kv in r.Original)
+            {
+                var e = edits.For(kv.Key);
+                byte[] after;
+                if (r.After.TryGetValue(kv.Key, out after) && !e.Data.AsSpan().SequenceEqual(after)) { skipped.Add(kv.Key); continue; }
+                e.RewriteRecords(kv.Value, "Undo monster swap");
+            }
+            return skipped;
         }
 
         /// <summary>

@@ -290,7 +290,8 @@ namespace UwEditor.App
             Content = dock;
             ManualWindow.Attach(this, "Automap and map notes");
             main.ViewModel.LevelChanged += OnLevel;
-            Closed += (o, e) => main.ViewModel.LevelChanged -= OnLevel;
+            main.ViewModel.LevelEdited += OnLevelEdited;
+            Closed += (o, e) => { main.ViewModel.LevelChanged -= OnLevel; main.ViewModel.LevelEdited -= OnLevelEdited; };
             OnLevel(main.ViewModel.Level);
         }
 
@@ -306,6 +307,15 @@ namespace UwEditor.App
             view.Map = level == null || vm.Edits == null ? null : vm.Edits.AutomapFor(level.Level);
             view.Selected = null;
             Fill();
+        }
+
+        /// <summary>The level was edited in the main window: paint by its new shapes (the model is rebuilt after an edit).</summary>
+        void OnLevelEdited()
+        {
+            var level = main.ViewModel.Level;
+            if (level == null || view.Level == null || level.Level != view.Level.Level) return;
+            view.Level = level;
+            view.InvalidateVisual();
         }
 
         void Edit(string label, Action<Automap> a)

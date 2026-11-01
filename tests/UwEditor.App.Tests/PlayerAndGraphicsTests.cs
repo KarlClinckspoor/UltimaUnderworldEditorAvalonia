@@ -74,7 +74,7 @@ namespace UwEditor.App.Tests
                 Assert.Equal(back.ExpectedMaxVitality, back.MaxVitality);
                 Assert.Contains(back.Inventory.Top.First(t => t.ItemId == 0x80).Contents, c => c.ItemId == 0xA0 && c.Quantity == 99);
                 Assert.Contains(back.Inventory.Top, t => t.ItemId == 0x04 && t.Slot >= PlayerInventory.PackFirst);
-                Assert.True(File.Exists(Path.Combine(copy.Folder, "SAVE1", "PLAYER.BKP")));
+                Assert.True(File.Exists(Path.Combine(copy.Folder, "SAVE1", "PLAYER.DAT.BKP")));
             }
         }
 
@@ -110,7 +110,7 @@ namespace UwEditor.App.Tests
                 Assert.False(r.Ok);
                 Assert.Contains("must stay", m.Status);
                 m.SavePictures();
-                Assert.True(File.Exists(Path.Combine(copy.Folder, "DATA", "OBJECTS.BKP")));
+                Assert.True(File.Exists(Path.Combine(copy.Folder, "DATA", "OBJECTS.GR.BKP")));
                 // a texture file and palettes
                 m.FileName = "W64.TR";
                 Assert.Equal(m.Picture.Width, m.Picture.Height);

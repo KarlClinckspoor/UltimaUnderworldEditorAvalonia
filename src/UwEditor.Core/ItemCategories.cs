@@ -209,13 +209,14 @@ namespace UwEditor.Core
     /// <summary>The find window's search over every level of the open game.</summary>
     public static class LevelSearch
     {
-        public static List<SearchHit> Run(GameSession s, ObjectQuery q, int max = 2000)
+        /// <summary>Every match in the game's levels; level gives a level as edited (unsaved edits), else it is read from LEV.ARK.</summary>
+        public static List<SearchHit> Run(GameSession s, ObjectQuery q, int max = 2000, Func<int, LevelModel> levelOf = null)
         {
             var hits = new List<SearchHit>();
             foreach (var slot in s.LevelSlots())
             {
                 if (!slot.Present) continue;
-                var level = s.LoadLevel(slot.Level);
+                var level = (levelOf != null ? levelOf(slot.Level) : null) ?? s.LoadLevel(slot.Level);
                 foreach (var o in level.Objects)
                 {
                     if (o.TileX < 0 || o.Free || !q.Matches(s, o)) continue;

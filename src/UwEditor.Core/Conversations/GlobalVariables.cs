@@ -39,7 +39,10 @@ namespace UwEditor.Core.Conversations
     public sealed class GlobalVariables
     {
         public GameKind Kind { get; private set; }
-        public PlayerDat Player { get; private set; }
+        PlayerDat player;
+        UwEditor.Core.Player.PlayerSheet sheet;
+        /// <summary>The player record: the shared sheet's when one was given (one copy of PLAYER.DAT for the whole editor), else this window's own.</summary>
+        public PlayerDat Player { get { return sheet != null ? sheet.Dat : player; } }
         public string PlayerPath { get; private set; }
         public BGlobals Private { get; private set; }
         public string PrivatePath { get; private set; }
@@ -88,14 +91,14 @@ namespace UwEditor.Core.Conversations
         }
 
         /// <summary>The variables of an open game, with their uses in the conversations (from GlobalUsage).</summary>
-        public static GlobalVariables Load(GameSession s, ConversationArchive cnv, IEnumerable<GlobalUse> uses, Func<int, string> conversationName = null)
+        public static GlobalVariables Load(GameSession s, ConversationArchive cnv, IEnumerable<GlobalUse> uses, Func<int, string> conversationName = null, UwEditor.Core.Player.PlayerSheet sheet = null)
         {
-            var g = new GlobalVariables { Kind = s.Kind };
+            var g = new GlobalVariables { Kind = s.Kind, sheet = sheet };
             // DATA's PLAYER.DAT is a 301-byte template, not a player record: a new game starts with these at 0
             g.PlayerPath = s.IsSave ? GameProfile.Find(s.SaveFolder, "PLAYER.DAT") : null;
-            if (g.PlayerPath != null)
+            if (g.PlayerPath != null && sheet == null)
             {
-                try { g.Player = PlayerDat.Parse(File.ReadAllBytes(g.PlayerPath), s.Kind); } catch (Exception) { g.Player = null; }
+                try { g.player = PlayerDat.Parse(File.ReadAllBytes(g.PlayerPath), s.Kind); } catch (Exception) { g.player = null; }
             }
             g.PrivatePath = s.IsSave ? GameProfile.Find(s.SaveFolder, "BGLOBALS.DAT") : GameProfile.Find(s.DataFolder, "BABGLOBS.DAT");
             if (g.PrivatePath != null)
@@ -279,6 +282,7 @@ namespace UwEditor.Core.Conversations
                 if (bit >= 0) r[at] = (byte)(value != 0 ? r[at] | 1 << bit : r[at] & ~(1 << bit));
                 else if (v.Kind == GlobalKind.GameVariable && uw2) { r[at] = (byte)value; r[at + 1] = (byte)(value >> 8); }
                 else r[at] = (byte)value;
+                if (sheet != null) sheet.Dirty = true;
             }
             v.Value = value;
             Dirty = true;
@@ -290,7 +294,8 @@ namespace UwEditor.Core.Conversations
         {
             var written = new List<string>();
             if (!CanEdit || !Dirty) return written;
-            if (Player != null && PlayerPath != null) { SafeFile.Write(PlayerPath, Player.ToBytes()); written.Add(PlayerPath); }
+            if (sheet != null) { if (sheet.Dirty) { sheet.Save(); written.Add(sheet.Path); } }
+            else if (Player != null && PlayerPath != null) { SafeFile.Write(PlayerPath, Player.ToBytes()); written.Add(PlayerPath); }
             if (Private != null && PrivatePath != null) { SafeFile.Write(PrivatePath, Private.ToBytes(true)); written.Add(PrivatePath); }
             Dirty = false;
             return written;

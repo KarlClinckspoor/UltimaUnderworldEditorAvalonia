@@ -197,14 +197,14 @@ namespace UwEditor.Core.Tests
                 Assert.Null(globals.Set(p, -5));
                 Assert.NotNull(globals.Set(clock, 300));
                 Assert.Equal(2, globals.Save().Count);
-                Assert.True(File.Exists(Path.Combine(tmp, "SAVE1", "PLAYER.BKP")));
+                Assert.True(File.Exists(Path.Combine(tmp, "SAVE1", "PLAYER.DAT.BKP")));
                 var again = GlobalVariables.Load(GameSession.Open(Path.Combine(tmp, "SAVE1")), lib.Archive, null);
                 Assert.Equal(9, again.Find(GlobalKind.XClock, 1).Value);
                 Assert.Equal(q.Value, again.Find(GlobalKind.Quest, 77).Value);
                 Assert.Equal(1234, again.Find(GlobalKind.GameVariable, 200).Value);
                 Assert.Equal(-5, again.Find(GlobalKind.Private, p.Number, p.Slot).Value);
                 // a quest flag shares its byte with others: only its bit changed
-                var before = PlayerDat.Parse(File.ReadAllBytes(Path.Combine(tmp, "SAVE1", "PLAYER.BKP")), GameKind.UW2).Record;
+                var before = PlayerDat.Parse(File.ReadAllBytes(Path.Combine(tmp, "SAVE1", "PLAYER.DAT.BKP")), GameKind.UW2).Record;
                 var after = PlayerDat.Parse(File.ReadAllBytes(Path.Combine(tmp, "SAVE1", "PLAYER.DAT")), GameKind.UW2).Record;
                 int diff = Enumerable.Range(0, before.Length).Count(i => before[i] != after[i]);
                 Assert.InRange(diff, 2, 4);

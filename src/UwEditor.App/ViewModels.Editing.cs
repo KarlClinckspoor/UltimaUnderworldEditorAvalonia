@@ -23,7 +23,7 @@ namespace UwEditor.App
     {
         public LevelEdits Edits { get; private set; }
         /// <summary>The editor of the level shown (made on the first edit).</summary>
-        public LevelEditor Editor { get { return level == null || Edits == null ? null : Edits.For(level.Level); } }
+        public LevelEditor Editor { get { return level == null || !level.Present || Edits == null ? null : Edits.For(level.Level); } }   // an empty slot has no free lists to edit with
         /// <summary>The level was changed in place (not another level): redraw, keep the camera.</summary>
         public event Action LevelEdited;
 
@@ -33,6 +33,9 @@ namespace UwEditor.App
         public bool CanUndo { get { var e = level == null ? null : Edits?.Existing(level.Level); return e != null && e.CanUndo; } }
         public bool CanRedo { get { var e = level == null ? null : Edits?.Existing(level.Level); return e != null && e.CanRedo; } }
         public bool HasLevelChanges { get { return Edits != null && Edits.HasChanges; } }
+        /// <summary>Unsaved work Save (Ctrl+S) writes besides the levels: the player (set by the main window).</summary>
+        public Func<bool> OtherUnsaved;
+        public bool CanSave { get { return HasLevelChanges || (OtherUnsaved != null && OtherUnsaved()); } }
         public string UndoText { get { var e = level == null ? null : Edits?.Existing(level.Level); return e != null && e.CanUndo ? "Undo " + e.UndoLabel : "Undo"; } }
         public string RedoText { get { var e = level == null ? null : Edits?.Existing(level.Level); return e != null && e.CanRedo ? "Redo " + e.RedoLabel : "Redo"; } }
         public string ChangedLevels
@@ -64,7 +67,7 @@ namespace UwEditor.App
 
         public void RaiseEditState()
         {
-            foreach (var n in new[] { nameof(CanUndo), nameof(CanRedo), nameof(HasLevelChanges), nameof(UndoText), nameof(RedoText), nameof(ChangedLevels) }) Raise(n);
+            foreach (var n in new[] { nameof(CanUndo), nameof(CanRedo), nameof(HasLevelChanges), nameof(CanSave), nameof(UndoText), nameof(RedoText), nameof(ChangedLevels) }) Raise(n);
         }
 
         bool refreshPending;

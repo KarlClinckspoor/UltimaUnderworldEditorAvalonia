@@ -179,12 +179,20 @@ namespace UwEditor.App
             atlas = SpriteAtlas.Build(s.Graphics.ObjectPictures);
             ApplyAccent(s.IsUw2);
             Title = "Underworld Editor — " + s.Title;
-            conversationWindow?.Close();
-            globalsWindow?.Close();
-            playerWindow?.Close();
-            graphicsWindow?.Close();
-            keysWindow?.Close(); stringsWindow?.Close(); triggersWindow?.Close(); modsWindow?.Close(); modelsWindow?.Close();
-            zonesWindow?.Close(); zoneGraphWindow?.Close();
+            // the windows of the old game go: they hold its session, levels and results (asked about above)
+            quietClose = true;
+            try
+            {
+                conversationWindow?.Close();
+                globalsWindow?.Close();
+                playerWindow?.Close();
+                graphicsWindow?.Close();
+                keysWindow?.Close(); stringsWindow?.Close(); triggersWindow?.Close(); modsWindow?.Close(); modelsWindow?.Close();
+                zonesWindow?.Close(); zoneGraphWindow?.Close();
+                itemShuffleWindow?.Close(); itemSwapWindow?.Close(); monsterSwapWindow?.Close();
+                findWindow?.Close(); automapWindow?.Close(); checkpointsWindow?.Close();
+            }
+            finally { quietClose = false; }
             zoning = null; zoneOverlay = null;
             conversations = null;
             strings = null;
@@ -218,6 +226,7 @@ namespace UwEditor.App
 
         void OnLevelChanged(LevelModel level)
         {
+            EndPaintStroke();
             scene = level == null ? null : LevelScene.Build(level, atlas, vm.Options);
             if (View.FirstPerson) View.SetFirstPerson(false);
             View.SetScene(scene);
@@ -505,6 +514,7 @@ namespace UwEditor.App
             var sheet = PlayerSheetOf();
             if (sheet == null) return null;
             playerWindow = new PlayerWindow(sheet, s, vm.IconOf);
+            playerWindow.Model.Edited += () => { NoteEdit(); vm.RaiseEditState(); };
             playerWindow.Closed += (o, e) => playerWindow = null;
             playerWindow.Show(this);
             return playerWindow;
@@ -516,6 +526,8 @@ namespace UwEditor.App
             if (vm.Session == null) return null;
             if (graphicsWindow != null) { graphicsWindow.Activate(); return graphicsWindow; }
             graphicsWindow = new GraphicsWindow(vm.Session);
+            var gw = graphicsWindow;
+            MessageWindow.GuardClose(gw, "Graphics", () => gw.Model.HasChanges, () => { gw.Model.SaveAll(); return true; }, () => AskBeforeDiscarding && !quietClose);
             graphicsWindow.Closed += (o, e) => graphicsWindow = null;
             graphicsWindow.Show(this);
             return graphicsWindow;
@@ -533,6 +545,7 @@ namespace UwEditor.App
             {
                 conversationWindow = new ConversationWindow(lib, GoToUser, s => { var g = ShowGlobals(); if (g != null && s >= 0) _ = ShowConversationGlobals(g, s); });
                 conversationWindow.Closed += (s, e) => conversationWindow = null;
+                conversationWindow.Saved += () => { vm.Session.ReloadStrings(); vm.RefreshNames(); };
                 conversationWindow.Show(this);
             }
             else conversationWindow.Activate();
@@ -555,7 +568,9 @@ namespace UwEditor.App
             if (lib == null) return null;
             if (globalsWindow == null)
             {
-                globalsWindow = new GlobalsWindow(lib, (slot, address) => ShowConversations(slot, address));
+                globalsWindow = new GlobalsWindow(lib, (slot, address) => ShowConversations(slot, address), PlayerSheetOf());
+                var gl = globalsWindow;
+                MessageWindow.GuardClose(gl, "Global variables", () => gl.Globals != null && gl.Globals.Dirty, () => gl.Save() != null, () => AskBeforeDiscarding && !quietClose);
                 globalsWindow.Closed += (s, e) => globalsWindow = null;
                 globalsWindow.Show(this);
             }

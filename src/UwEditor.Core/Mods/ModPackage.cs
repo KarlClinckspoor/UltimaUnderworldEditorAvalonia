@@ -425,7 +425,8 @@ namespace UwEditor.Core.Mods
             var checks = Check(gameFolder, kind);
             var bad = checks.Where(c => c.State == ComponentState.Conflict || c.State == ComponentState.MissingFile).ToList();
             if (bad.Count > 0 && !force) throw new InvalidOperationException("The mod does not fit this game: " + string.Join("; ", bad.Select(b => b.ToString())));
-            var written = new List<string>();
+            // every file is built in memory first, so a component that cannot apply leaves the game untouched
+            var outputs = new List<Tuple<string, string, byte[]>>();
             foreach (var group in checks.Where(c => c.State != ComponentState.AlreadyApplied && c.State != ComponentState.MissingFile).GroupBy(c => c.Component.File))
             {
                 string path = FindCaseless(gameFolder, group.Key) ?? Path.Combine(gameFolder, group.Key.Replace('/', Path.DirectorySeparatorChar));
@@ -436,8 +437,13 @@ namespace UwEditor.Core.Mods
                     if (c.Kind == "file") bytes = c.Data;
                     else if (c.Kind == "bytes")
                     {
+                        if (bytes == null) throw new InvalidOperationException(group.Key + " is missing: its bytes cannot be patched.");
                         bytes = (byte[])bytes.Clone();
-                        foreach (var b in c.Patches) Array.Copy(b.New, 0, bytes, b.Offset, b.New.Length);
+                        foreach (var b in c.Patches)
+                        {
+                            if (b.Offset < 0 || b.Offset + b.New.Length > bytes.Length) throw new InvalidOperationException(string.Format("{0}: a patch at 0x{1:X} runs past the end of the file ({2} bytes).", group.Key, b.Offset, bytes.Length));
+                            Array.Copy(b.New, 0, bytes, b.Offset, b.New.Length);
+                        }
                     }
                     else if (c.Kind == "ark-blocks")
                     {
@@ -461,9 +467,14 @@ namespace UwEditor.Core.Mods
                         bytes = pak.ToBytes();
                     }
                 }
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                SafeFile.Write(path, bytes);
-                written.Add(group.Key);
+                outputs.Add(Tuple.Create(group.Key, path, bytes));
+            }
+            var written = new List<string>();
+            foreach (var o in outputs)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(o.Item2));
+                SafeFile.Write(o.Item2, o.Item3);
+                written.Add(o.Item1);
             }
             return written;
         }

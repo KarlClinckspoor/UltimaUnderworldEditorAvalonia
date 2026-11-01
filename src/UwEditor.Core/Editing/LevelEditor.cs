@@ -65,14 +65,21 @@ namespace UwEditor.Core.Editing
         public void EndBatch()
         {
             if (batchDepth == 0) return;
-            if (--batchDepth == 0 && !batchChanged) undo.RemoveAt(undo.Count - 1);
+            if (--batchDepth == 0 && !batchChanged && undo.Count > 0) undo.RemoveAt(undo.Count - 1);
         }
 
         void Snapshot(string label)
         {
             undo.Add(Tuple.Create(label, (byte[])data.Clone(), tex == null ? null : (byte[])tex.Clone()));
             if (undo.Count > UndoDepth) undo.RemoveAt(0);
-            redo.Clear();
+        }
+
+        /// <summary>An undo or redo while a stroke is open closes the stroke first (an empty one leaves no step).</summary>
+        void CloseBatch()
+        {
+            if (batchDepth == 0) return;
+            batchDepth = 0;
+            if (!batchChanged && undo.Count > 0) undo.RemoveAt(undo.Count - 1);
         }
 
         /// <summary>Runs one change: a snapshot first (unless in a batch), then the change, then Changed.</summary>
@@ -89,6 +96,7 @@ namespace UwEditor.Core.Editing
                 throw;
             }
             if (batchDepth > 0) batchChanged = true;
+            redo.Clear();                                       // only a change that happened drops the redo steps
             Done();
         }
 
@@ -108,6 +116,7 @@ namespace UwEditor.Core.Editing
 
         public void Undo()
         {
+            CloseBatch();
             if (undo.Count == 0) return;
             var u = undo[undo.Count - 1];
             undo.RemoveAt(undo.Count - 1);
@@ -118,6 +127,7 @@ namespace UwEditor.Core.Editing
 
         public void Redo()
         {
+            CloseBatch();
             if (redo.Count == 0) return;
             var r = redo[redo.Count - 1];
             redo.RemoveAt(redo.Count - 1);
@@ -234,11 +244,19 @@ namespace UwEditor.Core.Editing
             if (f.Name == "Link" && !o.IsQuantity && value != o.Link) throw new InvalidOperationException("This object's link is its contents (a list); set Is quantity first, or add and delete objects inside it.");
             if (f.Name == "Is quantity" && value != 0 && !o.IsQuantity && o.Children.Count > 0) throw new InvalidOperationException("Empty it first: its link holds " + o.Children.Count + " objects.");
             if (value < f.Min || value > f.Max) throw new ArgumentOutOfRangeException(f.Name, f.Name + " is " + f.Min + "-" + f.Max + ".");
+            if (f.Name == "Item id")
+            {
+                // a 27-byte mobile record and an 8-byte static one are not interchangeable (obj/OBJECTS.C)
+                bool critter = value >= 0x40 && value < 0x80;
+                if (critter && index >= LevelBlock.Mobiles) throw new InvalidOperationException("A creature needs a mobile record (#1-#255): delete this object and add the creature instead.");
+                if (!critter && o.IsCritter) throw new InvalidOperationException("A creature's record stays a creature (it is on the active list): delete it and add the object instead.");
+            }
             if (f.Get(data, LevelBlock.ObjectOffset(index)) == value) return;
             Change(f.Name + " of #" + index, () =>
             {
                 f.Set(data, value, LevelBlock.ObjectOffset(index));
-                if (f.Name == "Is quantity" && value != 0 && o.Link != 0 && !o.IsQuantity) Uw1Schemas.StaticObject["Link"].Set(data, 0, LevelBlock.ObjectOffset(index));
+                // the link changes meaning both ways: a list head becomes a quantity, a quantity must not become a list head
+                if (f.Name == "Is quantity" && o.Link != 0 && (value != 0) != o.IsQuantity) Uw1Schemas.StaticObject["Link"].Set(data, 0, LevelBlock.ObjectOffset(index));
             });
         }
 
@@ -363,8 +381,16 @@ namespace UwEditor.Core.Editing
         {
             int at = LevelBlock.ObjectOffset(i);
             var like = Model.Objects.FirstOrDefault(o => o.IsMobile && !o.Free && o.TileX >= 0 && o.Item == spec.Item && o.Index != i);
-            if (like != null) Array.Copy(like.Record, 8, data, at + 8, LevelBlock.MobileSize - 8);
+            // a free record keeps whatever the last creature there left (shipped levels have them): start clean
+            Array.Clear(data, at + 8, LevelBlock.MobileSize - 8);
             var S = Uw1Schemas.MobileObject;
+            if (like != null)
+            {
+                // the same kind's settings (speed, terrain, heading and the like), but none of its state
+                Array.Copy(like.Record, 8, data, at + 8, LevelBlock.MobileSize - 8);
+                foreach (var n in new[] { "Goal target", "Summoned", "Talked to", "Destination X", "Destination Y", "Damage taken", "Last hit", "Inventory made" })
+                    if (S.Fields.Any(f => f.Name == n)) S[n].Set(data, 0, at);
+            }
             S["HP"].Set(data, spec.Hp > 0 ? Math.Min(255, spec.Hp) : (like != null ? like.Record[8] : AverageHp(spec.Item)), at);
             S["Attitude"].Set(data, spec.Attitude & 3, at);
             S["Home X"].Set(data, x, at);
@@ -479,6 +505,7 @@ namespace UwEditor.Core.Editing
         public LevelEditor Existing(int level) { LevelEditor e; return editors.TryGetValue(level, out e) ? e : null; }
         public bool HasChanges { get { return editors.Values.Any(e => e.Dirty) || automaps.Values.Any(a => a.Dirty); } }
         public IEnumerable<LevelEditor> Editors { get { return editors.Values; } }
+        public IEnumerable<Automap> Automaps { get { return automaps.Values; } }
         public IEnumerable<int> DirtyLevels { get { return editors.Values.Where(e => e.Dirty).Select(e => e.Level).Union(automaps.Values.Where(a => a.Dirty).Select(a => a.Level)).OrderBy(l => l); } }
 
         /// <summary>The level as edited, or as the archive has it.</summary>
@@ -504,7 +531,7 @@ namespace UwEditor.Core.Editing
             return ark.ToBytes();
         }
 
-        /// <summary>Writes LEV.ARK (the old file kept as LEV.BKP). Returns the levels written.</summary>
+        /// <summary>Writes LEV.ARK (the old file kept as LEV.ARK.BKP). Returns the levels written.</summary>
         public List<int> Save()
         {
             var levels = DirtyLevels.ToList();

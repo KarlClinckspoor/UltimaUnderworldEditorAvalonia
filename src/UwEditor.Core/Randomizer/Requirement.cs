@@ -226,7 +226,12 @@ namespace UwEditor.Core.Randomizer
 			Requirement ParseTerm()
 			{
 				SkipWs();
-				if (Pos >= Text.Length) return new Leaf("free");
+				// only a whole empty expression is free; an operator with nothing after it is a mistake
+				if (Pos >= Text.Length)
+				{
+					if (Text.Trim().Length == 0) return new Leaf("free");
+					throw new FormatException("A term was expected after the operator at the end");
+				}
 				if (Text[Pos] == '(')
 				{
 					Pos++;

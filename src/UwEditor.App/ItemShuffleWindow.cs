@@ -158,8 +158,10 @@ namespace UwEditor.App
         public void UndoAll()
         {
             int n = 0;
-            for (int i = applied.Count - 1; i >= 0; i--) { ItemShuffle.Revert(applied[i], main.ViewModel.Edits); n += applied[i].Changed; }
-            report.Text = string.Format("Undone: {0} shuffle(s), {1} object changes put back as they were.", applied.Count, n);
+            var skipped = new SortedSet<int>();
+            for (int i = applied.Count - 1; i >= 0; i--) { skipped.UnionWith(ItemShuffle.Revert(applied[i], main.ViewModel.Edits)); n += applied[i].Changed; }
+            report.Text = string.Format("Undone: {0} shuffle(s), {1} object changes put back as they were.", applied.Count, n)
+                + (skipped.Count == 0 ? "" : "\n\nLeft as they are, because they were edited since: level" + (skipped.Count == 1 ? " " : "s ") + string.Join(", ", skipped) + ". Edit ▸ Undo steps back there.");
             applied.Clear();
             undoButton.IsEnabled = false;
             main.ShuffleApplied();

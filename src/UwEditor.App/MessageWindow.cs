@@ -37,6 +37,26 @@ namespace UwEditor.App
             return w.ShowDialog(owner);
         }
 
+        /// <summary>
+        /// Makes a tool window that keeps its own unsaved work ask before closing: Save, Discard or
+        /// Cancel. ask says whether to ask at all (the main window turns it off when it has already
+        /// asked about everything, or in tests); save returns false when saving failed.
+        /// </summary>
+        public static void GuardClose(Window w, string what, System.Func<bool> dirty, System.Func<bool> save, System.Func<bool> ask)
+        {
+            bool closing = false;
+            w.Closing += async (s, e) =>
+            {
+                if (closing || !dirty() || (ask != null && !ask())) return;
+                e.Cancel = true;
+                string a = await Ask(w, "Unsaved changes", what + " has unsaved changes. Save them before closing?", "Save", "Discard", "Cancel");
+                if (a == "Cancel") return;
+                if (a == "Save" && !save()) return;
+                closing = true;
+                w.Close();
+            };
+        }
+
         /// <summary>A question with buttons; returns the button chosen (the last one if the window is closed).</summary>
         public static async Task<string> Ask(Window owner, string title, string text, params string[] buttons)
         {

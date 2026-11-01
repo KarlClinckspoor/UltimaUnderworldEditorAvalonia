@@ -122,8 +122,8 @@ namespace UwEditor.App.Tests
                 var done = cw.Save();
                 Assert.NotNull(done);
                 Assert.Equal(2, done.Count);
-                Assert.True(File.Exists(Path.Combine(copy.Folder, "DATA", "CNV.BKP")));
-                Assert.True(File.Exists(Path.Combine(copy.Folder, "DATA", "STRINGS.BKP")));
+                Assert.True(File.Exists(Path.Combine(copy.Folder, "DATA", "CNV.ARK.BKP")));
+                Assert.True(File.Exists(Path.Combine(copy.Folder, "DATA", "STRINGS.PAK.BKP")));
                 cw.Close();
                 w.Close();
 
