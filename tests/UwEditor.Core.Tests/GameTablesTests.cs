@@ -271,5 +271,25 @@ namespace UwEditor.Core.Tests
                 Assert.True(Enumerable.Range(0, TextureMap.Slots(s, TextureMap.Kind.Wall)).Sum(i => TextureMap.Uses(m, TextureMap.Kind.Wall, i)) > 0);
             }
         }
+
+        [Fact]
+        public void Light_flags_are_set_on_every_open_square_in_one_undoable_step()
+        {
+            string g = GameData.Game("UW2"); if (g == null) return;
+            var s = GameSession.Open(g);
+            var edits = new LevelEdits(s);
+            var e = edits.For(1);
+            var before = (byte[])e.Data.Clone();
+            int open, n = LightFlags.Count(e.Model, out open);
+            Assert.InRange(n, 1, open - 1);                                   // the castle's corridors
+            LightFlags.SetAll(e, true);
+            Assert.Equal(open, LightFlags.Count(e.Model, out open));
+            // only the tiles' light bit (bit 8 of the first tile word: byte 1, bit 0) changed
+            Assert.All(Enumerable.Range(0, before.Length).Where(i => before[i] != e.Data[i]), i => { Assert.True(i < 0x4000 && i % 4 == 1); Assert.Equal(1, before[i] ^ e.Data[i]); });
+            e.Undo();
+            Assert.Equal(before, e.Data);
+            LightFlags.SetAll(e, false);
+            Assert.Equal(0, LightFlags.Count(e.Model, out open));
+        }
     }
 }

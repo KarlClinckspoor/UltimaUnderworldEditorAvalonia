@@ -242,7 +242,8 @@ namespace UwEditor.Core.Editing
 
         /// <summary>Attribute a: 0 strength, 1 dexterity, 2 intelligence, 3 bonus points.</summary>
         public int Attribute(int cls, int a) { return Pick(Dat.Entries[cls], a); }
-        public bool AttributeChanged(int cls, int a) { return Pick(Orig.Entries[cls], a) != Attribute(cls, a); }
+        public bool AttributeChanged(int cls, int a) { return OriginalAttribute(cls, a) != Attribute(cls, a); }
+        public int OriginalAttribute(int cls, int a) { return Pick(Orig.Entries[cls], a); }
 
         public void SetAttribute(int cls, int a, int v)
         {
@@ -599,6 +600,48 @@ namespace UwEditor.Core.Editing
                     else if (k == Kind.Wall && t.WallIndex == slot) n++;
                 }
             return n;
+        }
+    }
+
+    /// <summary>
+    /// The light flag of a level's squares, bit 8 of the tile (the low bit of its Light field;
+    /// LevelEditor.SetLightBit): UW2 applies DL.DAT's minimum light by it (motion/PHYSICS.C
+    /// change_GrSq). UW1 keeps the bit but its light does not use it.
+    /// </summary>
+    public static class LightFlags
+    {
+        /// <summary>The open squares and how many of them have the flag.</summary>
+        public static int Count(LevelModel m, out int open)
+        {
+            int n = 0;
+            open = 0;
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
+                {
+                    var t = m.Tiles[x, y];
+                    if (t.IsSolid) continue;
+                    open++;
+                    if ((t.Light & 1) != 0) n++;
+                }
+            return n;
+        }
+
+        /// <summary>Sets or clears the flag on every open square, as one undoable step.</summary>
+        public static void SetAll(LevelEditor e, bool on)
+        {
+            var m = e.Model;
+            var f = Uw1Schemas.Tile["Light"];
+            e.EditBytes(on ? "Light flag on every open square" : "Light flag cleared everywhere", (data, tex) =>
+            {
+                for (int y = 0; y < 64; y++)
+                    for (int x = 0; x < 64; x++)
+                    {
+                        if (m.Tiles[x, y].IsSolid) continue;
+                        int at = LevelBlock.TilesAt + (y * 64 + x) * 4;
+                        int v = f.Get(data, at);
+                        f.Set(data, on ? v | 1 : v & ~1, at);
+                    }
+            });
         }
     }
 }
