@@ -72,6 +72,8 @@
         <Separator />
         <MenuItem Header="_Automap and map notes…" Click="OnAutomap" InputGesture="Ctrl+Shift+A" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_World check…" Click="OnWorldCheck" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Fixes…" Click="OnFixes" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Item cleaner…" Click="OnItemCleaner" IsEnabled="{Binding HasGame}" />
         <Separator />
         <MenuItem Header="_Make this slot a level…" Click="OnMakeSlotALevel" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="C_lear the level…" Click="OnClearLevel" IsEnabled="{Binding HasGame}" />
