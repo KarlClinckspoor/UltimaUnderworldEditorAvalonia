@@ -93,6 +93,35 @@ namespace UwEditor.Core.Editing
             if (--batchDepth == 0 && !batchChanged && undo.Count > 0) undo.RemoveAt(undo.Count - 1);
         }
 
+        /// <summary>
+        /// Runs several changes as one undo step, all or nothing: when one of them throws, the
+        /// level goes back to what it was before the first, no step is left, and the exception
+        /// is passed on. Inside an open batch it is simply part of that batch.
+        /// </summary>
+        public void Batch(string label, Action changes)
+        {
+            if (batchDepth > 0) { changes(); return; }
+            bool wasDirty = Dirty;
+            BeginBatch(label);
+            try { changes(); }
+            catch
+            {
+                batchDepth = 0;
+                if (batchChanged && undo.Count > 0)
+                {
+                    var u = undo[undo.Count - 1];
+                    undo.RemoveAt(undo.Count - 1);
+                    data = u.Item2; tex = u.Item3;
+                    Dirty = wasDirty;
+                    model = null;
+                    Changed?.Invoke();
+                }
+                else if (undo.Count > 0) undo.RemoveAt(undo.Count - 1);
+                throw;
+            }
+            EndBatch();
+        }
+
         void Snapshot(string label)
         {
             undo.Add(Tuple.Create(label, (byte[])data.Clone(), tex == null ? null : (byte[])tex.Clone(), anim == null ? null : (byte[])anim.Clone()));
