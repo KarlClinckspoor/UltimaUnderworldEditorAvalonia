@@ -53,8 +53,11 @@ namespace UwEditor.App
         {
             icons.Clear();
             Edits?.Reread();
-            if (level != null) RefreshLevel();
+            if (level != null) { forceTree = true; RefreshLevel(); }
         }
+
+        /// <summary>The next refresh rebuilds the object list even when no object changed (the names did).</summary>
+        bool forceTree;
 
         /// <summary>The start or the player moved: the status bar's text.</summary>
         public void OnStartMoved()
@@ -156,7 +159,8 @@ namespace UwEditor.App
             Raise(nameof(Level));
             Raise(nameof(LevelSummary));
             // a tile edit leaves the objects as they were: the list (and what is open in it) stays
-            if (before == null || before.Level != level.Level || !LevelScene.SameObjects(before, level)) BuildTree();
+            if (forceTree || before == null || before.Level != level.Level || !LevelScene.SameObjects(before, level)) BuildTree();
+            forceTree = false;
             if (obj >= 0 && (level.Objects[obj].Free || (level.Objects[obj].TileX < 0 && level.Objects[obj].Parent < 0))) obj = -1;
             if (obj >= 0 || tx >= 0) Select(obj, tx, ty, true); else ClearSelection();
             RaiseEditState();
