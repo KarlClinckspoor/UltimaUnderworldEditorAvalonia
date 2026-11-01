@@ -7,12 +7,18 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
     <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/icon-256.png" />
+    <AvaloniaResource Include="Assets/icon-32.png" />
+    <AvaloniaResource Include="Assets/icon-16.png" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="../../docs/MANUAL.md" LogicalName="MANUAL.md" />

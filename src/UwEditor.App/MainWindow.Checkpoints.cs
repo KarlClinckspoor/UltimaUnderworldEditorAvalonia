@@ -54,6 +54,8 @@ namespace UwEditor.App
             lastCheckpoint = DateTime.UtcNow;
             if (vm.Edits != null) vm.Edits.Changed += e => editStamp++;
             checkpointsWindow?.Refresh();
+            recoveryCheckpoint = null;
+            UpdateRunMarker();
         }
 
         /// <summary>Something not in the levels changed (strings, the player).</summary>
@@ -61,6 +63,7 @@ namespace UwEditor.App
 
         void CheckpointTick()
         {
+            UpdateRunMarker();
             if (CheckpointMinutes <= 0 || CheckpointStore == null) return;
             if ((DateTime.UtcNow - lastCheckpoint).TotalMinutes < CheckpointMinutes) return;
             WriteCheckpoint("every " + CheckpointMinutes + " min", false);
@@ -113,6 +116,7 @@ namespace UwEditor.App
                 if (!force && print == checkpointPrint) return null;
                 var c = CheckpointStore.Write(vm.Edits, files, label, CheckpointCopies);
                 checkpointPrint = print;
+                if (c != null) CheckpointKept(c);
                 if (c != null) { vm.EditStatus = "Checkpoint kept (" + c.Summary.Substring(11) + ")."; checkpointsWindow?.Refresh(); }
                 return c;
             }

@@ -55,6 +55,21 @@ namespace UltimateEditor.Games
 		public uint Offset(int b) { return U32(file, 2 + 4 * b); }
 		public override bool Has(int b) { return b >= 0 && b < Count && Offset(b) != 0; }
 
+		/// <summary>
+		/// Another block at the same offset, or -1. The original game writes a block of length 0
+		/// (a level's notes after all were erased, AUTOMAP.C SaveTheWords) at the end of the file,
+		/// where the next block appended then also starts; the empty block then reads as that
+		/// one's data (Underworld Exhumed's issue 7: a level's notes read from another level's
+		/// automap, and the map screen crashes on a note with no end).
+		/// </summary>
+		public int AliasOf(int b)
+		{
+			if (!Has(b)) return -1;
+			uint off = Offset(b);
+			for (int i = 0; i < Count; i++) if (i != b && Offset(i) == off) return i;
+			return -1;
+		}
+
 		int Length(int b)
 		{
 			uint off = Offset(b);
@@ -88,13 +103,14 @@ namespace UltimateEditor.Games
 				return;
 			}
 			uint off = Offset(b);
-			if (off != 0 && Length(b) == data.Length)
+			bool shared = AliasOf(b) >= 0;     // its bytes are another block's: never written over or removed
+			if (off != 0 && !shared && Length(b) == data.Length)
 			{
 				Array.Copy(data, 0, file, off, data.Length);
 				return;
 			}
 			var list = new List<byte>(file);
-			if (off != 0)
+			if (off != 0 && !shared)
 			{
 				int len = Length(b);
 				var olds = new uint[Count];
@@ -112,6 +128,12 @@ namespace UltimateEditor.Games
 		public override void Delete(int b)
 		{
 			if (!Has(b)) return;
+			if (AliasOf(b) >= 0)
+			{
+				// only the pointer goes: the bytes are the other block's
+				file[2 + 4 * b] = file[3 + 4 * b] = file[4 + 4 * b] = file[5 + 4 * b] = 0;
+				return;
+			}
 			uint off = Offset(b);
 			int len = Length(b);
 			var olds = new uint[Count];

@@ -12,7 +12,12 @@ Press **F1** or use **Help ▸ Manual** to open this manual. **Help ▸ Controls
 **File ▸ Open game folder…** (Ctrl+O). Choose the game folder (the one with `DATA` in it),
 the `DATA` folder itself, or a saved game (`SAVE1`…). The game is recognised by its
 files. A saved game takes its levels and player from the save, and everything else from
-`DATA`.
+`DATA`. A saved game is any folder with `LEV.ARK` and `PLAYER.DAT`, whatever its name (a copy
+called `Before the bug`, say). One kept outside a game folder is read with a game folder you
+choose once; the editor remembers it.
+
+Opening a saved game checks it for problems that crash or upset the game; the status line
+names them, and **File ▸ Check and repair the saved game…** repairs them.
 
 **Unsaved work.** Opening another game or closing the editor asks first when anything is
 unsaved: levels and their maps, the player, strings and conversations, global variables,
@@ -211,6 +216,42 @@ test`); the game folder is never touched.
 DOSBox is looked for next to the game (GOG's `DOSBOX` folder) and where it is usually
 installed; otherwise the editor asks for it once (**Choose DOSBox for play tests…**). Unsaved
 strings and conversations are not in the copy.
+
+### Checking in Underworld Exhumed
+
+**Level ▸ Check in Underworld Exhumed…** loads the edits with the game's own code.
+[Underworld Exhumed](https://github.com/abedegno/underworld-exhumed) is a native port of
+the original games, built from their decompiled source; get a release for your system
+(`uw1-…` releases for Ultima Underworld, `uw2-…` for Underworld II) and unpack it. The
+editor looks for `uw1port` / `uw2port` next to the game, in Downloads and next to the editor;
+otherwise **Choose the port…** once.
+
+Tick the levels to visit (**Edited** picks the levels with unsaved changes) and **Run the
+check**. The editor then:
+1. copies the game, with the unsaved levels (and player), into the editor's settings folder
+   (`Exhumed check`); the game folder is never touched;
+2. puts a saved game holding them in the port's home there as slot I: an open save's own,
+   or with `DATA` open the folder's first save carrying `DATA`'s levels as edited. UW1 with no
+   saved game at all starts a new character instead (every default, named "avatar");
+3. runs the port with no window, from an input script: Journey Onward and slot I (or the
+   new character), then for each level the port's test cheat `goto LEVEL X Y`, which moves
+   the player there as a teleport trap does, so the game loads the level itself. The square
+   is open, flat, dry and free, with open floor round it (the start square on the start
+   level when it is one). A level takes about five seconds;
+4. in UW1, saves in slot I at the end (Ctrl+S, slot I, Enter), so the game writes every
+   level it visited, and checks those levels again here (the object-list check and the list
+   errors of **Level ▸ Fixes**).
+
+The report says what went wrong: a crash of the port ("host fault"), a halt, the game's own
+fatal error ("Underworld can no longer run"), a `goto` the game refused, a level never
+reached, or findings in the levels the game saved. It ends with everything the port printed,
+and shows the last screen. The check's folder keeps the script (`script.txt`), the saved game
+(`home/SAVE1`) and the save as written (`before`), so a problem can be run again by hand:
+`uw1port --data game --home home --input-script script.txt` (with `EXHUME_TEST_CHEATS=1` set,
+which the port asks for before it runs a test cheat).
+
+Underworld II is checked from a saved game and does not save at the end (its save menu is
+not scripted yet). Unsaved strings and conversations are not in the copy.
 
 ### New and cleared levels
 
@@ -761,6 +802,20 @@ folder changes until you save. Restoring the strings or the player cannot be und
 editor asks first when they have unsaved edits of their own. The copies live in the editor's settings folder, one folder
 per opened game. Unsaved conversation scripts are not included; their strings are.
 
+### When the editor crashes
+
+An error the editor does not expect is written to a crash log (`crashes` in the settings
+folder; the newest 20 are kept), and the unsaved work is kept in a checkpoint at once. Most
+errors happen in one command: the editor says so and goes on, and **Open the log folder**
+shows the log to attach to a bug report. If anything looks wrong after it, restore the
+checkpoint or save to a copy first.
+
+If the editor ends without closing normally (a crash, being killed, the computer turned off)
+while work was unsaved, the next start says so and offers to open that game and restore the
+newest checkpoint as unsaved edits. Work done after the last checkpoint is lost then, so the
+checkpoint interval is what you can lose at most. A running editor keeps a small file in the
+settings folder (`running-PID.json`) for this; a clean exit removes it.
+
 ## Saved games
 
 **File ▸ Saved games…** lists the game folder's four save slots, `SAVE1` to `SAVE4`, with the
@@ -775,6 +830,37 @@ maps and notes), `PLAYER.DAT`, `BGLOBALS.DAT`, `DESC` and, in Underworld II, `SC
   backup). The slot open in the editor cannot be replaced; open `DATA` or another slot first.
   Copying the open slot copies it as it is on disk, without unsaved level edits.
 - **Open** opens the slot in the editor, asking about unsaved work first.
+
+### Check and repair a saved game
+
+**File ▸ Check and repair the saved game…** looks for what makes the original game crash or
+complain on a saved game, and repairs it as unsaved edits (look them over, then Save; nothing
+else in the save changes):
+- **Map notes read from another block.** UW1's `LEV.ARK` has no table of lengths: a block runs
+  to the next one. When every note of a level is erased, the game writes that level's notes
+  as a block of length 0 at the end of the file, and the next block it appends (a new level's
+  automap) starts at the same place. The notes then read as that automap: about 75 "notes"
+  with no end, and opening the map can crash the game, which copies each note into 50 bytes
+  (Underworld Exhumed's issue 7; its port guards the copy since 1.0.2). The repair drops the
+  notes block; the other level's automap is kept as it is.
+- **Notes with no end** within 50 bytes, notes blocks that are not whole notes or hold more
+  than 100 (the game reads them into room for 100), and notes off the map screen. The repair
+  keeps the whole notes that end and lie on the screen.
+- **Automap blocks** of another length than 4096 (the game copies the block before it checks
+  the length).
+- **Objects lost from the object lists**: in UW1, asking for part of a stack that then proves
+  too heavy to pick up takes an object off the floor and never frees it, and the game says
+  "Problems in object list" on entering the level (Underworld Exhumed's issue 9; its
+  `tidy-objects` enhancement puts them back). The repair frees them, with the other list
+  repairs of **Level ▸ Fixes**.
+
+**File ▸ Export as a saved game…** writes the unsaved levels (and player) as a saved game:
+the open save's files, or with `DATA` open the folder's first save carrying `DATA`'s levels,
+with `LEV.ARK` as edited and the description "Editor" and the time. Put it in one of
+Underworld Exhumed's slots (its home folder, `%APPDATA%\uw1port` on Windows, `~/.uw1port`
+elsewhere; `uw2port` for UW2), where Journey Onward or Ctrl+R finds it, or in a folder of
+your choice, such as a `SAVEn` folder of the original game for DOSBox. A slot already there is
+replaced; a folder holding other files is refused.
 
 ## Colour scheme
 
@@ -1058,7 +1144,11 @@ and its strongest creature, and the creatures with a conversation.
 | `OBJECTS.DAT`, `COMOBJ.DAT` | Object tables |
 | `TERRAIN.DAT`, `SKILLS.DAT`, `CMB.DAT`, `SHADES.DAT`, `DL.DAT` | Game tables |
 | `SCD.ARK` | Schedules (UW2) |
-| `DESC`, save folders | Saved games (rename, copy) |
+| `DESC`, save folders | Saved games (rename, copy), Export as a saved game |
+
+In the editor's settings folder (`%APPDATA%\UwEditorFree`, `~/.config/UwEditorFree` on Linux):
+`settings.json`, `checkpoints`, `crashes` (crash logs), `running-PID.json` (while it runs),
+`Play test` and `Exhumed check` (copies of the game for those).
 
 Before writing, the old file is kept as `NAME.EXT.BKP`. The first time the editor writes a file,
 it also keeps the untouched original as `NAME.EXT.ORIG`. The mods window compares with

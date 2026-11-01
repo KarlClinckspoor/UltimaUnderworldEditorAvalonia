@@ -9,6 +9,8 @@ namespace UwEditor.App
     public sealed class Settings
     {
         public List<string> Recent { get; set; } = new List<string>();
+        /// <summary>Saved games kept outside a game folder, with the game folder each is read with.</summary>
+        public Dictionary<string, string> GameForSave { get; set; } = new Dictionary<string, string>();
         public double LeftWidth { get; set; } = 290;
         public double RightWidth { get; set; } = 360;
         public bool Grid { get; set; } = true;
@@ -26,6 +28,9 @@ namespace UwEditor.App
         public string DosBoxPath { get; set; } = "";
         /// <summary>More DOSBox arguments for the play test (a -conf file, say).</summary>
         public string DosBoxArgs { get; set; } = "";
+        /// <summary>Underworld Exhumed's ports for the checks (uw1port, uw2port), chosen once.</summary>
+        public string ExhumedUw1Path { get; set; } = "";
+        public string ExhumedUw2Path { get; set; } = "";
 
         /// <summary>The folder the settings (and the checkpoints) live in.</summary>
         public static string Folder { get { return Path.GetDirectoryName(PathOf()); } }

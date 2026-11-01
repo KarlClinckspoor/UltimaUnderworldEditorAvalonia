@@ -25,7 +25,7 @@ namespace UwEditor.App.Tests
             // every window starts from the default settings (a test's toggles are saved on close)
             string dir = Environment.GetEnvironmentVariable("UWEDITOR_SETTINGS_DIR");
             if (!string.IsNullOrEmpty(dir)) File.Delete(Path.Combine(dir, "settings.json"));
-            var w = new MainWindow { Width = Width, Height = Height };
+            var w = new MainWindow { Width = Width, Height = Height, OfferRecovery = false };
             w.Show();
             Pump();
             if (folder != null) w.OpenPath(folder);

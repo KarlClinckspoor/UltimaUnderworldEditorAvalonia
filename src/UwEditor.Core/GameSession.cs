@@ -73,6 +73,31 @@ namespace UwEditor.Core
         /// Opens a game from a path: the game folder, its DATA folder, a SAVEn folder, or a file
         /// in one of them (UW.EXE, UW2.EXE, LEV.ARK).
         /// </summary>
+        /// <summary>
+        /// Opens a game: the game folder, its DATA folder, or a saved game. A saved game is any
+        /// folder with LEV.ARK and PLAYER.DAT (SAVE1, or a copy named anything); it is read with
+        /// the DATA folder beside it, or with gameFolder's (the game folder or its DATA) when it lies
+        /// elsewhere.
+        /// </summary>
+        public static GameSession Open(string path, string gameFolder)
+        {
+            if (string.IsNullOrWhiteSpace(gameFolder)) return Open(path);
+            path = Path.GetFullPath(path.Trim().Trim('"'));
+            string g = Path.GetFullPath(gameFolder.Trim().Trim('"'));
+            string data = Sub(g, "DATA") ?? g;
+            if (!Has(data, "LEV.ARK")) throw new FileNotFoundException("No DATA folder with LEV.ARK in " + gameFolder + ".");
+            if (!LooksLikeSave(path)) throw new FileNotFoundException(path + " is not a saved game (it needs LEV.ARK and PLAYER.DAT).");
+            return OpenWith(data, path);
+        }
+
+        /// <summary>A folder holding a saved game's LEV.ARK and PLAYER.DAT.</summary>
+        public static bool LooksLikeSave(string path)
+        {
+            // DATA itself ships a PLAYER.DAT (301 bytes, read by nothing): it is the game's data, not a save
+            return Directory.Exists(path) && !string.Equals(Path.GetFileName(path.TrimEnd('/', '\\')), "DATA", StringComparison.OrdinalIgnoreCase)
+                && Has(path, "LEV.ARK") && Has(path, "PLAYER.DAT") && Sub(path, "DATA") == null;
+        }
+
         public static GameSession Open(string path)
         {
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("No folder given.");
@@ -84,12 +109,12 @@ namespace UwEditor.Core
             string sub = Sub(path, "DATA");
             if (sub != null && Has(sub, "LEV.ARK"))
                 data = sub;
-            else if (IsSaveFolderName(Path.GetFileName(path)))
+            else if (IsSaveFolderName(Path.GetFileName(path)) || LooksLikeSave(path))
             {
                 string parent = Path.GetDirectoryName(path);
                 string d = parent == null ? null : Sub(parent, "DATA");
                 if (d == null || !Has(d, "LEV.ARK"))
-                    throw new FileNotFoundException("A saved game is read with the game's DATA folder, and there is no DATA folder with LEV.ARK beside " + path + ".");
+                    throw new SaveWithoutGameException(path);
                 if (!Has(path, "LEV.ARK")) throw new FileNotFoundException("The saved game " + path + " has no LEV.ARK.");
                 data = d;
                 save = path;
@@ -98,7 +123,11 @@ namespace UwEditor.Core
                 data = path;
             if (data == null)
                 throw new FileNotFoundException("No Ultima Underworld data in " + path + ". Choose the game folder (with DATA in it), the DATA folder, or a SAVE folder.");
+            return OpenWith(data, save);
+        }
 
+        static GameSession OpenWith(string data, string save)
+        {
             var s = new GameSession();
             s.DataFolder = data;
             s.SaveFolder = save;
@@ -290,5 +319,12 @@ namespace UwEditor.Core
         }
 
         public override string ToString() { return Name; }
+    }
+
+    /// <summary>A saved game with no game folder round it: it needs a DATA folder to be read with (GameSession.Open(path, gameFolder)).</summary>
+    public sealed class SaveWithoutGameException : FileNotFoundException
+    {
+        public string SaveFolder { get; private set; }
+        public SaveWithoutGameException(string save) : base("A saved game is read with the game's DATA folder, and there is no DATA folder with LEV.ARK beside " + save + ".") { SaveFolder = save; }
     }
 }

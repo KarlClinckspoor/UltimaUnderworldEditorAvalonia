@@ -23,6 +23,20 @@ namespace UwEditor.Core.Tests
             }
         }
 
+        /// <summary>
+        /// Saved games that had problems in play, kept under saves/uw1 or saves/uw2 of the game
+        /// data (one folder each, any name, with LEV.ARK and PLAYER.DAT); read with the game's DATA.
+        /// None when there are none.
+        /// </summary>
+        public static System.Collections.Generic.IEnumerable<string> Saves(string game)
+        {
+            string root = Root;
+            string dir = root == null ? null : Path.Combine(root, "saves", game == "UW2" ? "uw2" : "uw1");
+            if (dir == null || !Directory.Exists(dir)) yield break;
+            foreach (var d in Directory.GetDirectories(dir))
+                if (File.Exists(Path.Combine(d, "LEV.ARK")) && File.Exists(Path.Combine(d, "PLAYER.DAT"))) yield return d;
+        }
+
         /// <summary>The game folder ("UW" or "UW2"), or null when it is missing.</summary>
         public static string Game(string name)
         {

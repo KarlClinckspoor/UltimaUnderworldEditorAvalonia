@@ -50,7 +50,7 @@ namespace UwEditor.Core
             }
             Directory.CreateDirectory(folder);
             File.WriteAllText(Path.Combine(folder, Marker), "A copy of " + game + " for a play test; the editor clears it each time.");
-            Copy(game, folder, folder);
+            CopyGame(game, folder, folder);
 
             string dataName = Path.GetFileName(s.DataFolder.TrimEnd(Path.DirectorySeparatorChar));
             var plan = new PlayTestPlan { Folder = folder, Level = level, X = x, Y = y };
@@ -79,6 +79,15 @@ namespace UwEditor.Core
                 playerDat = null;   // that save's own player
             }
             string slotDir = Path.Combine(folder, slot);
+            if (s.IsSave && !Directory.Exists(slotDir))
+            {
+                // a saved game kept outside the game folder, or under another name: it plays as slot 1 of the copy
+                slot = "SAVE1";
+                slotDir = Path.Combine(folder, slot);
+                if (Directory.Exists(slotDir)) Directory.Delete(slotDir, true);
+                Directory.CreateDirectory(slotDir);
+                foreach (var f in Directory.GetFiles(s.SaveFolder)) File.Copy(f, Path.Combine(slotDir, Path.GetFileName(f)), true);
+            }
             File.WriteAllBytes(Path.Combine(slotDir, Path.GetFileName(s.LevArkPath)), levels);
             string playerPath = GameProfile.Find(slotDir, "PLAYER.DAT") ?? Path.Combine(slotDir, "PLAYER.DAT");
             var pd = PlayerDat.Parse(playerDat ?? File.ReadAllBytes(playerPath), s.Kind);
@@ -92,15 +101,15 @@ namespace UwEditor.Core
         }
 
         /// <summary>The game folder copied file by file, leaving out the editor's own backups, checkpoints and copies.</summary>
-        static void Copy(string from, string to, string playFolder)
+        public static void CopyGame(string from, string to, string playFolder)
         {
             foreach (var d in Directory.GetDirectories(from))
             {
                 string name = Path.GetFileName(d);
                 if (Path.GetFullPath(d).Equals(playFolder, StringComparison.OrdinalIgnoreCase)) continue;
-                if (name.StartsWith("Editor ", StringComparison.OrdinalIgnoreCase) || File.Exists(Path.Combine(d, Marker))) continue;
+                if (name.StartsWith("Editor ", StringComparison.OrdinalIgnoreCase) || File.Exists(Path.Combine(d, Marker)) || File.Exists(Path.Combine(d, ExhumedCheck.Marker))) continue;
                 Directory.CreateDirectory(Path.Combine(to, name));
-                Copy(d, Path.Combine(to, name), playFolder);
+                CopyGame(d, Path.Combine(to, name), playFolder);
             }
             foreach (var f in Directory.GetFiles(from))
             {

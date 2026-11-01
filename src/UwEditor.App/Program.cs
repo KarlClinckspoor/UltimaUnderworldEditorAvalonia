@@ -38,6 +38,20 @@ namespace UwEditor.App
         [STAThread]
         public static void Main(string[] args)
         {
+            // an error on another thread ends the program: log it and keep the unsaved work first
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                var ex = e.ExceptionObject as Exception ?? new Exception(Convert.ToString(e.ExceptionObject));
+                var w = MainWindow.Current;
+                if (w != null) w.ReportError(ex, e.IsTerminating);
+                else UwEditor.Core.Editing.Recovery.WriteCrashLog(Settings.Folder, ex, "No window open.");
+            };
+            // a task nobody waited for: logged only
+            System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (s, e) =>
+            {
+                UwEditor.Core.Editing.Recovery.WriteCrashLog(Settings.Folder, e.Exception, "A background task failed and nothing waited for it; the program went on.");
+                e.SetObserved();
+            };
             for (int i = 0; i < args.Length; i++)
             {
                 string a = args[i];

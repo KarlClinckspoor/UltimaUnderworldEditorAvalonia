@@ -272,6 +272,17 @@ edits that can be undone; the game folder is not touched until you save.
 - **Pixel editor** (graphics window's Edit pixels…, or an object's right-click menu): draw on
   any picture with its own colours (the palette, or a 4-bit picture's 16), with pencil, eraser,
   picker, fill, lines and rectangles, a brush of 1-16 pixels and undo; saved in place.
+- **Level ▸ Check in Underworld Exhumed…**: the edits loaded by the game's own code, in
+  [Underworld Exhumed](https://github.com/abedegno/underworld-exhumed)'s native port run with
+  no window: the player is sent to each chosen level, UW1 saves at the end and the levels the
+  game wrote are checked again. **File ▸ Export as a saved game…** writes the edits as a
+  `SAVEn` folder, for the port or DOSBox.
+- **File ▸ Check and repair the saved game…**: map notes the game reads from another level's
+  automap (its own bug, which crashes the map screen), notes with no end, bad automap blocks,
+  and objects lost from the object lists ("Problems in object list"), repaired as unsaved
+  edits. A saved game opens from a folder of any name, and from outside the game folder.
+- **Crash recovery**: an unexpected error is logged and the unsaved work kept in a
+  checkpoint; after a crash or kill, the next start offers that checkpoint back.
 - **Tools ▸ Item slots…**: what uses each item id (levels, conversations, the game's code,
   creature loot, combinations, quest items) and free slots, to make a new item from one: name and
   plural, picture, stats, placing.
@@ -372,6 +383,11 @@ of the look, run with `UPDATE_SNAPSHOTS=1` to record new baselines. The baseline
 game's graphics, so they are made from your own game files and not committed.
 
 The core tests check, among other things:
+- random edits (tiles, adding, deleting, moving, putting inside, copy and paste, fields, undo
+  and redo, from fixed seeds on levels of both games): after each one the game's object-list
+  check passes and no new list error appears; the level reads back the same from the saved
+  archive; undoing everything gives the original bytes and redoing everything the edited ones.
+  `UW_RANDOM_EDITS=N` runs N more seeds a game;
 - every level of both games loads and passes the game's object-list check;
 - UW2 has 42 levels, and slot 73 has 1,046 open tiles and 427 objects;
 - the start squares in the executables;

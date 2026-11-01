@@ -45,6 +45,7 @@ namespace UwEditor.App
             InitEditing();
             InitSelection();
             InitCheckpoints();
+            InitRecovery();
             Columns.ColumnDefinitions[0].Width = new GridLength(Math.Clamp(settings.LeftWidth, 200, 600));
             Columns.ColumnDefinitions[4].Width = new GridLength(Math.Clamp(settings.RightWidth, 240, 700));
             vm.ShowGrid = settings.Grid;
@@ -171,12 +172,44 @@ namespace UwEditor.App
         public void OpenPathNow(string path)
         {
             GameSession s;
-            try { s = GameSession.Open(path); }
+            try
+            {
+                string game;
+                string key = Path.GetFullPath(path.Trim().Trim('"'));
+                s = settings.GameForSave.TryGetValue(key, out game) && Directory.Exists(game) ? GameSession.Open(path, game) : GameSession.Open(path);
+            }
+            catch (SaveWithoutGameException ex)
+            {
+                _ = AskGameForSave(ex.SaveFolder);
+                return;
+            }
             catch (Exception ex)
             {
                 _ = MessageWindow.Show(this, "Could not open the game", ex.Message);
                 return;
             }
+            OpenSession(s);
+        }
+
+        /// <summary>A saved game outside a game folder: the game folder to read it with is asked for once and remembered.</summary>
+        async System.Threading.Tasks.Task AskGameForSave(string save)
+        {
+            string a = await MessageWindow.Ask(this, "Open a saved game", save + " is a saved game outside a game folder. The editor reads it with the game's DATA folder: choose the game folder (the one with DATA in it). Nothing is copied or changed.", "Choose the game folder…", "Cancel");
+            if (a != "Choose the game folder…") return;
+            var picked = await StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions { Title = "Choose the game folder for " + Path.GetFileName(save), AllowMultiple = false });
+            string game = picked.Count > 0 ? picked[0].TryGetLocalPath() : null;
+            if (game == null) return;
+            GameSession s;
+            try { s = GameSession.Open(save, game); }
+            catch (Exception ex) { await MessageWindow.Show(this, "Could not open the game", ex.Message); return; }
+            settings.GameForSave[Path.GetFullPath(save)] = Path.GetFullPath(game);
+            settings.Save();
+            OpenSession(s);
+        }
+
+        /// <summary>Shows an opened game (the old one's windows close).</summary>
+        public void OpenSession(GameSession s)
+        {
             atlas = SpriteAtlas.Build(s.Graphics.ObjectPictures);
             ApplyAccent(s.IsUw2);
             Title = "Underworld Editor — " + s.Title;
@@ -192,7 +225,7 @@ namespace UwEditor.App
                 zonesWindow?.Close(); zoneGraphWindow?.Close();
                 itemShuffleWindow?.Close(); itemSwapWindow?.Close(); monsterSwapWindow?.Close();
                 findWindow?.Close(); automapWindow?.Close(); checkpointsWindow?.Close();
-                historyWindow?.Close(); worldCheckWindow?.Close(); itemSlotsWindow?.Close();
+                historyWindow?.Close(); worldCheckWindow?.Close(); itemSlotsWindow?.Close(); exhumedWindow?.Close(); saveCheckWindow?.Close();
                 foreach (var t in ToolWindows().ToList()) t.W.Close();
                 scheduleWindow?.CloseQuietly(); saveSlotsWindow?.Close();
                 CloseFixesWindows();
@@ -211,6 +244,7 @@ namespace UwEditor.App
             vm.Open(s);
             s.Pictures.Saved += OnPicturesSaved;
             CheckpointsFor(s);
+            CheckSaveAtOpen(s);
         }
 
         void BuildRecentMenu()

@@ -376,6 +376,14 @@ namespace UwEditor.Core.Editing
         }
 
         /// <summary>Takes a mobile off the active list (free_critter's half of it).</summary>
+        void AddToActive(int i)
+        {
+            var b = B;
+            int n = b.ActiveCount;
+            for (int k = 0; k < n; k++) if (data[LevelBlock.ActiveAt + k] == i) return;
+            if (n < 0x100 + 4) { data[LevelBlock.ActiveAt + n] = (byte)i; b.Put16(LevelBlock.ActiveCountAt, n + 1); }
+        }
+
         void RemoveFromActive(int i)
         {
             var b = B;
@@ -595,6 +603,8 @@ namespace UwEditor.Core.Editing
                 Unlink(o);
                 SetNext(index, LinkOf(container));
                 SetLink(container, index);
+                // inside something a mobile is a template or inventory, not a live creature (the game runs whatever is on the active list)
+                if (index < LevelBlock.Mobiles) RemoveFromActive(index);
                 MoveAnimation(index, Model.Objects[container].TileX, Model.Objects[container].TileY);
             });
         }
@@ -677,6 +687,8 @@ namespace UwEditor.Core.Editing
                 S["Z"].Set(data, Math.Max(0, Math.Min(127, FloorZ(x, y, fx, fy) + Math.Max(0, n.Above))), at);
             }
             if (n.Mobile) { Uw1Schemas.MobileObject["Home X"].Set(data, x, at); Uw1Schemas.MobileObject["Home Y"].Set(data, y, at); }
+            // a creature pasted inside something (a create-object trap's template, a sack) is not a live one: Alloc put it on the active list
+            if (n.Mobile && (!root || container >= 0)) RemoveFromActive(i);
             // the contents in their order: each put at the head, last first
             if (!IsQuant(i)) for (int k = n.Children.Count - 1; k >= 0; k--) PasteNode(n.Children[k], x, y, i, false);
             if (container >= 0) { SetNext(i, LinkOf(container)); SetLink(container, i); }
@@ -696,6 +708,8 @@ namespace UwEditor.Core.Editing
                 Unlink(o);
                 SetNext(index, HeadOf(x, y));
                 SetHead(x, y, index);
+                // on the map a mobile is live: it goes on the active list (as Alloc puts a new one)
+                if (index < LevelBlock.Mobiles) AddToActive(index);
                 var S = Uw1Schemas.StaticObject;
                 int at = LevelBlock.ObjectOffset(index);
                 int fx = fineX ?? 3, fy = fineY ?? 3;

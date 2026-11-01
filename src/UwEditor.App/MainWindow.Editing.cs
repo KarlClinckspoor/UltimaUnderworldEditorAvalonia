@@ -617,6 +617,7 @@ namespace UwEditor.App
                 return false;
             }
             vm.RaiseEditState();
+            UpdateRunMarker();
             vm.EditStatus = said.Count == 0 ? "Nothing to save." : "Saved: " + string.Join("; ", said) + " (the first original is kept as .ORIG).";
             return true;
         }

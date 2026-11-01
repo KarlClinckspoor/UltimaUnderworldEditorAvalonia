@@ -18,6 +18,8 @@
         <Separator />
         <MenuItem Header="_Saved games…" Click="OnSavedGames" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Checkpoints…" Click="OnCheckpoints" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="Check and _repair the saved game…" Click="OnSaveCheck" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Export as a saved game…" Click="OnExportSave" IsEnabled="{Binding HasGame}" />
         <Separator />
         <MenuItem Header="E_xit" Click="OnExit" />
       </MenuItem>
@@ -82,6 +84,7 @@
         <Separator />
         <MenuItem Header="Play-_test from the selected tile" Click="OnPlayTest" InputGesture="F5" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="Choose _DOSBox for play tests…" Click="OnDosBoxPath" />
+        <MenuItem Header="Check in Underworld _Exhumed…" Click="OnExhumedCheck" IsEnabled="{Binding HasGame}" />
       </MenuItem>
       <MenuItem Header="_Tools">
         <MenuItem Header="_Conversations…" Click="OnConversations" InputGesture="Ctrl+Shift+C" IsEnabled="{Binding HasGame}" />
