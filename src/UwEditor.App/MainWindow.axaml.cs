@@ -196,6 +196,7 @@ namespace UwEditor.App
                 foreach (var t in ToolWindows().ToList()) t.W.Close();
                 scheduleWindow?.CloseQuietly(); saveSlotsWindow?.Close();
                 CloseFixesWindows();
+                levelTexturesWindow?.Close();
             }
             finally { quietClose = false; }
             zoning = null; zoneOverlay = null;
