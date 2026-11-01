@@ -296,9 +296,36 @@ namespace UwEditor.Core.Conversations
             if (!CanEdit || !Dirty) return written;
             if (sheet != null) { if (sheet.Dirty) { sheet.Save(); written.Add(sheet.Path); } }
             else if (Player != null && PlayerPath != null) { SafeFile.Write(PlayerPath, Player.ToBytes()); written.Add(PlayerPath); }
-            if (Private != null && PrivatePath != null) { SafeFile.Write(PrivatePath, Private.ToBytes(true)); written.Add(PrivatePath); }
+            if (Private != null && PrivatePath != null)
+            {
+                MergeSizes();
+                SafeFile.Write(PrivatePath, Private.ToBytes(true));
+                written.Add(PrivatePath);
+            }
             Dirty = false;
             return written;
+        }
+
+        /// <summary>
+        /// Saving conversations may have grown or added records in BGLOBALS.DAT since it was read
+        /// (PrivateRecords): those sizes, and the words past this copy's, are taken from the file
+        /// so that writing this copy does not undo them.
+        /// </summary>
+        void MergeSizes()
+        {
+            BGlobals disk;
+            try { disk = File.Exists(PrivatePath) ? BGlobals.Parse(File.ReadAllBytes(PrivatePath), true) : null; }
+            catch (Exception) { disk = null; }
+            if (disk == null) return;
+            foreach (var d in disk.Records)
+            {
+                var own = Private.Find(d.Slot);
+                int have = own == null ? 0 : own.Words.Length;
+                if (have >= d.Words.Length) continue;
+                Private.Resize(d.Slot, d.Words.Length);
+                own = Private.Find(d.Slot);
+                Array.Copy(d.Words, have, own.Words, have, d.Words.Length - have);
+            }
         }
     }
 

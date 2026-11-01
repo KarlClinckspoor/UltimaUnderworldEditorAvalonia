@@ -55,9 +55,24 @@ namespace UwEditor.Core.Conversations
         public override string ToString() { return string.Format("{0} {1} {2} {3}{4} at {5:X4}", Kind, Number, Name, Access, Value.HasValue ? " = " + Value : "", Address); }
     }
 
+    /// <summary>A menu the script shows: the babl_menu or babl_fmenu call, and the string ids of its choices.</summary>
+    public sealed class MenuUse
+    {
+        public int Address;
+        public bool Filtered;
+        public readonly List<int> Ids = new List<int>();
+        /// <summary>The choices as the readable view shows them (quoted text and number).</summary>
+        public readonly List<string> Choices = new List<string>();
+    }
+
     public sealed class DecompileResult
     {
         public readonly List<PseudoLine> Lines = new List<PseudoLine>();
+        /// <summary>For each BEQ and BNE, by address: the condition under which it jumps, in the readable view's words.</summary>
+        public readonly Dictionary<int, string> Branches = new Dictionary<int, string>();
+        /// <summary>For each BEQ and BNE: the condition under which it falls through to the next instruction.</summary>
+        public readonly Dictionary<int, string> FallThrough = new Dictionary<int, string>();
+        public readonly List<MenuUse> Menus = new List<MenuUse>();
         public readonly List<StringUse> Strings = new List<StringUse>();
         public readonly List<GlobalUse> Globals = new List<GlobalUse>();
         /// <summary>Notes for the disassembly, by instruction address.</summary>
@@ -219,7 +234,12 @@ namespace UwEditor.Core.Conversations
                 if ((call.Name == "babl_menu" || call.Name == "babl_fmenu") && i == 0)
                 {
                     var choices = MenuChoices(a, call.At);
-                    if (choices != null) { Menus.Add(choices); return "\u0001" + (Menus.Count - 1) + "\u0001"; }
+                    if (choices != null)
+                    {
+                        if (call.Name == "babl_fmenu") Result.Menus.Find(m => m.Address == call.At).Filtered = true;
+                        Menus.Add(choices);
+                        return "\u0001" + (Menus.Count - 1) + "\u0001";
+                    }
                 }
                 var k = ValueAt(a);
                 if (k != null)
@@ -238,15 +258,20 @@ namespace UwEditor.Core.Conversations
                 int slot;
                 if (!FrameSlot(array, out slot)) return null;
                 var list = new List<string>();
+                var use = new MenuUse { Address = callAt };
                 for (int s = slot; s < slot + 64; s++)
                 {
                     Const k;
-                    if (!Known.TryGetValue(s, out k)) return list.Count > 0 ? list : null;
+                    if (!Known.TryGetValue(s, out k)) break;
                     Taken(s);
                     if (k.Value == 0) break;
                     Use(k.At, k.Value, StringUseKind.Menu, callAt);
                     list.Add(Str(k.Value));
+                    use.Ids.Add(k.Value);
                 }
+                if (list.Count == 0) return null;
+                use.Choices.AddRange(list);
+                if (!Result.Menus.Exists(m => m.Address == callAt)) Result.Menus.Add(use);
                 return list;
             }
 
@@ -297,7 +322,8 @@ namespace UwEditor.Core.Conversations
 
         static string Shorten(string s, int n) { return s.Length <= n ? s : s.Substring(0, n - 1) + "…"; }
 
-        public static DecompileResult Decompile(Conversation conv, string[] strings, GameKind kind)
+        /// <param name="fold">Fold simple "if" blocks (the readable view); false keeps every conditional goto, as the graph wants.</param>
+        public static DecompileResult Decompile(Conversation conv, string[] strings, GameKind kind, bool fold = true)
         {
             var r = new DecompileResult();
             var c = new Ctx { Conv = conv, Strings = strings, Kind = kind, Result = r };
@@ -327,12 +353,12 @@ namespace UwEditor.Core.Conversations
             for (int fi = 0; fi < fl.Count; fi++)
             {
                 int start = fl[fi], end = fi + 1 < fl.Count ? fl[fi + 1] : conv.Code.Length;
-                DecompileFunction(c, code, at, start, end, labels, called.Contains(start) || start == 0);
+                DecompileFunction(c, code, at, start, end, labels, called.Contains(start) || start == 0, fold);
             }
             return r;
         }
 
-        static void DecompileFunction(Ctx c, List<BablInstruction> code, Dictionary<int, int> at, int start, int end, HashSet<int> labels, bool reached)
+        static void DecompileFunction(Ctx c, List<BablInstruction> code, Dictionary<int, int> at, int start, int end, HashSet<int> labels, bool reached, bool fold)
         {
             var r = c.Result;
             var lines = new List<PseudoLine>();
@@ -476,6 +502,8 @@ namespace UwEditor.Core.Conversations
                             bool beq = op == BablOp.BEQ;
                             emit(a, "if " + (beq ? no : yes) + " goto L" + ins.Target.ToString("X4"), PseudoKind.Statement);
                             lines[lines.Count - 1].Guard = beq ? yes : no;
+                            r.Branches[a] = Unmark(beq ? no : yes);
+                            r.FallThrough[a] = Unmark(beq ? yes : no);
                             break;
                         }
                     case BablOp.CALL:
@@ -550,7 +578,7 @@ namespace UwEditor.Core.Conversations
             // the epilogue BPTOSP POPBP RET is the "return" at the end: drop it when it is the last line
             if (lines.Count > 0 && lines[lines.Count - 1].Text == "return") lines.RemoveAt(lines.Count - 1);
             lines.RemoveAll(l => c.Hide.Contains(l));
-            Fold(lines);
+            if (fold) Fold(lines);
             foreach (var l in lines) if (l.Kind == PseudoKind.Statement && l.Text.StartsWith("babl_")) l.Kind = PseudoKind.Menu;
             r.Lines.AddRange(lines);
         }
@@ -563,6 +591,19 @@ namespace UwEditor.Core.Conversations
         }
 
         static string Bare(string t) { return t; }
+
+        /// <summary>A condition's text with a menu's marker shown as the readable view shows it.</summary>
+        static string Unmark(string t)
+        {
+            int m;
+            while ((m = t.IndexOf('\u0001')) >= 0)
+            {
+                int e = t.IndexOf('\u0001', m + 1);
+                if (e < 0) break;
+                t = t.Substring(0, m) + "…" + t.Substring(e + 1);
+            }
+            return t;
+        }
 
         static readonly Dictionary<string, string> opposite = new Dictionary<string, string>
         {

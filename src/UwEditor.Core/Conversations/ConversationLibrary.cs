@@ -60,7 +60,11 @@ namespace UwEditor.Core.Conversations
 
         public DecompileResult Decompile(Conversation c) { return Decompiler.Decompile(c, StringsOf(c).ToArray(), Kind); }
 
-        /// <summary>Saves what changed: CNV.ARK and STRINGS.PAK in DATA, each old file kept as .BKP. Returns what was written.</summary>
+        /// <summary>
+        /// Saves what changed: CNV.ARK and STRINGS.PAK in DATA, each old file kept as .BKP, and
+        /// the private globals' records of the conversations written (DATA's BABGLOBS.DAT, and
+        /// the open save's BGLOBALS.DAT; see PrivateRecords). Returns what was written.
+        /// </summary>
         public List<string> Save()
         {
             var done = new List<string>();
@@ -68,6 +72,7 @@ namespace UwEditor.Core.Conversations
             {
                 var slots = Archive.Save();
                 done.Add(Path.GetFileName(Archive.Path) + (slots.Count > 0 ? " (conversation" + (slots.Count == 1 ? " " : "s ") + string.Join(", ", slots) + ")" : ""));
+                done.AddRange(PrivateRecords.Update(Session, Archive, slots));
             }
             if (Strings.HasChanges)
             {

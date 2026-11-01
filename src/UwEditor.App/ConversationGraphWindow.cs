@@ -1,0 +1,551 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using UwEditor.Core.Conversations;
+
+namespace UwEditor.App
+{
+    /// <summary>
+    /// Draws a ConversationGraph: nodes as boxes with their lines, edges with their conditions
+    /// and answers. Drag to pan, the wheel to zoom; a click on a node selects it.
+    /// </summary>
+    public sealed class GraphCanvas : Control
+    {
+        sealed class NodeLook
+        {
+            public FormattedText Title;
+            public readonly List<Tuple<FormattedText, double>> Lines = new List<Tuple<FormattedText, double>>();
+        }
+
+        public const double NodeWidth = 270, CodeWidth = 230;
+        static readonly Typeface Sans = new Typeface(FontFamily.Default);
+        static readonly Typeface MonoFace = new Typeface(new FontFamily("Cascadia Mono,Consolas,DejaVu Sans Mono,monospace"));
+        readonly Dictionary<GraphNode, NodeLook> looks = new Dictionary<GraphNode, NodeLook>();
+        readonly Dictionary<GraphEdge, FormattedText> labels = new Dictionary<GraphEdge, FormattedText>();
+        double scale = 1;
+        Vector offset = new Vector(20, 20);
+        Point? dragFrom;
+        Vector dragOffset;
+        bool dragged, needHome = true;
+
+        public ConversationGraph Graph { get; private set; }
+        public GraphNode Selected { get; private set; }
+        public double Scale { get { return scale; } }
+        /// <summary>A node was clicked (selected).</summary>
+        public event Action<GraphNode> NodeClicked;
+        /// <summary>The text a node shows for a line (the window puts the current strings in).</summary>
+        public Func<GraphLine, string> LineText = l => l.Text;
+        public bool ShowStatements = true;
+
+        public GraphCanvas()
+        {
+            ClipToBounds = true;
+            Focusable = true;
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+            // a graph given before the control had a size is placed once it has one
+            if (change.Property == BoundsProperty && needHome && Bounds.Width > 0) Home();
+        }
+
+        static IBrush B(string dark, string light) { return ColourScheme.Pick(dark, light); }
+
+        /// <summary>Takes a graph: measures its nodes and lays it out. The view stays where it was when keepView.</summary>
+        public void SetGraph(ConversationGraph g, bool keepView)
+        {
+            Graph = g;
+            looks.Clear();
+            labels.Clear();
+            if (g == null) { InvalidateVisual(); return; }
+            foreach (var n in g.Nodes.Where(x => !x.Dummy)) MeasureNode(n);
+            g.Layout(36, 64);
+            foreach (var e in g.Edges)
+            {
+                string t = e.Kind == GraphEdgeKind.Choice ? Short(e.Choice, 44) + "\n" + Short(e.Label, 44)
+                    : e.Kind == GraphEdgeKind.Branch ? Short(e.Label, 48)
+                    : e.Kind == GraphEdgeKind.Call ? "call" : null;
+                if (t != null) labels[e] = new FormattedText(t, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Sans, 10, EdgeBrush(e));
+            }
+            if (Selected != null) Selected = g.Visible.FirstOrDefault(n => n.Address == Selected.Address);
+            if (!keepView) { needHome = true; Home(); }
+            InvalidateVisual();
+        }
+
+        static string Short(string s, int n)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            s = s.Replace("\n", " ");
+            return s.Length <= n ? s : s.Substring(0, n - 1) + "…";
+        }
+
+        void MeasureNode(GraphNode n)
+        {
+            var look = new NodeLook();
+            double w = n.Kind == GraphNodeKind.Code ? CodeWidth : NodeWidth;
+            string title = n.Title + (n.Kind == GraphNodeKind.Menu ? "  ·  menu" : "") + (n.Ends ? (n.Function == "main" ? "  ·  ends" : "  ·  returns") : "");
+            look.Title = new FormattedText(title, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Sans, 10, B("#8E8B85", "#6E6A62")) { MaxTextWidth = w - 12 };
+            double h = 22;
+            int statements = 0, hidden = 0;
+            foreach (var l in n.Lines)
+            {
+                bool code = l.Kind == PseudoKind.Statement || (l.Kind == PseudoKind.Menu && l.Indent < 2);
+                if (code)
+                {
+                    if (!ShowStatements) { hidden++; continue; }
+                    if (++statements > 10) { hidden++; continue; }
+                }
+                string text = LineText(l);
+                IBrush brush; Typeface face = Sans; double size = 12;
+                switch (l.Kind)
+                {
+                    case PseudoKind.Say: brush = B("#E8E2D4", "#2B2A26"); text = Short(text, 320); break;
+                    case PseudoKind.Respond: brush = B("#C9934C", "#8A5A1C"); text = "Player: " + Short(text, 200); break;
+                    case PseudoKind.Menu:
+                        if (l.Indent >= 2) { brush = B("#7FB6E0", "#2F6DA8"); text = Short(text, 140); }
+                        else { brush = B("#A9B1A0", "#4A5544"); face = MonoFace; size = 10; text = Short(text, 70); }
+                        break;
+                    default: brush = B("#A9B1A0", "#4A5544"); face = MonoFace; size = 10; text = Short(text, 90); break;
+                }
+                var ft = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, face, size, brush) { MaxTextWidth = w - 14 };
+                look.Lines.Add(Tuple.Create(ft, h));
+                h += ft.Height + 3;
+            }
+            if (hidden > 0)
+            {
+                var ft = new FormattedText("… " + hidden + " more statement" + (hidden == 1 ? "" : "s"), CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Sans, 10, B("#8E8B85", "#6E6A62"));
+                look.Lines.Add(Tuple.Create(ft, h));
+                h += ft.Height + 3;
+            }
+            n.Width = w;
+            n.Height = Math.Max(30, h + 6);
+            looks[n] = look;
+        }
+
+        static IBrush EdgeBrush(GraphEdge e)
+        {
+            switch (e.Kind)
+            {
+                case GraphEdgeKind.Choice: return B("#7FB6E0", "#2F6DA8");
+                case GraphEdgeKind.Branch: return B("#D9A441", "#9A6A10");
+                case GraphEdgeKind.Call: return B("#8E8B85", "#8E8B85");
+                default: return B("#9A968E", "#6E6A62");
+            }
+        }
+
+        /// <summary>The start of the conversation at the top, at full size (or smaller, for a narrow window).</summary>
+        public void Home()
+        {
+            if (Graph == null || Bounds.Width <= 0) { scale = 1; offset = new Vector(20, 20); return; }
+            needHome = false;
+            var first = Graph.Visible.FirstOrDefault();
+            scale = Math.Max(0.5, Math.Min(1, Bounds.Width / Math.Max(1, Graph.Width)));
+            offset = first == null ? new Vector(20, 20) : new Vector(Bounds.Width / 2 - first.CenterX * scale, 20 - first.Y * scale + 10);
+            InvalidateVisual();
+        }
+
+        /// <summary>The whole graph in the view.</summary>
+        public void Fit()
+        {
+            if (Graph == null || Bounds.Width <= 0 || Bounds.Height <= 0) return;
+            scale = Math.Max(0.05, Math.Min(1.5, Math.Min(Bounds.Width / Math.Max(1, Graph.Width), Bounds.Height / Math.Max(1, Graph.Height))));
+            offset = new Vector((Bounds.Width - Graph.Width * scale) / 2, (Bounds.Height - Graph.Height * scale) / 2);
+            InvalidateVisual();
+        }
+
+        public void ZoomTo(double s, Point? about = null)
+        {
+            var p = about ?? new Point(Bounds.Width / 2, Bounds.Height / 2);
+            double ns = Math.Max(0.05, Math.Min(3, s));
+            var world = (p - offset) / scale;
+            scale = ns;
+            offset = p - world * scale;
+            InvalidateVisual();
+        }
+
+        /// <summary>Selects a node and brings it into view.</summary>
+        public void Select(GraphNode n, bool center)
+        {
+            Selected = n;
+            if (n != null && center) needHome = false;
+            if (n != null && center && Bounds.Width > 0)
+            {
+                var r = new Rect(n.X * scale + offset.X, n.Y * scale + offset.Y, n.Width * scale, n.Height * scale);
+                if (!new Rect(Bounds.Size).Contains(r))
+                    offset = new Vector(Bounds.Width / 2 - n.CenterX * scale, Bounds.Height / 3 - n.Y * scale);
+            }
+            InvalidateVisual();
+        }
+
+        /// <summary>The node at a point of the control, or null.</summary>
+        public GraphNode NodeAt(Point p)
+        {
+            if (Graph == null) return null;
+            var w = (p - offset) / scale;
+            foreach (var n in Graph.Visible)
+                if (w.X >= n.X && w.X <= n.X + n.Width && w.Y >= n.Y && w.Y <= n.Y + n.Height) return n;
+            return null;
+        }
+
+        /// <summary>Where a node's middle is on the control (for tests and clicks).</summary>
+        public Point PointOf(GraphNode n) { return new Point(n.CenterX * scale + offset.X, (n.Y + Math.Min(12, n.Height / 2)) * scale + offset.Y); }
+
+        protected override void OnPointerPressed(PointerPressedEventArgs e)
+        {
+            base.OnPointerPressed(e);
+            var p = e.GetPosition(this);
+            dragFrom = p;
+            needHome = false;
+            dragOffset = offset;
+            dragged = false;
+            e.Pointer.Capture(this);
+            Focus();
+        }
+
+        protected override void OnPointerMoved(PointerEventArgs e)
+        {
+            base.OnPointerMoved(e);
+            if (dragFrom == null) return;
+            var d = e.GetPosition(this) - dragFrom.Value;
+            if (!dragged && Math.Abs(d.X) + Math.Abs(d.Y) < 4) return;
+            dragged = true;
+            offset = dragOffset + d;
+            InvalidateVisual();
+        }
+
+        protected override void OnPointerReleased(PointerReleasedEventArgs e)
+        {
+            base.OnPointerReleased(e);
+            var p = e.GetPosition(this);
+            bool click = dragFrom != null && !dragged;
+            dragFrom = null;
+            e.Pointer.Capture(null);
+            if (!click) return;
+            var n = NodeAt(p);
+            if (n == null) return;
+            Select(n, false);
+            NodeClicked?.Invoke(n);
+        }
+
+        protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+        {
+            base.OnPointerWheelChanged(e);
+            ZoomTo(scale * Math.Pow(1.15, e.Delta.Y), e.GetPosition(this));
+            e.Handled = true;
+        }
+
+        public override void Render(DrawingContext dc)
+        {
+            dc.FillRectangle(B("#15161A", "#F4F1EA"), new Rect(Bounds.Size));
+            if (Graph == null) return;
+            bool detail = scale >= 0.35;
+            var view = new Rect(-offset.X / scale, -offset.Y / scale, Bounds.Width / scale, Bounds.Height / scale);
+            using (dc.PushTransform(Matrix.CreateScale(scale, scale) * Matrix.CreateTranslation(offset.X, offset.Y)))
+            {
+                foreach (var e in Graph.Edges) DrawEdge(dc, e, detail, view);
+                foreach (var n in Graph.Visible)
+                {
+                    var r = new Rect(n.X, n.Y, n.Width, n.Height);
+                    if (!r.Intersects(view)) continue;
+                    DrawNode(dc, n, r, detail);
+                }
+            }
+        }
+
+        void DrawNode(DrawingContext dc, GraphNode n, Rect r, bool detail)
+        {
+            IBrush fill, border;
+            switch (n.Kind)
+            {
+                case GraphNodeKind.Say: fill = B("#26241F", "#FFFDF8"); border = B("#C9934C", "#9A6420"); break;
+                case GraphNodeKind.Menu: fill = B("#1E242C", "#F3F7FB"); border = B("#6FA6DC", "#2F6DA8"); break;
+                default: fill = B("#1C1E23", "#ECE7DC"); border = B("#3A3E46", "#C9C2B4"); break;
+            }
+            bool sel = n == Selected;
+            dc.DrawRectangle(fill, new Pen(sel ? B("#F1D9A8", "#B85A00") : border, sel ? 3 : n.Entry ? 2 : 1), r, 6, 6);
+            NodeLook look;
+            if (!looks.TryGetValue(n, out look)) return;
+            dc.DrawText(look.Title, new Point(r.X + 7, r.Y + 4));
+            if (!detail) return;
+            foreach (var l in look.Lines) dc.DrawText(l.Item1, new Point(r.X + 7, r.Y + l.Item2));
+        }
+
+        void DrawEdge(DrawingContext dc, GraphEdge e, bool detail, Rect view)
+        {
+            if (e.Points.Count < 2) return;
+            // calls of a much-called function only for the selected node
+            if (e.Shared && e.From != Selected && e.To != Selected) return;
+            var brush = EdgeBrush(e);
+            var pen = new Pen(brush, e.Kind == GraphEdgeKind.Choice ? 1.6 : 1.1, e.Kind == GraphEdgeKind.Call ? DashStyle.Dash : null);
+            var g = new StreamGeometry();
+            using (var c = g.Open())
+            {
+                var p0 = new Point(e.Points[0].X, e.Points[0].Y);
+                c.BeginFigure(p0, false);
+                for (int i = 1; i < e.Points.Count; i++)
+                {
+                    var p1 = new Point(e.Points[i].X, e.Points[i].Y);
+                    if ((e.Back || e.From == e.To) && !e.Shared) c.LineTo(p1);
+                    else
+                    {
+                        double dy = (p1.Y - p0.Y) / 2;
+                        c.CubicBezierTo(new Point(p0.X, p0.Y + dy), new Point(p1.X, p1.Y - dy), p1);
+                    }
+                    p0 = p1;
+                }
+                c.EndFigure(false);
+            }
+            dc.DrawGeometry(null, pen, g);
+            // the arrowhead
+            var end = e.Points[e.Points.Count - 1];
+            var before = e.Points[e.Points.Count - 2];
+            Vector dir = (e.Back || e.From == e.To) && !e.Shared ? new Vector(end.X - before.X, end.Y - before.Y) : new Vector(0, end.Y >= before.Y ? 1 : -1);
+            double len = Math.Sqrt(dir.X * dir.X + dir.Y * dir.Y);
+            if (len > 0.01)
+            {
+                dir = dir / len;
+                var tip = new Point(end.X, end.Y);
+                var side = new Vector(-dir.Y, dir.X);
+                var a = tip - dir * 8 + side * 4;
+                var b = tip - dir * 8 - side * 4;
+                var head = new StreamGeometry();
+                using (var c = head.Open()) { c.BeginFigure(tip, true); c.LineTo(a); c.LineTo(b); c.EndFigure(true); }
+                dc.DrawGeometry(brush, null, head);
+            }
+            FormattedText label;
+            if (!detail || !labels.TryGetValue(e, out label)) return;
+            GraphPoint at;
+            if ((e.Back || e.From == e.To) && e.Points.Count >= 4) at = new GraphPoint(e.Points[1].X + 4, (e.Points[1].Y + e.Points[2].Y) / 2);
+            else if (e.Points.Count >= 3) at = e.Points[1];
+            else at = new GraphPoint((e.Points[0].X + e.Points[1].X) / 2, e.Points[0].Y + (e.Points[1].Y - e.Points[0].Y) * 0.45);
+            var box = new Rect(at.X - label.Width / 2 - 3, at.Y - label.Height / 2 - 1, label.Width + 6, label.Height + 2);
+            if (!box.Intersects(view)) return;
+            dc.DrawRectangle(B("#15161AE0", "#F4F1EAE8"), null, box, 3, 3);
+            dc.DrawText(label, new Point(box.X + 3, box.Y + 1));
+        }
+    }
+
+    /// <summary>
+    /// Conversations ▸ Graph: the shown conversation's flow as a node graph (ConversationGraph),
+    /// laid out in layers. A click on a node selects its first instruction in the script and shows
+    /// its strings beside the graph, where editing one edits the conversation's string (the
+    /// conversation editor's Strings, marked changed; Revert conversation undoes it).
+    /// </summary>
+    public sealed class ConversationGraphWindow : Window
+    {
+        readonly ConversationWindow cw;
+        readonly GraphCanvas canvas = new GraphCanvas();
+        readonly StackPanel side = new StackPanel { Spacing = 6 };
+        readonly TextBlock status = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
+        readonly TextBlock zoomText = new TextBlock { Width = 50, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+        readonly CheckBox statements = new CheckBox { Content = "Statements", IsChecked = true };
+        Conversation conv;
+        List<string> strings = new List<string>();
+        int sideFor = -1;
+        bool rebuildQueued;
+
+        public GraphCanvas Canvas { get { return canvas; } }
+        public ConversationGraph Graph { get { return canvas.Graph; } }
+        /// <summary>The string boxes beside the graph for the selected node.</summary>
+        public IEnumerable<TextBox> StringBoxes { get { return side.Children.OfType<StackPanel>().SelectMany(p => p.Children.OfType<TextBox>()); } }
+
+        public ConversationGraphWindow(ConversationWindow owner)
+        {
+            cw = owner;
+            Title = "Conversation graph";
+            Width = 1300; Height = 860; MinWidth = 700; MinHeight = 460;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            canvas.LineText = Text;
+            canvas.NodeClicked += n => { ShowNode(n); cw.ShowAddress(n.Address, false); };
+            canvas.PropertyChanged += (o, e) => { if (e.Property == BoundsProperty) Zoomed(); };
+
+            var fit = new Button { Content = "Fit" };
+            ToolTip.SetTip(fit, "The whole conversation in the window");
+            fit.Click += (o, e) => { canvas.Fit(); Zoomed(); };
+            var home = new Button { Content = "Start" };
+            ToolTip.SetTip(home, "Back to the start of the conversation, at full size");
+            home.Click += (o, e) => { canvas.Home(); Zoomed(); };
+            var zin = new Button { Content = "+" };
+            zin.Click += (o, e) => { canvas.ZoomTo(canvas.Scale * 1.25); Zoomed(); };
+            var zout = new Button { Content = "−" };
+            zout.Click += (o, e) => { canvas.ZoomTo(canvas.Scale / 1.25); Zoomed(); };
+            statements.IsCheckedChanged += (o, e) => { canvas.ShowStatements = statements.IsChecked == true; Rebuild(true); };
+            ToolTip.SetTip(statements, "Show the code's other statements in the nodes (assignments, calls)");
+            canvas.PointerWheelChanged += (o, e) => Zoomed();
+
+            var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
+            foreach (var c in new Control[] { home, fit, zout, zin, zoomText, statements }) bar.Children.Add(c);
+            bar.Children.Add(Legend("#C9934C", "the NPC speaks"));
+            bar.Children.Add(Legend("#6FA6DC", "a menu; blue lines are its answers"));
+            bar.Children.Add(Legend("#D9A441", "a condition"));
+            bar.Children.Add(Legend("#8E8B85", "a call (dashed)"));
+
+            var top = new StackPanel { Spacing = 4 };
+            top.Children.Add(new TextBlock
+            {
+                FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6),
+                Text = "The conversation's flow, read from its code. Drag to move, the wheel to zoom. Click a node to see it in the script and edit its strings on the right.",
+            });
+            top.Children.Add(bar);
+            DockPanel.SetDock(top, Dock.Top);
+            var foot = new Border { Child = status, Padding = new Thickness(0, 6, 0, 0) };
+            DockPanel.SetDock(foot, Dock.Bottom);
+
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,4,340") };
+            var split = new GridSplitter { ResizeDirection = GridResizeDirection.Columns };
+            var sideView = new ScrollViewer { Content = side, Padding = new Thickness(10, 0, 12, 0) };
+            Grid.SetColumn(split, 1); Grid.SetColumn(sideView, 2);
+            grid.Children.Add(new Border { Child = canvas, BorderThickness = new Thickness(1), BorderBrush = ColourScheme.Pick("#2C3038", "#D5CFC2") });
+            grid.Children.Add(split); grid.Children.Add(sideView);
+
+            var dock = new DockPanel { Margin = new Thickness(14) };
+            dock.Children.Add(top); dock.Children.Add(foot); dock.Children.Add(grid);
+            Content = dock;
+            ManualWindow.Attach(this, "Conversation graph");
+            cw.CurrentChanged += OnCurrentChanged;
+            cw.StringsChanged += OnStringsChanged;
+            Closed += (o, e) => { cw.CurrentChanged -= OnCurrentChanged; cw.StringsChanged -= OnStringsChanged; };
+            Rebuild(false);
+        }
+
+        static Control Legend(string colour, string text)
+        {
+            var p = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+            p.Children.Add(new Border { Width = 14, Height = 3, Background = new SolidColorBrush(Color.Parse(colour)), VerticalAlignment = VerticalAlignment.Center });
+            p.Children.Add(new TextBlock { Text = text, FontSize = 11, Opacity = 0.8 });
+            return p;
+        }
+
+        void Zoomed() { zoomText.Text = Math.Round(canvas.Scale * 100) + "%"; }
+
+        void OnCurrentChanged() { sideFor = -1; Rebuild(false); }
+
+        void OnStringsChanged()
+        {
+            // relaid out once the edit is done (a key press edits the string at once)
+            if (rebuildQueued) return;
+            rebuildQueued = true;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => { rebuildQueued = false; Rebuild(true); }, Avalonia.Threading.DispatcherPriority.Background);
+        }
+
+        /// <summary>The line's text with the conversation's current strings.</summary>
+        string Text(GraphLine l)
+        {
+            if (l.StringId >= 0 && l.StringId < strings.Count)
+            {
+                string s = strings[l.StringId];
+                if (l.Kind == PseudoKind.Menu && l.Indent >= 2)
+                {
+                    int colon = l.Text.IndexOf(':');
+                    return (colon > 0 ? l.Text.Substring(0, colon) : "?") + ". " + s;
+                }
+                return s;
+            }
+            return l.Text;
+        }
+
+        /// <summary>Builds the graph of the shown conversation again (keepView: the same view and selection, after an edit).</summary>
+        public void Rebuild(bool keepView)
+        {
+            conv = cw.Current;
+            if (conv == null) { canvas.SetGraph(null, false); status.Text = "Choose a conversation in the conversation editor."; side.Children.Clear(); return; }
+            string name = cw.Library.Name(conv.Slot);
+            Title = "Conversation graph — " + (name ?? "conversation " + conv.Slot);
+            strings = cw.CurrentStrings;
+            ConversationGraph g;
+            try
+            {
+                var d = Decompiler.Decompile(conv, strings.ToArray(), cw.Library.Kind, false);
+                g = ConversationGraph.Build(conv, d);
+            }
+            catch (Exception ex) { status.Text = "No graph: " + ex.Message; canvas.SetGraph(null, false); return; }
+            int keep = canvas.Selected != null ? canvas.Selected.Address : -1;
+            canvas.SetGraph(g, keepView);
+            var sel = keep >= 0 ? g.Visible.FirstOrDefault(n => n.Address == keep) : null;
+            canvas.Select(sel, false);
+            if (sel == null) { side.Children.Clear(); sideFor = -1; Hint(); }
+            else if (sel.Address != sideFor) ShowNode(sel);
+            var v = g.Visible.ToList();
+            status.Text = string.Format("{0}  ·  conversation {1}: {2} nodes ({3} with menus, {4} where the NPC speaks), {5} edges, {6} answers{7}.",
+                name ?? "No name", conv.Slot, v.Count, v.Count(n => n.Kind == GraphNodeKind.Menu), v.Count(n => n.Kind == GraphNodeKind.Say), g.Edges.Count,
+                g.Edges.Count(e => e.Kind == GraphEdgeKind.Choice), cw.ScriptPending ? "  ·  the script has edits not applied: this is the applied code" : "");
+            Zoomed();
+        }
+
+        void Hint()
+        {
+            side.Children.Add(new TextBlock { Text = "Click a node.", Opacity = 0.7, FontSize = 12 });
+        }
+
+        /// <summary>The selected node's details and its strings, editable, beside the graph.</summary>
+        public void ShowNode(GraphNode n)
+        {
+            side.Children.Clear();
+            sideFor = n == null ? -1 : n.Address;
+            if (n == null) { Hint(); return; }
+            canvas.Select(n, true);
+            side.Children.Add(new TextBlock { Text = n.Title, FontSize = 15, FontWeight = FontWeight.SemiBold });
+            side.Children.Add(new TextBlock
+            {
+                FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap,
+                Text = string.Format("In {0}(), code {1}{2}.", n.Function, string.Join(", ", n.Ranges.OrderBy(r => r[0]).Select(r => r[0].ToString("X4") + "-" + (r[1] - 1).ToString("X4"))),
+                    n.Ends ? (n.Function == "main" ? "; the conversation ends here" : "; the function returns here") : ""),
+            });
+            var go = new Button { Content = "Show in the script" };
+            go.Click += (o, e) => cw.ShowAddress(n.Address, true);
+            side.Children.Add(go);
+
+            var ids = new List<int>();
+            foreach (var l in n.Lines) if (l.StringId >= 0 && !ids.Contains(l.StringId)) ids.Add(l.StringId);
+            foreach (int id in n.Strings) if (!ids.Contains(id)) ids.Add(id);
+            if (ids.Count > 0) side.Children.Add(new TextBlock { Text = "Strings", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
+            foreach (int id in ids)
+            {
+                var row = cw.StringRowOf(id);
+                if (row == null) continue;
+                var line = n.Lines.FirstOrDefault(l => l.StringId == id);
+                string what = line == null ? "used by the code" : line.Kind == PseudoKind.Say ? "the NPC says" : line.Kind == PseudoKind.Respond ? "the player says"
+                    : line.Kind == PseudoKind.Menu ? "answer " + line.Text.Substring(0, Math.Max(0, line.Text.IndexOf(':'))) : "used by the code";
+                var p = new StackPanel { Spacing = 2 };
+                p.Children.Add(new TextBlock { Text = "String " + id + " · " + what, FontSize = 11, Opacity = 0.75 });
+                var box = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, FontSize = 12, DataContext = row, Tag = id };
+                box.Bind(TextBox.TextProperty, new Binding("Text") { Mode = BindingMode.TwoWay });
+                var err = new TextBlock { FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = ColourScheme.Pick("#E07060", "#B03A2A"), DataContext = row };
+                err.Bind(TextBlock.TextProperty, new Binding("Error"));
+                err.Bind(IsVisibleProperty, new Binding("HasError"));
+                var mark = new TextBlock { Text = "Changed, not saved (Revert conversation undoes it)", FontSize = 10, Opacity = 0.7, DataContext = row };
+                mark.Bind(IsVisibleProperty, new Binding("Changed"));
+                p.Children.Add(box); p.Children.Add(err); p.Children.Add(mark);
+                side.Children.Add(p);
+            }
+            var code = n.Lines.Where(l => l.Kind == PseudoKind.Statement || l.Kind == PseudoKind.Menu && l.Indent < 2).ToList();
+            if (code.Count > 0)
+            {
+                side.Children.Add(new TextBlock { Text = "Code", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
+                side.Children.Add(new SelectableTextBlock
+                {
+                    Text = string.Join("\n", code.Select(l => l.Address.ToString("X4") + "  " + l.Text)), FontSize = 11, TextWrapping = TextWrapping.Wrap,
+                    FontFamily = new FontFamily("Cascadia Mono,Consolas,DejaVu Sans Mono,monospace"),
+                });
+            }
+            var outs = n.Out.Where(e => !e.To.Dummy).ToList();
+            if (outs.Count > 0) side.Children.Add(new TextBlock { Text = "Leads to", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
+            foreach (var e in outs)
+            {
+                string t = (e.Kind == GraphEdgeKind.Choice ? e.Choice + "  [" + e.Label + "]" : e.Kind == GraphEdgeKind.Call ? "calls" : e.Label ?? "then") + "  →  " + e.To.Title;
+                var b = new Button { Content = new TextBlock { Text = t, TextWrapping = TextWrapping.Wrap, FontSize = 11 }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left };
+                var to = e.To;
+                b.Click += (o, ev) => { ShowNode(to); cw.ShowAddress(to.Address, false); };
+                side.Children.Add(b);
+            }
+        }
+    }
+}

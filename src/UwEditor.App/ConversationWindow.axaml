@@ -12,6 +12,10 @@
       <Grid ColumnDefinitions="Auto,*,Auto">
         <TextBlock Grid.Column="0" Text="Conversations" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0" />
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+          <Button x:Name="SimulateButton" Content="Simulate…" Click="OnSimulate" IsEnabled="{Binding HasSelection}"
+                  ToolTip.Tip="Run this conversation as the game would, with menus to choose from (Ctrl+R); nothing is written to the game" />
+          <Button x:Name="GraphButton" Content="Graph…" Click="OnGraph" IsEnabled="{Binding HasSelection}"
+                  ToolTip.Tip="This conversation's flow as a graph: what the NPC says, the menus and where each answer leads" />
           <Button x:Name="GlobalsButton" Content="Global variables…" Click="OnGlobals" ToolTip.Tip="The quest flags, game variables and private globals conversations read and write (Ctrl+G)" />
           <Button x:Name="RevertButton" Content="Revert conversation" Click="OnRevert" IsEnabled="{Binding HasSelection}"
                   ToolTip.Tip="Drop this conversation's unsaved changes (its script and its strings)" />
