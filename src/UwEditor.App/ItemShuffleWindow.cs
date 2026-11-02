@@ -12,7 +12,7 @@ using UwEditor.Core.Randomizer;
 namespace UwEditor.App
 {
     /// <summary>
-    /// Tools ▸ Randomizer ▸ Shuffle item properties: weights, enchantments and minimums in four
+    /// Item property shuffle (Randomizer menu): weights, enchantments and minimums in the
     /// tabs (weapons, armour, food / lights / tools, runestones), a preview, Shuffle, and Undo
     /// shuffle, which puts back every object the shuffles from this window changed.
     /// </summary>
@@ -21,7 +21,8 @@ namespace UwEditor.App
         readonly MainWindow main;
         readonly GameSession session;
         ShuffleOptions opt;
-        readonly TextBox report = new TextBox { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap, FontFamily = new FontFamily("Cascadia Mono,Consolas,DejaVu Sans Mono,monospace"), FontSize = 12 };
+        readonly TextBox report = ItemToolLayout.TextArea(false);
+        readonly TextBox formula = ItemToolLayout.TextArea(true);
         readonly NumericUpDown seed = new NumericUpDown { Minimum = 0, Maximum = int.MaxValue, Increment = 1, FormatString = "0", Width = 150 };
         readonly Button undoButton = new Button { Content = "Undo shuffle", IsEnabled = false };
         readonly TabControl tabs = new TabControl();
@@ -31,8 +32,8 @@ namespace UwEditor.App
         {
             this.main = main;
             session = s;
-            Title = "Shuffle item properties";
-            Width = 980; Height = 760; MinWidth = 700; MinHeight = 500;
+            Title = "Item property shuffle";
+            Width = 980; Height = 900; MinWidth = 700; MinHeight = 540;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             opt = LoadOptions(s, Level);
             opt.Ignored = IgnoreStore.Load(s, Level);
@@ -56,37 +57,29 @@ namespace UwEditor.App
             this.inv = inv; this.keep = keep;
 
             var top = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 0, 8) };
-            top.Children.Add(new TextBlock { Text = "Shuffle item properties", FontSize = 16, FontWeight = FontWeight.SemiBold });
+            top.Children.Add(new TextBlock { Text = "Item property shuffle", FontSize = 16, FontWeight = FontWeight.SemiBold });
             top.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
                 Text = "Weapons, armour, food, lights, tools, runestones, wands, scrolls, potions and rings stay where they lie, but may become other items by the weights below, " +
-                       "with their quality and enchantments rolled again. The settings start from what the world holds. Weights are relative: 0 removes a kind. Caliburn" + (s.IsUw2 ? ", the jewelled dagger" : "") +
-                       ", talismans and quest items are never touched. To only move existing objects around, use Tools ▸ Swap items. The same seed gives the same result.",
+                       "with their quality and enchantments rolled again. Each keeps its owner: food belonging to a rat that becomes a lantern is the rat's lantern. The settings start from what the world holds. Weights are relative: 0 removes a kind. Caliburn" + (s.IsUw2 ? ", the jewelled dagger" : "") +
+                       ", talismans and quest items are never touched. The item swap moves existing objects around instead. The same seed gives the same result.",
             });
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             row.Children.Add(Label("Seed")); row.Children.Add(seed); row.Children.Add(newSeed); row.Children.Add(defaults);
             row.Children.Add(inv); row.Children.Add(keep);
             top.Children.Add(row);
 
-            DockPanel.SetDock(top, Dock.Top);
-
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 6) };
             var world = new Button { Content = "World report" };
             ToolTip.SetTip(world, "What the game's levels hold, as saved on disk (before any edits)");
             world.Click += (o, e) => report.Text = ItemShuffle.WorldReport(session, session.LoadLevel);
             buttons.Children.Add(preview); buttons.Children.Add(shuffle); buttons.Children.Add(undoButton); buttons.Children.Add(world);
-            buttons.Children.Add(new TextBlock { Text = "Each shuffle is also one Edit ▸ Undo step per level; nothing is written to the game until you save.", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, FontSize = 12 });
-            var foot = new DockPanel { Height = 180 };
-            DockPanel.SetDock(buttons, Dock.Top);
-            foot.Children.Add(buttons); foot.Children.Add(report);
-            DockPanel.SetDock(foot, Dock.Bottom);
+            buttons.Children.Add(new TextBlock { Text = "Each shuffle is also one Edit ▸ Undo step per level; nothing is written to the game until you save.", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, FontSize = 12, TextWrapping = TextWrapping.Wrap });
 
-            var dock = new DockPanel { Margin = new Thickness(16) };
-            dock.Children.Add(top); dock.Children.Add(foot); dock.Children.Add(tabs);
-            Content = dock;
-            ManualWindow.Attach(this, "Shuffling item properties");
             Build();
+            ItemToolLayout.Build(this, top, tabs, buttons, formula, report, 470, () => { opt.Mode = "shuffle"; return ItemShuffle.ShuffleFormula(session, opt); });
+            ManualWindow.Attach(this, "Shuffling item properties");
             Closed += (o, e) => SaveOptions();
         }
 
@@ -95,6 +88,11 @@ namespace UwEditor.App
         public ShuffleOptions Options { get { return opt; } }
         public bool CanUndoShuffle { get { return undoButton.IsEnabled; } }
         public string ReportText { get { return report.Text; } }
+        public string FormulaText { get { return formula.Text; } }
+        /// <summary>The formula written again now (it also follows the settings by itself).</summary>
+        public void RefreshFormula() { formula.Text = ItemShuffle.ShuffleFormula(session, opt); }
+        public double SettingsHeight { get { return tabs.Bounds.Height; } }
+        public double ReportHeight { get { return report.Bounds.Height; } }
         public void ShowTab(int i, bool end = false)
         {
             tabs.SelectedIndex = i;
@@ -445,7 +443,7 @@ namespace UwEditor.App
             p.Children.Add(Note("Of the ranged objects, this share are slings, bows and crossbows; the rest are ammunition (never enchanted, keeping its count or 3–12)."));
             p.Children.Add(QualityLine(false));
             p.Children.Add(Heading("Enchantments (strength 1 = Minor)"));
-            p.Children.Add(Note("Each kind is tried in a random order; the first that succeeds is the weapon's. The strength is a normal draw around the mean, kept in range."));
+            p.Children.Add(Note("A weapon is enchanted with the sum of the kinds' chances (at most 100%); the kind is then picked in proportion to its chance. The strength is a normal draw around the mean, kept in range."));
             p.Children.Add(EnchantRows(opt.WeaponEnchants, () => opt.WeaponDepth));
             p.Children.Add(DepthRows(() => opt.WeaponDepth, x => opt.WeaponDepth = x, () => opt.WeaponStrengthDepth, x => opt.WeaponStrengthDepth = x));
             p.Children.Add(Heading("Special weapons"));
@@ -595,7 +593,10 @@ namespace UwEditor.App
 
         Control IgnoredTab()
         {
-            var panel = new IgnoreListPanel(main, session, Level, opt.Ignored);
+            var list = opt.Ignored;
+            var panel = new IgnoreListPanel(main, session, list, ItemShuffle.Candidates(session, Level), () => IgnoreStore.Save(session, list),
+                "The item shuffle leaves these objects alone (a wand's spell object goes with its wand); the item swap has its own list. Wands enchanted directly are ignored at first: Ultima Underworld's bullfrog wand, Underworld II's slightly worn wand of Telekinesis and wand of Light.",
+                "Objects the shuffle touches", "Ignored", "Ignore →", "← Stop ignoring", "Ignore the object selected in the editor", null);
             panel.Changed += () => { if (ignoredTab != null) ignoredTab.Header = "Ignored (" + opt.Ignored.Count + ")"; };
             return panel;
         }
