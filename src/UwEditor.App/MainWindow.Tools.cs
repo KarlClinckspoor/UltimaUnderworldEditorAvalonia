@@ -117,6 +117,7 @@ namespace UwEditor.App
                 case "pixels-portrait": { var g = ShowGraphics(); g.Model.FileName = vm.Session.IsUw2 ? "HEADS.GR" : "CHARHEAD.GR"; g.EditPicture(); break; }
                 case "itemslots": ShowItemSlots(0x1B); break;
                 case "savecheck": ShowSaveCheck(); break;
+                case "runpaths": ShowRunPaths(); break;
                 case "exhumed": ShowExhumed()?.Choose(new[] { 1, 2, 3 }); break;
                 case "multi":
                     {
