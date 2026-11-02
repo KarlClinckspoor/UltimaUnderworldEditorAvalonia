@@ -277,6 +277,17 @@ namespace UwEditor.App
         public Bitmap CritterPreview { get { return critterPreview; } set { Set(ref critterPreview, value); } }
         public string CritterInfo { get { return critterInfo; } set { Set(ref critterInfo, value); } }
         public IndexedImage CritterImage { get; private set; }
+        /// <summary>The palette entries the shown critter frame's colours stand for (its auxiliary palette), or null.</summary>
+        public int[] CritterColourMap
+        {
+            get
+            {
+                var f = CurrentFrame;
+                if (f == null || CritterImage == null) return null;
+                var pals = f.Item1.Palettes;
+                return auxPalette >= 0 && auxPalette < pals.Count ? pals[auxPalette].Take(CritterImage.Colors.Length).ToArray() : null;
+            }
+        }
         Tuple<CritterPage, int> CurrentFrame { get { return animation == null || frame >= animation.Frames.Count ? null : animation.Frames[frame]; } }
 
         void ShowFrame()

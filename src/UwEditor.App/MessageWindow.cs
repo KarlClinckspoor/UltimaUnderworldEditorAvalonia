@@ -61,7 +61,8 @@ namespace UwEditor.App
         public static async Task<string> Ask(Window owner, string title, string text, params string[] buttons)
         {
             string chosen = buttons.Last();
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
+            // the buttons wrap onto more lines when they do not fit (six choices for a saved game's slot), kept to the right
+            var row = new WrapPanel { Orientation = Orientation.Horizontal, ItemsAlignment = WrapPanelItemsAlignment.End, ItemSpacing = 8, LineSpacing = 8 };
             var w = new MessageWindow
             {
                 Title = title, Width = 480, SizeToContent = SizeToContent.Height, CanResize = false,
@@ -74,6 +75,7 @@ namespace UwEditor.App
                 btn.Click += (s, e) => { chosen = b; w.Close(); };
                 row.Children.Add(btn);
             }
+            w.Buttons = row;
             w.Content = new DockPanel
             {
                 Margin = new Thickness(20),
@@ -85,8 +87,80 @@ namespace UwEditor.App
                 },
             };
             if (owner == null) return chosen;
+            Opening?.Invoke(w);
             await w.ShowDialog(owner);
             return chosen;
+        }
+
+        /// <summary>The row of buttons of a question (Ask).</summary>
+        public Panel Buttons { get; private set; }
+
+        /// <summary>A question window is about to be shown (tests look at it, and close it).</summary>
+        public static event System.Action<MessageWindow> Opening;
+
+        /// <summary>
+        /// A long monospaced text in columns side by side (the controls): the text's paragraphs (split
+        /// at blank lines) go in order into columns of about the same height, so a long list fits on the screen.
+        /// </summary>
+        public static Task ShowColumns(Window owner, string title, string text, int columns = 2)
+        {
+            var w = new MessageWindow
+            {
+                Title = title,
+                SizeToContent = SizeToContent.WidthAndHeight,
+                CanResize = false,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            };
+            var ok = new Button { Content = "OK", HorizontalAlignment = HorizontalAlignment.Right, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsDefault = true, IsCancel = true };
+            ok.Click += (s, e) => w.Close();
+            var grid = new Grid();
+            var parts = SplitColumns(text, columns);
+            var mono = Application.Current?.FindResource("Mono") as FontFamily ?? FontFamily.Default;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                if (i > 0) grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(28)));
+                grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+                var tb = new TextBlock { Text = parts[i], FontFamily = mono, FontSize = 13, LineHeight = 19, TextWrapping = TextWrapping.NoWrap };
+                Grid.SetColumn(tb, 2 * i);
+                grid.Children.Add(tb);
+            }
+            w.Content = new DockPanel
+            {
+                Margin = new Thickness(20),
+                Children =
+                {
+                    new TextBlock { Text = title, FontSize = 16, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 10), [DockPanel.DockProperty] = Dock.Top },
+                    new Border { Child = ok, Margin = new Thickness(0, 16, 0, 0), [DockPanel.DockProperty] = Dock.Bottom },
+                    new ScrollViewer { Content = grid, MaxHeight = 820, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto },
+                },
+            };
+            Opening?.Invoke(w);
+            return owner == null ? Task.CompletedTask : w.ShowDialog(owner);
+        }
+
+        /// <summary>The paragraphs of a text (split at blank lines) shared in order among columns of about the same number of lines.</summary>
+        public static System.Collections.Generic.List<string> SplitColumns(string text, int columns)
+        {
+            var paras = (text ?? "").Replace("\r\n", "\n").Split(new[] { "\n\n" }, System.StringSplitOptions.None).ToList();
+            int total = paras.Sum(p => p.Split('\n').Length + 1);
+            var o = new System.Collections.Generic.List<string>();
+            var cur = new System.Collections.Generic.List<string>();
+            int lines = 0, done = 0;
+            for (int i = 0; i < paras.Count; i++)
+            {
+                int n = paras[i].Split('\n').Length + 1;
+                // a new column when this one has its share and the paragraph would take it past it
+                int share = (total - done) / System.Math.Max(1, columns - o.Count);
+                if (cur.Count > 0 && o.Count < columns - 1 && lines + n / 2 > share)
+                {
+                    o.Add(string.Join("\n\n", cur));
+                    done += lines; cur.Clear(); lines = 0;
+                }
+                cur.Add(paras[i]);
+                lines += n;
+            }
+            if (cur.Count > 0) o.Add(string.Join("\n\n", cur));
+            return o;
         }
     }
 }

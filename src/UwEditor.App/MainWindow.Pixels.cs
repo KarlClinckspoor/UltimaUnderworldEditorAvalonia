@@ -20,6 +20,7 @@ namespace UwEditor.App
                 px => { try { f.Replace(item, img, px); return null; } catch (Exception ex) { return ex.Message; } },
                 () => { try { s.Pictures.Save(f); return null; } catch (Exception ex) { return ex.Message; } }, "OBJECTS.GR");
             w.AskOnClose = AskBeforeDiscarding;
+            w.ShowCycles(f, img, s.Pictures.Palettes, f.DefaultPalette(item), s.IsUw2);
             w.Show(this);
             return w;
         }

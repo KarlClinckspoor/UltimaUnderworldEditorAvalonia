@@ -158,8 +158,10 @@ namespace UwEditor.App
             level = Edits.Model(level.Level);
             Raise(nameof(Level));
             Raise(nameof(LevelSummary));
-            // a tile edit leaves the objects as they were: the list (and what is open in it) stays
-            if (forceTree || before == null || before.Level != level.Level || !LevelScene.SameObjects(before, level)) BuildTree();
+            // a tile edit leaves the objects as they were: the list (and what is open in it) stays;
+            // a change of fields only updates the changed objects' lines (ViewModels.Looks.cs)
+            if (forceTree || before == null || before.Level != level.Level || !LevelScene.SameObjects(before, level))
+                if (forceTree || !UpdateTreeInPlace(before)) BuildTree();
             forceTree = false;
             if (obj >= 0 && (level.Objects[obj].Free || (level.Objects[obj].TileX < 0 && level.Objects[obj].Parent < 0))) obj = -1;
             if (obj >= 0 || tx >= 0) Select(obj, tx, ty, true); else ClearSelection();
@@ -192,11 +194,11 @@ namespace UwEditor.App
         public void EditField(PropertyRow row, string text)
         {
             int v;
-            if (!TryParse(text, out v)) { EditStatus = "'" + text + "' is not a number."; Select(selectedObject, selectedTileX, selectedTileY, false); return; }
+            if (!TryParse(text, out v)) { EditStatus = "'" + text + "' is not a number."; ReselectFresh(); return; }
             bool ok = row.Target == "object"
                 ? Edit(e => e.SetObjectField(row.TargetIndex, row.Field, v), string.Format("{0} of #{1} set to {2}.", row.Name, row.TargetIndex, v))
                 : Edit(e => e.SetTileField(row.TargetIndex % 64, row.TargetIndex / 64, row.Field.Name, v), string.Format("{0} of tile ({1}, {2}) set to {3}.", row.Name, row.TargetIndex % 64, row.TargetIndex / 64, v));
-            if (!ok) Select(selectedObject, selectedTileX, selectedTileY, false);   // show the value as it is
+            if (!ok) ReselectFresh();   // show the value as it is
         }
 
         // ---- tools and the brush

@@ -22,6 +22,8 @@ namespace UwEditor.App
         public int HoverX = -1, HoverY = -1, BrushWidth = 1;
         /// <summary>A shape being dragged (line or rectangle): its preview is drawn by painting a copy.</summary>
         public int[] Preview;
+        /// <summary>The colours to draw with instead of the document's (the cycling colours at a moment), or null.</summary>
+        public uint[] ShownColors;
         Bitmap bitmap;
 
         public void Changed() { bitmap = null; InvalidateVisual(); InvalidateMeasure(); }
@@ -50,7 +52,7 @@ namespace UwEditor.App
                     ctx.FillRectangle(light, new Rect(x * cell, y * cell, Math.Min(cell, w - x * cell), Math.Min(cell, h - y * cell)));
             if (bitmap == null)
             {
-                var px = Preview != null ? new IndexedImage(Doc.Width, Doc.Height, Preview, Doc.Colors).ToRgba() : Doc.ToRgba();
+                var px = new IndexedImage(Doc.Width, Doc.Height, Preview ?? Doc.Pixels, ShownColors ?? Doc.Colors).ToRgba();
                 var img = new RgbaImage(Doc.Width, Doc.Height);
                 Array.Copy(px, img.Pixels, px.Length);
                 bitmap = MainViewModel.ToBitmap(img);
@@ -67,6 +69,27 @@ namespace UwEditor.App
             {
                 int b = Math.Max(1, BrushWidth), x0 = HoverX - (b - 1) / 2, y0 = HoverY - (b - 1) / 2;
                 ctx.DrawRectangle(new Pen(new SolidColorBrush(Color.Parse("#FFD72A")), 1), new Rect(x0 * Zoom + 0.5, y0 * Zoom + 0.5, b * Zoom - 1, b * Zoom - 1));
+            }
+        }
+    }
+
+    /// <summary>The mark on a swatch whose colour the game cycles: a corner of black and white stripes, seen on any colour.</summary>
+    public sealed class CycleMark : Control
+    {
+        public override void Render(DrawingContext ctx)
+        {
+            double w = Bounds.Width;
+            foreach (var (size, brush) in new[] { (w, (IBrush)Brushes.White), (w * 0.7, Brushes.Black), (w * 0.42, Brushes.White) })
+            {
+                var g = new StreamGeometry();
+                using (var c = g.Open())
+                {
+                    c.BeginFigure(new Point(0, 0), true);
+                    c.LineTo(new Point(size, 0));
+                    c.LineTo(new Point(0, size));
+                    c.EndFigure(true);
+                }
+                ctx.DrawGeometry(brush, null, g);
             }
         }
     }
@@ -91,6 +114,15 @@ namespace UwEditor.App
         readonly NumericUpDown brush = new NumericUpDown { Minimum = 1, Maximum = 16, Value = 1, Increment = 1, FormatString = "0", Width = 110 };
         readonly Slider zoom = new Slider { Minimum = 1, Maximum = 32, Width = 160 };
         readonly Dictionary<string, RadioButton> tools = new Dictionary<string, RadioButton>();
+        readonly TextBlock cycleNote = new TextBlock { FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
+        readonly CheckBox animate = new CheckBox { Content = "Animate the cycling colours" };
+        IReadOnlyList<PaletteCycle> cycles;
+        int[] paletteMap;
+        uint[] fullPalette;
+        Avalonia.Threading.DispatcherTimer cycleTimer;
+        readonly System.Diagnostics.Stopwatch cycleClock = new System.Diagnostics.Stopwatch();
+        /// <summary>The preview pictures under the drawing (tests look at where it is).</summary>
+        public Control PreviewArea { get; private set; }
         int[] applied;
         public int Primary { get; private set; }
         public int Secondary { get; private set; }
@@ -141,13 +173,32 @@ namespace UwEditor.App
             grid.IsCheckedChanged += (s, e) => { canvas.Grid = grid.IsChecked == true; canvas.InvalidateVisual(); };
             toolPanel.Children.Add(grid);
             toolPanel.Children.Add(new TextBlock { Text = "Left button: the first colour; right button: the second. Alt+click picks a colour. Ctrl+Z, Ctrl+Y undo and redo; [ and ] change the width; + and − zoom.", TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7, Margin = new Thickness(0, 8, 0, 0) });
-            toolPanel.Children.Add(new TextBlock { Text = "Preview", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
+
+            // the preview: under the drawing, at the picture's size and twice it (a wide picture only at a fitting size)
             RenderOptions.SetBitmapInterpolationMode(preview1, BitmapInterpolationMode.None);
             RenderOptions.SetBitmapInterpolationMode(preview2, BitmapInterpolationMode.None);
-            preview1.Width = Doc.Width; preview1.Height = Doc.Height; preview1.HorizontalAlignment = HorizontalAlignment.Left;
-            preview2.Width = Doc.Width * 2; preview2.Height = Doc.Height * 2; preview2.HorizontalAlignment = HorizontalAlignment.Left;
-            if (Doc.Width <= 96) { toolPanel.Children.Add(preview1); toolPanel.Children.Add(preview2); }
-            else { preview1.Width = Math.Min(180, Doc.Width); preview1.Height = preview1.Width * Doc.Height / Doc.Width; toolPanel.Children.Add(preview1); }
+            var previewRow = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 12, LineSpacing = 6, Margin = new Thickness(0, 8, 0, 0) };
+            previewRow.Children.Add(new TextBlock { Text = "Preview", FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Top });
+            double previewHeight;
+            if (Doc.Width <= 96 && Doc.Height <= 100)
+            {
+                preview1.Width = Doc.Width; preview1.Height = Doc.Height;
+                preview2.Width = Doc.Width * 2; preview2.Height = Doc.Height * 2;
+                preview1.VerticalAlignment = VerticalAlignment.Bottom; preview2.VerticalAlignment = VerticalAlignment.Bottom;
+                previewRow.Children.Add(preview1); previewRow.Children.Add(preview2);
+                previewHeight = Doc.Height * 2;
+            }
+            else
+            {
+                double s = Math.Min(1, Math.Min(240.0 / Doc.Width, 120.0 / Doc.Height));
+                preview1.Width = Doc.Width * s; preview1.Height = Doc.Height * s;
+                previewRow.Children.Add(preview1);
+                previewHeight = preview1.Height;
+            }
+            PreviewArea = previewRow;
+            // the zoom that fits the drawing area above the preview
+            fit = (int)Math.Max(1, Math.Min(32, Math.Min(620.0 / Doc.Width, Math.Max(200, 560.0 - previewHeight - 20) / Doc.Height)));
+            canvas.Zoom = fit; zoom.Value = fit;
 
             var colourPanel = new StackPanel { Spacing = 6, Width = 16 * 20 + 8, Margin = new Thickness(12, 0, 0, 0) };
             colourPanel.Children.Add(new TextBlock { Text = "Colours", FontWeight = FontWeight.SemiBold });
@@ -162,6 +213,10 @@ namespace UwEditor.App
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7,
             });
             colourPanel.Children.Add(swatches);
+            cycleNote.IsVisible = animate.IsVisible = false;
+            colourPanel.Children.Add(cycleNote);
+            colourPanel.Children.Add(animate);
+            animate.IsCheckedChanged += (s, e) => Animate(animate.IsChecked == true);
             FillSwatches();
 
             var applyB = new Button { Content = "Apply" };
@@ -172,7 +227,7 @@ namespace UwEditor.App
             revert.Click += (s, e) => { Doc.Revert(); Redraw(); };
             var undoB = new Button { Content = "Undo" }; undoB.Click += (s, e) => { Doc.Undo(); Redraw(); };
             var redoB = new Button { Content = "Redo" }; redoB.Click += (s, e) => { Doc.Redo(); Redraw(); };
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 10, 0, 0) };
+            var buttons = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8, LineSpacing = 6, Margin = new Thickness(0, 10, 0, 0) };
             buttons.Children.Add(undoB); buttons.Children.Add(redoB); buttons.Children.Add(revert); buttons.Children.Add(applyB); buttons.Children.Add(applyClose);
             if (save != null)
             {
@@ -193,10 +248,17 @@ namespace UwEditor.App
             head.Children.Add(new TextBlock { Text = what, FontSize = 16, FontWeight = FontWeight.SemiBold });
             if (!string.IsNullOrEmpty(note)) head.Children.Add(new TextBlock { Text = note, FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap });
             head.Children.Add(status);
+            // the side columns scroll when the window is too low for them, so nothing runs over the buttons
+            var toolScroll = new ScrollViewer { Content = toolPanel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
+            var colourScroll = new ScrollViewer { Content = colourPanel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
+            var middle = new DockPanel { ClipToBounds = true };
+            DockPanel.SetDock(previewRow, Dock.Bottom);
+            middle.Children.Add(previewRow); middle.Children.Add(scroll);
             var dock = new DockPanel { Margin = new Thickness(14) };
-            DockPanel.SetDock(head, Dock.Top); DockPanel.SetDock(buttons, Dock.Bottom); DockPanel.SetDock(toolPanel, Dock.Left); DockPanel.SetDock(colourPanel, Dock.Right);
-            dock.Children.Add(head); dock.Children.Add(buttons); dock.Children.Add(toolPanel); dock.Children.Add(colourPanel); dock.Children.Add(scroll);
+            DockPanel.SetDock(head, Dock.Top); DockPanel.SetDock(buttons, Dock.Bottom); DockPanel.SetDock(toolScroll, Dock.Left); DockPanel.SetDock(colourScroll, Dock.Right);
+            dock.Children.Add(head); dock.Children.Add(buttons); dock.Children.Add(toolScroll); dock.Children.Add(colourScroll); dock.Children.Add(middle);
             Content = dock;
+            Closed += (s, e) => Animate(false);
             ManualWindow.Attach(this, "Pixel editor");
             AddHandler(KeyDownEvent, OnKey, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             MessageWindow.GuardClose(this, "The picture", () => HasChanges, () => Apply(false), () => AskOnClose);
@@ -220,6 +282,8 @@ namespace UwEditor.App
                 b.Background = (c >> 24) == 0 ? (IBrush)new SolidColorBrush(Color.Parse("#4A4A50")) : new SolidColorBrush(Color.FromArgb(255, (byte)(c >> 16), (byte)(c >> 8), (byte)c));
                 var inner = new Panel();
                 if ((c >> 24) == 0) inner.Children.Add(new TextBlock { Text = "∅", FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Foreground = Brushes.White });
+                var cyc = CycleOf(i);
+                if (cyc != null) inner.Children.Add(new CycleMark { Width = 9, Height = 9, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false });
                 if (used.Contains(i)) inner.Children.Add(new Border { Width = 4, Height = 4, CornerRadius = new CornerRadius(2), Background = Brightness(c) > 140 ? Brushes.Black : Brushes.White, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 1, 1) });
                 b.Child = inner;
                 ToolTip.SetTip(b, Describe(i));
@@ -237,9 +301,87 @@ namespace UwEditor.App
 
         string Describe(int i)
         {
+            if (i < 0 || i >= Doc.Colors.Length) return "no colour";
             uint c = Doc.Colors[i];
-            return (c >> 24) == 0 ? string.Format("Colour {0}: transparent", i) : string.Format("Colour {0}: #{1:X2}{2:X2}{3:X2}", i, (c >> 16) & 255, (c >> 8) & 255, c & 255);
+            string s = (c >> 24) == 0 ? string.Format("Colour {0}: transparent", i) : string.Format("Colour {0}: #{1:X2}{2:X2}{3:X2}", i, (c >> 16) & 255, (c >> 8) & 255, c & 255);
+            var cyc = CycleOf(i);
+            if (cyc != null)
+            {
+                int e = PaletteEntry(i);
+                s += string.Format(". It cycles {0}: palette entries {1} turn round {2} times a second{3}", cyc.Where, cyc.Range, Math.Round(1 / cyc.Period, 1),
+                    e != i ? " (this colour is entry " + e + ")" : "");
+            }
+            return s;
         }
+
+        /// <summary>The palette entry a colour of the picture stands for (an auxiliary palette's colours point into the palette).</summary>
+        int PaletteEntry(int i) { return paletteMap == null ? i : i < paletteMap.Length ? paletteMap[i] : -1; }
+
+        /// <summary>The cycle a colour of the picture belongs to in the game, or null.</summary>
+        public PaletteCycle CycleOf(int i)
+        {
+            if (cycles == null || i < 0 || i >= Doc.Colors.Length || (Doc.Colors[i] >> 24) == 0) return null;
+            return PaletteCycles.Find(cycles, PaletteEntry(i));
+        }
+
+        /// <summary>
+        /// Marks the colours the game cycles: cycles (PaletteCycles.InGame or MainMenu), map from the
+        /// picture's colours to palette entries (null: the same numbers) and the whole palette, for
+        /// the animation.
+        /// </summary>
+        public void ShowCycles(IReadOnlyList<PaletteCycle> cycles, int[] map, uint[] palette)
+        {
+            Animate(false);
+            this.cycles = cycles; paletteMap = map; fullPalette = palette;
+            int n = Enumerable.Range(0, Doc.Colors.Length).Count(i => CycleOf(i) != null);
+            cycleNote.Text = n == 0 ? "" : string.Format("A striped corner marks the {0} colour{1} the game cycles (water, lava, fire): what is drawn with them changes colour in the game.", n, n == 1 ? "" : "s");
+            cycleNote.IsVisible = animate.IsVisible = n > 0;
+            animate.IsChecked = false;
+            FillSwatches();
+        }
+
+        /// <summary>Marks the cycling colours of a picture of a picture file shown with a palette of pals: the main menu's for UW1's OPSCR.BYT, the game's otherwise.</summary>
+        public void ShowCycles(PictureFile file, IndexedImage img, Palettes pals, int palette, bool uw2)
+        {
+            if (file == null || img == null || pals == null) return;
+            // a 4-bit .GR picture's colours are its auxiliary palette's entries (gfx/GRFX.C); the others are the palette's own
+            int[] map = file.Kind == PictureFileKind.Gr && img.Type != 4 ? pals.Aux[img.Aux & 31] : null;
+            bool menu = file.Name.Equals("OPSCR.BYT", StringComparison.OrdinalIgnoreCase);
+            ShowCycles(menu ? PaletteCycles.MainMenu(uw2) : PaletteCycles.InGame(uw2), map, pals.Get(palette));
+        }
+
+        /// <summary>Whether the drawing shows the cycling colours turning.</summary>
+        public bool Animating { get { return cycleTimer != null; } }
+
+        void Animate(bool on)
+        {
+            if (on == Animating) return;
+            if (!on)
+            {
+                cycleTimer.Stop(); cycleTimer = null; cycleClock.Reset();
+                canvas.ShownColors = null;
+                Redraw();
+                return;
+            }
+            if (cycles == null || fullPalette == null) return;
+            double period = cycles.Min(c => c.Period);
+            cycleClock.Restart();
+            cycleTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(period) };
+            cycleTimer.Tick += (s, e) => ShowCyclesAt(cycleClock.Elapsed.TotalSeconds);
+            cycleTimer.Start();
+            ShowCyclesAt(0);
+        }
+
+        /// <summary>Draws the picture as the cycling shows it some seconds in (the animation, and tests).</summary>
+        public void ShowCyclesAt(double seconds)
+        {
+            if (cycles == null || fullPalette == null) return;
+            canvas.ShownColors = PaletteCycles.At(Doc.Colors, paletteMap, fullPalette, cycles, seconds);
+            Redraw();
+        }
+
+        /// <summary>The colours the drawing uses now (the cycled ones while animating).</summary>
+        public uint[] ShownColors { get { return canvas.ShownColors ?? Doc.Colors; } }
 
         IBrush Swatch(int i)
         {
@@ -258,7 +400,7 @@ namespace UwEditor.App
         {
             canvas.Changed();
             var img = new RgbaImage(Doc.Width, Doc.Height);
-            var px = Doc.ToRgba();
+            var px = new IndexedImage(Doc.Width, Doc.Height, Doc.Pixels, ShownColors).ToRgba();
             Array.Copy(px, img.Pixels, px.Length);
             var bmp = MainViewModel.ToBitmap(img);
             preview1.Source = bmp; preview2.Source = bmp;

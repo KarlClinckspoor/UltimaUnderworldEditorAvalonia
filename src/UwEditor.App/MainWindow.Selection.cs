@@ -155,6 +155,19 @@ namespace UwEditor.App
             {
                 var c = dragOver.Object >= 0 ? new Vector4(0.4f, 1f, 0.5f, 1f) : new Vector4(1f, 1f, 1f, 1f);
                 scene.TileOutline(lines, dragOver.Tile % 64, dragOver.Tile / 64, c);
+                if (dropFineX >= 0)
+                {
+                    // the fine square (an eighth of the tile) the drop lands on, and a post above it
+                    int tx = dragOver.Tile % 64, ty = dragOver.Tile / 64;
+                    float x0 = tx + dropFineX / 8f, z0 = ty + dropFineY / 8f, e = 1 / 8f;
+                    float y = (float)vm.Level.FloorAt(tx, ty, (dropFineX + 0.5) / 8, (dropFineY + 0.5) / 8) + 0.03f;
+                    var fc = new Vector4(1f, 0.85f, 0.2f, 1f);
+                    LevelScene.Line(lines, new Vector3(x0, y, z0), new Vector3(x0 + e, y, z0), fc);
+                    LevelScene.Line(lines, new Vector3(x0 + e, y, z0), new Vector3(x0 + e, y, z0 + e), fc);
+                    LevelScene.Line(lines, new Vector3(x0 + e, y, z0 + e), new Vector3(x0, y, z0 + e), fc);
+                    LevelScene.Line(lines, new Vector3(x0, y, z0 + e), new Vector3(x0, y, z0), fc);
+                    LevelScene.Line(lines, new Vector3(x0 + e / 2, y, z0 + e / 2), new Vector3(x0 + e / 2, y + 0.35f, z0 + e / 2), fc);
+                }
             }
         }
 
@@ -258,18 +271,67 @@ namespace UwEditor.App
             return hit.Object == vm.SelectedObject || selObjects.Contains(hit.Object);
         }
 
+        /// <summary>Where a drop would put the grabbed object: its tile and fine position (0-7 each way), from the point under the mouse.</summary>
+        public static void DropPoint(PickResult hit, out int tx, out int ty, out int fx, out int fy)
+        {
+            tx = hit.Tile % 64; ty = hit.Tile / 64;
+            fx = Math.Clamp((int)Math.Floor((hit.Point.X - tx) * 8), 0, 7);
+            fy = Math.Clamp((int)Math.Floor((hit.Point.Z - ty) * 8), 0, 7);
+        }
+
+        /// <summary>A place as tile.fine: tile (10, 20) at fine (2, 5) is "(10.2, 20.5)".</summary>
+        public static string FinePlace(int tx, int ty, int fx, int fy) { return string.Format("({0}.{1}, {2}.{3})", tx, fx, ty, fy); }
+
+        /// <summary>The fine square a drop would land on (−1: none), for its outline.</summary>
+        int dropFineX = -1, dropFineY = -1;
+
         void OnDragMoved(PickResult hit)
         {
             dragOver = hit;
+            dropFineX = dropFineY = -1;
             var level = vm.Level;
+            Dictionary<int, Vector3> preview = null;
             if (level != null && hit.Hit && hit.Tile >= 0)
             {
                 int n = Math.Max(1, selObjects.Count);
                 if (hit.Object >= 0 && !ChosenObjects().Contains(hit.Object) && CanTakeAll(hit.Object))
                     vm.EditStatus = "Drop to put " + (n == 1 ? level.Objects[vm.SelectedObject].Name : n + " objects") + " inside " + level.Objects[hit.Object].Name + " (Esc cancels).";
-                else vm.EditStatus = string.Format("Drop to move {0} to ({1}, {2}) (Esc cancels).", n == 1 && vm.SelectedObject >= 0 ? level.Objects[vm.SelectedObject].Name : n + " objects", hit.Tile % 64, hit.Tile / 64);
+                else
+                {
+                    int tx, ty, fx, fy;
+                    DropPoint(hit, out tx, out ty, out fx, out fy);
+                    dropFineX = fx; dropFineY = fy;
+                    vm.EditStatus = string.Format("Drop to move {0} to {1} (Esc cancels).", n == 1 && vm.SelectedObject >= 0 ? level.Objects[vm.SelectedObject].Name : n + " objects", FinePlace(tx, ty, fx, fy));
+                    preview = DragPreview(level, tx, ty, fx, fy);
+                }
             }
+            View.PreviewSprites(preview);
             UpdateMarkers();
+        }
+
+        /// <summary>How far each dragged object's sprite moves to show where the drop puts it (the grabbed one to the fine square, the others by as many tiles).</summary>
+        Dictionary<int, Vector3> DragPreview(LevelModel level, int tx, int ty, int fx, int fy)
+        {
+            var objs = ChosenObjects();
+            if (objs.Count == 0) return null;
+            int grabbed = vm.SelectedObject >= 0 ? vm.SelectedObject : objs[0];
+            var g = level.Objects[grabbed];
+            if (!g.OnTile) return null;
+            int dx = tx - g.TileX, dy = ty - g.TileY;
+            var d = new Dictionary<int, Vector3>();
+            foreach (int i in objs)
+            {
+                var o = level.Objects[i];
+                if (!o.OnTile) continue;
+                int nx = o.TileX + dx, ny = o.TileY + dy, nfx = i == grabbed ? fx : o.FineX, nfy = i == grabbed ? fy : o.FineY;
+                if (nx < 0 || ny < 0 || nx > 63 || ny > 63 || level.Tiles[nx, ny].IsSolid) continue;
+                // as LevelEditor.MoveObject: the same height above the floor
+                double above = Math.Max(0, o.WorldZ - level.FloorAt(o.TileX, o.TileY, (o.FineX + 0.5) / 8, (o.FineY + 0.5) / 8));
+                double y = level.FloorAt(nx, ny, (nfx + 0.5) / 8, (nfy + 0.5) / 8) + above;
+                d[i] = new Vector3((float)(nx + (nfx + 0.5) / 8 - o.WorldX), (float)(y - o.WorldZ), (float)(ny + (nfy + 0.5) / 8 - o.WorldY));
+                foreach (int c in o.Children) d[c] = d[i];
+            }
+            return d;
         }
 
         bool CanTakeAll(int container)
@@ -281,6 +343,8 @@ namespace UwEditor.App
         void OnDragEnded(PickResult hit)
         {
             dragOver = PickResult.None;
+            dropFineX = dropFineY = -1;
+            View.PreviewSprites(null);
             var e = vm.Editor;
             var level = vm.Level;
             if (!hit.Hit || hit.Tile < 0 || e == null || level == null) { vm.EditStatus = "Not moved."; UpdateMarkers(); return; }
@@ -302,7 +366,9 @@ namespace UwEditor.App
             }
             var g = level.Objects[grabbed];
             int dx = g.OnTile ? tx - g.TileX : 0, dy = g.OnTile ? ty - g.TileY : 0;
-            int fx = Math.Clamp((int)((hit.Point.X - tx) * 8), 0, 7), fy = Math.Clamp((int)((hit.Point.Z - ty) * 8), 0, 7);
+            int fx, fy;
+            DropPoint(hit, out tx, out ty, out fx, out fy);
+            if (g.OnTile && dx == 0 && dy == 0 && g.FineX == fx && g.FineY == fy) { vm.EditStatus = "Not moved."; UpdateMarkers(); return; }
             int moved = 0;
             e.BeginBatch(objs.Count == 1 ? "Move #" + grabbed : "Move " + objs.Count + " objects");
             try
@@ -313,7 +379,19 @@ namespace UwEditor.App
                     if (!o.OnTile && i != grabbed) continue;
                     int nx = o.OnTile ? o.TileX + dx : tx, ny = o.OnTile ? o.TileY + dy : ty;
                     if (nx < 0 || ny < 0 || nx > 63 || ny > 63 || e.Model.Tiles[nx, ny].IsSolid) continue;
-                    if (i == grabbed) e.MoveObjectAnywhere(i, nx, ny, fx, fy); else e.MoveObjectAnywhere(i, nx, ny);
+                    if (o.OnTile && nx == o.TileX && ny == o.TileY)
+                    {
+                        // within its own tile only the fine place (and the height on a slope) changes: it keeps its
+                        // place in the tile's list, so the object list is only updated, not built again
+                        if (i != grabbed) continue;
+                        var S = UltimateEditor.Uw1.Uw1Schemas.StaticObject;
+                        int above = o.Z - e.FloorZ(o.TileX, o.TileY, o.FineX, o.FineY);
+                        e.SetObjectField(i, S["Fine X"], fx);
+                        e.SetObjectField(i, S["Fine Y"], fy);
+                        e.SetObjectField(i, S["Z"], Math.Max(0, Math.Min(127, e.FloorZ(nx, ny, fx, fy) + Math.Max(0, above))));
+                    }
+                    else if (i == grabbed) e.MoveObjectAnywhere(i, nx, ny, fx, fy);
+                    else e.MoveObjectAnywhere(i, nx, ny);
                     moved++;
                 }
             }

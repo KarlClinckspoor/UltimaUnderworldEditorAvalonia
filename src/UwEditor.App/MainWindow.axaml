@@ -223,7 +223,9 @@
                 <TreeDataTemplate x:DataType="app:TreeNode" ItemsSource="{Binding Children}">
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <Image Source="{Binding Icon}" Width="16" Height="16" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None" />
-                    <TextBlock Text="{Binding Header}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Header}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                               Classes.hostile="{Binding Look.Hostile}" Classes.upset="{Binding Look.Upset}" Classes.mellow="{Binding Look.Mellow}"
+                               Classes.friendly="{Binding Look.Friendly}" Classes.enchanted="{Binding Look.Enchanted}" Classes.trap="{Binding Look.Underlined}" />
                   </StackPanel>
                 </TreeDataTemplate>
               </TreeView.ItemTemplate>
@@ -296,7 +298,9 @@
                 <Image Source="{Binding ObjectThumb}" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None" Margin="3" />
               </Border>
               <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                <TextBlock Classes="title" Text="{Binding ObjectTitle}" />
+                <TextBlock Classes="title" Text="{Binding ObjectTitle}"
+                           Classes.hostile="{Binding ObjectLook.Hostile}" Classes.upset="{Binding ObjectLook.Upset}" Classes.mellow="{Binding ObjectLook.Mellow}"
+                           Classes.friendly="{Binding ObjectLook.Friendly}" Classes.enchanted="{Binding ObjectLook.Enchanted}" Classes.trap="{Binding ObjectLook.Underlined}" />
                 <TextBlock Classes="muted" Text="{Binding ObjectSubtitle}" Margin="0,2,0,0" />
               </StackPanel>
             </Grid>
