@@ -225,7 +225,7 @@ namespace UwEditor.App
                 zonesWindow?.Close(); zoneGraphWindow?.Close();
                 itemShuffleWindow?.Close(); itemSwapWindow?.Close(); monsterSwapWindow?.Close();
                 findWindow?.Close(); automapWindow?.Close(); checkpointsWindow?.Close();
-                historyWindow?.Close(); worldCheckWindow?.Close(); itemSlotsWindow?.Close(); exhumedWindow?.Close(); saveCheckWindow?.Close();
+                historyWindow?.Close(); worldCheckWindow?.Close(); runPathsWindow?.Close(); itemSlotsWindow?.Close(); exhumedWindow?.Close(); saveCheckWindow?.Close();
                 foreach (var t in ToolWindows().ToList()) t.W.Close();
                 scheduleWindow?.CloseQuietly(); saveSlotsWindow?.Close();
                 CloseFixesWindows();
@@ -773,6 +773,9 @@ namespace UwEditor.App
             if (e.Key == Key.P && ctrlShift) { ShowPlayer(); e.Handled = true; return; }
             if (e.Key == Key.R && ctrlShift) { ShowGraphics(); e.Handled = true; return; }
             if (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.None) { OnPlayTest(this, null); e.Handled = true; return; }
+            if (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.Control) { _ = RunDosBox(); e.Handled = true; return; }
+            if (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.Shift) { _ = RunExhumed(); e.Handled = true; return; }
+            if (e.Key == Key.S && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Alt)) { SaveAllChanges(); e.Handled = true; return; }
             if (e.Key == Key.F1) { ManualWindow.ShowAt(this, vm.ToolIndex == 0 ? null : "Editing levels"); e.Handled = true; return; }
             if (e.Key == Key.K && ctrlShift) { ShowKeys(); e.Handled = true; return; }
             if (e.Key == Key.T && ctrlShift) { ShowTriggers(); e.Handled = true; return; }

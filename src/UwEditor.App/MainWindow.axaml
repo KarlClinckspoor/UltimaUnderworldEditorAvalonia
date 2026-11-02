@@ -16,6 +16,9 @@
         <MenuItem Header="_Open game folder…" InputGesture="Ctrl+O" Click="OnOpen" />
         <MenuItem Header="Open _recent" x:Name="RecentMenu" />
         <Separator />
+        <MenuItem Header="Save _all changes" InputGesture="Ctrl+Alt+S" Click="OnSaveAllChanges" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="Res_tore all…" Click="OnRestoreAll" IsEnabled="{Binding HasGame}" />
+        <Separator />
         <MenuItem Header="_Saved games…" Click="OnSavedGames" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Checkpoints…" Click="OnCheckpoints" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="Check and _repair the saved game…" Click="OnSaveCheck" IsEnabled="{Binding HasGame}" />
@@ -81,10 +84,15 @@
         <MenuItem Header="_Make this slot a level…" Click="OnMakeSlotALevel" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="C_lear the level…" Click="OnClearLevel" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="Clear the level and its _tiles…" Click="OnClearLevelAndTiles" IsEnabled="{Binding HasGame}" />
+      </MenuItem>
+      <MenuItem Header="_Run and Test">
+        <MenuItem Header="Run in _DOSBox" InputGesture="Ctrl+F5" Click="OnRunDosBox" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="Run in Underworld _Exhumed" InputGesture="Shift+F5" Click="OnRunExhumed" IsEnabled="{Binding HasGame}" />
         <Separator />
-        <MenuItem Header="Play-_test from the selected tile" Click="OnPlayTest" InputGesture="F5" IsEnabled="{Binding HasGame}" />
-        <MenuItem Header="Choose _DOSBox for play tests…" Click="OnDosBoxPath" />
-        <MenuItem Header="Check in Underworld _Exhumed…" Click="OnExhumedCheck" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Play-test from the selected tile" Click="OnPlayTest" InputGesture="F5" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Check in Underworld Exhumed…" Click="OnExhumedCheck" IsEnabled="{Binding HasGame}" />
+        <Separator />
+        <MenuItem Header="Programs and _paths…" Click="OnRunPaths" />
       </MenuItem>
       <MenuItem Header="_Tools">
         <MenuItem Header="_Conversations…" Click="OnConversations" InputGesture="Ctrl+Shift+C" IsEnabled="{Binding HasGame}" />
@@ -104,14 +112,16 @@
         <MenuItem Header="_Strings…" Click="OnStrings" InputGesture="Ctrl+Shift+S" IsEnabled="{Binding HasGame}" />
         <Separator />
         <MenuItem Header="_Mods…" Click="OnMods" InputGesture="Ctrl+Shift+M" IsEnabled="{Binding HasGame}" />
-        <Separator />
-        <MenuItem Header="Randomi_zer (work in progress)">
+      </MenuItem>
+      <MenuItem Header="Randomi_zer">
+        <MenuItem Header="_Scatter (work in progress)">
           <MenuItem Header="_Zones…" Click="OnZones" IsEnabled="{Binding HasGame}" />
           <MenuItem Header="Zone _graph…" Click="OnZoneGraph" IsEnabled="{Binding HasGame}" />
         </MenuItem>
-        <MenuItem Header="Shuffle item _properties…" Click="OnItemShuffle" IsEnabled="{Binding HasGame}" />
-        <MenuItem Header="S_wap items…" Click="OnItemSwap" IsEnabled="{Binding HasGame}" />
-        <MenuItem Header="Swap _monsters…" Click="OnMonsterSwap" IsEnabled="{Binding HasGame}" />
+        <Separator />
+        <MenuItem Header="Item _property shuffle…" Click="OnItemShuffle" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="Item s_wap…" Click="OnItemSwap" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Monster swap…" Click="OnMonsterSwap" IsEnabled="{Binding HasGame}" />
       </MenuItem>
       <MenuItem Header="_Help">
         <MenuItem Header="_Manual" InputGesture="F1" Click="OnManual" />

@@ -22,7 +22,10 @@ names them, and **File ▸ Check and repair the saved game…** repairs them.
 **Unsaved work.** Opening another game or closing the editor asks first when anything is
 unsaved: levels and their maps, the player, strings and conversations, global variables,
 pictures and zones. **Save** there writes all of them; Ctrl+S (Save the levels) writes the
-levels and the player. The global variables and graphics windows also ask when they close
+levels and the player. **File ▸ Save all changes** (Ctrl+Alt+S) writes everything unsaved at
+once, the tool windows' work included. **File ▸ Restore all…** drops every unsaved change and
+reads the game again from its files, keeping the level and the camera; a checkpoint of what
+was dropped is kept first, so **File ▸ Checkpoints…** can bring it back. The global variables and graphics windows also ask when they close
 with unsaved changes, since their edits live in the window. The tool windows of a game close
 when another game opens.
 
@@ -201,9 +204,31 @@ go to the level as it was after it. Each level keeps its own history, up to 200 
 
 Double-click a line to go there.
 
+### Run and Test
+
+The **Run and Test** menu starts the game on what you are editing.
+
+- **Run in DOSBox** (Ctrl+F5) runs the game in DOSBox on the game folder itself, not a copy,
+  so the saved game being edited is the one the game restores (and games saved there stay).
+  DOSBox gets a configuration written for the run: GOG's own (the `dosbox….conf` next to the
+  game, so its CPU speed and sound settings are kept) or, without one, the editor's defaults
+  (an SVGA machine with EMS, a Sound Blaster 16 at 220, IRQ 7, DMA 1, and an MPU-401), with
+  its `[autoexec]` replaced: C: is the game folder and the game starts at once. Unsaved
+  changes are not in the files yet: the editor asks whether to save them first.
+- **Run in Underworld Exhumed** (Shift+F5) runs the native port on the game folder, with the
+  folder as the port's home too, so Journey Onward lists the folder's saved games (the one
+  being edited among them) and games saved in the port land there. The port also keeps its
+  settings file (`uw1port.cfg` / `uw2port.cfg`) and its last recordings in its home.
+- A saved game kept outside the game folder runs from a copy instead, as saved game 1 (in
+  the editor's settings folder, `Run`); games saved there stay in the copy.
+- **Programs and paths…** sets DOSBox (DOSBox, DOSBox-X or DOSBox Staging), extra DOSBox
+  arguments, and the two ports (`uw1port`, `uw2port`). An empty path lets the editor look
+  for the program itself. **Show the configuration a run uses** shows the DOSBox
+  configuration.
+
 ### Play test
 
-**Level ▸ Play-test from the selected tile** (F5, or Play-test from here in the right-click
+**Run and Test ▸ Play-test from the selected tile** (F5, or Play-test from here in the right-click
 menu) runs the game in DOSBox with the unsaved levels, the player on that square. It works
 on a copy of the game folder, made afresh each time in the editor's settings folder (`Play
 test`); the game folder is never touched.
@@ -214,12 +239,13 @@ test`); the game folder is never touched.
   position: restore that game (the editor says which).
 
 DOSBox is looked for next to the game (GOG's `DOSBOX` folder) and where it is usually
-installed; otherwise the editor asks for it once (**Choose DOSBox for play tests…**). Unsaved
-strings and conversations are not in the copy.
+installed; otherwise choose it in **Run and Test ▸ Programs and paths…**. It runs with the
+same configuration as Run in DOSBox, with C: on the copy. Unsaved strings and conversations
+are not in the copy.
 
 ### Checking in Underworld Exhumed
 
-**Level ▸ Check in Underworld Exhumed…** loads the edits with the game's own code.
+**Run and Test ▸ Check in Underworld Exhumed…** loads the edits with the game's own code.
 [Underworld Exhumed](https://github.com/abedegno/underworld-exhumed) is a native port of
 the original games, built from their decompiled source; get a release for your system
 (`uw1-…` releases for Ultima Underworld, `uw2-…` for Underworld II) and unpack it. The
@@ -885,7 +911,11 @@ choice is remembered between runs. The 3D view and the pictures keep their own c
 
 ## Randomizer (work in progress)
 
-**Tools ▸ Randomizer ▸ Zones…** opens the zoning of the game. A zone is a part of the world
+All of it is in the **Randomizer** menu: **Scatter** (the zones and the zone graph, for the
+randomizer that will scatter items by reachability), **Item property shuffle**, **Item swap**
+and **Monster swap**.
+
+**Randomizer ▸ Scatter ▸ Zones…** opens the zoning of the game. A zone is a part of the world
 that can be walked without meeting a requirement. Every tile has a zone id: 0 is rock, 1 is
 open but not in a zone yet (magenta in the view), and 2–255 are the zones. The file is
 `uw1-zones.json` (or `uw2-zones.json`) in `DATA`, the same format the Unity editor uses.
@@ -916,7 +946,7 @@ notes: 91 zones, 139 links and 50 grants.
   level, in which the pixel's index is the zone id, with north up. `map0` is level 1, as in
   the Gimp maps.
 
-**Tools ▸ Randomizer ▸ Zone graph…** shows a label for each zone, placed in a column for the
+**Randomizer ▸ Scatter ▸ Zone graph…** shows a label for each zone, placed in a column for the
 level it first appears on. Drag the labels to arrange them; the positions are saved in the
 zone file. Lines are the links between zones:
 - one arrowhead means one-way, two mean two-way;
@@ -936,7 +966,7 @@ zone file. Lines are the links between zones:
 
 ### Shuffling item properties
 
-**Tools ▸ Shuffle item properties…** changes what items are without moving them. Weapons,
+**Randomizer ▸ Item property shuffle…** changes what items are without moving them. Weapons,
 armour, food, lights, tools, runestones, wands, spell scrolls, potions and rings stay where
 they lie (on the floor, in a container or a creature's inventory) but may become something
 else. Choose the settings in the tabs, press **Preview** to see the report, then **Shuffle**.
@@ -1010,7 +1040,7 @@ never has its enchantment replaced.
 
 ### Swapping items
 
-**Tools ▸ Swap items…** only moves the existing objects around: nothing is made or removed,
+**Randomizer ▸ Item swap…** only moves the existing objects around: nothing is made or removed,
 so every item keeps its count, and no weights apply. Tick the kinds taking part (weapons,
 armour, food, lights, tools, runestones, wands, spell scrolls, potions, rings) and choose
 **within each kind** (a sword stays a weapon) or **across all the ticked kinds** (a sword may
@@ -1027,7 +1057,7 @@ kept in `item-ignore-uw1.json` / `-uw2.json` in the settings folder.
 
 ### Swapping monsters
 
-**Tools ▸ Swap monsters…** makes the monsters trade places. Each spot keeps its position,
+**Randomizer ▸ Monster swap…** makes the monsters trade places. Each spot keeps its position,
 home, goal and (by default) whatever lies in its inventory, and takes another monster's kind,
 hit points, powerful flag and attitude. **Preview**, **Swap** and **Undo swap** work as in the
 item tools; each swap is one Edit ▸ Undo step per level.

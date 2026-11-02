@@ -31,6 +31,12 @@ namespace UwEditor.App
             return exhumedWindow;
         }
 
+        /// <summary>The path chosen for the game's port ("" when none).</summary>
+        public string ExhumedChosen(GameKind kind) { return (kind == GameKind.UW2 ? settings.ExhumedUw2Path : settings.ExhumedUw1Path) ?? ""; }
+
+        /// <summary>The port for a game: the one chosen, else one found.</summary>
+        public string ExhumedPortFor(GameKind kind) { return ExhumedPort(kind); }
+
         /// <summary>The port for the game: the one chosen, else one found.</summary>
         public string ExhumedPort(GameKind kind)
         {

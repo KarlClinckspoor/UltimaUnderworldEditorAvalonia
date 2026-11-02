@@ -130,7 +130,8 @@ namespace UwEditor.Core
             return a;
         }
 
-        static IEnumerable<string> SplitArgs(string s)
+        /// <summary>Splits a command line into arguments, double quotes grouping.</summary>
+        public static IEnumerable<string> SplitArgs(string s)
         {
             var cur = new System.Text.StringBuilder();
             bool q = false;

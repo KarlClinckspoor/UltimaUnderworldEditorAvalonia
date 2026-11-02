@@ -272,7 +272,9 @@ edits that can be undone; the game folder is not touched until you save.
 - **Pixel editor** (graphics window's Edit pixels…, or an object's right-click menu): draw on
   any picture with its own colours (the palette, or a 4-bit picture's 16), with pencil, eraser,
   picker, fill, lines and rectangles, a brush of 1-16 pixels and undo; saved in place.
-- **Level ▸ Check in Underworld Exhumed…**: the edits loaded by the game's own code, in
+- **Run and Test**: run the game in DOSBox (with GOG's configuration and C: on the folder
+  being edited) or in Underworld Exhumed (on the save being edited), play-test from a tile,
+  and **Check in Underworld Exhumed…**: the edits loaded by the game's own code, in
   [Underworld Exhumed](https://github.com/abedegno/underworld-exhumed)'s native port run with
   no window: the player is sent to each chosen level, UW1 saves at the end and the levels the
   game wrote are checked again. **File ▸ Export as a saved game…** writes the edits as a
@@ -300,25 +302,25 @@ edits that can be undone; the game folder is not touched until you save.
   **Export OBJ…** writes a Wavefront OBJ file with an MTL of the colours; **Export all…**
   writes every model.
 
-- **Tools ▸ Randomizer** (work in progress):
+- **Randomizer ▸ Scatter** (work in progress):
   - **Zones** paints a zone id on every tile, with Glasbey colours and an overlay in the
     view, and lists each zone's key items.
   - **Zone graph** has movable zone labels, one-way and two-way links, and a list of
     requirements per link, filled from the locks of the doors between the zones.
   - Both read and write the Unity editor's `uw1-zones.json`. The UW1 example zoning is in
     `docs/examples`.
-- **Tools ▸ Shuffle item properties** turns weapons, armour, food, lights, tools, runestones,
+- **Randomizer ▸ Item property shuffle** turns weapons, armour, food, lights, tools, runestones,
   wands, spell scrolls, potions and rings into other items in place, by weights per type, and
   rolls their enchantments again (chance, mean and deviation per kind, raised with depth, or
   hand-drawn bars and curves), with UW2's special weapons, other armour effects, ring effects
   and curses, and minimums of tools and runes. Every setting starts from what the world holds,
   each tab can be refitted to the levels, and a world report lists what they hold.
-- **Tools ▸ Swap monsters** makes the monsters trade places by strength (experience value,
+- **Randomizer ▸ Monster swap** makes the monsters trade places by strength (experience value,
   hit points, damage or both, powerful counted), keeping each spot's difficulty or following
   the depth, with a spread from strict to uniform. Creatures with a conversation stay unless
   whitelisted; swimmers, heights and race-bound creatures are respected; hit points can stay
   with the spot. A world report lists the creatures by kind and by level.
-- **Tools ▸ Swap items** only trades the existing objects around, within their kind or across
+- **Randomizer ▸ Item swap** only trades the existing objects around, within their kind or across
   the ticked kinds. Both tools share a list of ignored quest objects, and Undo puts everything
   back.
 

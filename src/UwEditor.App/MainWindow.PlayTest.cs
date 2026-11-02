@@ -27,7 +27,7 @@ namespace UwEditor.App
             _ = PlayTest(x, y);
         }
 
-        void OnDosBoxPath(object sender, RoutedEventArgs e) { _ = ChooseDosBox(); }
+        void OnDosBoxPath(object sender, RoutedEventArgs e) { ShowRunPaths(); }
 
         async Task<string> ChooseDosBox()
         {
@@ -68,8 +68,10 @@ namespace UwEditor.App
             }
             try
             {
-                var psi = new ProcessStartInfo(dosbox) { UseShellExecute = false, WorkingDirectory = plan.Folder };
-                foreach (var arg in Core.PlayTest.DosBoxArguments(plan, settings.DosBoxArgs)) psi.ArgumentList.Add(arg);
+                // GOG's configuration (or the defaults) with C: on the copy and the game started (DosBoxConfig)
+                string conf = WriteDosBoxConf(plan.Folder, plan.Exe, s.IsUw2 ? "playtest-uw2" : "playtest-uw1");
+                var psi = new ProcessStartInfo(dosbox) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(dosbox) ?? plan.Folder };
+                foreach (var arg in DosBoxConfig.Arguments(conf, settings.DosBoxArgs)) psi.ArgumentList.Add(arg);
                 Process.Start(psi);
                 vm.EditStatus = "Play test started. " + plan.Note + " (A copy in " + plan.Folder + "; the game folder is untouched.)";
                 if (plan.Slot != null) _ = MessageWindow.Show(this, "Play test", plan.Note + "\n\nThe test runs in a copy of the game with the unsaved levels; your game folder is not changed.");
