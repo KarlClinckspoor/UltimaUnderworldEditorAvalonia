@@ -86,10 +86,13 @@ namespace UwEditor.App
         }
 
         /// <summary>The item shuffle changed objects on many levels: the object list and the edit state are read again.</summary>
-        public void ShuffleApplied()
+        public void ShuffleApplied() { RandomizerApplied("Item properties shuffled; Edit ▸ Undo (per level) or the shuffle window's Undo shuffle puts them back."); }
+
+        /// <summary>A randomizer tool changed or restored levels: the zones follow, and the status line says so.</summary>
+        public void RandomizerApplied(string status)
         {
             zoning?.LevelsChanged();
-            vm.EditStatus = "Item properties shuffled; Edit ▸ Undo (per level) or the shuffle window's Undo shuffle puts them back.";
+            vm.EditStatus = status;
         }
 
         public ZonesWindow ShowZones()

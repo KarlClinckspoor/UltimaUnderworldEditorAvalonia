@@ -162,7 +162,7 @@ namespace UwEditor.App
                 + (skipped.Count == 0 ? "" : "\n\nLeft as they are, because they were edited since: level" + (skipped.Count == 1 ? " " : "s ") + string.Join(", ", skipped) + ". Edit ▸ Undo steps back there.");
             applied.Clear();
             undoButton.IsEnabled = false;
-            main.ShuffleApplied();
+            main.RandomizerApplied("Item property shuffles undone.");
         }
 
         // ---- the tabs

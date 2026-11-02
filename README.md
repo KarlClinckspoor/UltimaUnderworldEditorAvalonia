@@ -318,11 +318,16 @@ edits that can be undone; the game folder is not touched until you save.
 - **Randomizer ▸ Monster swap** makes the monsters trade places by strength (experience value,
   hit points, damage or both, powerful counted), keeping each spot's difficulty or following
   the depth, with a spread from strict to uniform. Creatures with a conversation stay unless
-  whitelisted; swimmers, heights and race-bound creatures are respected; hit points can stay
-  with the spot. A world report lists the creatures by kind and by level.
+  whitelisted; swimmers, heights and race-bound creatures are respected, and no creature lands
+  on water or lava it cannot survive; hit points can stay with the spot; UW1's fire elementals
+  and UW2's brain creatures can be left alone. A live formula shows the math, the strength
+  table sorts by any column, and a world report lists the creatures by kind and by level.
 - **Randomizer ▸ Item swap** only trades the existing objects around, within their kind or across
-  the ticked kinds. Both tools share a list of ignored quest objects, and Undo puts everything
-  back.
+  the ticked kinds, within a level, ±N levels, a world or the whole game, with its own
+  settings and ignore list. Items take their spot's owner (the rat's food becomes the rat's
+  lantern); bones and other scenery can join (never Garamon's bones); the starting equipment
+  stays; enchantments can trade places within a class afterwards. Both item tools show their
+  math as a live formula, and Undo puts everything back.
 
 **Help ▸ Manual** (F1) opens [the manual](docs/MANUAL.md), which is built into the program,
 with its sections and a search box. F1 in a tool window opens that tool's section.

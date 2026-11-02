@@ -246,7 +246,7 @@ namespace UwEditor.App
             undoButton.IsEnabled = true;
             Save();
             report.Text = "Swapped. " + (applied.Count > 1 ? applied.Count + " swaps so far; Undo swap puts back all of them.\n\n" : "Undo swap puts everything back.\n\n") + r.Report;
-            main.ShuffleApplied();
+            main.RandomizerApplied("Monsters swapped; Edit ▸ Undo (per level) or the monster swap window's Undo swap puts them back.");
         }
 
         /// <summary>The Undo swap button: every swap from this window, put back.</summary>
@@ -259,7 +259,7 @@ namespace UwEditor.App
                 + (skipped.Count == 0 ? "" : "\n\nLeft as they are, because they were edited since: level" + (skipped.Count == 1 ? " " : "s ") + string.Join(", ", skipped) + ". Edit ▸ Undo steps back there.");
             applied.Clear();
             undoButton.IsEnabled = false;
-            main.ShuffleApplied();
+            main.RandomizerApplied("Monster swaps undone.");
         }
     }
 }
