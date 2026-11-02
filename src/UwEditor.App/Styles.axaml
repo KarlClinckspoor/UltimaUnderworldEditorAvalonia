@@ -19,6 +19,11 @@
           <SolidColorBrush x:Key="WarnText">#F1D9A8</SolidColorBrush>
           <SolidColorBrush x:Key="Thumb">#0E0F12</SolidColorBrush>
           <SolidColorBrush x:Key="Code">#E6C384</SolidColorBrush>
+          <SolidColorBrush x:Key="ObjHostile">#F2766A</SolidColorBrush>
+          <SolidColorBrush x:Key="ObjUpset">#C9965F</SolidColorBrush>
+          <SolidColorBrush x:Key="ObjMellow">#82C77E</SolidColorBrush>
+          <SolidColorBrush x:Key="ObjFriendly">#74AEEB</SolidColorBrush>
+          <SolidColorBrush x:Key="ObjEnchanted">#C895F2</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Light">
           <SolidColorBrush x:Key="Bg">#F4F1EA</SolidColorBrush>
@@ -36,6 +41,11 @@
           <SolidColorBrush x:Key="WarnText">#4A3510</SolidColorBrush>
           <SolidColorBrush x:Key="Thumb">#2A2B30</SolidColorBrush>
           <SolidColorBrush x:Key="Code">#7A4A10</SolidColorBrush>
+          <SolidColorBrush x:Key="ObjHostile">#B3261E</SolidColorBrush>
+          <SolidColorBrush x:Key="ObjUpset">#94500E</SolidColorBrush>
+          <SolidColorBrush x:Key="ObjMellow">#2B7A31</SolidColorBrush>
+          <SolidColorBrush x:Key="ObjFriendly">#1E5DAE</SolidColorBrush>
+          <SolidColorBrush x:Key="ObjEnchanted">#7A3DB8</SolidColorBrush>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
       <FontFamily x:Key="Mono">Cascadia Mono, Consolas, Menlo, DejaVu Sans Mono, monospace</FontFamily>
@@ -72,6 +82,26 @@
     <Setter Property="FontSize" Value="12" />
     <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
+  <!-- objects' names in the list and the properties panel (ObjectLook.cs): creatures by attitude, enchanted objects, traps and triggers -->
+  <Style Selector="TextBlock.hostile">
+    <Setter Property="Foreground" Value="{DynamicResource ObjHostile}" />
+  </Style>
+  <Style Selector="TextBlock.upset">
+    <Setter Property="Foreground" Value="{DynamicResource ObjUpset}" />
+  </Style>
+  <Style Selector="TextBlock.mellow">
+    <Setter Property="Foreground" Value="{DynamicResource ObjMellow}" />
+  </Style>
+  <Style Selector="TextBlock.friendly">
+    <Setter Property="Foreground" Value="{DynamicResource ObjFriendly}" />
+  </Style>
+  <Style Selector="TextBlock.enchanted">
+    <Setter Property="Foreground" Value="{DynamicResource ObjEnchanted}" />
+  </Style>
+  <Style Selector="TextBlock.trap">
+    <Setter Property="TextDecorations" Value="Underline" />
+  </Style>
+
   <Style Selector="TextBlock.mono">
     <Setter Property="FontFamily" Value="{DynamicResource Mono}" />
     <Setter Property="FontSize" Value="12" />

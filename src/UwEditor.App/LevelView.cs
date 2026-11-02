@@ -177,6 +177,34 @@ namespace UwEditor.App
             Redraw();
         }
 
+        /// <summary>
+        /// Draws some objects' sprites moved by offsets (world units) without changing the scene, as a
+        /// drag shows where they will go; null puts them back. Picking still uses the scene's places.
+        /// </summary>
+        public void PreviewSprites(IDictionary<int, Vector3> offsets)
+        {
+            if (scene == null) return;
+            if (offsets == null || offsets.Count == 0)
+            {
+                if (!previewing) return;
+                previewing = false;
+                renderer.SetSprites(scene.Sprites, scene.Atlas);
+                Redraw();
+                return;
+            }
+            var list = new List<SpriteInstance>(scene.Sprites.Count);
+            foreach (var s in scene.Sprites)
+            {
+                Vector3 d;
+                if (offsets.TryGetValue(s.Object, out d)) { var m = s; m.Base += d; list.Add(m); }
+                else list.Add(s);
+            }
+            previewing = true;
+            renderer.SetSprites(list, scene.Atlas);
+            Redraw();
+        }
+        bool previewing;
+
         float[] lastGrid, lastLines, lastMarks;
 
         public void SetGrid(List<float> lines)
@@ -202,13 +230,14 @@ namespace UwEditor.App
         public void UpdateScene(LevelScene s)
         {
             scene = s;
-            if (s != null && s.ObjectsReused) renderer.SetLevel(s.Mesh, s.Layers);
+            if (s != null && s.ObjectsReused && !previewing) renderer.SetLevel(s.Mesh, s.Layers);
             else Upload(s, false);
             Redraw();
         }
 
         void Upload(LevelScene s, bool atlas)
         {
+            previewing = false;
             if (s == null) { renderer.SetLevel(null, null); renderer.SetSprites(null, null); renderer.SetModels(null); return; }
             renderer.SetLevel(s.Mesh, s.Layers);
             renderer.SetModels(s.Models);
@@ -403,19 +432,25 @@ namespace UwEditor.App
             CameraKey(e);
         }
 
-        /// <summary>Moves the camera for W/A/S/D, the arrows, Q/E, R/V, + and −; marks the key handled.</summary>
+        /// <summary>
+        /// The camera keys: W/A/S/D and the arrows move and Q/E turn for as long as they are held (and
+        /// in first person R/V look up and down), smoothly (SmoothMotion); R/V step the point looked at
+        /// a floor step up or down, + and − zoom. Marks the key handled.
+        /// </summary>
         public void CameraKey(KeyEventArgs e)
         {
-            if (FirstPerson && WalkKey(e)) { e.Handled = true; return; }
-            float step = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? 4f : 1f;
+            if (FirstPerson && e.Key == Key.Escape) { SetFirstPerson(false); e.Handled = true; return; }
+            if (IsMotionKey(e.Key))
+            {
+                held.Add(e.Key);
+                shiftHeld = (e.KeyModifiers & KeyModifiers.Shift) != 0;
+                StartMotion();
+                e.Handled = true;
+                return;
+            }
+            if (FirstPerson) return;
             switch (e.Key)
             {
-                case Key.W: case Key.Up: Camera.Move(step, 0); break;
-                case Key.S: case Key.Down: Camera.Move(-step, 0); break;
-                case Key.A: case Key.Left: Camera.Move(0, -step); break;
-                case Key.D: case Key.Right: Camera.Move(0, step); break;
-                case Key.Q: if (!TopDown) Camera.Orbit(-15, 0); break;
-                case Key.E: if (!TopDown) Camera.Orbit(15, 0); break;
                 case Key.R: Camera.Target += new Vector3(0, LevelGeometry.Step, 0); break;
                 case Key.V: Camera.Target -= new Vector3(0, LevelGeometry.Step, 0); break;
                 case Key.Add: case Key.OemPlus: Camera.Zoom(0.8f); break;
@@ -426,23 +461,126 @@ namespace UwEditor.App
             e.Handled = true;
         }
 
-        bool WalkKey(KeyEventArgs e)
+        // ---- smooth movement while keys are held
+
+        readonly HashSet<Key> held = new HashSet<Key>();
+        bool shiftHeld, frameAsked;
+        TimeSpan lastFrame = TimeSpan.MinValue;
+        readonly SmoothMotion motion = new SmoothMotion();
+        TopLevel keysFrom;
+
+        /// <summary>Orbiting: speed in tiles a second at the default distance (it grows with the distance); turning in degrees a second; Shift is three times faster.</summary>
+        public const float OrbitSpeed = 8f, TurnSpeed = 110f, WalkSpeed = 2.5f, RunSpeed = 6f, LookSpeed = 80f;
+
+        bool IsMotionKey(Key k)
         {
-            float step = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? 0.6f : 0.25f;
-            switch (e.Key)
+            switch (k)
             {
-                case Key.W: case Key.Up: Walk(step, 0); return true;
-                case Key.S: case Key.Down: Walk(-step, 0); return true;
-                case Key.A: Walk(0, -step); return true;
-                case Key.D: Walk(0, step); return true;
-                case Key.Left: case Key.Q: Camera.Orbit(-10, 0); CameraMoved(); return true;
-                case Key.Right: case Key.E: Camera.Orbit(10, 0); CameraMoved(); return true;
-                case Key.R: Camera.Orbit(0, -8); CameraMoved(); return true;
-                case Key.V: Camera.Orbit(0, 8); CameraMoved(); return true;
-                case Key.Escape: SetFirstPerson(false); return true;
+                case Key.W: case Key.A: case Key.S: case Key.D: case Key.Up: case Key.Down: case Key.Left: case Key.Right: case Key.Q: case Key.E: return true;
+                case Key.R: case Key.V: return FirstPerson;
             }
             return false;
         }
+
+        /// <summary>The keys held now (tests).</summary>
+        public int HeldKeys { get { return held.Count; } }
+        /// <summary>Whether the camera is still gliding (keys held, or slowing down).</summary>
+        public bool IsMoving { get { return held.Count > 0 || motion.Moving; } }
+
+        /// <summary>A key came up (anywhere in the window): it stops moving the camera.</summary>
+        public void KeyReleased(Key k, KeyModifiers mods)
+        {
+            if (k == Key.LeftShift || k == Key.RightShift) shiftHeld = false;
+            else shiftHeld = (mods & KeyModifiers.Shift) != 0;
+            held.Remove(k);
+        }
+
+        /// <summary>Lets go of every key (the window lost the focus, the view changed mode).</summary>
+        public void ReleaseKeys() { held.Clear(); }
+
+        /// <summary>What the held keys ask for: forward, right (−1..1), turn and look (−1..1).</summary>
+        Vector4 Wanted()
+        {
+            float f = 0, r = 0, t = 0, l = 0;
+            if (held.Contains(Key.W) || held.Contains(Key.Up)) f += 1;
+            if (held.Contains(Key.S) || held.Contains(Key.Down)) f -= 1;
+            if (held.Contains(Key.D)) r += 1;
+            if (held.Contains(Key.A)) r -= 1;
+            if (held.Contains(Key.E)) t += 1;
+            if (held.Contains(Key.Q)) t -= 1;
+            // the arrows: sideways when orbiting, turning when walking (as before)
+            if (FirstPerson) { if (held.Contains(Key.Right)) t += 1; if (held.Contains(Key.Left)) t -= 1; }
+            else { if (held.Contains(Key.Right)) r += 1; if (held.Contains(Key.Left)) r -= 1; }
+            if (FirstPerson) { if (held.Contains(Key.V)) l += 1; if (held.Contains(Key.R)) l -= 1; }
+            if (TopDown) t = 0;
+            var move = new Vector2(f, r);
+            if (move.LengthSquared() > 1) move = Vector2.Normalize(move);   // diagonals no faster
+            float speed = FirstPerson ? (shiftHeld ? RunSpeed : WalkSpeed) : OrbitSpeed * Math.Clamp(Camera.Distance / 8f, 0.4f, 6f) * (shiftHeld ? 3 : 1);
+            float turn = TurnSpeed * (shiftHeld ? 2 : 1);
+            return new Vector4(move.X * speed, move.Y * speed, t * turn, l * LookSpeed);
+        }
+
+        /// <summary>Moves the camera by dt seconds of the held keys (the frame loop; tests call it directly). True while it still moves.</summary>
+        public bool StepMotion(double dt)
+        {
+            var d = motion.Step(Wanted(), dt);
+            if (d == Vector4.Zero) return IsMoving;
+            if (FirstPerson) Walk(d.X, d.Y);
+            else Camera.Move(d.X, d.Y);
+            if (d.Z != 0 || d.W != 0) Camera.Orbit(d.Z, d.W);
+            CameraMoved();
+            return IsMoving;
+        }
+
+        /// <summary>Whether held keys move the camera every frame by themselves (tests turn it off and call StepMotion).</summary>
+        public bool KeysByFrame = true;
+
+        void StartMotion()
+        {
+            if (frameAsked || !KeysByFrame) return;
+            var top = TopLevel.GetTopLevel(this);
+            if (top == null) return;
+            frameAsked = true;
+            lastFrame = TimeSpan.MinValue;
+            top.RequestAnimationFrame(OnMotionFrame);
+        }
+
+        void OnMotionFrame(TimeSpan now)
+        {
+            frameAsked = false;
+            double dt = lastFrame == TimeSpan.MinValue ? 1 / 60.0 : (now - lastFrame).TotalSeconds;
+            lastFrame = now;
+            if (!StepMotion(dt)) { motion.Stop(); return; }
+            var top = TopLevel.GetTopLevel(this);
+            if (top == null) { held.Clear(); motion.Stop(); return; }
+            frameAsked = true;
+            top.RequestAnimationFrame(OnMotionFrame);
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            keysFrom = TopLevel.GetTopLevel(this);
+            if (keysFrom == null) return;
+            // key ups anywhere in the window, even when another panel has the focus (the window passes the key downs on)
+            keysFrom.AddHandler(KeyUpEvent, OnAnyKeyUp, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+            if (keysFrom is WindowBase w) w.Deactivated += OnWindowDeactivated;
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnDetachedFromVisualTree(e);
+            if (keysFrom != null)
+            {
+                keysFrom.RemoveHandler(KeyUpEvent, OnAnyKeyUp);
+                if (keysFrom is WindowBase w) w.Deactivated -= OnWindowDeactivated;
+            }
+            keysFrom = null;
+            held.Clear();
+        }
+
+        void OnAnyKeyUp(object sender, KeyEventArgs e) { KeyReleased(e.Key, e.KeyModifiers); }
+        void OnWindowDeactivated(object sender, EventArgs e) { held.Clear(); }
 
         /// <summary>Starts or ends walking. Starting stands on the floor under the camera's target (or at a given point), looking the camera's way.</summary>
         public void SetFirstPerson(bool on, Vector3? at = null)
@@ -471,6 +609,7 @@ namespace UwEditor.App
                 Camera.Distance = Math.Max(3, savedDistance);
                 Camera.Pitch = Math.Max(20, savedPitch);
             }
+            held.Clear(); motion.Stop();
             FirstPersonChanged?.Invoke();
             CameraMoved();
         }

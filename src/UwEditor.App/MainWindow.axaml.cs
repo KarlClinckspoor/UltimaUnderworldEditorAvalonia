@@ -252,7 +252,9 @@ namespace UwEditor.App
             var items = new List<object>();
             foreach (var r in settings.Recent)
             {
-                var mi = new MenuItem { Header = r };
+                // a long path keeps its start and end, the middle left out; the whole of it in the tip
+                var mi = new MenuItem { Header = PathText.MiddleEllipsis(r, 64).Replace("_", "__") };   // "_" would be an access key
+                ToolTip.SetTip(mi, r);
                 string path = r;
                 mi.Click += (s, e) => OpenPath(path);
                 items.Add(mi);
@@ -697,7 +699,7 @@ namespace UwEditor.App
 
         void OnControls(object sender, RoutedEventArgs e)
         {
-            _ = MessageWindow.Show(this, "Controls",
+            _ = MessageWindow.ShowColumns(this, "Controls",
                 "In the 3D view\n" +
                 "  Left click              select an object or tile\n" +
                 "  Left or right drag      turn round the point looked at\n" +
@@ -750,7 +752,7 @@ namespace UwEditor.App
                 "  H                       grid on or off\n" +
                 "  M                       3D models or pictures\n" +
                 "  Home                    back to the start or the player\n" +
-                "  Esc                     clear the selection", true);
+                "  Esc                     clear the selection");
         }
 
         void OnAbout(object sender, RoutedEventArgs e)

@@ -33,9 +33,14 @@ namespace UwEditor.App
     /// <summary>A line of the object list: a tile, an object on it, or an object inside another.</summary>
     public sealed class TreeNode : Observable
     {
-        public string Header { get; set; }
+        string header;
+        Bitmap icon;
+        ObjectLook look = ObjectLook.Plain;
+        public string Header { get { return header; } set { Set(ref header, value); } }
         /// <summary>The object's picture from OBJECTS.GR, as the game shows it in the inventory.</summary>
-        public Bitmap Icon { get; set; }
+        public Bitmap Icon { get { return icon; } set { Set(ref icon, value); } }
+        /// <summary>The colour and underline of the line (a creature's attitude, enchanted, a trap or trigger).</summary>
+        public ObjectLook Look { get { return look; } set { Set(ref look, value ?? ObjectLook.Plain); } }
         public ObservableCollection<TreeNode> Children { get; } = new ObservableCollection<TreeNode>();
         public int ObjectIndex = -1, TileX = -1, TileY = -1;
         public TreeNode Parent;
@@ -316,6 +321,8 @@ namespace UwEditor.App
         void BuildTree()
         {
             Tree.Clear();
+            nodeOf.Clear();
+            TreeBuilds++;
             if (level == null) return;
             var q = CurrentQuery();
             foreach (var o in level.Objects)
@@ -340,13 +347,14 @@ namespace UwEditor.App
 
         bool AddObject(TreeNode parent, ObjectInfo o, ObjectQuery q, bool top)
         {
-            var node = new TreeNode { Header = Label(o, top), Icon = IconOf(o.Item), ObjectIndex = o.Index, TileX = o.TileX, TileY = o.TileY, Parent = parent };
+            var node = new TreeNode { Header = Label(o, top), Icon = IconOf(o.Item), Look = ObjectLook.Of(o), ObjectIndex = o.Index, TileX = o.TileX, TileY = o.TileY, Parent = parent };
             bool childMatches = false;
             foreach (int c in o.Children) childMatches |= AddObject(node, level.Objects[c], q, false);
             bool matches = q.IsEmpty || q.Matches(session, o) || childMatches;
             if (matches)
             {
                 if (parent == null) Tree.Add(node); else parent.Children.Add(node);
+                nodeOf[o.Index] = node;
             }
             if (childMatches && !q.IsEmpty) node.IsExpanded = true;
             return matches;
@@ -403,6 +411,7 @@ namespace UwEditor.App
             Raise(nameof(SelectedNode));
             ObjectRows.Clear(); TileRows.Clear();
             ObjectTitle = "Nothing selected";
+            ObjectLook = ObjectLook.Plain;
             ObjectSubtitle = "Click an object in the view or the list.";
             ObjectThumb = null;
             TileTitle = ""; WallThumb = FloorThumb = null;
@@ -418,28 +427,30 @@ namespace UwEditor.App
             selectedObject = obj;
             if (obj >= 0 && level.Objects[obj].TileX >= 0) { tx = level.Objects[obj].TileX; ty = level.Objects[obj].TileY; }
             selectedTileX = tx; selectedTileY = ty;
-            ObjectRows.Clear();
+            if (obj < 0) ObjectRows.Clear();
             if (obj >= 0)
             {
                 var o = level.Objects[obj];
                 ObjectTitle = o.Name;
                 ObjectSubtitle = string.Format("#{0} · item 0x{1:X3} · {2}", o.Index, o.Item, o.IsMobile ? "mobile" : "static");
-                foreach (var r in PropertyRows.ForObject(level, o)) ObjectRows.Add(r);
+                ObjectLook = ObjectLook.Of(o);
+                SetRows(ObjectRows, PropertyRows.ForObject(level, o));
                 var pics = session.Graphics.ObjectPictures;
                 ObjectThumb = o.Item < pics.Count && pics[o.Item] != null ? ToBitmap(pics[o.Item]) : null;
             }
             else
             {
                 ObjectTitle = "No object";
+                ObjectLook = ObjectLook.Plain;
                 ObjectSubtitle = tx >= 0 ? "A tile is selected; its objects are in the list." : "Click an object in the view or the list.";
                 ObjectThumb = null;
             }
-            TileRows.Clear();
+            if (tx < 0) TileRows.Clear();
             if (tx >= 0)
             {
                 var t = level.Tiles[tx, ty];
                 TileTitle = string.Format("({0}, {1}) · {2} · height {3}", tx, ty, TileInfo.TypeName(t.Type), t.Height);
-                foreach (var r in PropertyRows.ForTile(level, t)) TileRows.Add(r);
+                SetRows(TileRows, PropertyRows.ForTile(level, t));
                 var g = session.Graphics;
                 var wt = g.WallTexture(level.WallTextureNumber(t.WallIndex));
                 var ft = g.FloorTexture(level.FloorTextureNumber(t.FloorIndex));

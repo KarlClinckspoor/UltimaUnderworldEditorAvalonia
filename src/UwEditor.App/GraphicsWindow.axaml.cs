@@ -108,6 +108,7 @@ namespace UwEditor.App
             if (Model.Picture == null || Model.File == null) return null;
             var w = new PixelEditorWindow(Model.Picture, Model.File.Name + " picture " + (Model.PictureThumb?.Index ?? 0), Model.File.Describe(Model.PictureThumb?.Index ?? 0, Model.Picture), Model.ReplacePicturePixels,
                 () => { try { Model.SavePictures(); return null; } catch (Exception ex) { return ex.Message; } }, Model.File.Name);
+            w.ShowCycles(Model.File, Model.Picture, Model.Palettes, Model.PaletteIndex, Model.Session.IsUw2);
             w.Show(this);
             return w;
         }
@@ -117,6 +118,8 @@ namespace UwEditor.App
             if (Model.CritterImage == null) return null;
             var w = new PixelEditorWindow(Model.CritterImage, (Model.Critter?.ToString() ?? "critter") + ", frame " + Model.FrameIndex, "A critter frame: its auxiliary palette's colours. The page must stay under 0x7FFF bytes.", Model.ReplaceFramePixels,
                 () => { try { Model.SaveCritter(); return null; } catch (Exception ex) { return ex.Message; } }, "the critter's pages");
+            // a critter frame's colours are its auxiliary palette's entries, drawn in the 3D view with palette 0
+            w.ShowCycles(PaletteCycles.InGame(Model.Session.IsUw2), Model.CritterColourMap, Model.Palettes.Get(0));
             w.Show(this);
             return w;
         }
