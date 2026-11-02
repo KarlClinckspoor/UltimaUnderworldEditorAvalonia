@@ -43,7 +43,8 @@ namespace UwEditor.App
         readonly List<IgnoredObject> list;
         readonly List<IgnoredObject> all;
         readonly TextBox filter = new TextBox { Watermark = "Filter: a name, a spell, L4…", Width = 300 };
-        readonly ListBox left = new ListBox(), right = new ListBox();
+        // several entries at once: Ctrl+click, Shift+click, Ctrl+A
+        readonly ListBox left = new ListBox { SelectionMode = SelectionMode.Multiple }, right = new ListBox { SelectionMode = SelectionMode.Multiple };
         readonly TextBlock status = new TextBlock { FontSize = 12, Opacity = 0.75, VerticalAlignment = VerticalAlignment.Center };
         /// <summary>The list changed (it is saved already).</summary>
         public event Action Changed;
@@ -74,13 +75,12 @@ namespace UwEditor.App
             right.Bind(ListBox.BackgroundProperty, right.GetResourceObservable("Panel"));
             filter.TextChanged += (o, e) => Refresh();
             var addB = new Button { Content = addText };
-            addB.Click += (o, e) => Add(left.SelectedItem as IgnoredObject);
+            addB.Click += (o, e) => AddSelected();
             left.DoubleTapped += (o, e) => Add(left.SelectedItem as IgnoredObject);
             var remB = new Button { Content = removeText };
-            remB.Click += (o, e) =>
-            {
-                if (right.SelectedItem is IgnoredObject c) { list.RemoveAll(x => x.Level == c.Level && x.Index == c.Index); Save(); }
-            };
+            remB.Click += (o, e) => RemoveSelected();
+            ToolTip.SetTip(addB, "Adds every selected entry: Ctrl+click or Shift+click selects several, Ctrl+A all shown.");
+            ToolTip.SetTip(remB, "Removes every selected entry.");
             var selB = new Button { Content = selectedText };
             selB.Click += (o, e) =>
             {
@@ -117,6 +117,50 @@ namespace UwEditor.App
             SetRow(foot, 3); SetColumnSpan(foot, 3); Children.Add(foot);
             Margin = new Thickness(4, 8);
             Refresh();
+        }
+
+        /// <summary>The candidates on the left (several may be selected).</summary>
+        public ListBox CandidateList { get { return left; } }
+        /// <summary>The chosen ones on the right (several may be selected).</summary>
+        public ListBox ChosenList { get { return right; } }
+
+        /// <summary>The add button: every candidate selected on the left.</summary>
+        public void AddSelected() { AddAll(Selected(left)); }
+
+        /// <summary>The remove button: every entry selected on the right.</summary>
+        public void RemoveSelected()
+        {
+            var sel = Selected(right);
+            if (sel.Count == 0) return;
+            var keys = new HashSet<long>(sel.Select(c => (long)c.Level << 32 | (uint)c.Index));
+            list.RemoveAll(x => keys.Contains((long)x.Level << 32 | (uint)x.Index));
+            status.Text = sel.Count == 1 ? "Removed: " + sel[0].Label : "Removed " + sel.Count + ".";
+            Save();
+        }
+
+        static List<IgnoredObject> Selected(ListBox b)
+        {
+            return b.SelectedItems == null ? new List<IgnoredObject>() : b.SelectedItems.OfType<IgnoredObject>().ToList();
+        }
+
+        /// <summary>Adds every selected entry (one save); the status says how many and why any were refused.</summary>
+        void AddAll(List<IgnoredObject> sel)
+        {
+            if (sel.Count <= 1) { if (sel.Count == 1) Add(sel[0]); return; }
+            int n = 0;
+            string why = null;
+            foreach (var c0 in sel)
+            {
+                var c = c0;
+                if (list.Any(x => x.Level == c.Level && x.Index == c.Index)) continue;
+                string w = reject?.Invoke(c);
+                if (w != null) { why = why ?? w; continue; }
+                var known = all.FirstOrDefault(x => x.Level == c.Level && x.Index == c.Index);
+                list.Add(known ?? c);
+                n++;
+            }
+            status.Text = "Added " + n + "." + (why != null ? " Not added: " + why : "");
+            if (n > 0) Save();
         }
 
         void Add(IgnoredObject c)

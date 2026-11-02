@@ -15,6 +15,8 @@ namespace UwEditor.Core.Randomizer
         public int Item, AvgHit, Str, Race, Equip, Speed, Caster, Exp, Height;
         public int[] Armour = new int[4];
         public bool Swims, Flier;
+        /// <summary>COMOBJ.DAT's resist byte has bit 8 (fire): lava neither stops nor hurts it (critter/AI.C critter_ai, combat/DAMAGE.C check_res).</summary>
+        public bool Fireproof;
         public (int Chance, int Damage, int Prob)[] Attacks = new (int, int, int)[3];
         public int[] Spells = new int[3];
 
@@ -47,6 +49,8 @@ namespace UwEditor.Core.Randomizer
                 for (int a = 0; a < 3; a++) k.Spells[a] = d[at + 0x2A + a];
                 k.Caster = d[at + 0x2D] >> 1;
                 k.Height = com != null && 2 + 11 * k.Item < com.Length ? com[2 + 11 * k.Item] : 0;
+                // struct ComObj (obj/object.h): 11 bytes after a 2-byte header, resist at 0x08
+                k.Fireproof = com != null && 2 + 11 * k.Item + 8 < com.Length && (com[2 + 11 * k.Item + 8] & 0x08) != 0;
                 r[k.Item] = k;
             }
             return r;
@@ -74,6 +78,8 @@ namespace UwEditor.Core.Randomizer
         public double PowerfulDepth { get; set; } = 50;
         /// <summary>Creatures with a conversation may move within their own level.</summary>
         public bool TalkersInLevel { get; set; }
+        /// <summary>UW1's fire elementals or UW2's brain creatures neither move nor take another's place (on by default).</summary>
+        public bool LeaveSpecialKinds { get; set; } = true;
         /// <summary>Creatures with a conversation allowed to move anyway (the level 2 gazer, the Listener...).</summary>
         public List<IgnoredObject> Whitelist { get; set; }
         public List<IgnoredObject> Ignored { get; set; }
@@ -95,6 +101,8 @@ namespace UwEditor.Core.Randomizer
         /// <summary>Why it only swaps within its level, or null.</summary>
         public string LevelBound;
         public bool Water;
+        /// <summary>The terrain class of the spot's floor (CreatureTerrain: 0 plain, 1 water, 2 lava, 3 ice).</summary>
+        public int Floor;
         public double Strength;
         public string Label;
     }
@@ -120,8 +128,9 @@ namespace UwEditor.Core.Randomizer
     /// nor templates inside traps, summoned ones or ignored ones. Race-bound creatures (UW2
     /// liches, race 0xB, level 1 guards, level 4 bloodworms; UW1 Tybal's guards), ones whose
     /// goal targets another creature and, when loot goes with the monster, those that carry
-    /// something, only swap within their level. Swimmers swap only with swimmers, and a monster
-    /// only goes where its height fits.
+    /// something, only swap within their level. Swimmers swap only with swimmers, a monster
+    /// only goes where its height fits, and never onto water or lava it cannot stand on
+    /// (CreatureTerrain). UW1's fire elementals and UW2's brain creatures stay by default.
     /// </summary>
     public static class MonsterSwap
     {
@@ -178,6 +187,12 @@ namespace UwEditor.Core.Randomizer
             return n.Trim().Length == 0 || n.StartsWith("item 0x") || n.Contains("_");
         }
 
+        /// <summary>The kinds the "leave alone" option keeps: UW1's fire elemental (0x78), UW2's brain creature (0x58).</summary>
+        public static int SpecialKind(GameSession s) { return s.IsUw2 ? 0x58 : 0x78; }
+
+        /// <summary>The special kind's name, for the window and the report.</summary>
+        public static string SpecialKindName(GameSession s) { return s.IsUw2 ? "brain creatures" : "fire elementals"; }
+
         static bool RaceBound(GameSession s, CreatureKind k, int level)
         {
             if (s.IsUw2) return k.Race == 0x17 || k.Race == 0x0B || (level == 1 && k.Race == 0x1C) || (level == 4 && s.Names.Get(k.Item).Contains("bloodworm"));
@@ -192,6 +207,8 @@ namespace UwEditor.Core.Randomizer
             byte[] objects = op == null ? null : File.ReadAllBytes(op);
             var ignored = new HashSet<long>((opt.Ignored ?? new List<IgnoredObject>()).Select(x => (long)x.Level << 32 | (uint)x.Index));
             var white = new HashSet<long>((opt.Whitelist ?? new List<IgnoredObject>()).Select(x => (long)x.Level << 32 | (uint)x.Index));
+            var terrain = CreatureTerrain.TryLoad(s);
+            int special = SpecialKind(s);
             var l = new List<MonsterSpot>();
             foreach (var slot in s.LevelSlots())
             {
@@ -212,6 +229,7 @@ namespace UwEditor.Core.Randomizer
                     if (o.Parent >= 0 && m.Objects[o.Parent].IsTrapOrTrigger) sp.Blocked = "a template inside a trap";
                     else if (o.Parent >= 0) sp.Blocked = "inside something";
                     else if (ignored.Contains(key)) sp.Blocked = "ignored";
+                    else if (opt.LeaveSpecialKinds && o.Item == special) sp.Blocked = SpecialKindName(s) + ", left alone by the option";
                     else if (((att >> 8) & 1) != 0) sp.Blocked = "summoned";
                     else if (Unnamed(s, o.Item)) sp.Blocked = "a special creature without a name (the Ethereal Void's)";
                     else if (r[8] == 0) sp.Blocked = "no hit points";
@@ -230,6 +248,7 @@ namespace UwEditor.Core.Randomizer
                         if (sp.Whoami > 0 && o.Children.Count > 0) sp.LevelBound = sp.LevelBound ?? "carries what its conversation gives or takes";
                     }
                     sp.Water = k.Swims;
+                    sp.Floor = CreatureTerrain.FloorClass(s, terrain, m, o.TileX, o.TileY);
                     sp.Strength = Strength(s, objects, k, opt.KeepHp ? k.AvgHit : r[8], ((att >> 10) & 1) != 0, opt.Measure);
                     l.Add(sp);
                 }
@@ -270,7 +289,9 @@ namespace UwEditor.Core.Randomizer
         /// <summary>
         /// Pairs monsters with spots by noisy rank matching: each monster's strength percentile and
         /// each spot's target percentile get Normal(0, σ) noise, both are sorted and paired in
-        /// order; a monster that does not fit (height) takes the nearest one that does.
+        /// order; a monster that does not fit (height) takes the nearest one that does. Spots on
+        /// water or lava are filled first, each with the creature nearest its rank that may stand
+        /// there (Formula describes it all).
         /// </summary>
         static int[] Match(List<MonsterSpot> spots, MonsterSwapOptions opt, bool uw2, Random rng, Func<MonsterSpot, int> headroom)
         {
@@ -287,10 +308,44 @@ namespace UwEditor.Core.Randomizer
             var sk = Enumerable.Range(0, n).Select(i => uniform ? rng.NextDouble() : (1 - w) * keep[i] + w * depth[i] + sigma * Gauss(rng)).ToList();
             var monsters = Enumerable.Range(0, n).OrderBy(i => mk[i]).ToList();
             var places = Enumerable.Range(0, n).OrderBy(i => sk[i]).ToList();
-            // walk the spots in order; take the next monster that fits, else the nearest that does
-            var free = new List<int>(monsters);
+            var rankOf = new int[n];
+            for (int r = 0; r < n; r++) rankOf[monsters[r]] = r;
+            var taken = new bool[n];
+            var placed = new bool[n];
+
+            // spots on water or lava first (CreatureTerrain): a spot whose own creature could not stand
+            // there keeps it (the game put it there); the others take the creature nearest their rank
+            // that may stand there, its height fitting if one does. The narrower floor goes first (in a
+            // group of walkers only fliers may go on water, fliers and fire-resistant ones on lava), so
+            // each spot finds one: at worst the creature that was there.
+            for (int i = 0; i < n; i++)
+                if (CreatureTerrain.Restricted(spots[i].Floor) && !CreatureTerrain.CanStand(spots[i].Kind, spots[i].Floor)) { assign[i] = i; taken[i] = placed[i] = true; }
+            var classes = new[] { CreatureTerrain.Water, CreatureTerrain.Lava }
+                .OrderBy(c => Enumerable.Range(0, n).Count(j => !taken[j] && CreatureTerrain.CanStand(spots[j].Kind, c))).ToList();
+            foreach (int cls in classes)
+                for (int r = 0; r < n; r++)
+                {
+                    int place = places[r];
+                    if (placed[place] || spots[place].Floor != cls) continue;
+                    int room = headroom(spots[place]);
+                    int best = -1, bestD = int.MaxValue;
+                    bool bestFits = false;
+                    for (int j = 0; j < n; j++)
+                    {
+                        if (taken[j] || !CreatureTerrain.CanStand(spots[j].Kind, cls)) continue;
+                        bool fits = spots[j].Kind.Height <= room;
+                        int d = Math.Abs(rankOf[j] - r);
+                        if ((fits && !bestFits) || (fits == bestFits && d < bestD)) { best = j; bestD = d; bestFits = fits; }
+                    }
+                    if (best < 0) best = place;                    // cannot happen (see above); the creature stays
+                    assign[place] = best; taken[best] = placed[place] = true;
+                }
+
+            // walk the other spots in order; take the next monster that fits, else the nearest that does
+            var free = monsters.Where(j => !taken[j]).ToList();
             foreach (int place in places)
             {
+                if (placed[place]) continue;
                 int room = headroom(spots[place]);
                 int pick = -1;
                 for (int j = 0; j < free.Count && j < 64; j++)
@@ -385,6 +440,8 @@ namespace UwEditor.Core.Randomizer
                 opt.KeepHp ? "; hit points stay with the spot" : "", opt.LootWithMonster ? "; carried items go with the monster" : "; carried items stay with the spot");
             res.Report.AppendLine("Never moved: " + string.Join(", ", blocked) + ".");
             if (moving.Any(x => x.LevelBound != null)) res.Report.AppendLine("Only within their level: " + string.Join(", ", bound) + ".");
+            int wet = moving.Count(x => x.Floor == CreatureTerrain.Water), hot = moving.Count(x => x.Floor == CreatureTerrain.Lava);
+            if (wet + hot > 0) res.Report.AppendFormat("Spots on water: {0}, on lava: {1}; only fliers, swimmers (water) and fire-resistant creatures (lava) are put there.\n", wet, hot);
             res.Report.AppendLine();
             foreach (var kv in byLevel) { res.Report.AppendLine("Level " + kv.Key + ":"); foreach (var t in kv.Value) res.Report.AppendLine(t); }
             return res;
@@ -480,10 +537,100 @@ namespace UwEditor.Core.Randomizer
                 if (Unnamed(s, k.Item)) continue;
                 var sp = k.Caster == 0 ? "" : string.Join(", ", k.Spells.Where(x => x != 0xFF && x < 64).Select(x => SpellTables.Name(s, x)).Distinct());
                 b.AppendFormat("{0,-22} {1,5} {2,4} {3,7:0.0} {4,7:0.0} {5,9:0.0}  {6,-30} {7}\n", n, k.Exp, k.AvgHit, k.ArmourMean, Damage(s, objects, k, false),
-                    Strength(s, objects, k, k.AvgHit, false, "combined"), sp.Length > 30 ? sp.Substring(0, 30) : sp, (k.Swims ? "swims " : "") + (k.Flier ? "flies " : "") + "h" + k.Height);
+                    Strength(s, objects, k, k.AvgHit, false, "combined"), sp.Length > 30 ? sp.Substring(0, 30) : sp, (k.Swims ? "swims " : "") + (k.Flier ? "flies " : "") + (k.Fireproof ? "fireproof " : "") + "h" + k.Height);
             }
-            b.AppendLine().AppendLine("Damage: the attacks weighted by probability (damage + strength / 5), plus attack spells (missiles from OBJECTS.DAT, area spells 12) by the casting rate. Combined: √(hp × (1 + armour / 8) × damage). Powerful: armour × 5/3, damage + 9.5, experience × 2.25.");
+            b.AppendLine().AppendLine(StrengthNote);
             return b.ToString();
+        }
+
+        /// <summary>The note under the strength table.</summary>
+        public const string StrengthNote = "Damage: the attacks weighted by probability (damage + strength / 5), plus attack spells (missiles from OBJECTS.DAT, area spells 12) by the casting rate. Combined: √(hp × (1 + armour / 8) × damage). Powerful: armour × 5/3, damage + 9.5, experience × 2.25. Moves: fliers may go anywhere, swimmers on water, fire-resistant creatures on lava.";
+
+        /// <summary>One row of the strength table.</summary>
+        public sealed class StrengthRow
+        {
+            public int Item { get; set; }
+            public string Name { get; set; }
+            public int Xp { get; set; }
+            public int Hp { get; set; }
+            public double Armour { get; set; }
+            public double Damage { get; set; }
+            public double Combined { get; set; }
+            public string Spells { get; set; }
+            /// <summary>"flies", "swims" or "walks".</summary>
+            public string Moves { get; set; }
+            public bool Fireproof { get; set; }
+            public int Height { get; set; }
+        }
+
+        /// <summary>The creature kinds with their measures (the named ones with hit points), by experience.</summary>
+        public static List<StrengthRow> StrengthRows(GameSession s)
+        {
+            var kinds = CreatureKind.Read(s);
+            string op = GameProfile.Find(s.DataFolder, "OBJECTS.DAT");
+            byte[] objects = op == null ? null : File.ReadAllBytes(op);
+            var l = new List<StrengthRow>();
+            foreach (var k in kinds.Values.Where(k => k.AvgHit > 0).OrderBy(k => k.Exp).ThenBy(k => k.Item))
+            {
+                if (Unnamed(s, k.Item)) continue;
+                l.Add(new StrengthRow
+                {
+                    Item = k.Item, Name = s.Names.Get(k.Item), Xp = k.Exp, Hp = k.AvgHit, Armour = k.ArmourMean,
+                    Damage = Damage(s, objects, k, false), Combined = Strength(s, objects, k, k.AvgHit, false, "combined"),
+                    Spells = k.Caster == 0 ? "" : string.Join(", ", k.Spells.Where(x => x != 0xFF && x < 64).Select(x => SpellTables.Name(s, x)).Distinct()),
+                    Moves = k.Flier ? "flies" : k.Swims ? "swims" : "walks", Fireproof = k.Fireproof, Height = k.Height,
+                });
+            }
+            return l;
+        }
+
+        static string Num(double v) { return v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture); }
+
+        /// <summary>
+        /// The swap's formula with the settings' values, true to Run and Match: the strength measure,
+        /// the ranks, the keys with their noise, the pairing and the powerful roll. N(μ, σ) is a normal
+        /// distribution of mean μ and standard deviation σ, U(0, 1) uniform.
+        /// </summary>
+        public static string Formula(GameSession s, MonsterSwapOptions opt)
+        {
+            var b = new StringBuilder();
+            bool uniform = opt.Measure == "none" || opt.Spread >= 100;
+            double sigma = opt.Spread / 100.0 * 0.5, w = opt.DepthBlend / 100.0;
+            string hp = opt.KeepHp ? "h = the kind's average hit points (the spot keeps its own)" : "h = the monster's hit points";
+            string depth = s.IsUw2 ? "((level − 1) mod 8) / 7" : "min(1, (level − 1) / 7)";
+            string pw = opt.RerollPowerful ? "P = 1 if powerful after the roll below, else 0" : "P = 1 if powerful, else 0";
+            b.Append("Strength (" + MeasureName(opt.Measure) + "): ");
+            switch (opt.Measure)
+            {
+                case "hp": b.AppendLine("S = h,  " + hp); break;
+                case "damage":
+                    b.AppendLine("S = D,  " + pw);
+                    b.AppendLine("  D = Σ prob·(damage + str/5) / Σ prob + 9.5·P + min(1, cast/64)·(11·spell₁ + 5·spell₂)/16"); break;
+                case "combined":
+                    b.AppendLine("S = √(h × (1 + A·(P ? 5/3 : 1)/8) × D),  A = the mean armour, " + pw);
+                    b.AppendLine("  " + hp);
+                    b.AppendLine("  D = Σ prob·(damage + str/5) / Σ prob + 9.5·P + min(1, cast/64)·(11·spell₁ + 5·spell₂)/16"); break;
+                case "none": b.AppendLine("S = 0 (not used)"); break;
+                default: b.AppendLine("S = max(0, XP) × (P ? 2.25 : 1),  " + pw); break;
+            }
+            if (opt.Measure == "damage" || opt.Measure == "combined") b.AppendLine("  spell = a missile's damage, 12 for an area spell, else 0");
+            b.Append("In each group of n (").Append(opt.Scope == "level" ? "each level" : opt.Scope == "world" && s.IsUw2 ? "each world" : "all levels")
+             .AppendLine("; level-bound ones in their level; swimmers apart):");
+            if (uniform)
+                b.AppendLine("  monster key m = U(0, 1),  spot key t = U(0, 1)" + (opt.Measure == "none" ? "  (strength: none)" : "  (spread 100)"));
+            else
+            {
+                b.AppendLine("  p = rank(S) / (n − 1), ties at random;  p₀ = p of the monster that was at the spot");
+                if (w > 0) b.AppendLine("  d = rank(depth of the spot) / (n − 1),  depth = " + depth);
+                string t = w <= 0 ? "p₀" : w >= 1 ? "d" : Num(1 - w) + "·p₀ + " + Num(w) + "·d";
+                b.AppendLine("  monster key m = p + N(0, σ);  spot key t = " + t + " + N(0, σ);  σ = 0.5 × spread/100 = " + Num(sigma));
+            }
+            b.AppendLine("  The k-th spot by t takes the k-th monster by m, if its height fits (else the next of up to 64 that does).");
+            b.AppendLine("  Spots on water or lava go first, each taking the monster nearest its rank that may stand there");
+            b.AppendLine("  (fliers; swimmers on water; fire-resistant ones on lava), else keeping its own.");
+            if (opt.RerollPowerful)
+                b.AppendLine("Powerful, rolled first: P(powerful) = " + Num(opt.PowerfulChance / 100) + " × (1 + " + Num(opt.PowerfulDepth / 100) + " × depth),  depth = " + depth);
+            return b.ToString().TrimEnd();
         }
     }
 }
