@@ -705,8 +705,8 @@ namespace UwEditor.App
                 "  Left or right drag      turn round the point looked at\n" +
                 "  Middle or Shift+drag    move the point\n" +
                 "  Wheel, + and −          closer, farther\n" +
-                "  W A S D or arrows       move (Shift: faster)\n" +
-                "  Q, E                    turn\n" +
+                "  W A S D or arrows       move while held (Shift: faster)\n" +
+                "  Q, E                    turn while held\n" +
                 "  R, V                    up, down a floor step\n" +
                 "  Double click            select and go to it\n" +
                 "  Ctrl+wheel              raise or lower the floor under the mouse\n\n" +
@@ -719,14 +719,16 @@ namespace UwEditor.App
                 "  Ctrl+H                  undo history\n" +
                 "  Ctrl+C, X, V, D         copy, cut, paste, duplicate the selected objects\n" +
                 "  Ctrl+click, Ctrl+drag   add to the selection, select tiles in a rectangle\n" +
-                "  Drag a selected object  move it; drop it on a container to put it inside\n" +
+                "  Drag a selected object  move it (to an eighth of a tile); drop it on a container to put it inside\n" +
                 "  Right click             the right-click menu\n" +
                 "  Tab                     the 2D map, and back\n" +
                 "  F5                      play-test from the selected tile\n" +
+                "  Ctrl+F5, Shift+F5       run in DOSBox, in Underworld Exhumed\n" +
                 "  Ctrl+S                  save the levels (and a moved player)\n" +
+                "  Ctrl+Alt+S              save all changes\n" +
                 "  Properties panel        type a value and press Enter\n\n" +
                 "First person (P)\n" +
-                "  W A S D                 walk;  Q E, drag  turn;  R V  look up, down\n" +
+                "  W A S D (held)          walk;  Q E, drag  turn;  R V  look up, down\n" +
                 "  Wheel                   step;  Esc  leave\n\n" +
                 "Markers\n" +
                 "  Red arrow               the new-game start (level 1)\n" +

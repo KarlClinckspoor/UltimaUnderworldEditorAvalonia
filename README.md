@@ -271,7 +271,11 @@ edits that can be undone; the game folder is not touched until you save.
 
 - **Pixel editor** (graphics window's Edit pixels…, or an object's right-click menu): draw on
   any picture with its own colours (the palette, or a 4-bit picture's 16), with pencil, eraser,
-  picker, fill, lines and rectangles, a brush of 1-16 pixels and undo; saved in place.
+  picker, fill, lines and rectangles, a brush of 1-16 pixels and undo; saved in place. The colours the
+  game cycles (water, lava, fire) are marked and can be animated.
+- Object names are coloured by attitude (hostile red … friendly blue) and enchantment
+  (purple), traps and triggers underlined; dragging places objects to the eighth of a tile;
+  the camera keys glide.
 - **Run and Test**: run the game in DOSBox (with GOG's configuration and C: on the folder
   being edited) or in Underworld Exhumed (on the save being edited), play-test from a tile,
   and **Check in Underworld Exhumed…**: the edits loaded by the game's own code, in

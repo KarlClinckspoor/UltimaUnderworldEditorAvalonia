@@ -16,6 +16,10 @@ files. A saved game takes its levels and player from the save, and everything el
 called `Before the bug`, say). One kept outside a game folder is read with a game folder you
 choose once; the editor remembers it.
 
+**File ▸ Open recent** lists the last games opened. A long path shows its start (the drive
+or `/` and the first folder) and its end (the last folders), with `…` for the middle; the
+whole path is in the item's tip.
+
 Opening a saved game checks it for problems that crash or upset the game; the status line
 names them, and **File ▸ Check and repair the saved game…** repairs them.
 
@@ -64,8 +68,10 @@ new-game start; in a saved game a **green arrow** marks the player.
 
 **Moving the camera.** Drag with the left or right button to turn round the point
 looked at. Drag with the middle button, or with Shift, to move that point. Use the wheel
-or + and − to come closer or go farther. W A S D or the arrows move (Shift is faster),
-Q and E turn, and R and V go up and down a floor step. F frames the selection, T looks
+or + and − to come closer or go farther. W A S D or the arrows move and Q and E turn for as long as they are held, smoothly: the
+view picks up speed over a moment and slows down the same way when the key comes up. The
+speed grows with the distance from the point looked at, and Shift makes it three times
+faster (turning twice). R and V go up and down a floor step. F frames the selection, T looks
 straight down, and Home goes back to the start or the player. A double click selects
 something and moves the view to it. Going up or down a level keeps the camera over the same X and Y,
 at the new level's floor height.
@@ -81,6 +87,10 @@ at the new level's floor height.
 - The chips narrow the list to weapons, food, monsters, keys, traps or triggers (any of
   those chosen), and Enchanted to enchanted objects.
 - Each line shows the object's picture as the game shows it.
+- Names are coloured by what the object is, in the list and at the top of the properties
+  panel: creatures by their attitude (hostile red, upset brown, mellow green, friendly blue),
+  enchanted objects purple. Traps and triggers are underlined. A creature keeps its
+  attitude's colour; what it carries has its own line and colour.
 - **Level ▸ Find in all levels…** (Ctrl+Shift+F) runs the same search, with every item
   kind, over all levels. Double-click a result to open its level with the object selected.
 
@@ -94,6 +104,9 @@ at the new level's floor height.
 hex. The tooltip gives the field's meaning and its source in the reconstructed game code.
 Fields whose meaning is only inferred or unknown are marked. The tile panel also shows
 its wall and floor textures.
+
+Typing a value changes only that object's line in the list and the rows of the panel that
+changed: the list keeps the lines you opened and its place.
 
 **Level ▸ Check the object lists:** runs the game's own consistency check (Obj_ListOkay).
 
@@ -162,9 +175,13 @@ global variables window on the variable a set or check variable trap uses.
   one), keeping their places relative to each other and their heights above the floor; it
   works on any level of the same game. A creature with a conversation copied makes a second
   creature with that conversation, which the status line points out.
-- **Drag** a selected object to move it (and the others selected with it) to another tile.
-  Dropping it on a container, a creature or a trigger puts it inside (into the trigger's
-  chain for a trap). Esc cancels a drag.
+- **Drag** a selected object to move it (and the others selected with it) to another tile or
+  to another place in its own tile. While dragging, the object is drawn where it would land,
+  a small yellow square marks the eighth of the tile under the mouse, and the status line
+  reads the place as tile.fine: `(10.2, 20.5)` is tile (10, 20) at fine X 2, fine Y 5. Moved
+  within its tile, an object keeps its place in the tile's list. Dropping it on a container, a
+  creature or a trigger puts it inside (into the trigger's chain for a trap). Esc cancels a
+  drag.
 - Deleting several objects is one undo step.
 
 **The right-click menu** (a right click without dragging): on an object, copy, cut,
@@ -558,12 +575,33 @@ for 8-bit pictures (portraits, textures, screens), or for 4-bit pictures (most i
 critter frames) the 16 or 32 of its auxiliary palette; a dot marks the colours it uses now,
 and the transparent colour shows as ∅ over a checkerboard.
 
+**Cycling colours.** The games animate some palette entries by turning them round instead of
+redrawing pixels: water, lava and fire. A corner of black and white stripes marks those
+swatches, and the tooltip names the run of entries the colour turns through. Whatever is
+drawn with such a colour changes colour in the game. In play both games turn their runs one
+place four times a second (`gfx/COLCYCLE.C` cycle_colors, called every frame from
+`ui/INTERACT.C`), in whatever palette is loaded:
+
+| Game | Entries | Direction |
+|---|---|---|
+| UW1 | 0x30–0x3F, in four runs of four (blues) | each takes the next entry's colour |
+| UW1 | 0x10–0x14 and 0x15–0x17 (fire reds and yellows) | each takes the previous entry's colour |
+| UW2 | 0xE0–0xEF, in four runs of four (blues) | each takes the next entry's colour |
+| UW2 | 0x03–0x07 and 0x08–0x0A (fire reds and yellows) | each takes the previous entry's colour |
+
+UW1's main menu (`OPSCR.BYT`) also turns 0x40–0x7F while it waits (`ui/MAINMENU.C`). A 4-bit
+picture's colour cycles when its auxiliary palette points at one of these entries. Cutscenes
+have their own cycles in each animation file, not marked. **Animate the cycling colours**
+shows the drawing and the preview as the game would, turning.
+
 - **Tools:** pencil (B), eraser (E, the transparent colour), colour picker (I, or Alt+click),
   fill (G), line (L), rectangle (R) and filled rectangle (Shift+R).
 - **Brush width:** 1 pixel by default, up to 16 ([ and ] change it). The left button draws
   with the first colour, the right button with the second; X swaps them. Click a colour to make
   it the first, right-click it for the second.
-- **Zoom** (+ and −) and **Grid**; a preview shows the picture at its size and twice it.
+- **Zoom** (+ and −) and **Grid**. Under the drawing, a preview shows the picture at its
+  size and twice it (a large picture at a size that fits). The tool and colour columns
+  scroll when the window is too low for them.
 - **Undo** and **Redo** (Ctrl+Z, Ctrl+Y), and **Revert to the picture as opened**.
 - **Apply** puts the drawing into the picture (not saved yet: the file is saved from the
   graphics window, the prompt on closing, or **Apply and save**, which writes the file at once,
@@ -1207,13 +1245,13 @@ and its strongest creature, and the creatures with a conversation.
 | View | Middle or Shift+drag | move the point |
 | View | Wheel, + and − | closer, farther |
 | View | Ctrl+wheel | raise or lower the floor under the mouse |
-| View | W A S D, arrows | move (Shift: faster) |
-| View | Q, E | turn |
+| View | W A S D, arrows | move while held (Shift: faster) |
+| View | Q, E | turn while held |
 | View | R, V | up, down a floor step |
 | First person | P | start or stop walking |
-| First person | W A S D, wheel | walk |
+| First person | W A S D, wheel | walk (held keys glide), step |
 | First person | Q E, drag | turn |
-| First person | R, V | look up, down |
+| First person | R, V | look up, down while held |
 | First person | Esc | stop walking |
 | Anywhere | Ctrl+O | open a game |
 | Anywhere | Ctrl+S | save the levels (and a moved player) |
