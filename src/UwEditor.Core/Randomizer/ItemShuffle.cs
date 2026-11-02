@@ -403,6 +403,11 @@ namespace UwEditor.Core.Randomizer
             bool uw2 = s.IsUw2;
             var all = new List<Cand>();
             var ignored = new HashSet<long>((opt.Ignored ?? new List<IgnoredObject>()).Select(x => (long)x.Level << 32 | (uint)x.Index));
+            int ignoredCount = ignored.Count, keptCount = 0;
+            bool swapping = opt.Mode == "swap-kind" || opt.Mode == "swap-any";
+            // the swap's kept objects (the starting equipment) stay as the ignored ones do
+            if (swapping && opt.Kept != null)
+                foreach (var k in opt.Kept) if (ignored.Add((long)k.Level << 32 | (uint)k.Index)) keptCount++;
             foreach (var slot in s.LevelSlots())
             {
                 if (!slot.Present) continue;
@@ -438,7 +443,7 @@ namespace UwEditor.Core.Randomizer
             }
             var before = Count(all, false);
 
-            if (opt.Mode == "swap-kind" || opt.Mode == "swap-any") Swap(s, opt, rng, all, res, opt.Mode == "swap-any");
+            if (swapping) Swap(s, opt, rng, all, res, opt.Mode == "swap-any");
             else
             {
                 if (opt.ShuffleWeapons) Weapons(s, opt, rng, all, res);
@@ -451,7 +456,8 @@ namespace UwEditor.Core.Randomizer
                 if (opt.ShufflePotions) Potions(s, opt, rng, all, res);
                 if (opt.ShuffleRings) Rings(s, opt, rng, all, res);
             }
-            if (ignored.Count > 0) res.Report.AppendFormat("{0} ignored object(s) left alone.\n", ignored.Count);
+            if (ignoredCount > 0) res.Report.AppendFormat("{0} ignored object(s) left alone.\n", ignoredCount);
+            if (keptCount > 0) res.Report.AppendFormat("{0} object(s) of the starting equipment kept where they are.\n", keptCount);
 
             foreach (var c in all.Where(c => c.Touched && Differs(c)))
             {
@@ -782,10 +788,11 @@ namespace UwEditor.Core.Randomizer
                 missing.Count > 0 ? "; too few runestones for the minimums of " + string.Join(", ", missing.Select(m => s.Names.Get(m))) : "");
         }
 
-        /// <summary>The kind an object takes part as (weapon, armour, food, light, tool, rune, wand, scroll), or null. Exempt objects are null.</summary>
-        static string KindOf(GameSession s, ObjectInfo o, bool f11)
+        /// <summary>The kind an object takes part as (weapon, armour, food, light, tool, rune, wand, scroll; with scenery, the swap's bones and scenery), or null. Exempt objects are null.</summary>
+        static string KindOf(GameSession s, ObjectInfo o, bool f11, bool scenery = false)
         {
             int it = o.Item;
+            if (scenery) { string sk = SceneryKind(s, o); if (sk != null) return sk; }
             if (ItemTables.KeptWeapons.Contains(it)) return null;
             if (ItemTables.Axes.Contains(it) || ItemTables.Swords(s.IsUw2).Contains(it) || ItemTables.Maces.Contains(it) || ItemTables.Launchers.Contains(it) || ItemTables.Ammo.Contains(it)) return "weapon";
             if (ItemTables.Slot(it) >= 0 || ItemTables.ShieldIds.Contains(it)) return "armour";
@@ -814,25 +821,29 @@ namespace UwEditor.Core.Randomizer
                 case "scroll": return opt.ShuffleScrolls;
                 case "ring": return opt.ShuffleRings;
                 case "potion": return opt.ShufflePotions;
+                case "bones": return opt.SwapBones;
+                case "scenery": return opt.SwapScenery;
                 default: return false;
             }
         }
 
         /// <summary>
         /// Swap mode: the existing objects trade places, whole (item, quality, flags, enchantment,
-        /// quantity, contents such as a wand's spell object, owner), within their kind or across
-        /// every kind taking part (the tabs' Shuffle boxes). Nothing new is made: the counts of
-        /// every item stay the same.
+        /// quantity, contents such as a wand's spell object, and the owner unless the spot keeps
+        /// its own, <see cref="ShuffleOptions.SpotOwnership"/>), within their kind or across every
+        /// kind taking part, and within the scope (<see cref="ShuffleOptions.SwapScope"/>).
+        /// Nothing new is made: the counts of every item stay the same. Then, if asked, the
+        /// enchantments trade places within each class.
         /// </summary>
         static void Swap(GameSession s, ShuffleOptions opt, Random rng, List<Cand> all, ShuffleResult res, bool anyKind)
         {
             var byKey = all.ToDictionary(c => (long)c.Level << 32 | (uint)c.Index);
             var groups = new Dictionary<string, List<Cand>>();
             var wands = new List<Cand[]>();      // a charged wand and its spell object, moved together
-            int stay = 0;
+            int stay = 0, owners = 0;
             foreach (var c in all)
             {
-                string k = KindOf(s, c.O, c.Flag11);
+                string k = KindOf(s, c.O, c.Flag11, true);
                 if (k == null || !KindOn(opt, k)) continue;
                 if (!c.O.IsQuantity && c.O.Link != 0)
                 {
@@ -848,17 +859,18 @@ namespace UwEditor.Core.Randomizer
                 if (!groups.TryGetValue(key, out l)) groups[key] = l = new List<Cand>();
                 l.Add(c);
             }
-            res.Report.AppendLine(anyKind ? "Swap, any kind: existing objects trade places across every kind taking part." : "Swap, same kind: existing objects trade places within their kind.");
+            res.Report.AppendLine((anyKind ? "Swap, any kind: existing objects trade places across every kind taking part, " : "Swap, same kind: existing objects trade places within their kind, ") + ScopeText(s, opt) + ".");
             foreach (var g in groups.OrderBy(x => x.Key, StringComparer.Ordinal))
             {
                 var list = g.Value;
                 var records = list.Select(c => Of(c.O)).ToList();
-                Shuffle(rng, records);
+                var p = Permutation(rng, s, list.Select(c => c.Level).ToList(), opt);
                 int moved = 0;
                 for (int i = 0; i < list.Count; i++)
                 {
-                    var r = records[i];
+                    var r = records[p[i]];
                     r.Index = list[i].Index;
+                    if (opt.SpotOwnership && TakeSpotOwner(s, list[i].O, ref r)) owners++;
                     list[i].R = r;
                     list[i].Touched = true;
                     if (r.Item != list[i].O.Item || r.Link != list[i].O.Link) moved++;
@@ -870,11 +882,12 @@ namespace UwEditor.Core.Randomizer
                 // each wand keeps its own list; the wand's item, quality and owner and the spell
                 // object's spell and charges move
                 var units = wands.Select(u => new[] { Of(u[0].O), Of(u[1].O) }).ToList();
-                Shuffle(rng, units);
+                var p = Permutation(rng, s, wands.Select(u => u[0].Level).ToList(), opt);
                 for (int i = 0; i < wands.Count; i++)
                 {
-                    var w = units[i][0]; var sp = units[i][1];
+                    var w = units[p[i]][0]; var sp = units[p[i]][1];
                     w.Index = wands[i][0].Index; w.Link = wands[i][0].O.Link; w.IsQuantity = false;
+                    if (opt.SpotOwnership && TakeSpotOwner(s, wands[i][0].O, ref w)) owners++;
                     sp.Index = wands[i][1].Index;
                     wands[i][0].R = w; wands[i][1].R = sp;
                     wands[i][0].Touched = wands[i][1].Touched = true;
@@ -882,7 +895,27 @@ namespace UwEditor.Core.Randomizer
                 res.Report.AppendFormat("  charged wands: {0}, swapped among themselves with their spells and charges (the charges live in an object inside the wand).\n", wands.Count);
             }
             if (stay > 0) res.Report.AppendFormat("  {0} object(s) holding triggers or other objects stay where they are.\n", stay);
-            if (groups.Count == 0 && wands.Count == 0) res.Report.AppendLine("  Nothing takes part: tick a kind's Shuffle box in its tab.");
+            if (groups.Count == 0 && wands.Count == 0) res.Report.AppendLine("  Nothing takes part: tick at least one kind.");
+            if (opt.SpotOwnership && owners > 0) res.Report.AppendFormat("  {0} object(s) took the owner of the spot they went to.\n", owners);
+            if (opt.SwapEnchantments)
+            {
+                // the wands' parts never take part; everything else of the classes does, whether or not its kind was swapped
+                var wandParts = new HashSet<Cand>(wands.SelectMany(u => u));
+                SwapEnchantmentsAfter(s, opt, rng, all.Where(c => !wandParts.Contains(c)).ToList(), res);
+            }
+        }
+
+        /// <summary>
+        /// The spot keeps its owner: when the owner field is an ownership on both the object that
+        /// was at the spot and the one put there (<see cref="Ownable"/>), the incoming record
+        /// takes the spot's owner. True when that changed the owner it brought.
+        /// </summary>
+        static bool TakeSpotOwner(GameSession s, ObjectInfo spot, ref ItemRewrite incoming)
+        {
+            if (!Ownable(s, spot.Item) || !Ownable(s, incoming.Item)) return false;
+            bool changed = incoming.Owner != spot.Owner;
+            incoming.Owner = spot.Owner;
+            return changed;
         }
 
         static void Shuffle<T>(Random rng, IList<T> l)
