@@ -320,6 +320,9 @@ controls and borders in place of white space, in either colour scheme; font size
     requirements per link, filled from the locks of the doors between the zones.
   - Both read and write the Unity editor's `uw1-zones.json`. The UW1 example zoning is in
     `docs/examples`.
+- **Randomizer ▸ Scatter ▸ Automatic zones** (UW1): builds the randomizer's zones from the levels
+  (walkable regions, drops, climbs, gap jumps, doors, levers, teleports), lists the trigger chains
+  that change the world, compares them with the painted map and runs the solver.
 - **Randomizer ▸ Item property shuffle** turns weapons, armour, food, lights, tools, runestones,
   wands, spell scrolls, potions and rings into other items in place, by weights per type, and
   rolls their enchantments again (chance, mean and deviation per kind, raised with depth, or
