@@ -1131,9 +1131,11 @@ between runs.
 
 ## Randomizer (work in progress)
 
-All of it is in the **Randomizer** menu: **Scatter** (the zones and the zone graph, for the
-randomizer that will scatter items by reachability), **Item property shuffle**, **Item swap**
-and **Monster swap**.
+All of it is in the **Randomizer** menu: **Scatter** (the hand-made zones, the zone graph and
+the **Automatic zones** the logic is built from), **Item property shuffle**, **Item swap**,
+**Monster swap**, **Named challenges** and the **Key item shuffle**, the randomizer that moves
+the key items so the game stays beatable. How its logic works is explained in **How the
+randomizer's logic works** below.
 
 **Randomizer ▸ Scatter ▸ Zones…** opens the zoning of the game. A zone is a part of the world
 that can be walked without meeting a requirement. Every tile has a zone id: 0 is rock, 1 is
@@ -1183,6 +1185,224 @@ zone file. Lines are the links between zones:
   the doors** fills the list again. Delete removes the path.
 - **Check the logic…** runs the solver from the start zone: the spheres, the route to the
   goal, and what blocks each path.
+
+### How the randomizer's logic works
+
+This section explains, in one place, how the editor decides what the player can reach and
+how the **Key item shuffle** uses that to move items without making the game unbeatable. It
+covers Ultima Underworld 1, the only game with facts so far. The windows are described in
+**Automatic zones** and **Key item shuffle** below. The findings behind the rules, with their
+sources in the game's code, are in `docs/autozones-uw1.md` and `docs/facts/uw1-quests.md`.
+
+The rules are glitchless: no trick, clip or sequence break counts, only plain play.
+
+#### 1. From tiles to regions to zones
+
+The editor reads every level and groups its open tiles into **regions**: areas in which the
+player can walk anywhere and back. Two touching tiles are in one region when the step
+between them, measured at their touching edges (so slopes count), is at most the **highest
+climb** (2 floor steps by default) both ways. Ceilings are ignored: no area of Ultima
+Underworld is cut off by a low ceiling. A tile holding a door is a region of its own, so the
+door can be a requirement. Water joins regions (the player swims), but lava tiles only join
+other lava. Tiles with the no-magic bit are marked.
+
+Between regions the editor makes **edges**, each one way or both ways, each with a
+requirement:
+
+- **drop**: going down more than the highest climb, one way. Its fall height is recorded; no
+  drop in the shipped levels kills a new character (the worst does about 8 damage).
+- **climb**: the way back up a drop. Up to twice the highest climb (4 steps) it needs the
+  jump ability; above that, levitation.
+- **jump**: two surfaces with 1 or 2 tiles of lower ground between them (a pit, water, lava)
+  in a straight line, when the far side is no higher than the near side plus the highest
+  climb. 3 tiles need the jump ability. Diagonal jumps are an option (off).
+- **door**: through a door tile. A locked door needs its key (`key:N`), picking (`pick:Z`,
+  the lock's difficulty) or bashing (always allowed: fists break any door that can be
+  broken). An unlocked door is free. A door only a lever or a trap opens needs that lever.
+- **stairs** and **teleport**: every trigger the player sets off whose chain reaches a
+  teleport trap makes a one-way edge to where it lands. Stairs are the ones that change
+  level.
+- **lever**: a door a lever opens needs the zone the lever is in (`zone:N`). A lever out of
+  the hand's reach (from the floor in front of it, by the game's own reach test) also needs
+  the pole, Telekinesis or levitation. A lever is used only from its own side of a closed
+  door, and a lever set in rock only once the rock is opened.
+- walking into **lava** needs the lava ability.
+
+Regions that reach each other freely, both ways, are merged into **zones**, the unit the
+solver and the shuffle work with. **Cut at level changes** keeps each level's zones apart
+even where free stairs join them; **Fold empty dead ends** merges pits and ledges that hold
+nothing into their only neighbour. Each zone gets the items lying in it as **placements**:
+what holding them grants.
+
+#### 2. Requirements
+
+Every edge, link and fact has a requirement in a small language: tokens joined by `&` (and)
+and `|` (or), with brackets. The tokens:
+
+| Token | Holds when |
+|---|---|
+| `free` | always |
+| `key:N` | a key whose owner field is N is held (it opens locks numbered N) |
+| `pick:Z` | lock picking is in the logic, a lock pick is held, and the skill can open difficulty Z |
+| `bash` | always (fists) |
+| `item:NAME` | that item is held: `item:pole`, `item:orb_rock`, `item:picture_tom` … |
+| `talisman:NAME` | that talisman is held (sword, shield, ring, taper, cup, wine, book, standard) |
+| `rune:LETTER` | that runestone is held |
+| `spell:ABILITY` | the ability is available here (below) |
+| `npc:NAME` | the creature's zone is reached, so it can be talked to |
+| `flag:NAME` | an event happened: a lever pulled, a trap set off, a quest step done |
+| `zone:N` | zone N is reached (a lever on the other side of a door) |
+| `search:Z` | a look at height Z can find what it hides (below) |
+| `option:NAME` | a logic option is on: `option:magic`, `option:kill_npcs`, `option:ring_needs_lava` … |
+
+#### 3. Abilities and where they come from
+
+The abilities are **levitate** (Levitate, Fly), **jump** (Leap), **waterwalk** (Water Walk),
+**lava** (Flameproof, the dragon skin boots), **reveal** (Reveal), **open** (Open, which picks
+locks as with skill 45), **telekinesis** (Ort Por Ylem; it counts wherever the pole does) and
+**gate travel**. `spell:X` holds when the ability can be **cast** or **used** there:
+
+- **Cast** (`cast:X`), only with **Magic** on: the rune bag and the spell's runestones are
+  held. Character level, mana and the casting roll are ignored.
+- **Used** (`use:X`): an item gives it. `worn:X` is an enchantment worn (the Ring of
+  Levitation, the Ring of Leap, the dragon skin boots); it works everywhere. `perm:X` is an
+  item that casts without charges. `once:X` is a scroll, a potion or a charged wand; these
+  count only with **Single-use items count** on.
+
+**Where magic fails.** On a no-magic tile, and on all of level 9, no spell works, cast or from
+an item; only worn enchantments do (a link starting there takes only `worn:` sources). On
+level 7, while Tyball's orb stands, the player has no mana: casting there needs
+`flag:orb_destroyed` (an orb rock used on the orb), while items still work.
+
+**Hidden gates.** Some walls open when the player looks at a decoration on them (a look
+trigger), often with a secret door behind. The look trigger's height Z is a Search check: a
+look passes when Search − Z + a random 0–30 is above 15. A failed look changes nothing and
+can be repeated, so with **Retry until found** on, any nonzero chance counts: with Search 0
+a gate of height Z passes (15 − Z) in 31 looks, and none above height 14 (the highest in
+the game is 10). With retry off, the Search skill must be at least Z. Reveal passes any gate
+up to height 29. Such a gate needs `spell:reveal | search:Z`.
+
+**Lock picking.** A lock of difficulty Z opens when the Pick Lock skill − 3Z + 30 is above
+15 (a failed try can be repeated; the pick does not break). Difficulty 14 needs skill 31,
+and 15 never opens. With **Lock picking in logic** off, no door is picked.
+
+#### 4. The facts
+
+What the levels do not say is written in the facts files (`docs/facts/uw1-facts.json` and
+`uw1-quests.json`, shipped with the editor, hand-editable). A fact can grant a token where its
+requirement holds (**craft**, **flag**), add a requirement to a token's placements (**trade**:
+an NPC hands it over only for something), count items (**count**: 20 coins), add a **link**
+between two places, a **warp** (Gate Travel to the moonstone; the silver sapling), the
+**goal**, mark lever chains as **free** once their zone is reached, or say what a world change
+**needs** besides its zone. Among them:
+
+- **The goal**: reaching level 9. It needs the Slasher's chamber opened with the Key of
+  Infinity, Garamon's bones buried on his grave, and the eight talismans thrown into the
+  chamber's lava; the moongate then takes the player to level 9. **Require breaking the orb**
+  adds Tyball's orb.
+- **The talismans**: the sword (blade and hilt reforged by Shak for **20 coins**), the shield
+  (the golem yields it), the ring (the level 5 lever code), the taper (Zak gives it for
+  **food**), the cup (Eyesnack's tune played on a flute at its place), the wine and the book
+  (lying on level 6), the standard (Dorna, once Rodrick is dead).
+- **The Key of Infinity**: Truth (the mantra FANLO at any shrine, so one reachable shrine is
+  enough), Love (Judy, for the picture of Tom), Courage (lying on level 3); they combine in
+  any order.
+- **The dragon skin boots** (walking on lava): Lanugo's stew recipe, read with a bowl holding
+  a dead rotworm, a mushroom and a flask of port, makes rotworm stew; Sethar Strongarm gives
+  dragon scales for the stew; Marrowsuck makes the boots from the scales and strong thread
+  for any food.
+- **Puzzles counted as solved** once reached: the level 4 lever puzzle, all levers of
+  level 5, the bullfrog puzzle (or levitation over it).
+- **The Ring of Levitation's area** on level 7: with **Ring of Levitation needs lava
+  protection** on (the default), it needs the lava ability; off, it is one zone with the
+  ledge at (59, 43), from which the player can jump there.
+- **The damaging maze** on level 7: its trap tiles are walls.
+- **Items NPCs hold**: each needs its quest; with **Killing NPCs in logic** on, killing the
+  NPC once its zone is reached also counts. What hostile creatures carry is always free.
+
+#### 5. The world over time
+
+Many trigger chains change the world: a lever drains a pool, carrying the crystal splinter
+past a square opens the tombs, a look removes rock, a door closes behind the player. Each is
+a **mechanism** with a flag. When the solver can set it off (its trigger's zone is reached and
+its conditions hold: an item carried, a variable's value, a Search check, a fact's needs), the
+flag is gained and the change is applied to that level: terrain rewritten, objects deleted,
+doors opened or closed. That level alone is then rebuilt; its new regions take the zone that
+held most of their tiles, so placements keep their zones.
+
+**Changes that close things.** A door that a trigger closes behind the player becomes one
+way: free towards the trigger, back only with what opens the closed door. A lever whose
+change only takes ways away is never pulled by the solver.
+
+**Getting back.** For every zone reached, a **return check** asks whether the player can get
+back with what he holds. A zone he can enter but not leave is a **one-way trap**; a shuffle
+must not leave the player stranded in one with something he still needs. Once the silver
+sapling can be planted, no zone is a trap: dying takes the player back to it.
+
+#### 6. The solver
+
+The solver works in **spheres**. Sphere 0 is what the player reaches from the start with
+nothing. Each next sphere adds what the items, abilities, flags and world changes of the
+spheres before make reachable. It stops when nothing new comes; the goal is reached or not.
+The report lists each sphere (zones reached, tokens gained, changes applied), what blocks the
+links still closed, the one-way traps, and a table of the main option sets. On the shipped
+game, with the default options, the goal is reached in 26 spheres.
+
+#### 7. The shuffle
+
+The **Key item shuffle** uses **assumed fill**, the usual method of game randomizers:
+
+1. The levels are read as they are, and the solver's world is built.
+2. With lock picking off, a door only picking opens that blocks something needed and
+   unmoving is unlocked.
+3. The key items are put in a random order. Each is placed in turn: the solver runs with
+   the items already placed where they now lie and every key item **not yet placed counted
+   as held**, and one of the reachable empty places is chosen at random. Because every later
+   item is assumed held, a place is never chosen that only a later item could open, which
+   is what keeps the game beatable.
+4. The other items fill the remaining places at random.
+5. The shuffled levels are solved again from scratch, with nothing assumed. The goal must
+   be reached and no one-way trap may strand the player; otherwise the next seed is tried
+   (up to **Retries** times).
+
+Items trade places whole (item, quality, flags, quantity or link, owner, enchantment), so a
+key keeps its lock number. An item placed inside a locked chest needs what opens the chest.
+Items NPCs hand over in conversation, trap templates, objects a trap or trigger names, the
+moonstone and Tyball's orb stay where they are, but still count in the logic. With the
+**Vow of poverty** and **Starvation** challenges, the 20 coins beside Shak and the meat beside
+Zak are the only exceptions, and they stay too.
+
+The spoiler log names each place by the zones of the hand-made zoning (the zone file in
+`DATA`, or else Karl's painted UW1 map), with its level and square.
+
+#### 8. The options at a glance
+
+| Option | Default | What it changes |
+|---|---|---|
+| Highest climb | 2 steps | a two-way walk; up to twice that with jump |
+| Gap jumps | on, 2 tiles (3 with jump) | jumps across pits, water and lava |
+| Diagonal jumps | off | jumps on the diagonals too |
+| Cut at level changes | on | zones never span two levels |
+| Fold empty dead ends | on | fewer, larger zones |
+| Magic | on | casting from runes counts |
+| Single-use items count | off | scrolls, potions and charged wands count |
+| Lock picking in logic, skill | off, 30 | doors may be picked |
+| Search skill, retry | 0, on | look gates by Search |
+| Damage-trap tiles are walls everywhere | off | beyond the damaging maze |
+| Killing NPCs in logic | off | an NPC's items by killing it |
+| Ring of Levitation needs lava protection | on | the ring's area needs the lava ability |
+| Require breaking the orb | off | the goal also needs Tyball's orb broken |
+
+#### 9. What the logic simplifies
+
+- Casting ignores level, mana and the casting roll.
+- A spell cast before stepping onto a no-magic tile is assumed not to carry over (in the
+  game it does).
+- Jumps are judged by tiles, not by speed and run-up; the jump spell's height is an estimate.
+- Bashing assumes any weapon and strength will do; chest locks are treated as unbreakable.
+- Filler items (food, coins) are checked by the final solve, not while the key items are
+  placed.
+- Nothing has been checked by playing a shuffled game through yet.
 
 ### Automatic zones
 
@@ -1762,8 +1982,9 @@ lies behind such a door, the door is unlocked as part of the shuffle, and the lo
 
 **The spoiler log** gives the seed and options, what moves and what stays, the doors
 unlocked, the route (spheres, when each talisman and key comes) and, sphere by sphere, where
-each key item went: level, square, the container or creature holding it, where it was, and
-what the place held before.
+each key item went: level, square, the container or creature holding it, the name of the
+hand-made zone it lies in (the zone file in `DATA`, or else Karl's painted UW1 map), where it
+was, and what the place held before.
 
 ## Mods
 

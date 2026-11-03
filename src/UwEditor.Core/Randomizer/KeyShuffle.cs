@@ -16,6 +16,10 @@ namespace UwEditor.Core.Randomizer
         public int Retries = 20;
         /// <summary>The logic options (shared with the Automatic zones window).</summary>
         public AbilityOptions Logic = new AbilityOptions();
+        /// <summary>A hand-made zone set (Karl's painted map, or the zone file in DATA) whose zone names label the places in the spoiler log; null for none.</summary>
+        public ZoneSet Names;
+        /// <summary>Where Names came from, said in the log.</summary>
+        public string NamesFrom = "";
         public NavOptions Nav = new NavOptions();
         /// <summary>The categories that move (<see cref="KeyShuffle.Categories"/>).</summary>
         public HashSet<string> Move = new HashSet<string>(KeyShuffle.Categories);
@@ -673,6 +677,31 @@ namespace UwEditor.Core.Randomizer
 
         // ---------------------------------------------------------------- the spoiler log
 
+        /// <summary>
+        /// The name of the hand-made zone a square lies in (the painted map's), quoted; the
+        /// nearest named zone within a square when the square itself is unassigned (a door
+        /// tile, say); "" without names.
+        /// </summary>
+        public static string PlaceName(ZoneSet names, int level, int x, int y)
+        {
+            if (names == null || level < 1 || level > names.Levels) return "";
+            int z = names.ZoneAt(level, x, y);
+            for (int r = 1; z <= ZoneSet.Unassigned && r <= 2; r++)
+                for (int dy = -r; dy <= r && z <= ZoneSet.Unassigned; dy++)
+                    for (int dx = -r; dx <= r && z <= ZoneSet.Unassigned; dx++)
+                        if (x + dx >= 0 && x + dx < 64 && y + dy >= 0 && y + dy < 64) z = names.ZoneAt(level, x + dx, y + dy);
+            if (z <= ZoneSet.Unassigned) return "";
+            var zone = names.GetZone(z);
+            string n = zone != null && !string.IsNullOrWhiteSpace(zone.Name) ? zone.Name.Trim() : "zone " + z;
+            return "\u201C" + n + "\u201D";
+        }
+
+        static string Named(ZoneSet names, ShuffleObject o)
+        {
+            string n = PlaceName(names, o.Level, o.X, o.Y);
+            return n.Length == 0 ? o.Where : o.Where + " in " + n;
+        }
+
         static void WriteLog(GameSession s, KeyShuffleResult r, TimelineResult t)
         {
             var b = r.Log;
@@ -683,6 +712,8 @@ namespace UwEditor.Core.Randomizer
             b.AppendLine("Logic: " + opt.Logic + ".");
             b.AppendLine("Moving: " + string.Join(", ", Categories.Where(opt.Move.Contains).Select(CategoryName)) + (opt.Filler ? ", and everything else as filler" : "") + "; creature inventories " + (opt.CreatureInventories ? "in (creatures without a conversation)" : "out") + ".");
             b.AppendLine("Method: assumed fill on the time-aware solver; a fresh solve of the shuffled levels (with the return check) must reach the goal.");
+            var names = opt.Names;
+            b.AppendLine(names != null ? "Places are named by " + (opt.NamesFrom.Length > 0 ? opt.NamesFrom : "the hand-made zones") + "; \"zone N\" is the automatic zone." : "Places are given by level and square; \"zone N\" is the automatic zone.");
             foreach (var f in r.Failures) b.AppendLine("  Failed: " + f);
             b.AppendLine();
             var moving = r.Moving.ToList();
@@ -708,7 +739,7 @@ namespace UwEditor.Core.Randomizer
             {
                 b.AppendLine("  Sphere " + (g.Key < 0 ? "never" : g.Key.ToString()) + ":");
                 foreach (var m in g.OrderBy(x => x.Item.Category).ThenBy(x => x.Item.Name))
-                    b.AppendLine(string.Format("    {0} [{1}]: {2}, zone {3} (was {4}; the place held #{5} {6}, reached in sphere {7} of the original)", m.Item.Name, m.Item.Tokens, m.Place.Where, m.Place.Zone, m.Item.Where, m.Place.Index, m.Place.Name,
+                    b.AppendLine(string.Format("    {0} [{1}]: {2}, zone {3} (was {4}; the place held #{5} {6}, reached in sphere {7} of the original)", m.Item.Name, m.Item.Tokens, Named(names, m.Place), m.Place.Zone, Named(names, m.Item), m.Place.Index, m.Place.Name,
                         m.Place.Sphere < 0 ? "never" : m.Place.Sphere.ToString()));
             }
             var others = r.Moves.Where(m => !m.ByFill && m.Item != m.Place).ToList();
@@ -717,7 +748,7 @@ namespace UwEditor.Core.Randomizer
                 b.AppendLine();
                 b.AppendLine("THE OTHER ITEMS (" + others.Count + " moved)");
                 foreach (var m in others.OrderBy(x => x.Place.Level).ThenBy(x => x.Place.Index).Take(400))
-                    b.AppendLine(string.Format("  {0} -> {1} (was {2})", m.Item.Name, m.Place.Where, m.Item.Where));
+                    b.AppendLine(string.Format("  {0} -> {1} (was {2})", m.Item.Name, Named(names, m.Place), Named(names, m.Item)));
                 if (others.Count > 400) b.AppendLine("  …");
             }
         }

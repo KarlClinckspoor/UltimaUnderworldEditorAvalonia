@@ -120,7 +120,26 @@ namespace UwEditor.App
 
         KeyShuffleResult Compute()
         {
+            if (opt.Names == null) LoadNames();
             return KeyShuffle.Run(session, main.ViewModel.Edits, opt);
+        }
+
+        /// <summary>The hand-made zones whose names label the spoiler log: the zone file in DATA, else Karl's painted UW1 map shipped with the editor.</summary>
+        void LoadNames()
+        {
+            try
+            {
+                string path = System.IO.Path.Combine(session.DataFolder, ZoneSet.DefaultFileName(session.IsUw2));
+                if (System.IO.File.Exists(path)) { opt.Names = ZoneSet.Load(path, session.Profile.LevelSlots); opt.NamesFrom = "the zone file in DATA (" + System.IO.Path.GetFileName(path) + ")"; return; }
+                if (session.IsUw2) return;
+                using (var st = typeof(ZoningState).Assembly.GetManifestResourceStream("uw1-zones.example.json"))
+                using (var r = new System.IO.StreamReader(st))
+                {
+                    opt.Names = ZoneSet.FromJson(r.ReadToEnd(), session.Profile.LevelSlots);
+                    opt.NamesFrom = "Karl's painted UW1 map";
+                }
+            }
+            catch (Exception) { opt.Names = null; }
         }
 
         /// <summary>The last result still fits: computed with these settings from the levels as they are now.</summary>

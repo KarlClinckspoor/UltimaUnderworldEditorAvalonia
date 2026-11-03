@@ -407,6 +407,25 @@ namespace UwEditor.Core.Tests
         }
 
         [Fact]
+        public void The_spoiler_log_names_places_by_the_painted_zones()
+        {
+            var s = Session(); if (s == null) return;
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "UltimaUnderworldEditorAvalonia.sln"))) dir = dir.Parent;
+            Assert.NotNull(dir);
+            var names = ZoneSet.FromJson(File.ReadAllText(Path.Combine(dir.FullName, "docs", "examples", "uw1-zones.json")), s.Profile.LevelSlots);
+            // the start square lies in the painted start zone 53
+            var start = names.GetZone(53);
+            Assert.Equal("\u201C" + start.Name.Trim() + "\u201D", KeyShuffle.PlaceName(names, 1, 32, 2));
+            var r = KeyShuffle.Run(s, null, new KeyShuffleOptions { Seed = 5, Names = names, NamesFrom = "Karl's painted UW1 map" });
+            Assert.True(r.Success);
+            string log = r.Log.ToString();
+            Assert.Contains("Places are named by Karl's painted UW1 map", log);
+            Assert.Contains(" in \u201C", log);
+            System.Console.WriteLine(string.Join("\n", log.Split('\n').Where(l => l.Contains("WHERE EACH") || l.TrimStart().StartsWith("Sphere") || l.Contains(" in \u201C")).Take(14)));
+        }
+
+        [Fact]
         public void The_same_seed_gives_the_same_shuffle()
         {
             var s = Session(); if (s == null) return;
