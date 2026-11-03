@@ -116,14 +116,28 @@ namespace UwEditor.Core.Randomizer
             if (o.ShufflePotions) kinds.Add("potions"); if (o.ShuffleRings) kinds.Add("rings"); if (o.SwapBones) kinds.Add("bones and skulls"); if (o.SwapScenery) kinds.Add("other scenery");
             b.AppendFormat("Seed {0}. Pool: the {1}{4}, less {2} ignored object(s){3}.\n", o.Seed, kinds.Count == 0 ? "nothing (no kind ticked)" : string.Join(", ", kinds),
                 o.Ignored == null ? 0 : o.Ignored.Count, o.Kept != null && o.Kept.Count > 0 ? " and " + o.Kept.Count + " of the starting equipment" : "", o.SwapBones ? " (Garamon's bones never)" : "");
-            bool any = o.Mode == "swap-any";
-            b.AppendFormat("Groups: {0}, {1}.\n", any ? "every ticked kind together" : "each kind on its own", ScopeText(s, o));
-            switch (o.SwapScope)
+            bool any = o.Mode == "swap-any" && !o.IsProgression;
+            if (o.IsProgression)
+            {
+                b.AppendLine("Groups: each kind on its own, across the whole game (Uniform progression fixes both).");
+                b.AppendLine("Strength S of an object, as it moves whole (OBJECTS.DAT; e = its enchantment's level):");
+                b.AppendLine("  weapons: S = max(slash, bash, stab) + e;  ammunition: its missile damage;  launchers: the damage of the ammunition they fire (+ e)");
+                b.AppendLine("  armour: S = protection + e;  spell scrolls, wands: S = the spell's circle (" + (s.IsUw2 ? "spell / 8 + 1" : "spell / 6 + 1, 9 for the spells without runes") + "; a wand without a spell 0)");
+                b.AppendLine("  e: none 0; Accuracy, Damage, Protection, Toughness their degree " + (s.IsUw2 ? "(weapons 1, 3, 5, 7; armour 1-8)" : "1-8") + "; a spell its circle; a curse or an effect without degrees " + F(Progression.MidLevel));
+                b.AppendLine("Each ranked kind: sort its n objects by S, ties at random; walk the levels in the order " + Progression.OrderText(s) + ";");
+                b.AppendLine("  level ℓ with n_ℓ spots of the kind takes ranks r_ℓ … r_ℓ + n_ℓ − 1, r_ℓ = 1 + Σ n_k over the levels k before it,");
+                b.AppendLine("  so a level's share used up spills into the next and a short one pulls from the next; within the level, π ~ a random permutation of those objects onto its spots.");
+                b.AppendLine("Food, lights, tools, runestones, potions, rings, bones and scenery have no strength here: π ~ a uniform random permutation over the whole game.");
+            }
+            else b.AppendFormat("Groups: {0}, {1}.\n", any ? "every ticked kind together" : "each kind on its own", ScopeText(s, o));
+            switch (o.IsProgression ? "progression" : o.SwapScope)
             {
                 case "near":
                     b.AppendFormat("{0}: π starts as the identity; {1} passes, each over the spots in a random order: spot a picks b ~ U(spots at levels L(a) − {2} .. L(a) + {2}), " +
                                    "and a and b trade objects when |L(π(a)) − L(b)| ≤ {2} and |L(π(b)) − L(a)| ≤ {2}, so no object goes more than {2} level(s) from where it was.\n",
                                    s.IsUw2 ? "Within each world" : "Within the game", NearPasses, Math.Max(0, o.SwapRange));
+                    break;
+                case "progression":
                     break;
                 default:
                     b.AppendLine("Within a group" + (o.SwapScope == "level" ? " and level" : o.SwapScope == "world" && s.IsUw2 ? " and world" : "") + ": π ~ a uniform random permutation (Fisher–Yates); spot i receives the object from spot π(i).");
@@ -132,15 +146,19 @@ namespace UwEditor.Core.Randomizer
             b.AppendLine("The object moves whole: item, quality, flags, enchantment, quantity" + (o.SpotOwnership ? "." : ", owner."));
             if (o.SpotOwnership)
                 b.AppendLine("Owner: owner'(i) = owner(i) when can_own(item(i)) and can_own(item(π(i))) (COMOBJ.DAT can-own bit; keys and fixed objects never), else owner(π(i)).");
-            if (o.ShuffleWands) b.AppendLine("Charged wands: the wand and its spell object (spell and charges) are one unit, permuted among the wands the same way.");
+            if (o.ShuffleWands) b.AppendLine("Charged wands: the wand and its spell object (spell and charges) are one unit, permuted among the wands the same way" + (o.IsProgression ? " (ranked by the spell's circle)." : "."));
             if (o.SwapEnchantments)
             {
                 var cl = new List<string>();
                 if (o.EnchantWeapons) { cl.Add("melee weapons"); cl.Add("launchers"); }
                 if (o.EnchantArmour) cl.Add("armour");
                 if (o.EnchantScrolls) cl.Add("spell scrolls");
-                b.AppendFormat("Then, for each class ({0}): e = (enchanted bit, is-quantity, link, flag 11) of every object of the class, the same scope; e'(i) = e(σ(i)) with σ a new permutation drawn as above.\n",
-                    cl.Count == 0 ? "none ticked" : string.Join(", ", cl));
+                if (o.IsProgression)
+                    b.AppendFormat("Then, for each class ({0}): e = (enchanted bit, is-quantity, link, flag 11) of every object of the class; e'(i) = e(σ(i)) with σ the progression above, ranked by the enchantment's level (plain 0).\n",
+                        cl.Count == 0 ? "none ticked" : string.Join(", ", cl));
+                else
+                    b.AppendFormat("Then, for each class ({0}): e = (enchanted bit, is-quantity, link, flag 11) of every object of the class, the same scope; e'(i) = e(σ(i)) with σ a new permutation drawn as above.\n",
+                        cl.Count == 0 ? "none ticked" : string.Join(", ", cl));
             }
             b.AppendLine("Counts never change: Σ over the pool of [item = x] is the same before and after, for every x.");
             b.AppendLine().Append(Notation());

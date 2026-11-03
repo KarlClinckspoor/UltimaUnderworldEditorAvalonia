@@ -565,6 +565,8 @@ namespace UwEditor.App.Tests
         public void Item_swap_window_swaps_only_the_ticked_kinds_and_undoes()
         {
             if (Uw1 == null) return;
+            // the swap's saved settings may hold an emptied ignore list from another test (ItemRandomizerWindowTests)
+            System.IO.File.Delete(System.IO.Path.Combine(Settings.Folder, "item-swap-uw1.json"));
             using (var copy = new GameCopy(Uw1, "DATA"))
             {
                 var w = OpenQuiet(copy.Folder);

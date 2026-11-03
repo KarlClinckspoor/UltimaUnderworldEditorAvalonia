@@ -41,6 +41,8 @@ namespace UwEditor.App
         public bool EnchantWeapons { get; set; } = true;
         public bool EnchantArmour { get; set; } = true;
         public bool EnchantScrolls { get; set; } = true;
+        /// <summary>"random" or "progression" (ShuffleOptions.SwapRule).</summary>
+        public string Rule { get; set; } = "random";
         /// <summary>The starting equipment stays where it is.</summary>
         public bool KeepStart { get; set; } = true;
         /// <summary>The starting equipment; null until filled with the game's (ItemShuffle.StartingEquipment).</summary>
@@ -85,7 +87,8 @@ namespace UwEditor.App
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
                 Text = "The existing objects trade places whole: item, quality, enchantment, quantity and (unless the spot keeps its own) owner. Nothing is made or removed, so every item keeps its count. " +
                        "Charged wands swap among themselves with their spells and charges. Caliburn" + (s.IsUw2 ? ", the jewelled dagger" : "") +
-                       ", talismans, quest items, Garamon's bones, the ignored objects and the starting equipment stay. The same seed gives the same result.",
+                       ", talismans, quest items, Garamon's bones, the ignored objects and the starting equipment stay. The same seed gives the same result. " +
+                       "Uniform progression hands the weapons, armour, spell scrolls and wands out by strength, the weakest on the first level.",
             });
 
             tabs.Items.Add(new TabItem { Header = "Settings", Content = new ScrollViewer { Content = SettingsTab(), Padding = new Thickness(4, 8, 16, 8) } });
@@ -145,13 +148,27 @@ namespace UwEditor.App
             row.Children.Add(Check("Include creatures' inventories", set.IncludeInventories, x => set.IncludeInventories = x));
             p.Children.Add(row);
 
+            p.Children.Add(Heading("Order"));
+            var random = new RadioButton { Content = "Random: objects go anywhere within the choices below", GroupName = "swaprule", IsChecked = set.Rule != "progression" };
+            var prog = new RadioButton { Content = "Uniform progression: the weakest of each kind on the first level, the strongest on the last", GroupName = "swaprule", IsChecked = set.Rule == "progression" };
+            progressionRadio = prog;
+            p.Children.Add(random); p.Children.Add(prog);
+            var progNote = Note("Weapons by their highest damage plus the enchantment's level, armour by protection plus the enchantment's level, spell scrolls and wands by the spell's circle. " +
+                "They are sorted and handed out level by level, " + (session.IsUw2 ? "world by world (Britannia, Prison Tower, Killorn Keep, Ice Caverns, Talorus, Scintillus Academy, Pits of Carnage, Tomb of Praecor Loth, Ethereal Void). " : "from level 1 to level 9. ") +
+                "Each level keeps its number of objects of each kind; within a level they go to its spots at random. The other kinds are swapped at random over the whole game. " +
+                "This works within each kind across the whole game, so the two choices below do not apply.");
+            p.Children.Add(progNote);
+
             p.Children.Add(Heading("What trades with what"));
             var within = new RadioButton { Content = "Within each kind (a sword stays a weapon)", GroupName = "swapmode", IsChecked = !set.AnyKind };
             var across = new RadioButton { Content = "Across all the ticked kinds (a sword may land where a torch was)", GroupName = "swapmode", IsChecked = set.AnyKind };
             across.IsCheckedChanged += (o, e) => set.AnyKind = across.IsChecked == true;
-            p.Children.Add(within); p.Children.Add(across);
+            var modePanel = new StackPanel { Spacing = 6 };
+            modePanel.Children.Add(within); modePanel.Children.Add(across);
+            p.Children.Add(modePanel);
 
             p.Children.Add(Heading("Where objects may go"));
+            var scopePanel = new StackPanel { Spacing = 6 };
             var range = new NumericUpDown { Minimum = 1, Maximum = session.IsUw2 ? 7 : 8, Increment = 1, FormatString = "0", Width = 110, Value = Math.Max(1, set.Range) };
             range.ValueChanged += (o, e) => set.Range = (int)(range.Value ?? 1);
             Func<string, string, RadioButton> scope = (text, value) =>
@@ -161,17 +178,27 @@ namespace UwEditor.App
                 r.IsCheckedChanged += (o, e) => { if (r.IsChecked == true) set.Scope = value; };
                 return r;
             };
-            p.Children.Add(scope("Within each level", "level"));
+            scopePanel.Children.Add(scope("Within each level", "level"));
             var near = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             near.Children.Add(scope(session.IsUw2 ? "Within ± this many levels, in the same world:" : "Within ± this many levels:", "near"));
             near.Children.Add(range);
-            p.Children.Add(near);
+            scopePanel.Children.Add(near);
             if (session.IsUw2)
             {
-                p.Children.Add(scope("Within each world (Britannia, the Prison Tower, Killorn Keep…)", "world"));
-                p.Children.Add(scope("Across all the worlds", "game"));
+                scopePanel.Children.Add(scope("Within each world (Britannia, the Prison Tower, Killorn Keep…)", "world"));
+                scopePanel.Children.Add(scope("Across all the worlds", "game"));
             }
-            else p.Children.Add(scope("Within the world: Ultima Underworld has one, so every level", "game"));
+            else scopePanel.Children.Add(scope("Within the world: Ultima Underworld has one, so every level", "game"));
+            p.Children.Add(scopePanel);
+            scopeControls = scopePanel;
+            Action ruleChanged = () =>
+            {
+                bool on = set.Rule == "progression";
+                progNote.IsVisible = on;
+                modePanel.IsEnabled = scopePanel.IsEnabled = !on;
+            };
+            prog.IsCheckedChanged += (o, e) => { set.Rule = prog.IsChecked == true ? "progression" : "random"; ruleChanged(); };
+            ruleChanged();
 
             p.Children.Add(Heading("Options"));
             p.Children.Add(Check("An item put in a spot takes the spot's owner (food belonging to a rat, replaced by a lantern, gives a lantern belonging to the rat)", set.SpotOwnership, x => set.SpotOwnership = x));
@@ -206,6 +233,13 @@ namespace UwEditor.App
             return p;
         }
 
+        RadioButton progressionRadio;
+        Control scopeControls;
+        /// <summary>The Uniform progression choice.</summary>
+        public RadioButton ProgressionChoice { get { return progressionRadio; } }
+        /// <summary>The scope choices, greyed under Uniform progression.</summary>
+        public Control ScopeChoices { get { return scopeControls; } }
+
         static TextBlock Heading(string t) { return new TextBlock { Text = t, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) }; }
         static TextBlock Note(string t) { return new TextBlock { Text = t, TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7 }; }
 
@@ -237,6 +271,7 @@ namespace UwEditor.App
             var o = ShuffleOptions.Defaults(session);
             o.Seed = set.Seed;
             o.Mode = set.AnyKind ? "swap-any" : "swap-kind";
+            o.SwapRule = set.Rule == "progression" ? "progression" : "random";
             o.IncludeInventories = set.IncludeInventories;
             o.ShuffleWeapons = set.Weapons; o.ShuffleArmour = set.Armour; o.ShuffleFood = set.Food; o.ShuffleLights = set.Lights; o.SwapTools = set.Tools;
             o.ShuffleRunes = set.Runes; o.ShuffleWands = set.Wands; o.ShuffleScrolls = set.Scrolls; o.ShufflePotions = set.Potions; o.ShuffleRings = set.Rings;

@@ -83,6 +83,16 @@ namespace UwEditor.Core.Randomizer
         /// <summary>Creatures with a conversation allowed to move anyway (the level 2 gazer, the Listener...).</summary>
         public List<IgnoredObject> Whitelist { get; set; }
         public List<IgnoredObject> Ignored { get; set; }
+        /// <summary>
+        /// The ordering rule: "rank" (noisy rank matching by the scope, target and spread, the
+        /// default) or "progression" (Uniform progression: each movement class sorted by
+        /// strength and handed out level by level in the game's order; the scope, target and
+        /// spread do not apply; MonsterProgression.cs).
+        /// </summary>
+        public string Rule { get; set; } = "rank";
+        /// <summary>Whether the swap uses Uniform progression.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool IsProgression { get { return Rule == "progression"; } }
 
         static readonly JsonSerializerOptions Json = new JsonSerializerOptions { WriteIndented = true };
         public string ToJson() { return JsonSerializer.Serialize(this, Json); }
@@ -132,7 +142,7 @@ namespace UwEditor.Core.Randomizer
     /// only goes where its height fits, and never onto water or lava it cannot stand on
     /// (CreatureTerrain). UW1's fire elementals and UW2's brain creatures stay by default.
     /// </summary>
-    public static class MonsterSwap
+    public static partial class MonsterSwap
     {
         public static double DepthOf(bool uw2, int level) { return ItemShuffle.DepthOf(uw2, level); }
 
@@ -381,42 +391,47 @@ namespace UwEditor.Core.Randomizer
                 }
             }
 
-            // groups: the scope, level-bound creatures within their level, swimmers apart
-            Func<MonsterSpot, string> scopeKey = x =>
-                x.LevelBound != null || opt.Scope == "level" ? "L" + x.Level
-                : opt.Scope == "world" && s.IsUw2 ? "W" + ((x.Level - 1) / 8) : "all";
-            var groups = moving.GroupBy(x => scopeKey(x) + (x.LevelBound != null && opt.Scope != "level" ? "/bound" : "") + (x.Water ? "/water" : "")).ToList();
             var newRec = new Dictionary<MonsterSpot, byte[]>();
             int moved = 0;
-            foreach (var g in groups.OrderBy(x => x.Key, StringComparer.Ordinal))
+            // the spot takes the monster's identity (and its inventory, with loot, on the same level)
+            Action<MonsterSpot, MonsterSpot, bool> put = (place, who, loot) =>
             {
-                var spots = g.ToList();
-                // inventories trade along with the monsters when asked, or when a talker carrying something is
-                // in the group (such a group is always one level's, so every link stays on its level)
-                bool loot = opt.LootWithMonster || spots.Any(x => x.Whoami > 0 && x.O.Children.Count > 0);
-                var assign = Match(spots, opt, s.IsUw2, rng, headroom);
-                for (int i = 0; i < spots.Count; i++)
+                var r = (byte[])place.O.Record.Clone();
+                var src = who.O.Record;
+                // the identity: item (bits 0-8 of word 0), hit points, powerful, talked to, attitude, conversation
+                int w0 = Word(r, 0) & ~0x1FF | (Word(src, 0) & 0x1FF);
+                r[0] = (byte)w0; r[1] = (byte)(w0 >> 8);
+                if (!opt.KeepHp) r[8] = src[8];
+                int att = Word(r, 0x0D) & ~(0x400 | 0x2000 | 0xC000) | (Word(src, 0x0D) & (0x2000 | 0xC000)) | (powerful[who] ? 0x400 : 0);
+                if (loot && place.Level == who.Level)
                 {
-                    var place = spots[i];
-                    var who = spots[assign[i]];
-                    var r = (byte[])place.O.Record.Clone();
-                    var src = who.O.Record;
-                    // the identity: item (bits 0-8 of word 0), hit points, powerful, talked to, attitude, conversation
-                    int w0 = Word(r, 0) & ~0x1FF | (Word(src, 0) & 0x1FF);
-                    r[0] = (byte)w0; r[1] = (byte)(w0 >> 8);
-                    if (!opt.KeepHp) r[8] = src[8];
-                    int att = Word(r, 0x0D) & ~(0x400 | 0x2000 | 0xC000) | (Word(src, 0x0D) & (0x2000 | 0xC000)) | (powerful[who] ? 0x400 : 0);
-                    if (loot && place.Level == who.Level)
-                    {
-                        // the inventory goes along: the link (word 3 bits 6-15) and the inventory-made bit
-                        int w3 = Word(r, 6) & 0x3F | (Word(src, 6) & ~0x3F);
-                        r[6] = (byte)w3; r[7] = (byte)(w3 >> 8);
-                        att = att & ~0x1000 | (Word(src, 0x0D) & 0x1000);
-                    }
-                    r[0x0D] = (byte)att; r[0x0E] = (byte)(att >> 8);
-                    r[0x1A] = src[0x1A];
-                    newRec[place] = r;
-                    if (who != place) moved++;
+                    // the inventory goes along: the link (word 3 bits 6-15) and the inventory-made bit
+                    int w3 = Word(r, 6) & 0x3F | (Word(src, 6) & ~0x3F);
+                    r[6] = (byte)w3; r[7] = (byte)(w3 >> 8);
+                    att = att & ~0x1000 | (Word(src, 0x0D) & 0x1000);
+                }
+                r[0x0D] = (byte)att; r[0x0E] = (byte)(att >> 8);
+                r[0x1A] = src[0x1A];
+                newRec[place] = r;
+                if (who != place) moved++;
+            };
+            var progressionReport = new StringBuilder();
+            if (opt.IsProgression) Progress(s, opt, rng, moving, headroom, put, progressionReport);
+            else
+            {
+                // groups: the scope, level-bound creatures within their level, swimmers apart
+                Func<MonsterSpot, string> scopeKey = x =>
+                    x.LevelBound != null || opt.Scope == "level" ? "L" + x.Level
+                    : opt.Scope == "world" && s.IsUw2 ? "W" + ((x.Level - 1) / 8) : "all";
+                var groups = moving.GroupBy(x => scopeKey(x) + (x.LevelBound != null && opt.Scope != "level" ? "/bound" : "") + (x.Water ? "/water" : "")).ToList();
+                foreach (var g in groups.OrderBy(x => x.Key, StringComparer.Ordinal))
+                {
+                    var spots = g.ToList();
+                    // inventories trade along with the monsters when asked, or when a talker carrying something is
+                    // in the group (such a group is always one level's, so every link stays on its level)
+                    bool loot = opt.LootWithMonster || spots.Any(x => x.Whoami > 0 && x.O.Children.Count > 0);
+                    var assign = Match(spots, opt, s.IsUw2, rng, headroom);
+                    for (int i = 0; i < spots.Count; i++) put(spots[i], spots[assign[i]], loot);
                 }
             }
             var byLevel = new SortedDictionary<int, List<string>>();
@@ -436,12 +451,17 @@ namespace UwEditor.Core.Randomizer
             var blocked = all.Where(x => x.Blocked != null).GroupBy(x => x.Blocked).Select(g => g.Key + " " + g.Count());
             var bound = moving.Where(x => x.LevelBound != null).GroupBy(x => x.LevelBound).Select(g => g.Key + " " + g.Count());
             res.Report.AppendFormat("Seed {0}: {1} creatures could move, {2} took another's place; {3} records change on {4} levels.\n", opt.Seed, moving.Count, moved, res.Changed, res.ByLevel.Count);
+            if (opt.IsProgression)
+                res.Report.AppendFormat("Strength: {0}; Uniform progression ({1}){2}{3}.\n", MeasureName(opt.Measure), Progression.OrderText(s),
+                    opt.KeepHp ? "; hit points stay with the spot" : "", opt.LootWithMonster ? "; carried items go with the monster" : "; carried items stay with the spot");
+            else
             res.Report.AppendFormat("Strength: {0}; target: {1}; spread {2}{3}{4}.\n", MeasureName(opt.Measure), opt.DepthBlend <= 0 ? "each spot keeps its difficulty" : opt.DepthBlend >= 100 ? "depth" : "blend " + opt.DepthBlend + "% depth", opt.Spread,
                 opt.KeepHp ? "; hit points stay with the spot" : "", opt.LootWithMonster ? "; carried items go with the monster" : "; carried items stay with the spot");
             res.Report.AppendLine("Never moved: " + string.Join(", ", blocked) + ".");
             if (moving.Any(x => x.LevelBound != null)) res.Report.AppendLine("Only within their level: " + string.Join(", ", bound) + ".");
             int wet = moving.Count(x => x.Floor == CreatureTerrain.Water), hot = moving.Count(x => x.Floor == CreatureTerrain.Lava);
             if (wet + hot > 0) res.Report.AppendFormat("Spots on water: {0}, on lava: {1}; only fliers, swimmers (water) and fire-resistant creatures (lava) are put there.\n", wet, hot);
+            if (progressionReport.Length > 0) res.Report.Append(progressionReport);
             res.Report.AppendLine();
             foreach (var kv in byLevel) { res.Report.AppendLine("Level " + kv.Key + ":"); foreach (var t in kv.Value) res.Report.AppendLine(t); }
             return res;
@@ -614,6 +634,13 @@ namespace UwEditor.Core.Randomizer
                 default: b.AppendLine("S = max(0, XP) × (P ? 2.25 : 1),  " + pw); break;
             }
             if (opt.Measure == "damage" || opt.Measure == "combined") b.AppendLine("  spell = a missile's damage, 12 for an area spell, else 0");
+            if (opt.IsProgression)
+            {
+                ProgressionFormula(s, b);
+                if (opt.RerollPowerful)
+                    b.AppendLine("Powerful, rolled first: P(powerful) = " + Num(opt.PowerfulChance / 100) + " × (1 + " + Num(opt.PowerfulDepth / 100) + " × depth),  depth = " + depth);
+                return b.ToString().TrimEnd();
+            }
             b.Append("In each group of n (").Append(opt.Scope == "level" ? "each level" : opt.Scope == "world" && s.IsUw2 ? "each world" : "all levels")
              .AppendLine("; level-bound ones in their level; swimmers apart):");
             if (uniform)
