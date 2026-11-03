@@ -1,0 +1,83 @@
+{
+  "format": "uw1-facts",
+  "version": 1,
+  "game": "UW1",
+  "notes": "Facts the automatic zones cannot read from the levels alone: things made or traded, flags set by using an item somewhere, places with special rules, and notes on the hidden gates (the gates themselves are found in the levels). Requirements use the zones' requirement language. kind: craft (grants a token wherever its requirement holds), trade (adds a requirement to every placement of a token), flag (grants a token in the zone of an object, when its requirement holds), nomana (cast spells do not work on a level until a token holds), walls (in a rectangle of a level, the tiles of a kind are walls for the regions), hidden (notes for a look-trigger gate, by level and trigger). Phase C will add the quest facts here.",
+  "facts": [
+    {
+      "id": "dragonskin_boots",
+      "kind": "craft",
+      "grants": "worn:lava",
+      "requires": "item:dragon_scales & item:strong_thread & npc:marrowsuck & item:food",
+      "notes": "Marrowsuck, the ghoul tailor (L5), makes dragon skin boots from dragon scales and strong (ironsilk) thread and wants food in payment: any food (items 0xB0-0xBF), not only fish. He asks the player to come back in half an hour of game time. Worn, the boots keep lava from hurting.",
+      "source": "conversation 6 (find_barter 285 and 284, do_inv_create 47, find_barter 1011: major 2 minor 3, conv/CONVERSE.C find_barter); game/PLAYDATA.C FixPlayerEquips; motion/PLAYMOVE.C parse_effect"
+    },
+    {
+      "id": "dragon_scales",
+      "kind": "trade",
+      "token": "item:dragon_scales",
+      "requires": "item:rotworm_stew",
+      "notes": "Sethar Strongarm, the old troll (L4), carries the dragon scales and gives them for rotworm stew.",
+      "source": "conversation 17 (find_barter 283, take_from_npc 285)"
+    },
+    {
+      "id": "rotworm_stew",
+      "kind": "craft",
+      "grants": "item:rotworm_stew",
+      "requires": "item:bowl & item:dead_rotworm & item:mushroom & item:flask_of_port & item:stew_recipe",
+      "notes": "Reading the stew recipe with a bowl in the pack that holds only a dead rotworm, a mushroom and a flask of port turns the bowl into rotworm stew. Lanugo (L1) gives the recipe when asked about his stew. A dead rotworm lies on L4, and every rotworm killed leaves one.",
+      "source": "obj/COMBINE.C make_stew; obj/USEITEMS.C UseBook; conversation 10 (take_from_npc 1019); critter/PATHFIND.C build_corpse"
+    },
+    {
+      "id": "orb_destroyed",
+      "kind": "flag",
+      "grants": "flag:orb_destroyed",
+      "level": 7,
+      "object": 820,
+      "requires": "item:orb_rock",
+      "notes": "Using an orb rock (0x112, three on L8) on Tyball's orb (#820, L7 (54, 9)) destroys it and gives the mana back.",
+      "source": "obj/USEITEMS.C TybalsOrb_seg040_A12"
+    },
+    {
+      "id": "orb_mana",
+      "kind": "nomana",
+      "level": 7,
+      "until": "flag:orb_destroyed",
+      "notes": "While the orb stands, arriving on L7 sets mana and maximum mana to 0, so no spell can be cast from runes there. Scrolls, potions, wands and worn enchantments cost no mana and still work.",
+      "source": "game/GAMEWRAP.C do_level_hacks; combat/RUNES.C player_cast (the mana check)"
+    },
+    {
+      "id": "damaging_maze",
+      "kind": "walls",
+      "level": 7,
+      "rect": [42, 17, 62, 38],
+      "tiles": "damage",
+      "notes": "Karl: in the damaging maze, tiles that have traps are inaccessible at all times. A tile is walled when it holds a move trigger the player sets off whose chain damages him (damage trap, arrow trap, harmful spell trap). The rectangle holds Karl's painted zone 70.",
+      "source": "event/TRIGGER.C UseTrap (TRAP_DAMAGE, TRAP_ARROW, TRAP_SPELL); motion/PHYSICS.C (move triggers fire on touching the player)"
+    },
+    {
+      "id": "tyball_back_wall",
+      "kind": "hidden",
+      "level": 7,
+      "trigger": 351,
+      "notes": "The back access of Tyball's crib (Karl's link 90): the secret door #349 at (42, 10) stands in rock until the player looks at the wall decoration #352 at (43, 10). The look trigger has height 0, so any look opens it: no Search check and no Reveal needed.",
+      "source": "event/TRIGGER.C UseTrigger"
+    },
+    {
+      "id": "bandit_room_wall",
+      "kind": "hidden",
+      "level": 3,
+      "trigger": 1007,
+      "notes": "The secret bandit room (Karl's link 47): look trigger height 7.",
+      "source": "event/TRIGGER.C UseTrigger"
+    },
+    {
+      "id": "tombs_wall",
+      "kind": "hidden",
+      "level": 7,
+      "trigger": 343,
+      "notes": "Into the tombs (Karl's link 92), secret door #347 at (18, 29).",
+      "source": "event/TRIGGER.C UseTrigger"
+    }
+  ]
+}

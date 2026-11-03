@@ -15,6 +15,26 @@ namespace UwEditor.Core.Randomizer
 		public List<string> StartTokens = new List<string>();
 		/// <summary>Links marked 'todo' count as usable.</summary>
 		public bool TrustTodoLinks = true;
+
+		// ---- Phase B of the automatic zones (abilities and their sources); all off by default, so older zonings solve as before
+
+		/// <summary>
+		/// spell:X means "ability X is available": cast:X (with Magic) or use:X, or a placement
+		/// granting spell:X itself. Off: spell:X follows AllowSpells as before.
+		/// </summary>
+		public bool AbilitySources;
+		/// <summary>With AbilitySources: casting from runes counts (cast:X tokens).</summary>
+		public bool Magic = true;
+		/// <summary>With AbilitySources: scrolls, potions and charged wands (once:X) count for use:X, besides worn (worn:X) and unlimited (perm:X) sources.</summary>
+		public bool SingleUseItems;
+		/// <summary>The Search skill assumed for search:Z (a look trigger of height Z; game/SKILLCHK.C skill_check, event/TRIGGER.C UseTrigger).</summary>
+		public int SearchSkill;
+		/// <summary>search:Z holds when a look can pass at all (a failed look leaves no mark, so it can be tried again); off: only at even odds or better (skill at least Z).</summary>
+		public bool SearchRetry = true;
+		/// <summary>pick:Z holds when a try can pass at all (UseLockpickOn keeps the pick on a failure); off: skill at least 3Z, as before.</summary>
+		public bool PickRetry;
+		/// <summary>pick:Z also needs item:lockpick.</summary>
+		public bool PickNeedsLockpick;
 	}
 
 	/// <summary>What the evaluator asks about the world.</summary>
@@ -36,16 +56,39 @@ namespace UwEditor.Core.Randomizer
 		{
 			"key:N          hold a key whose owner field is N (the lock's key number)",
 			"bash           bashing a breakable door is allowed (solver option)",
-			"pick:Z         picking a lock of difficulty Z is allowed (solver option: Pick Lock skill; 3Z needed, Z 14 needs 31, Z 15 never)",
+			"pick:Z         picking a lock of difficulty Z is allowed (solver option: Pick Lock skill; 3Z needed, Z 14 needs 31, Z 15 never;",
+			"               with ability sources also the Open spell, a pick of skill 45)",
 			"item:NAME      hold the named item (granted by a placement: medallion, crystal, lava_boots ...)",
 			"talismans:N    hold at least N different talismans (each talisman grants talisman:<name>)",
 			"flag:NAME      a quest or event flag (granted by a placement, e.g. gazer_dead)",
 			"npc:NAME       the NPC can be talked to / is at the gate (granted by a placement)",
-			"spell:NAME     levitate (also fly), waterwalk, jump, reveal, gate_travel: allowed by the option, or granted by a placement",
+			"spell:NAME     levitate (also fly), waterwalk, jump, reveal, lava, gate_travel: allowed by the option, or granted by a placement;",
+			"               with ability sources (Phase B): cast:NAME (runes, Magic on) | use:NAME",
+			"cast:NAME      the runes of a spell giving NAME are held (granted by facts; needs the Magic option)",
+			"use:NAME       an item gives NAME: worn:NAME (worn, works everywhere), perm:NAME (used, no charges), once:NAME (scroll, potion, charged wand; needs the option)",
+			"search:Z       a look trigger of height Z passes with the Search skill option (Z 0: always)",
 			"zone:N         zone N must be reachable (a lever or button on the other side)",
 			"free           nothing needed",
 			"Operators: '&' and, '|' or, parentheses.",
 		};
+
+		/// <summary>
+		/// Whether a look trigger of height z passes with the options' Search skill
+		/// (event/TRIGGER.C UseTrigger: only z &gt; 0 is checked, skill_check(Search, z) &gt; 0; game/SKILLCHK.C:
+		/// Search - z + rand() % 31 &gt; 15). With retries any chance above 0 is enough.
+		/// </summary>
+		public static bool SearchPasses(SolverOptions o, int z)
+		{
+			if (z <= 0) return true;
+			return o.SearchRetry ? o.SearchSkill - z + 30 > 15 : o.SearchSkill >= z;
+		}
+
+		/// <summary>The chance in 31 that skill_check(value, target) passes (&gt; 0): value - target + rand() % 31 &gt; 15.</summary>
+		public static int PassChanceIn31(int value, int target)
+		{
+			int need = 16 - (value - target);      // the lowest roll that passes
+			return Math.Max(0, Math.Min(31, 31 - Math.Max(0, need)));
+		}
 
 		public abstract bool Eval(IRequirementContext ctx);
 		/// <summary>The leaf terms that are false and would need to become true (all of them in an 'or').</summary>
@@ -83,13 +126,24 @@ namespace UwEditor.Core.Randomizer
 						if (o.LockpickSkill < 0) return false;
 						if (!int.TryParse(tail, out n)) return false;
 						if (n >= 15) return false;
+						// the Open spell tries the lock as a pick of skill 45 (combat/SPELLS.C obj_spells, checkLock(ThePlayer, target, -45)): sure up to z 9
+						if (o.AbilitySources && (o.PickRetry || n <= 9) && HasAbility(ctx, "open")) return true;
+						if (o.PickNeedsLockpick && !ctx.HasToken("item:lockpick")) return false;
 						if (n == 14) return o.LockpickSkill >= 31;
-						return o.LockpickSkill >= n * 3;
+						// obj/USEITEMS.C checkLock: skill_check(skill, 3z) > 0, i.e. skill - 3z + rand() % 31 > 15
+						return o.PickRetry ? o.LockpickSkill - n * 3 + 30 > 15 : o.LockpickSkill >= n * 3;
+					case "search":
+						return int.TryParse(tail, out n) && SearchPasses(o, n);
+					case "use":
+						return HasUse(ctx, tail);
+					case "cast":
+						return o.Magic && ctx.HasToken(Token);
 					case "zone":
 						return int.TryParse(tail, out n) && ctx.ZoneReachable(n);
 					case "talismans":
 						return int.TryParse(tail, out n) && ctx.TalismanCount() >= n;
 					case "spell":
+						if (o.AbilitySources) return HasAbility(ctx, tail);
 						return o.AllowSpells || ctx.HasToken(Token);
 					default:
 						return ctx.HasToken(Token);
@@ -99,6 +153,16 @@ namespace UwEditor.Core.Randomizer
 			public override void Missing(IRequirementContext ctx, List<string> into)
 			{
 				if (!Eval(ctx) && !into.Contains(Token)) into.Add(Token);
+			}
+
+			static bool HasAbility(IRequirementContext ctx, string ability)
+			{
+				return ctx.HasToken("spell:" + ability) || (ctx.Options.Magic && ctx.HasToken("cast:" + ability)) || HasUse(ctx, ability);
+			}
+
+			static bool HasUse(IRequirementContext ctx, string ability)
+			{
+				return ctx.HasToken("worn:" + ability) || ctx.HasToken("perm:" + ability) || (ctx.Options.SingleUseItems && ctx.HasToken("once:" + ability));
 			}
 
 			public override void Tokens(List<string> into) { if (!into.Contains(Token)) into.Add(Token); }
@@ -135,7 +199,15 @@ namespace UwEditor.Core.Randomizer
 			public override string ToString()
 			{
 				var sb = new StringBuilder();
-				for (int i = 0; i < Parts.Count; i++) { if (i > 0) sb.Append(" | "); sb.Append(Parts[i]); }
+				// an 'and' inside an 'or' is bracketed for reading ('&' binds first either way)
+				for (int i = 0; i < Parts.Count; i++)
+				{
+					if (i > 0) sb.Append(" | ");
+					bool paren = Parts[i] is And;
+					if (paren) sb.Append('(');
+					sb.Append(Parts[i]);
+					if (paren) sb.Append(')');
+				}
 				return sb.ToString();
 			}
 		}

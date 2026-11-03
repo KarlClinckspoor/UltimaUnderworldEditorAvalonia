@@ -184,3 +184,159 @@ painted. So the auto goal is the largest zone of L9.
   `todo`. Which levers set the value is left to Phase C.
 - The item token of 0x117 is `item:orb`, which also covers the crystal balls on L1, L2 and
   L4.
+
+# Phase B: abilities and logic options
+
+Built with the default options (Magic on, single-use items off, lock picking off, bashing on,
+Search 0 with retries). The code is `Core/Randomizer/AbilitySources.cs` (the spell table and
+the items), `AbilityZones.cs` (walls, hidden gates, where magic fails, placements, solves,
+report) and `Facts.cs` with `docs/facts/uw1-facts.json`; the tests are
+`tests/UwEditor.Core.Tests/AbilityZonesTests.cs`.
+
+## Counts
+
+686 regions, 1751 region edges (34 of them hidden-gate edges), 242 zones, 530 links, 293
+placements (280 read from the levels, 13 from the facts). 18 hidden gates. 20 maze tiles
+walled. 3 region edges start on no-magic squares, 147 on level 7.
+
+## The requirement language
+
+`spell:X` now means "ability X is available here": `cast:X` (the runes of a spell giving X
+and the rune bag; Magic on) or `use:X`. `use:X` is `worn:X` (an enchantment worn, which works
+everywhere), `perm:X` (an item that casts without charges) or, with the option, `once:X`
+(scroll, potion, charged wand). `search:Z` is a look of height Z. The solver keeps the old
+meaning (`AllowSpells`) unless `SolverOptions.AbilitySources` is set, so painted zonings solve
+as before. `hazard:lava` is gone: lava is `spell:lava`.
+
+## Sources per ability (spells from combat/SPELLS.C spells[]; items read as obj/USEITEMS.C and game/PLAYDATA.C do)
+
+| Ability | Spells (runes) | Items |
+| --- | --- | --- |
+| levitate | Levitate (Hur Por), Fly (Vas Hur Por) | ring of Levitate #683, L7 (44, 44), worn; two Fly potions on L2 (#772 carried by a mountainman, #872 in the potion maze room), single-use |
+| jump | Leap (Uus Por) | ring of Leap #914, L4 (35, 5), worn |
+| waterwalk | Water Walk (Ylem Por) | none |
+| lava | Flameproof (Sanct Flam) | Flameproof potion #522, L7 (46, 2), in the damaging maze, single-use; dragon skin boots (crafted, below) |
+| reveal | Reveal (Ort An Quas) | three scrolls: L5 #823, L6 #603 and #617, single-use |
+| open | Open (Ex Ylem): a lock pick of skill 45 | none |
+| light | Light, Night Vision, Daylight | three scrolls; helmet of Magic Lantern #474, L7, worn |
+
+No UW1 wand carries an ability (the ten charged wands hold attack spells, Name Enchantment,
+Smite Undead; wand #555 holds the bullfrog spell). The leather boots of Slow Fall (#595, L4)
+only soften falls. Light gates nothing. Water walking gates nothing either, since swimming is
+free in the Phase A rules. Flameproof gives the fire resistance bit (0x08) that cancels the
+lava's damage (combat/DAMAGE.C check_res, motion/PLAYMOVE.C parse_effect: 1 fire damage one
+time in five per update). First sphere with the defaults: water walk 3, levitate 4, jump and
+reveal 5, lava 6 (the boots; Flameproof's runes come later), open 7.
+
+## Where magic does not work (combat/SPELLS.C do_spell, obj/USEITEMS.C checkSpell)
+
+do_spell refuses on a no-magic square and on level 9, whoever casts. A scroll, a wand, a potion
+or an item's spell goes through the same path (inanimate_spell with the player as the caster,
+tested at the player's square), so **no-magic tiles stop scrolls, wands and potions too**. A
+worn enchantment does not go through do_spell (FixPlayerEquips calls player_affected_by), so it
+keeps working. An active spell cast before stepping onto such a square is not ended there
+either; the automatic zones take the strict reading (only `worn:` sources on links starting
+there). On L7 the orb leaves the player with no mana, so `spell:X` there reads
+`(cast:X & flag:orb_destroyed) | use:X`; the facts grant `flag:orb_destroyed` in the orb's zone
+(Tyball's crib) with `item:orb_rock`. The solver reaches it in sphere 15.
+
+## Hidden things: Reveal and the Search skill
+
+- **Secret doors** (0x147) are ordinary doors drawn like walls: UseRect opens them like any
+  other, and nothing searches for them (only critters refuse to use them, critter/PATHFIND.C).
+  Reveal does not act on them.
+- The hidden part is **look triggers** (0x1A3) in wall decorations (special tmap objects): the
+  chain opens the rock square where the secret door stands (change terrain) and deletes the
+  decoration. 18 such gates in UW1; 12 of them have height 0.
+- **The check** (event/TRIGGER.C UseTrigger): only a look trigger whose z is above 0 is
+  checked, with skill_check(Search, z) > 0, that is Search − z + rand() % 31 > 15
+  (game/SKILLCHK.C). **With Search 0, a height of z passes with chance (15 − z) / 31** per look,
+  never above 14. A failed look returns before anything is changed or marked, and looking works
+  from any distance, so **retrying is allowed** and Search 0 eventually passes every UW1 gate
+  (the highest is 10: 5 in 31). A sure pass needs Search z + 16 (26 for height 10).
+- **Reveal** (combat/SPELLS.C sp_true_sight) sets off look triggers of objects within 2 squares
+  of the square 4 ahead, 3d4 times, with Search raised to 45: sure up to height 29.
+- The back access of **Tyball's crib** (#349 at (42, 10)) opens with look trigger #351 of
+  height 0: any look, no Reveal, no skill. Karl's links 47 (height 7), 90, 92, 111, 121, 122 are
+  hidden gates; the gate behind 92 (into the tombs, #343) and those of 121 and 122 are looked at
+  from inside the tombs, so the tombs are entered only through the crystal mechanism (Phase C).
+- Option: the gate holds with Reveal, or with retries any chance above 0, or without retries
+  even odds (Search at least the height).
+
+## Lock picking and bashing
+
+UseLockpickOn calls checkLock with the Pick Lock skill: skill_check(skill, 3z) > 0, so skill −
+3z + rand() % 31 > 15; z 14 needs skill 31 first, z 15 never opens. The pick does not break, so
+with retries a lock of difficulty z opens when the skill is above 3z − 15: Pick Lock 0 opens z 0
+to 4, 30 opens up to 13; without retries the editor asks for skill 3z (15 in 31). The Open spell
+picks with skill 45 (z 14 too). Picking also needs a lock pick (six in UW1, the first at
+L1 (35, 61)).
+
+**Doors the shuffle must open** (picking and bashing both off): doors that nothing else opens,
+blocked in the solve, with what opening each alone adds:
+
+- L3 (15, 26) to the corridor with skeletons (`pick:4 | bash`): 5 zones and key 11, which opens
+  four more doors;
+- L3 (4, 55) to the shadow beasts (`pick:6 | bash`): the Key of Courage and key 10;
+- L8 (47, 42) to Carasso (`pick:10 | bash`): key 28 and Carasso;
+- L2 (11, 13) to the vault ledge (`pick:10`): 2 zones, nothing the logic needs;
+- nothing behind: L4 (61, 6) Rawstag's ankh shrine (`pick:14`: only the Open spell opens it),
+  L7 (41, 42) and (52, 54) into the cavern of dead things (`bash`).
+
+## The dragon skin boots, as the data shows them
+
+Karl's list is nearly right; the conversations differ in three places. Sethar Strongarm gives
+**dragon scales**, not boots, and wants **rotworm stew**; Marrowsuck makes the boots from the
+scales and the thread and wants **any food** (items 0xB0-0xBF), not only fish; the recipe is
+read with the bowl in the pack.
+
+- `worn:lava` ⇐ `item:dragon_scales & item:strong_thread & npc:marrowsuck & item:food`
+  (conversation 6: find_barter 285 and 284, do_inv_create 47, find_barter 1011)
+- `item:dragon_scales` (Sethar holds #653) ⇐ `item:rotworm_stew` (conversation 17)
+- `item:rotworm_stew` ⇐ `item:bowl & item:dead_rotworm & item:mushroom & item:flask_of_port &
+  item:stew_recipe` (obj/COMBINE.C make_stew: a bowl holding only those three)
+
+Where each is: strong thread L1 (20, 56..57), three pieces, and one carried by Tyball; bowls L1
+start (26, 12), L4 and L6; dead rotworm L4 (51, 6), and five rotworms (L1 two, L3, L6; a
+rotworm always leaves one, critter/PATHFIND.C build_corpse); mushrooms on every level 1-6;
+port L1 Outcasts (30, 12) and five more; the recipe, scroll #810 carried by **Lanugo**, L1 (4,
+56), handed over when asked about his stew; **Sethar Strongarm** L4 (49, 22); **Marrowsuck**
+L5 (34, 23); food everywhere. Fishing (a fishing pole facing water, one bite in five) is not
+needed. The solver has the boots in sphere 6. No dragon skin boots lie in the levels.
+
+## The damaging maze
+
+The maze's damage traps lie in rock and are set off by move triggers on the maze tiles. The
+fact walls every tile of L7 (42..62, 17..38) holding a move trigger whose chain hurts the
+player: 20 tiles. The pick-up triggers at (37..38, 35..38) hurt only when the object is taken,
+so they are not walls. The global option would wall 31 more tiles: L2 18 (the trap corridor at
+(25..29, 49..54) and three more), L4 1, L5 2, L7 8 (the maze entrance (54, 39) and the
+damage room west of the maze), L8 2.
+
+## How far the solver gets (242 zones; the goal on L9 needs the talismans, Phase C)
+
+| Magic | Single-use | Picking and bashing | Zones | Spheres |
+| --- | --- | --- | --- | --- |
+| on | off | on | 212 | 23 |
+| on | off | off | 200 | 25 |
+| on | on | on | 212 | 20 |
+| on | on | off | 200 | 21 |
+| off | off | on | 181 | 23 |
+| off | off | off | 168 | 25 |
+| off | on | on | 211 | 20 |
+| off | on | off | 200 | 21 |
+
+With the defaults (picking off, bashing on) it reaches 209. Without Magic and single-use items,
+levitation blocks the most (19 links): the only lasting source, the ring, is on L7 behind
+levitation itself. The rest is blocked by Phase C facts: `flag:var27_is_38` and
+`flag:var31_is_470` (lever codes), the tombs (the crystal), the sword area, Gate Travel.
+
+## Not settled
+
+- Casting ignores level, mana and the casting roll (Karl accepted it); Open on a z 14 lock
+  costs mana per try.
+- The no-magic reading is strict: a spell cast before stepping onto the square keeps working.
+- Telekinesis (sets the pick distance to 0) might replace the pole; not modelled.
+- The maze rectangle is hand-set; the maze's own entrance tile (54, 39) holds a damage trigger
+  but lies outside it.
+- Bashing a door needs no weapon or strength in the model.

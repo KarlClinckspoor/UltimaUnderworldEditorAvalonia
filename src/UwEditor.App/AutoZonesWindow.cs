@@ -21,6 +21,7 @@ namespace UwEditor.App
         readonly MainWindow main;
         readonly GameSession session;
         readonly NavOptions opt = new NavOptions();
+        readonly AbilityOptions abil = new AbilityOptions();
         readonly TextBox report = new TextBox { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap, FontFamily = new FontFamily("Cascadia Mono,Consolas,DejaVu Sans Mono,monospace"), FontSize = 12 };
         readonly TextBlock summary = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 4) };
         readonly ComboBox compareBox = new ComboBox { Width = 330 };
@@ -30,6 +31,10 @@ namespace UwEditor.App
 
         /// <summary>The last build, or null.</summary>
         public AutoZoneResult Result { get; private set; }
+        /// <summary>The last build's abilities, sources, hidden gates and solves (Phase B), or null.</summary>
+        public AbilityZoneResult Abilities { get; private set; }
+        /// <summary>The logic options of the next build (Phase B).</summary>
+        public AbilityOptions LogicOptions { get { return abil; } }
         /// <summary>The painted zoning the last build was compared with, or null.</summary>
         public ZoneSet Painted { get; private set; }
 
@@ -50,7 +55,8 @@ namespace UwEditor.App
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
                 Text = "Groups each level's open tiles into regions where the player walks anywhere and back, joins them by drops, climbs, gap jumps, doors and the levels' teleports, " +
                        "reads the levers and other trigger chains, and merges what is reachable both ways for free into zones. Movement is by rules of thumb; ceilings are ignored. " +
-                       "World changes (terrain, deleted walls) are listed, not applied yet." + (s.IsUw2 ? " Made for UW1; UW2's levels are read the same way but not checked." : ""),
+                       "World changes (terrain, deleted walls) are listed, not applied yet, except the walls a look opens (hidden gates). " +
+                       "The logic options say what the solver may expect of the player: where each ability comes from, picking and bashing, the Search skill." + (s.IsUw2 ? " Made for UW1; UW2's levels are read the same way but not checked." : ""),
             });
             var climb = Num(opt.MaxClimb, 1, 15, v => { opt.MaxClimb = v; });
             var spellClimb = Num(opt.JumpSpellClimb, 1, 15, v => opt.JumpSpellClimb = v);
@@ -61,17 +67,26 @@ namespace UwEditor.App
                 Check("diagonals too", opt.DiagonalJumps, v => opt.DiagonalJumps = v)));
             top.Children.Add(Row(Label("Zones"), Check("Cut at level changes", opt.CutAtLevelChanges, v => opt.CutAtLevelChanges = v),
                 Check("Fold empty dead ends (pits and ledges with nothing in them)", opt.FoldEmptyDeadEnds, v => opt.FoldEmptyDeadEnds = v)));
+            // Phase B: what the logic may expect of the player
+            var pickSkill = Num(abil.PickSkill, 0, 30, v => abil.PickSkill = v);
+            var search = Num(abil.SearchSkill, 0, 30, v => abil.SearchSkill = v);
+            top.Children.Add(Row(Label("Logic"), Check("Magic (casting from runes)", abil.Magic, v => abil.Magic = v),
+                Check("Single-use items count (scrolls, potions, charged wands)", abil.SingleUseItems, v => abil.SingleUseItems = v)));
+            top.Children.Add(Row(Label(""), Check("Lock picking in logic, skill", abil.LockPicking, v => abil.LockPicking = v), pickSkill,
+                Check("Bashing in logic", abil.Bashing, v => abil.Bashing = v)));
+            top.Children.Add(Row(Label(""), Label("Search skill", 90), search, Check("Retry until found", abil.SearchRetry, v => abil.SearchRetry = v),
+                Check("Damage-trap tiles are walls everywhere", abil.DamageTrapWalls, v => abil.DamageTrapWalls = v)));
             compareBox.ItemsSource = CompareChoices();
             compareBox.SelectedIndex = 0;
             top.Children.Add(Row(Label("Compare with"), compareBox));
 
             var build = new Button { Content = "Build", FontWeight = FontWeight.SemiBold };
             build.Click += (o, e) => BuildNow();
-            reportButton.Click += (o, e) => { if (Result != null) report.Text = AutoZones.Report(Result, Painted, session); };
+            reportButton.Click += (o, e) => { if (Result != null) report.Text = FullReport(); };
             openButton.Click += (o, e) => OpenInZones();
             exportButton.Click += (o, e) => Export();
             var solve = new Button { Content = "Solver report", IsEnabled = true };
-            solve.Click += (o, e) => { if (Result?.Solve != null) report.Text = Result.Solve.Report(Result.Set); };
+            solve.Click += (o, e) => { if (Abilities?.Solve != null) report.Text = Abilities.Solve.Report(Abilities.Set); };
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 4) };
             buttons.Children.Add(build); buttons.Children.Add(reportButton); buttons.Children.Add(solve); buttons.Children.Add(openButton); buttons.Children.Add(exportButton);
             top.Children.Add(buttons);
@@ -115,18 +130,27 @@ namespace UwEditor.App
                 Painted = ChosenPainted();
                 var edits = main.ViewModel.Edits;
                 Func<int, LevelModel> level = l => edits != null ? edits.Model(l) : session.LoadLevel(l);
-                Result = AutoZones.Build(session, level, opt, Painted);
+                Abilities = AbilityZones.Build(session, level, opt, abil.Clone(), Painted);
+                Result = Abilities.Auto;
                 var g = Result.Graph;
                 var zs = Result.Set;
-                var sv = Result.Solve;
-                summary.Text = string.Format("{0} regions, {1} edges, {2} zones, {3} links, {4} placements, {5} mechanisms, {6} levers ({7} out of reach). Solver: {8}, {9} of {10} zones reached{11}.",
+                var sv = Abilities.Solve;
+                summary.Text = string.Format("{0} regions, {1} edges, {2} zones, {3} links, {4} placements, {5} mechanisms, {6} levers ({7} out of reach), {8} ability sources, {9} hidden gates. Solver: {10}, {11} of {12} zones reached.",
                     g.Regions.Count, g.Edges.Count, zs.Zones.Count(z => z.Id > ZoneSet.Unassigned), zs.Links.Count, zs.Placements.Count, g.Mechanisms.Count, g.Levers.Count, g.Levers.Count(l => l.OutOfReach),
-                    sv == null ? "failed" : sv.GoalReached ? "goal reached" : "goal not reached", sv?.ZoneSphere.Count ?? 0, zs.Zones.Count(z => z.Id > ZoneSet.Unassigned),
-                    Result.SolveWithLava != null ? string.Format(" ({0} with hazard:lava assumed)", Result.SolveWithLava.ZoneSphere.Count) : "");
-                report.Text = AutoZones.Report(Result, Painted, session);
+                    Abilities.Sources.Count, Abilities.Hidden.Count,
+                    sv == null ? "failed" : sv.GoalReached ? "goal reached" : "goal not reached", sv?.ZoneSphere.Count ?? 0, zs.Zones.Count(z => z.Id > ZoneSet.Unassigned));
+                report.Text = FullReport();
                 openButton.IsEnabled = exportButton.IsEnabled = reportButton.IsEnabled = true;
             }
             catch (Exception ex) { summary.Text = "Could not build the zones: " + ex.Message; }
+        }
+
+        /// <summary>Phase B's report (abilities, gates, doors, solves), then Phase A's (counts, comparison, levers, drops, mechanisms).</summary>
+        string FullReport()
+        {
+            if (Result == null) return "";
+            string b = Abilities == null ? "" : AbilityZones.Report(Abilities) + Environment.NewLine;
+            return b + AutoZones.Report(Result, Painted, session);
         }
 
         string SuggestedPath { get { return Path.Combine(session.DataFolder, AutoZones.DefaultFileName(session.IsUw2)); } }
