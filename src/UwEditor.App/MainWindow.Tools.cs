@@ -112,6 +112,7 @@ namespace UwEditor.App
                 case "swap": ShowItemSwap(); break;
                 case "monsters": ShowMonsterSwap(); break;
                 case "automap": ShowAutomap(); break;
+                case "autozones": ShowAutoZones()?.BuildNow(); break;
                 case "challenges": ShowChallenges(); break;
                 case "sound": ShowSound(); break;
                 case "sound-effects": { var s = ShowSound(); if (s != null) s.Tabs.SelectedIndex = 1; } break;
