@@ -473,3 +473,8 @@ of both games, which is the reference.
 The editor's source code is under the [MIT License](LICENSE). Ultima Underworld and its game
 files belong to their rights holders and are not covered: the repository holds none of them,
 except the application icon, which is drawn from UW1's black sword picture.
+
+The editor plays sound through [OpenAL Soft](https://openal-soft.org/) (via Silk.NET), which is
+under the GNU LGPL (2.0 or later) and is loaded at run time as a separate library (`soft_oal.dll`,
+`libopenal.so`, `libopenal.dylib`; the single-file builds carry it inside and extract it when
+the editor starts).
