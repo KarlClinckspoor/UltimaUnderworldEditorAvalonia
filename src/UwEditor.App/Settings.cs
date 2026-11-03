@@ -18,6 +18,8 @@ namespace UwEditor.App
         public bool Models { get; set; } = true;
         /// <summary>"Dark" or "Light".</summary>
         public string Theme { get; set; } = "Dark";
+        /// <summary>View ▸ Layout: Comfortable or Compact (Density).</summary>
+        public string Layout { get; set; } = "Comfortable";
         /// <summary>Minutes between checkpoints of unsaved edits (0: off).</summary>
         public int CheckpointMinutes { get; set; } = 5;
         /// <summary>How many checkpoints to keep (1-1000).</summary>

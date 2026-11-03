@@ -67,6 +67,10 @@
           <MenuItem x:Name="DarkThemeItem" Header="_Dark" ToggleType="Radio" GroupName="theme" Click="OnDarkTheme" />
           <MenuItem x:Name="LightThemeItem" Header="_Light" ToggleType="Radio" GroupName="theme" Click="OnLightTheme" />
         </MenuItem>
+        <MenuItem Header="La_yout">
+          <MenuItem x:Name="ComfortableItem" Header="_Comfortable" ToggleType="Radio" GroupName="layout" Click="OnComfortable" />
+          <MenuItem x:Name="CompactItem" Header="Com_pact (classic, with borders)" ToggleType="Radio" GroupName="layout" Click="OnCompact" />
+        </MenuItem>
       </MenuItem>
       <MenuItem Header="_Level">
         <MenuItem Header="_Previous level" InputGesture="PageUp" Click="OnPreviousLevel" />

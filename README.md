@@ -246,6 +246,8 @@ from 0 (never) upwards, and up to 1000 copies. Restoring loads a checkpoint back
 edits that can be undone; the game folder is not touched until you save.
 
 **Colour scheme:** View ▸ Colour scheme ▸ Dark or Light, remembered between runs.
+**Layout:** View ▸ Layout ▸ Comfortable or Compact: a classic, XP-like layout with tighter
+controls and borders in place of white space, in either colour scheme; font sizes stay.
 
 ### More tools
 

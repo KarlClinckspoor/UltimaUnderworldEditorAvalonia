@@ -1,0 +1,178 @@
+<!--
+  View ▸ Layout ▸ Compact (classic): tighter controls and borders instead of white space, in
+  the manner of Windows XP's classic dialogs. Font sizes are not changed. Density.cs adds these
+  styles after Styles.axaml (so they win) and halves the margins and spacing windows set
+  themselves; Comfortable removes them again.
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <!-- Fluent's own sizes, tightened -->
+      <Thickness x:Key="ButtonPadding">8,2,8,3</Thickness>
+      <x:Double x:Key="CheckBoxMinHeight">20</x:Double>
+      <x:Double x:Key="RadioButtonMinHeight">20</x:Double>
+      <x:Double x:Key="ComboBoxMinHeight">24</x:Double>
+      <Thickness x:Key="ComboBoxPadding">6,1,0,2</Thickness>
+      <Thickness x:Key="ComboBoxItemThemePadding">6,2,6,3</Thickness>
+      <Thickness x:Key="ListBoxItemPadding">6,2,6,3</Thickness>
+      <x:Double x:Key="MenuBarHeight">24</x:Double>
+      <Thickness x:Key="MenuBarItemPadding">8,2</Thickness>
+      <Thickness x:Key="MenuFlyoutItemThemePadding">8,3,8,4</Thickness>
+      <Thickness x:Key="MenuFlyoutItemThemePaddingNarrow">8,2,8,3</Thickness>
+      <Thickness x:Key="MenuFlyoutPresenterThemePadding">0,2</Thickness>
+      <x:Double x:Key="TabItemMinHeight">26</x:Double>
+      <x:Double x:Key="TextControlThemeMinHeight">24</x:Double>
+      <Thickness x:Key="TextControlThemePadding">5,2,5,3</Thickness>
+      <x:Double x:Key="TreeViewItemMinHeight">20</x:Double>
+      <x:Double x:Key="ExpanderMinHeight">28</x:Double>
+      <Thickness x:Key="ExpanderHeaderPadding">8,0</Thickness>
+      <Thickness x:Key="ExpanderContentPadding">8,4</Thickness>
+      <Thickness x:Key="GroupBoxPadding">6,4</Thickness>
+      <Thickness x:Key="FlyoutContentThemePadding">6</Thickness>
+      <Thickness x:Key="ToolTipBorderThemePadding">6,3,6,4</Thickness>
+      <CornerRadius x:Key="ControlCornerRadius">2</CornerRadius>
+      <CornerRadius x:Key="OverlayCornerRadius">2</CornerRadius>
+      <Thickness x:Key="ButtonBorderThemeThickness">1</Thickness>
+
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="Frame">#4A505C</SolidColorBrush>
+          <SolidColorBrush x:Key="HeaderBar">#2A2E36</SolidColorBrush>
+          <LinearGradientBrush x:Key="ButtonBackground" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#3A3F48" /><GradientStop Offset="1" Color="#2A2E35" />
+          </LinearGradientBrush>
+          <LinearGradientBrush x:Key="ButtonBackgroundPointerOver" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#474D58" /><GradientStop Offset="1" Color="#343841" />
+          </LinearGradientBrush>
+          <SolidColorBrush x:Key="ButtonBackgroundPressed">#23262C</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonBorderBrush">#5A6170</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonBorderBrushPointerOver">#C9934C</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonBorderBrushPressed">#C9934C</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonBorderBrushDisabled">#3A3F48</SolidColorBrush>
+          <SolidColorBrush x:Key="TextControlBorderBrush">#5A6170</SolidColorBrush>
+          <SolidColorBrush x:Key="TextControlBorderBrushPointerOver">#7A8190</SolidColorBrush>
+          <SolidColorBrush x:Key="ComboBoxBorderBrush">#5A6170</SolidColorBrush>
+          <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver">#C9934C</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="Frame">#A9A497</SolidColorBrush>
+          <SolidColorBrush x:Key="HeaderBar">#E2DCCD</SolidColorBrush>
+          <LinearGradientBrush x:Key="ButtonBackground" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#FFFFFF" /><GradientStop Offset="1" Color="#E8E4D8" />
+          </LinearGradientBrush>
+          <LinearGradientBrush x:Key="ButtonBackgroundPointerOver" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#FFFFFF" /><GradientStop Offset="1" Color="#F2E6CF" />
+          </LinearGradientBrush>
+          <SolidColorBrush x:Key="ButtonBackgroundPressed">#DCD6C6</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonBorderBrush">#7F7B70</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonBorderBrushPointerOver">#9A6420</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonBorderBrushPressed">#9A6420</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonBorderBrushDisabled">#C9C4B8</SolidColorBrush>
+          <SolidColorBrush x:Key="TextControlBorderBrush">#7F7B70</SolidColorBrush>
+          <SolidColorBrush x:Key="TextControlBorderBrushPointerOver">#5E5A50</SolidColorBrush>
+          <SolidColorBrush x:Key="ComboBoxBorderBrush">#7F7B70</SolidColorBrush>
+          <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver">#9A6420</SolidColorBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- the editor's own styles (Styles.axaml), tightened -->
+  <Style Selector="Menu">
+    <Setter Property="Height" Value="24" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Frame}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+  <Style Selector="Menu > MenuItem">
+    <Setter Property="Padding" Value="8,2" />
+  </Style>
+  <Style Selector="CheckBox">
+    <Setter Property="MinHeight" Value="20" />
+  </Style>
+  <Style Selector="TreeViewItem">
+    <Setter Property="MinHeight" Value="20" />
+  </Style>
+  <Style Selector="ListBoxItem">
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="Border.toolbar">
+    <Setter Property="Padding" Value="4,3" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Frame}" />
+  </Style>
+  <Style Selector="Border.toolbar Button, Border.toolbar ToggleButton">
+    <Setter Property="Padding" Value="7,1,7,2" />
+    <Setter Property="Margin" Value="0,0,3,0" />
+  </Style>
+  <Style Selector="Border.toolbar ComboBox">
+    <Setter Property="MinHeight" Value="22" />
+  </Style>
+  <Style Selector="Border.status">
+    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Frame}" />
+  </Style>
+  <Style Selector="GridSplitter">
+    <Setter Property="Background" Value="{DynamicResource Frame}" />
+  </Style>
+
+  <!-- section headers become header bars, as XP's task panes have them -->
+  <Style Selector="TextBlock.h">
+    <Setter Property="Background" Value="{DynamicResource HeaderBar}" />
+    <Setter Property="Padding" Value="5,2,5,3" />
+    <Setter Property="Margin" Value="0,6,0,3" />
+  </Style>
+  <Style Selector="TextBlock.h.first">
+    <Setter Property="Margin" Value="0,0,0,3" />
+  </Style>
+  <Style Selector="TextBlock.section">
+    <Setter Property="Margin" Value="0,4,0,1" />
+  </Style>
+
+  <!-- the side panels are framed -->
+  <Style Selector="Border.panel">
+    <Setter Property="BorderBrush" Value="{DynamicResource Frame}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <!-- lists, trees and text are framed -->
+  <Style Selector="ListBox, TreeView">
+    <Setter Property="BorderBrush" Value="{DynamicResource Frame}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="TextBox, ComboBox, NumericUpDown">
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <!-- tabs: framed, the chosen one joined to its page -->
+  <Style Selector="TabControl > TabItem">
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="Margin" Value="0,0,2,0" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Frame}" />
+    <Setter Property="BorderThickness" Value="1,1,1,0" />
+    <Setter Property="Background" Value="{DynamicResource PanelAlt}" />
+    <Setter Property="CornerRadius" Value="3,3,0,0" />
+  </Style>
+  <Style Selector="TabControl > TabItem:selected">
+    <Setter Property="Background" Value="{DynamicResource Panel}" />
+  </Style>
+  <Style Selector="TabControl > TabItem /template/ Border#PART_SelectedPipe">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="TabControl /template/ ContentPresenter#PART_SelectedContentHost">
+    <Setter Property="BorderBrush" Value="{DynamicResource Frame}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="{DynamicResource Panel}" />
+    <Setter Property="Padding" Value="6" />
+  </Style>
+
+  <!-- the object list's quick filters -->
+  <Style Selector="ToggleButton.chip">
+    <Setter Property="Padding" Value="6,1" />
+    <Setter Property="MinHeight" Value="20" />
+    <Setter Property="Margin" Value="0,0,3,3" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Frame}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+</Styles>

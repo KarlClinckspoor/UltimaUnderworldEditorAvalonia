@@ -52,6 +52,9 @@ namespace UwEditor.App
             vm.GridStep = settings.GridStep;
             vm.ShowModels = settings.Models;
             ColourScheme.Set(settings.Theme);
+            Density.Set(settings.Layout);
+            ComfortableItem.IsChecked = !Density.IsCompact;
+            CompactItem.IsChecked = Density.IsCompact;
             DarkThemeItem.IsChecked = settings.Theme != ColourScheme.Light;
             LightThemeItem.IsChecked = settings.Theme == ColourScheme.Light;
             View.CameraChanged += UpdateGridLabels;
@@ -693,6 +696,20 @@ namespace UwEditor.App
             LightThemeItem.IsChecked = name == ColourScheme.Light;
             ApplyAccent(vm.Session != null && vm.Session.IsUw2);
             vm.EditStatus = (name == ColourScheme.Light ? "Light" : "Dark") + " colours.";
+        }
+
+        void OnComfortable(object sender, RoutedEventArgs e) { SetLayout(Density.Comfortable); }
+        void OnCompact(object sender, RoutedEventArgs e) { SetLayout(Density.Compact); }
+
+        /// <summary>Switches every window between the comfortable and the compact (classic) layout, and remembers it.</summary>
+        public void SetLayout(string name)
+        {
+            Density.Set(name);
+            settings.Layout = Density.IsCompact ? Density.Compact : Density.Comfortable;
+            settings.Save();
+            ComfortableItem.IsChecked = !Density.IsCompact;
+            CompactItem.IsChecked = Density.IsCompact;
+            vm.EditStatus = Density.IsCompact ? "Compact layout: tighter controls, borders instead of space." : "Comfortable layout.";
         }
 
         void OnManual(object sender, RoutedEventArgs e) { ManualWindow.ShowAt(this); }

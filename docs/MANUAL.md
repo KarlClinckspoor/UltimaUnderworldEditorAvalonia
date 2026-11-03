@@ -1089,6 +1089,15 @@ replaced; a folder holding other files is refused.
 **View ▸ Colour scheme** switches between dark and light colours for every window. The
 choice is remembered between runs. The 3D view and the pictures keep their own colours.
 
+**View ▸ Layout** chooses how much room the controls take, with either colour scheme.
+**Comfortable** is the spacious modern look. **Compact (classic, with borders)** is closer to
+Windows XP's dialogs: buttons, boxes, menus, tabs and list rows are shorter, the white space
+the windows put between things is halved, and borders take its place to guide the eye:
+framed side panels, lists, trees and tab pages, buttons with a raised face and an edge,
+classic tabs joined to their page, and section headings drawn as header bars. Font sizes do
+not change. It applies to every window at once, open or opened later, and is remembered
+between runs.
+
 ## What enchantments do
 
 - **A weapon's blow** looks only at a weapon enchantment, major class 12 (COMBAT.C
