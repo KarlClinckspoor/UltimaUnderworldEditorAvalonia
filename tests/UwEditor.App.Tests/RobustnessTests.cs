@@ -12,6 +12,26 @@ namespace UwEditor.App.Tests
     /// <summary>Crash recovery: an error is logged and the unsaved work kept; a run left behind is offered back.</summary>
     public class RecoveryTests
     {
+        [AvaloniaFact]
+        public void The_settings_folder_of_the_old_name_moves_to_the_new_one()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "uwedit-rename-" + Guid.NewGuid().ToString("N"));
+            string old = Path.Combine(root, Settings.OldName), dir = Path.Combine(root, Settings.Name);
+            Directory.CreateDirectory(Path.Combine(old, "checkpoints"));
+            File.WriteAllText(Path.Combine(old, "settings.json"), "{}");
+            File.WriteAllText(Path.Combine(old, "checkpoints", "a.json"), "x");
+            Settings.MoveOldFolder(old, dir);
+            Assert.False(Directory.Exists(old));
+            Assert.Equal("{}", File.ReadAllText(Path.Combine(dir, "settings.json")));
+            Assert.Equal("x", File.ReadAllText(Path.Combine(dir, "checkpoints", "a.json")));
+            // a folder of the new name is never overwritten
+            Directory.CreateDirectory(old);
+            File.WriteAllText(Path.Combine(old, "settings.json"), "old");
+            Settings.MoveOldFolder(old, dir);
+            Assert.Equal("{}", File.ReadAllText(Path.Combine(dir, "settings.json")));
+            Directory.Delete(root, true);
+        }
+
         static string Uw1 { get { return GameData.Game("UW"); } }
 
         static void RaiseFloor(MainWindow w)

@@ -40,13 +40,13 @@ jobs:
           V=${{ steps.v.outputs.version }}
           mkdir -p dist
           for r in win-x64 linux-x64 osx-x64 osx-arm64; do
-            d=stage/UwEditorFree-$V-$r
+            d=stage/UwEditorAvalonia-$V-$r
             dotnet publish src/UwEditor.App -c Release -r $r --self-contained true \
               -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none \
               -p:Version=${{ steps.v.outputs.number }} -p:InformationalVersion=$V -o $d
             rm -f $d/*.pdb
             sed "s/VERSION/$V/" .github/release-readme.txt > $d/README.txt
-            (cd stage && if [ $r = linux-x64 ]; then tar czf ../dist/UwEditorFree-$V-$r.tar.gz UwEditorFree-$V-$r; else zip -qr9 ../dist/UwEditorFree-$V-$r.zip UwEditorFree-$V-$r; fi)
+            (cd stage && if [ $r = linux-x64 ]; then tar czf ../dist/UwEditorAvalonia-$V-$r.tar.gz UwEditorAvalonia-$V-$r; else zip -qr9 ../dist/UwEditorAvalonia-$V-$r.zip UwEditorAvalonia-$V-$r; fi)
           done
           ls -la dist
       - name: Release

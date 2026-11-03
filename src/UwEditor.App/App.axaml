@@ -4,10 +4,10 @@
              RequestedThemeVariant="Dark">
   <Application.Styles>
     <FluentTheme />
-    <StyleInclude Source="avares://UwEditorFree/Styles.axaml" />
+    <StyleInclude Source="avares://UwEditorAvalonia/Styles.axaml" />
     <!-- every window carries the black sword (UW1 item 0x00C, from OBJECTS.GR) -->
     <Style Selector=":is(Window)">
-      <Setter Property="Icon" Value="avares://UwEditorFree/Assets/icon-256.png" />
+      <Setter Property="Icon" Value="avares://UwEditorAvalonia/Assets/icon-256.png" />
     </Style>
   </Application.Styles>
 </Application>

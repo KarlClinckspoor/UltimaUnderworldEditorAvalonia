@@ -1,4 +1,4 @@
-# UltimaUnderworldEditorFree: plan for a minimal working example
+# UltimaUnderworldEditorAvalonia: plan for a minimal working example
 
 A level editor for Ultima Underworld 1 and 2 that does not use Unity. It runs on Windows, Linux
 and macOS. The window has a large 3D view in the middle, tool panels on both sides and a menu
@@ -190,8 +190,8 @@ Unity ImGui crashes came from UImGui's native build inside Unity, not from ImGui
 ## 3. Code layout
 
 ```
-UltimaUnderworldEditorFree/
-  UltimaUnderworldEditorFree.sln
+UltimaUnderworldEditorAvalonia/
+  UltimaUnderworldEditorAvalonia.sln
   Directory.Build.props          EditorRoot: where the Unity editor's sources are
   PLAN.md
   src/
@@ -404,7 +404,7 @@ About 6–7 working days in total.
 ## 7. Decisions for Karl (defaults in bold)
 
 1. Toolkit: **Avalonia 12 + OpenGL**, or Silk.NET + ImGui.
-2. Repo: **a new GitHub repo, `KarlClinckspoor/UltimaUnderworldEditorFree`, local until you say
+2. Repo: **a new GitHub repo, `KarlClinckspoor/UltimaUnderworldEditorAvalonia`, local until you say
    to push**.
 3. How it gets the Formats code: ~~from a sibling checkout~~ **copied for now** (Karl, 2026-10-31).
 4. Camera at start: **orbit over the start square**, or fly at eye height.

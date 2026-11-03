@@ -39,8 +39,40 @@ namespace UwEditor.App
         {
             // UWEDITOR_SETTINGS_DIR: tests keep their own settings away from the user's
             string dir = Environment.GetEnvironmentVariable("UWEDITOR_SETTINGS_DIR");
-            if (string.IsNullOrEmpty(dir)) dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UwEditorFree");
+            if (string.IsNullOrEmpty(dir))
+            {
+                string app = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                dir = Path.Combine(app, Name);
+                if (!moved) { moved = true; MoveOldFolder(Path.Combine(app, OldName), dir); }
+            }
             return Path.Combine(dir, "settings.json");
+        }
+
+        /// <summary>The settings folder's name, and the one versions before the rename used.</summary>
+        public const string Name = "UwEditorAvalonia", OldName = "UwEditorFree";
+        static bool moved;
+
+        /// <summary>
+        /// When the folder of the old name is there and the new one is not: the old one
+        /// (settings, checkpoints, crash logs, run files) becomes the new one, or is copied when
+        /// it cannot be moved.
+        /// </summary>
+        public static void MoveOldFolder(string old, string dir)
+        {
+            try
+            {
+                if (!Directory.Exists(old) || Directory.Exists(dir)) return;
+                try { Directory.Move(old, dir); }
+                catch (Exception) { CopyFolder(old, dir); }
+            }
+            catch (Exception) { }
+        }
+
+        static void CopyFolder(string from, string to)
+        {
+            Directory.CreateDirectory(to);
+            foreach (var f in Directory.GetFiles(from)) File.Copy(f, Path.Combine(to, Path.GetFileName(f)), false);
+            foreach (var d in Directory.GetDirectories(from)) CopyFolder(d, Path.Combine(to, Path.GetFileName(d)));
         }
 
         public static Settings Load()

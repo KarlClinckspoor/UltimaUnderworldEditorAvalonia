@@ -1419,9 +1419,10 @@ Limits:
 | `SCD.ARK` | Schedules (UW2) |
 | `DESC`, save folders | Saved games (rename, copy), Export as a saved game |
 
-In the editor's settings folder (`%APPDATA%\UwEditorFree`, `~/.config/UwEditorFree` on Linux):
+In the editor's settings folder (`%APPDATA%\UwEditorAvalonia`, `~/.config/UwEditorAvalonia` on Linux):
 `settings.json`, `checkpoints`, `crashes` (crash logs), `running-PID.json` (while it runs),
-`Play test` and `Exhumed check` (copies of the game for those).
+`Play test` and `Exhumed check` (copies of the game for those). Versions before the rename kept it
+in `UwEditorFree`; the first start of this one moves that folder to the new name.
 
 Before writing, the old file is kept as `NAME.EXT.BKP`. The first time the editor writes a file,
 it also keeps the untouched original as `NAME.EXT.ORIG`. The mods window compares with

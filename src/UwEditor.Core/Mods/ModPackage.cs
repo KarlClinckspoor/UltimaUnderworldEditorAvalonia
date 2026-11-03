@@ -81,7 +81,7 @@ namespace UwEditor.Core.Mods
     {
         public string Id = "my.mod", Name = "My mod", Version = "1.0.0", Description = "", Game = "uw1";
         public List<string> Authors = new List<string>();
-        public string MadeWith = "UwEditorFree";
+        public string MadeWith = "UwEditorAvalonia";
         /// <summary>The hash of each file the mod changes, as it was when the mod was made (the reference).</summary>
         public readonly Dictionary<string, string> BaseFiles = new Dictionary<string, string>();
         /// <summary>The hash of each file after the mod (to recognise it already applied).</summary>

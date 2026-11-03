@@ -18,7 +18,7 @@ namespace UwEditor.Core.Tests
                 string env = Environment.GetEnvironmentVariable("UW_GAMEDATA");
                 if (!string.IsNullOrEmpty(env)) return env;
                 var dir = new DirectoryInfo(AppContext.BaseDirectory);
-                while (dir != null && !File.Exists(Path.Combine(dir.FullName, "UltimaUnderworldEditorFree.sln"))) dir = dir.Parent;
+                while (dir != null && !File.Exists(Path.Combine(dir.FullName, "UltimaUnderworldEditorAvalonia.sln"))) dir = dir.Parent;
                 return dir == null ? null : Path.Combine(dir.FullName, "gamedata");
             }
         }

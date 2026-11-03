@@ -163,13 +163,13 @@ namespace UwEditor.Screenshots
             Settle();
         }
 
-        /// <summary>The editor's program: UwEditorFree.dll in the App project's output (Debug or Release, the newest).</summary>
+        /// <summary>The editor's program: UwEditorAvalonia.dll in the App project's output (Debug or Release, the newest).</summary>
         static string AppDll
         {
             get
             {
                 string bin = Path.Combine(Snapshots.RepoRoot, "src", "UwEditor.App", "bin");
-                var found = Directory.Exists(bin) ? Directory.GetFiles(bin, "UwEditorFree.dll", SearchOption.AllDirectories)
+                var found = Directory.Exists(bin) ? Directory.GetFiles(bin, "UwEditorAvalonia.dll", SearchOption.AllDirectories)
                     .Where(f => !f.Contains(Path.DirectorySeparatorChar + "publish" + Path.DirectorySeparatorChar))
                     .OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
                 return found ?? throw new FileNotFoundException("Build src/UwEditor.App first (dotnet build).");

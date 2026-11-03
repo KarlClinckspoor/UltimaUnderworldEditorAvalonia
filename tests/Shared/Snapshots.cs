@@ -61,7 +61,7 @@ namespace UwEditor.TestSupport
             get
             {
                 var dir = new DirectoryInfo(AppContext.BaseDirectory);
-                while (dir != null && !File.Exists(Path.Combine(dir.FullName, "UltimaUnderworldEditorFree.sln"))) dir = dir.Parent;
+                while (dir != null && !File.Exists(Path.Combine(dir.FullName, "UltimaUnderworldEditorAvalonia.sln"))) dir = dir.Parent;
                 return dir?.FullName ?? Directory.GetCurrentDirectory();
             }
         }

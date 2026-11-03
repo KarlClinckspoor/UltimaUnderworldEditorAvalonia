@@ -1,4 +1,4 @@
-# Underworld Editor (free of Unity)
+# Underworld Editor (Avalonia)
 
 A level editor for **Ultima Underworld I** and **II** that runs on Windows, Linux and macOS.
 It uses Avalonia 12 for the window and OpenGL for the 3D view. It opens a game, shows any
