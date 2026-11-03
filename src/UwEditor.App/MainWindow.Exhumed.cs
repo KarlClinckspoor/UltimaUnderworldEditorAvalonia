@@ -45,6 +45,13 @@ namespace UwEditor.App
             return ExhumedCheck.FindPort(kind, new[] { vm.Session?.GameFolder, Path.GetDirectoryName(vm.Session?.GameFolder ?? "") });
         }
 
+        /// <summary>The check's thoroughness, remembered between runs.</summary>
+        public ExhumedOptions ExhumedThoroughness
+        {
+            get { return new ExhumedOptions { VisitEdits = settings.ExhumedEdits, Sweep = settings.ExhumedSweep, LookAround = settings.ExhumedLook }; }
+            set { settings.ExhumedEdits = value.VisitEdits; settings.ExhumedSweep = value.Sweep; settings.ExhumedLook = value.LookAround; settings.Save(); }
+        }
+
         public void SetExhumedPort(GameKind kind, string path)
         {
             if (kind == GameKind.UW2) settings.ExhumedUw2Path = path; else settings.ExhumedUw1Path = path;
@@ -52,12 +59,12 @@ namespace UwEditor.App
         }
 
         /// <summary>Sets a check up with the unsaved levels (and player) in the settings folder.</summary>
-        public ExhumedPlan PrepareExhumed(IList<int> levels, bool saveAtEnd, bool keepAlive = true)
+        public ExhumedPlan PrepareExhumed(IList<int> levels, bool saveAtEnd, bool keepAlive = true, ExhumedOptions options = null)
         {
             var s = vm.Session;
             string folder = ExhumedFolder ?? Path.Combine(Settings.Folder, "Exhumed check", (s.IsUw2 ? "uw2-" : "uw1-") + new string(Path.GetFileName(s.GameFolder.TrimEnd('/', '\\')).Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray()));
             byte[] player = playerSheet != null && playerSheet.Dirty ? playerSheet.ToBytes() : null;
-            return ExhumedCheck.Prepare(s, vm.Edits, player, levels, folder, saveAtEnd, keepAlive);
+            return ExhumedCheck.Prepare(s, vm.Edits, player, levels, folder, saveAtEnd, keepAlive, options);
         }
 
         SaveCheckWindow saveCheckWindow;

@@ -38,6 +38,10 @@ namespace UwEditor.App
         /// <summary>Underworld Exhumed's ports for the checks (uw1port, uw2port), chosen once.</summary>
         public string ExhumedUw1Path { get; set; } = "";
         public string ExhumedUw2Path { get; set; } = "";
+        /// <summary>The check in Underworld Exhumed: also beside the edits, a sweep of each level, a look round at each stop.</summary>
+        public bool ExhumedEdits { get; set; }
+        public bool ExhumedSweep { get; set; }
+        public bool ExhumedLook { get; set; }
 
         /// <summary>The folder the settings (and the checkpoints) live in.</summary>
         public static string Folder { get { return Path.GetDirectoryName(PathOf()); } }

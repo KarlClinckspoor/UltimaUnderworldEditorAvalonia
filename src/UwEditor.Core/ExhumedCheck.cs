@@ -15,6 +15,25 @@ namespace UwEditor.Core
         public int Level, X, Y;
         /// <summary>When the cheat runs in the script (milliseconds of the game's clock).</summary>
         public int At;
+        /// <summary>Why the player goes there: "level" (the level's own square), "edit" (beside an edit), "sweep" (one square of an area of the level).</summary>
+        public string Why = "level";
+        public string Key { get { return Level + " " + X + " " + Y; } }
+    }
+
+    /// <summary>How thorough a check is: where on each level the player goes, and what he does there.</summary>
+    public sealed class ExhumedOptions
+    {
+        /// <summary>Also go beside every edited spot (tiles and objects changed), so the creatures and objects near the edits are drawn and run.</summary>
+        public bool VisitEdits;
+        /// <summary>Also go to one square in each 16 by 16 area of the level that has room for the player.</summary>
+        public bool Sweep;
+        /// <summary>Turn round once at each stop (the turn-left key held), so everything in range is drawn.</summary>
+        public bool LookAround;
+        /// <summary>At most this many stops beside edits on one level.</summary>
+        public int MaxEditStops = 12;
+        /// <summary>Stops closer than this many squares to another stop are left out.</summary>
+        public int Spacing = 5;
+        public ExhumedOptions Clone() { return (ExhumedOptions)MemberwiseClone(); }
     }
 
     /// <summary>A check set up: the folders, the script and how to run the port.</summary>
@@ -28,6 +47,8 @@ namespace UwEditor.Core
         public bool NewCharacter;
         /// <summary>The script ends by saving in slot I, so the game writes every level it visited.</summary>
         public bool SavesAtEnd;
+        /// <summary>Where the player went on each level and what he did there.</summary>
+        public ExhumedOptions Options = new ExhumedOptions();
         /// <summary>The player is kept alive: strength 99 and defense 30 at the start, hit points filled before each level (the port has no god mode; its set cheat does this).</summary>
         public bool KeepAlive;
         /// <summary>The hit points set before each level: the maximum with strength 99 (SKILLS.C player_compute: 30 + level × strength / 5, at most 255).</summary>
@@ -61,6 +82,8 @@ namespace UwEditor.Core
         public string Output = "";
         /// <summary>The levels the player reached (the cheat ran); the ones refused, with the game's reason.</summary>
         public readonly List<int> Reached = new List<int>();
+        /// <summary>The stops the player reached, as "level x y".</summary>
+        public readonly HashSet<string> StopsReached = new HashSet<string>();
         public readonly List<string> Refused = new List<string>();
         /// <summary>Problems: a crash, a halt, the game's fatal error, a cheat refused, findings in the levels the game saved.</summary>
         public readonly List<string> Problems = new List<string>();
@@ -93,6 +116,8 @@ namespace UwEditor.Core
         public const string Marker = ".uwedit-exhumed";
         /// <summary>Time for a level change (the cheat waits for the 3D view itself; this is the spacing).</summary>
         public const int VisitMs = 5000;
+        /// <summary>How long the turn-left key is held to look round once (a turn takes about 3.1 s; a little more for the start of the turn).</summary>
+        public const int LookMs = 3600;
 
         /// <summary>The port's program for the game: uw1port or uw2port (with .exe on Windows).</summary>
         public static string ProgramName(GameKind kind) { return (kind == GameKind.UW2 ? "uw2port" : "uw1port") + (OperatingSystem.IsWindows() ? ".exe" : ""); }
@@ -136,6 +161,101 @@ namespace UwEditor.Core
         public static (int X, int Y)? GotoSquare(GameSession s, LevelModel m, TerrainTable terrain = null)
         {
             terrain = terrain ?? TryTerrain(s);
+            Func<int, int, bool> good = (x, y) => Standable(s, m, terrain, x, y);
+            var start = s.Start;
+            if (start != null && start.Level == m.Level && good((int)start.X, (int)start.Y)) return ((int)start.X, (int)start.Y);
+            // nearest the middle first: away from the map's edge, likely in the level's heart
+            var all = new List<(int X, int Y)>();
+            for (int y = 2; y < 62; y++) for (int x = 2; x < 62; x++) if (good(x, y)) all.Add((x, y));
+            if (all.Count == 0) return null;
+            return all.OrderBy(t => Math.Abs(t.X - 32) + Math.Abs(t.Y - 32)).First();
+        }
+
+        /// <summary>The standable square nearest (x, y), at most r squares away each way (nearest first by distance), or null.</summary>
+        public static (int X, int Y)? NearestStandable(GameSession s, LevelModel m, TerrainTable terrain, int x, int y, int r, bool loose = false)
+        {
+            (int X, int Y)? best = null;
+            int bestD = int.MaxValue;
+            for (int yy = Math.Max(1, y - r); yy <= Math.Min(62, y + r); yy++)
+                for (int xx = Math.Max(1, x - r); xx <= Math.Min(62, x + r); xx++)
+                {
+                    int d = (xx - x) * (xx - x) + (yy - y) * (yy - y);
+                    if (d < bestD && Standable(s, m, terrain, xx, yy, loose)) { best = (xx, yy); bestD = d; }
+                }
+            return best;
+        }
+
+        /// <summary>
+        /// The squares a check sends the player to on a level: its own square (GotoSquare), then
+        /// with the options a square beside each edited spot and one in each 16 by 16 area with
+        /// room, each at least Spacing squares from the others.
+        /// </summary>
+        public static List<ExhumedVisit> Stops(GameSession s, LevelEdits edits, int level, ExhumedOptions o, TerrainTable terrain = null)
+        {
+            o = o ?? new ExhumedOptions();
+            terrain = terrain ?? TryTerrain(s);
+            var m = edits != null ? edits.Model(level) : s.LoadLevel(level);
+            var list = new List<ExhumedVisit>();
+            var first = GotoSquare(s, m, terrain);
+            if (first == null) return list;
+            list.Add(new ExhumedVisit { Level = level, X = first.Value.X, Y = first.Value.Y, Why = "level" });
+            Func<int, int, bool> far = (x, y) => list.All(v => Math.Max(Math.Abs(v.X - x), Math.Abs(v.Y - y)) >= o.Spacing);
+            if (o.VisitEdits && edits != null)
+            {
+                int n = 0;
+                foreach (var spot in EditedSpots(s, edits, level))
+                {
+                    if (n >= o.MaxEditStops) break;
+                    // an edit often makes the squares round it uneven: fall back to a plain open, dry, empty square
+                    var sq = NearestStandable(s, m, terrain, spot.X, spot.Y, 4) ?? NearestStandable(s, m, terrain, spot.X, spot.Y, 4, true);
+                    if (sq == null || !far(sq.Value.X, sq.Value.Y)) continue;
+                    list.Add(new ExhumedVisit { Level = level, X = sq.Value.X, Y = sq.Value.Y, Why = "edit" });
+                    n++;
+                }
+            }
+            if (o.Sweep)
+                for (int by = 0; by < 4; by++)
+                    for (int bx = 0; bx < 4; bx++)
+                    {
+                        var sq = NearestStandable(s, m, terrain, bx * 16 + 8, by * 16 + 8, 7);
+                        if (sq == null || !far(sq.Value.X, sq.Value.Y)) continue;
+                        list.Add(new ExhumedVisit { Level = level, X = sq.Value.X, Y = sq.Value.Y, Why = "sweep" });
+                    }
+            return list;
+        }
+
+        /// <summary>
+        /// The squares of a level the edits changed: tiles whose record differs from the level as
+        /// saved, and the squares of objects added, removed, moved or changed (both where they
+        /// were and where they are; an object inside another counts at its holder's square).
+        /// </summary>
+        public static List<(int X, int Y)> EditedSpots(GameSession s, LevelEdits edits, int level)
+        {
+            var spots = new List<(int X, int Y)>();
+            var seen = new HashSet<int>();
+            Action<int, int> add = (x, y) => { if (x >= 0 && y >= 0 && x < 64 && y < 64 && seen.Add(x + 64 * y)) spots.Add((x, y)); };
+            LevelModel before, now;
+            try { before = s.LoadLevel(level); now = edits.Model(level); }
+            catch (Exception) { return spots; }
+            if (before == null || now == null || !now.Present) return spots;
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
+                    if (!before.Tiles[x, y].Record.AsSpan().SequenceEqual(now.Tiles[x, y].Record)) add(x, y);
+            int n = Math.Min(before.Objects.Length, now.Objects.Length);
+            for (int i = 1; i < n; i++)
+            {
+                var a = before.Objects[i]; var b = now.Objects[i];
+                bool same = a.Free == b.Free && a.TileX == b.TileX && a.TileY == b.TileY && a.Record.AsSpan().SequenceEqual(b.Record);
+                if (same) continue;
+                if (!a.Free) add(a.TileX, a.TileY);
+                if (!b.Free) add(b.TileX, b.TileY);
+            }
+            return spots;
+        }
+
+        /// <summary>A square the player can be sent to: open and flat, its eight neighbours open at the same height, not water or lava, and nothing lying on it.</summary>
+        public static bool Standable(GameSession s, LevelModel m, TerrainTable terrain, int x, int y, bool loose = false)
+        {
             Func<int, int, bool> good = (x, y) =>
             {
                 if (x < 1 || y < 1 || x > 62 || y > 62) return false;
@@ -147,6 +267,16 @@ namespace UwEditor.Core
                     bool wet = s.IsUw2 ? ((word >> 6) & 3) == 1 || ((word >> 6) & 3) == 2 : (word & 0x30) != 0;
                     if (wet) return false;
                 }
+                if (loose)
+                {
+                    // open, dry and empty, with at least three open neighbours of its four, so there is room to be put down
+                    int open = 0;
+                    if (m.Tiles[x + 1, y].Type != TileType.Solid) open++;
+                    if (m.Tiles[x - 1, y].Type != TileType.Solid) open++;
+                    if (m.Tiles[x, y + 1].Type != TileType.Solid) open++;
+                    if (m.Tiles[x, y - 1].Type != TileType.Solid) open++;
+                    return open >= 3;
+                }
                 for (int dy = -1; dy <= 1; dy++)
                     for (int dx = -1; dx <= 1; dx++)
                     {
@@ -155,13 +285,7 @@ namespace UwEditor.Core
                     }
                 return true;
             };
-            var start = s.Start;
-            if (start != null && start.Level == m.Level && good((int)start.X, (int)start.Y)) return ((int)start.X, (int)start.Y);
-            // nearest the middle first: away from the map's edge, likely in the level's heart
-            var all = new List<(int X, int Y)>();
-            for (int y = 2; y < 62; y++) for (int x = 2; x < 62; x++) if (good(x, y)) all.Add((x, y));
-            if (all.Count == 0) return null;
-            return all.OrderBy(t => Math.Abs(t.X - 32) + Math.Abs(t.Y - 32)).First();
+            return good(x, y);
         }
 
         static TerrainTable TryTerrain(GameSession s)
@@ -206,7 +330,7 @@ namespace UwEditor.Core
         /// Sets a check up in folder (made afresh; only a folder made here is ever cleared): the
         /// copied game with the edits, the port's home with saved game I holding them, the script.
         /// </summary>
-        public static ExhumedPlan Prepare(GameSession s, LevelEdits edits, byte[] playerDat, IList<int> levels, string folder, bool saveAtEnd = true, bool keepAlive = true)
+        public static ExhumedPlan Prepare(GameSession s, LevelEdits edits, byte[] playerDat, IList<int> levels, string folder, bool saveAtEnd = true, bool keepAlive = true, ExhumedOptions options = null)
         {
             if (s == null) throw new InvalidOperationException("Open a game first.");
             levels = (levels ?? new List<int>()).Distinct().ToList();
@@ -278,14 +402,24 @@ namespace UwEditor.Core
                 sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat set str 99        # keep the player alive\n{1} cheat set defense 30", t, t + 200));
                 t += 500;
             }
+            options = options ?? new ExhumedOptions();
+            plan.Options = options.Clone();
             foreach (int level in levels)
             {
-                var m = edits != null ? edits.Model(level) : s.LoadLevel(level);
-                var sq = GotoSquare(s, m, terrain).Value;
-                if (keepAlive) { sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat set hp {1}", t, plan.AliveHp)); t += 300; }
-                plan.Visits.Add(new ExhumedVisit { Level = level, X = sq.X, Y = sq.Y, At = t });
-                sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat goto {1} {2} {3}", t, level, sq.X, sq.Y));
-                t += VisitMs;
+                foreach (var v in Stops(s, edits, level, options, terrain))
+                {
+                    if (keepAlive) { sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat set hp {1}", t, plan.AliveHp)); t += 300; }
+                    v.At = t;
+                    plan.Visits.Add(v);
+                    sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat goto {1} {2} {3}        # {4}", t, level, v.X, v.Y, v.Why == "level" ? "the level's square" : v.Why == "edit" ? "beside an edit" : "sweep"));
+                    t += VisitMs;
+                    if (options.LookAround)
+                    {
+                        // a full turn: the turn-left key turns 15 * (0x5A / 4) / 4 a 1/256 s, about 3.1 s a turn (motion/PHYSICS.C, PLAYMOVE.C)
+                        sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} down a        # look around\n{1} up a", t - 1500, t - 1500 + LookMs));
+                        t += LookMs;
+                    }
+                }
             }
             plan.SavesAtEnd = saveAtEnd && !s.IsUw2;
             if (plan.SavesAtEnd)
@@ -305,7 +439,9 @@ namespace UwEditor.Core
                 "--exit-after", plan.ExitAfterMs.ToString(CultureInfo.InvariantCulture) });
             plan.Environment["EXHUME_TEST_CHEATS"] = "1";
             plan.ReadyUtc = DateTime.UtcNow;
-            plan.Note = string.Format("{0}{1}, then {2}{3}.", plan.NewCharacter ? "A new character" : "Saved game I", keepAlive ? " kept alive (strength 99, defense 30, " + plan.AliveHp + " hit points before each level)" : "", string.Join(", ", plan.Visits.Select(v => (s.IsUw2 ? "slot " : "level ") + v.Level + " (" + v.X + ", " + v.Y + ")")), plan.SavesAtEnd ? ", then a save in slot I" : "");
+            string stops = string.Join("; ", plan.Visits.GroupBy(v => v.Level).Select(g => (s.IsUw2 ? "slot " : "level ") + g.Key + " " + string.Join(", ", g.Select(v => "(" + v.X + ", " + v.Y + ")" + (v.Why == "edit" ? " by an edit" : v.Why == "sweep" ? " sweep" : "")))));
+            plan.Note = string.Format("{0}{1}, then {2} stop{3}: {4}{5}{6}.", plan.NewCharacter ? "A new character" : "Saved game I", keepAlive ? " kept alive (strength 99, defense 30, " + plan.AliveHp + " hit points before each stop)" : "",
+                plan.Visits.Count, plan.Visits.Count == 1 ? "" : "s", stops, options.LookAround ? "; looking round at each" : "", plan.SavesAtEnd ? "; then a save in slot I" : "");
             return plan;
         }
 
@@ -398,7 +534,11 @@ namespace UwEditor.Core
                 {
                     int lv = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
                     if (m.Groups[4].Success) { r.Refused.Add("level " + lv + ": " + m.Groups[5].Value); r.Problems.Add("going to " + (s.IsUw2 ? "slot " : "level ") + lv + " (" + m.Groups[2].Value + ", " + m.Groups[3].Value + ") was refused: " + m.Groups[5].Value); }
-                    else r.Reached.Add(lv);
+                    else
+                    {
+                        if (!r.Reached.Contains(lv)) r.Reached.Add(lv);
+                        r.StopsReached.Add(lv + " " + m.Groups[2].Value + " " + m.Groups[3].Value);
+                    }
                     continue;
                 }
                 var sm = System.Text.RegularExpressions.Regex.Match(line, @"cheat: (set \S+ \S+): (.*) \(not as DOS\)");
@@ -416,8 +556,10 @@ namespace UwEditor.Core
                 else if (line.IndexOf("cheat:", StringComparison.Ordinal) >= 0 && line.IndexOf("refused", StringComparison.OrdinalIgnoreCase) >= 0) r.Problems.Add("the test cheats were refused: " + line);
             }
             foreach (var v in plan.Visits)
-                if (!r.Reached.Contains(v.Level) && !r.Refused.Any(x => x.StartsWith("level " + v.Level + ":", StringComparison.Ordinal)))
-                    r.Problems.Add((s.IsUw2 ? "Slot " : "Level ") + v.Level + " was never reached (the run ended or stalled before its cheat ran)");
+                if (!r.StopsReached.Contains(v.Key) && !(r.Reached.Contains(v.Level) && plan.Visits.Count(x => x.Level == v.Level) == 1) && !r.Refused.Any(x => x.StartsWith("level " + v.Level + ":", StringComparison.Ordinal)))
+                    r.Problems.Add((plan.Visits.Count(x => x.Level == v.Level) > 1 ? "(" + v.X + ", " + v.Y + ") on " + (s.IsUw2 ? "slot " : "level ") : (s.IsUw2 ? "Slot " : "Level ")) + v.Level + " was never reached (the run ended or stalled before its cheat ran)");
+            if (plan.Visits.Count > plan.Visits.Select(v => v.Level).Distinct().Count())
+                r.Notes.Add("The player stopped at " + r.StopsReached.Count + " of " + plan.Visits.Count + " squares.");
             if (r.Reached.Count > 0) r.Notes.Add("The game loaded " + (s.IsUw2 ? "slot" : "level") + (r.Reached.Count == 1 ? " " : "s ") + string.Join(", ", r.Reached) + ".");
 
             // the levels the game wrote back: checked as the editor checks its own

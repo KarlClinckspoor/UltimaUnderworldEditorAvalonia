@@ -28,6 +28,10 @@ namespace UwEditor.App
         readonly CheckBox saveBox = new CheckBox { Content = "Save in slot I at the end, and check the levels the game wrote", IsChecked = true };
         readonly CheckBox aliveBox = new CheckBox { Content = "Keep the player alive (strength 99, defense 30, full hit points before each level)", IsChecked = true };
         readonly Button untick = new Button { Content = "Untick the levels with nowhere to stand", IsVisible = false };
+        readonly CheckBox editsBox = new CheckBox { Content = "Also stop beside every edit (tiles and objects changed), so what is near them is drawn and runs" };
+        readonly CheckBox sweepBox = new CheckBox { Content = "Sweep each level: also one stop in every 16 × 16 area with room to stand" };
+        readonly CheckBox lookBox = new CheckBox { Content = "Look around at each stop (turn round once, about 3.5 s more a stop)" };
+        readonly TextBlock estimate = new TextBlock { FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap };
         List<int> nowhere = new List<int>();
         readonly TextBox report = new TextBox { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, FontFamily = new FontFamily("Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,monospace"), FontSize = 12, MinHeight = 160 };
         readonly Image shot = new Image { Width = 320, Height = 200, Stretch = Stretch.Uniform };
@@ -102,7 +106,15 @@ namespace UwEditor.App
                 report.Text = "Unticked " + string.Join(", ", nowhere) + ". Run the check again.";
             };
             buttons.Children.Add(untick);
-            top.Children.Add(saveBox); top.Children.Add(aliveBox); top.Children.Add(buttons);
+            var th = main.ExhumedThoroughness;
+            editsBox.IsChecked = th.VisitEdits; sweepBox.IsChecked = th.Sweep; lookBox.IsChecked = th.LookAround;
+            foreach (var c in new[] { editsBox, sweepBox, lookBox })
+                c.IsCheckedChanged += (o, e) => { main.ExhumedThoroughness = Thoroughness; Estimate(); };
+            foreach (var b in boxes) b.IsCheckedChanged += (o, e) => Estimate();
+            ToolTip.SetTip(editsBox, "Creatures more than 10 squares from the player stand frozen, triggers fire only when walked on, and only what is in view is drawn: a stop beside each edited spot makes the game run and draw what changed. At most 12 such stops a level, 5 squares apart.");
+            ToolTip.SetTip(sweepBox, "A stop in each 16 × 16 area of the level that has an open, flat, dry square: up to 16 a level, about 5 s each.");
+            ToolTip.SetTip(lookBox, "Holds the turn-left key for one full turn at each stop, so the game draws everything around (bad textures and models show only when drawn).");
+            top.Children.Add(saveBox); top.Children.Add(aliveBox); top.Children.Add(editsBox); top.Children.Add(sweepBox); top.Children.Add(lookBox); top.Children.Add(estimate); top.Children.Add(buttons);
 
             var right = new DockPanel();
             shotBox = new Border { Child = shot, BorderBrush = new SolidColorBrush(Color.Parse("#40808080")), BorderThickness = new Thickness(1), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0), IsVisible = false };
@@ -119,7 +131,8 @@ namespace UwEditor.App
             Content = dock;
             ManualWindow.Attach(this, "Checking in Underworld Exhumed");
             ShowPort();
-            report.Text = "Tick the levels, then Run the check. A level takes about " + ExhumedCheck.VisitMs / 1000 + " seconds.";
+            report.Text = "Tick the levels, then Run the check. A stop takes about " + ExhumedCheck.VisitMs / 1000 + " seconds.";
+            Estimate();
         }
 
         void Tick(IList<int> levels)
@@ -130,6 +143,31 @@ namespace UwEditor.App
         public List<int> ChosenLevels { get { return boxes.Where(b => b.IsChecked == true).Select(b => (int)b.Tag).ToList(); } }
 
         public void Choose(IList<int> levels) { Tick(levels); }
+
+        /// <summary>The thoroughness ticked.</summary>
+        public ExhumedOptions Thoroughness
+        {
+            get { return new ExhumedOptions { VisitEdits = editsBox.IsChecked == true, Sweep = sweepBox.IsChecked == true, LookAround = lookBox.IsChecked == true }; }
+            set { editsBox.IsChecked = value.VisitEdits; sweepBox.IsChecked = value.Sweep; lookBox.IsChecked = value.LookAround; }
+        }
+
+        /// <summary>How many stops the ticked levels make and about how long the run takes.</summary>
+        public int Estimate()
+        {
+            var s = main.ViewModel.Session;
+            if (s == null) return 0;
+            int stops = 0;
+            try
+            {
+                var o = Thoroughness;
+                foreach (int l in ChosenLevels) stops += ExhumedCheck.Stops(s, main.ViewModel.Edits, l, o).Count;
+                int secs = stops * (ExhumedCheck.VisitMs + (o.LookAround ? ExhumedCheck.LookMs : 0)) / 1000 + 25;
+                estimate.Text = string.Format("{0} stop{1} on {2} level{3}: about {4}.", stops, stops == 1 ? "" : "s", ChosenLevels.Count, ChosenLevels.Count == 1 ? "" : "s",
+                    secs < 120 ? secs + " seconds" : Math.Round(secs / 60.0) + " minutes");
+            }
+            catch (Exception) { estimate.Text = ""; }
+            return stops;
+        }
 
         /// <summary>The levels the last setup refused for having nowhere to stand.</summary>
         public List<int> NowhereToStand { get { return nowhere; } }
@@ -170,7 +208,7 @@ namespace UwEditor.App
                 report.Text = "Setting up…";
                 ExhumedPlan plan;
                 untick.IsVisible = false;
-                try { plan = main.PrepareExhumed(ChosenLevels, saveBox.IsChecked == true, aliveBox.IsChecked == true); }
+                try { plan = main.PrepareExhumed(ChosenLevels, saveBox.IsChecked == true, aliveBox.IsChecked == true, Thoroughness); }
                 catch (NowhereToStandException ex)
                 {
                     nowhere = ex.Levels;

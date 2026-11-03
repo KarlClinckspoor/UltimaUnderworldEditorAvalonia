@@ -298,6 +298,23 @@ check**. The editor then:
    level when it is one): the game kills a player it cannot place. When some ticked levels
    have no such square, the check names them all at once; **Untick the levels with nowhere
    to stand** unticks them. A level takes about five seconds;
+   By default the player stops once on each level, on its own square, for about five
+   seconds. That checks that the level loads and that the area round that square runs, but
+   much happens only near the player: creatures more than 10 squares from him stand frozen,
+   triggers fire only when walked on, and only what is in view is drawn (a bad texture or
+   model crashes only when drawn). Three options make the check more thorough, each adding
+   stops (the window says how many, and about how long the run takes):
+   - **Also stop beside every edit**: a stop near each spot the unsaved edits changed (tiles,
+     and objects added, removed, moved or changed), at most 12 a level, 5 squares apart. When
+     the edit leaves no flat square near, any open, dry, empty square with room round it is
+     used.
+   - **Sweep each level**: a stop in every 16 × 16 area of the level that has room to stand,
+     up to 16 a level.
+   - **Look around at each stop**: the turn-left key is held for one full turn (about 3.1
+     seconds in both games: `motion/PHYSICS.C`), so the game draws everything round the stop.
+
+   The choices are remembered. Triggers still do not fire and nobody is talked to: the player
+   is put down on empty squares and does not walk.
    With **Keep the player alive** (on at first) the player is made sturdy first, since the
    port has no god mode: its `set` cheat raises strength to 99 and defense to 30 (the
    maximum hit points follow, as a level gained does), and fills the hit points before each
