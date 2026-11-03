@@ -340,3 +340,108 @@ levitation itself. The rest is blocked by Phase C facts: `flag:var27_is_38` and
 - The maze rectangle is hand-set; the maze's own entrance tile (54, 39) holds a damage trigger
   but lies outside it.
 - Bashing a door needs no weapon or strength in the model.
+
+# Phase C (C1): the world over time
+
+Built with the default options (Magic on, single-use items off, lock picking off, bashing
+always, Search 0 with retries, Ring of Levitation needs lava protection, killing NPCs off). The
+code is `Core/Randomizer/Timeline.cs` (changes, solver, return check, report), with additions to
+`NavRegions.cs` (free chains, telekinesis, closers, lever sides), `AbilityZones.cs` (options as
+tokens, NPC and created items) and `Facts.cs` (every `docs/facts/uw1-*.json`, the new kinds).
+The tests are `tests/UwEditor.Core.Tests/TimelineTests.cs`.
+
+## Karl's corrections
+
+1. **Ring of Levitation.** The ring (#683, L7 (44, 44)) lies in its own zone; fact
+   `ring_of_levitation` links it with the zone of (59, 43) both ways, `spell:lava` with
+   `option:ring_needs_lava`, free without (`otherwise`). The solve reaches it in sphere 12, after
+   the dragon skin boots (sphere 6).
+2. **L4 lever puzzle.** Fact `l4_lever_puzzle` (kind `free`) makes #526, #811, #853 and #799
+   usable from their zone. The timeline applies the four terrain changes in spheres 5 and 6 and
+   reaches the alcove after the puzzle in sphere 7, with or without Magic.
+3. **L5 levers.** Fact `l5_levers` makes every L5 lever free from where it is used (not from the
+   start: the levers must still be reached). The Kneenibble portcullis then needs only lever
+   #667's zone, and lever #663's create trap makes the Ring of Humility (sphere 6).
+4. **Telekinesis** (Ort Por Ylem, spell 35; `xt_spells` 8 sets the PickDist 0 effect,
+   `game/PLAYDATA.C player_affected_by`, so nothing is too far or too high) is an ability like
+   the others, and every `item:pole` of a lever's reach reads `item:pole | spell:telekinesis`.
+5. **Bashing** is no option any more: `bash` always holds. The doors the shuffle must open are
+   those that only picking opens: L2 (11, 13) `pick:10` (the vault ledge) and L4 (61, 6)
+   `pick:14` (Rawstag's shrine).
+6. **Glitchless:** no option or fact allows tricks; `option:glitches` is never on.
+
+Also from the quest facts' requests: a switch in a rock square (lever #972 behind the vines) is
+used only once a change-terrain trap opens the square (its flags join the lever's
+requirement: `flag:terrain_L3_586`); a switch is used only from its own side of a closed door
+(Eb's #840, Drog's #807, the armoury's #830 no longer count from outside); a mechanism can
+take conditions from a fact (kind `needs`: the Slasher's chamber, #539, needs the Key of
+Infinity).
+
+## How changes are applied and zones kept
+
+The base zones are Phase B's. When a mechanism's trigger zone is reached and its conditions
+hold (inventory, variables unless free, a look's Search check, a `needs` fact), its flag is
+granted. Terrain changes (`event/WORLDEV.C change_terrain`: type, height up to 13, floor),
+deleted objects and door traps that open are applied to a copy of the level, and that level
+alone is rebuilt (regions, edges, hidden gates, no-magic narrowing). Its regions are grouped
+as the zones are (free strongly connected parts, door tiles with a neighbour, dead ends
+folded). Each group takes the base zone with most of its tiles, each base zone going to one
+group; a group left over is a new zone (id 1000 and up, the same id in every state); a base
+zone whose tiles all went elsewhere is linked to the zone that took them, free both ways.
+Placements follow their objects' tiles. Stairs keep their base zones (not rebuilt). Each set
+of changes is built once and cached, so the ten solves of the report take about 2 s.
+
+Of the 136 mechanisms, 56 are applied when set off (terrain changes, deletions, doors opened;
+9 of them change no way); 12 door closers are made one way instead; the rest (variables, creatures, hack traps) only grant their flag. With the defaults, 116 are set off and 42 applied.
+
+## Changes that close things
+
+- **Doors closed behind the player** (walk-onto door traps; UW1's door trap first gives the
+  door a copy of the trap's lock, `event/TRIGGER.C TRAP_DOOR`). One way: free towards the
+  trigger, back only with what opens the closed door:
+  L1 (47, 51) #634 (key 3, pick 5, or Eb's button from inside); L1 (15, 34) #635 (key 4, pick 5,
+  or Drog's button from inside); L2 (13, 30) #844 (pick 6 or the lever inside); L5 (57, 2) #651
+  (a walking toggle: key 15 or the lever); L7 (27, 54) #643 (key 23, pick 13); L7 (7, 35) #656
+  (key 23, pick 13, or pull chain #423 outside); L7 (19, 4) #668 and (29, 21) #709 (the pull
+  chains); L7 (24, 56) #888, the jail behind the prison guard (key 23 only).
+  The L3 door at (6, 8) has three such triggers (#886, #888, #889) on both sides and another
+  free way round: every way through it needs it closed; the doorway is a zone of its own.
+  The lever that must be worked again is written `now_zone:N`: in the return check it holds
+  only if zone N is reached again, not because it was reached before.
+- **Changes that open and close** (applied; the zones reached before stay reached): lever #972
+  turns six lake squares to rock (the dam) and leaves a ledge at (50, 8) as a zone of its own;
+  the L4 lever puzzle's raised floors make three small zones; L6 #802 and #915, L7 #351, #866,
+  #873, #914 and #933 open walls that also end a drop or a secret way; the look-trigger walls
+  (L5 #987, L7 #343, #829, #887, #926) replace their hidden-gate links by real ones.
+- **Not applied:** none of the chosen changes only closes. L6 #822 deletes the bridge at
+  (27, 50); bridges are not walked on in the automatic zones, so it changes nothing here.
+  The jail's conversation (variables 50 and 51) is not modelled.
+
+## One-way traps
+
+With the defaults: none. With Magic off, single-use items off and picking on: the L2 vault's
+lower area, reached by a drop from the vault ledge (behind the `pick:10` door), nothing inside.
+Without the quest facts and without a planted sapling, the return check uses what the player
+held when he got there and the levers he had reached before. With the quest facts, the silver
+seed (L1) is held from sphere 2, so the sapling saves every later zone.
+
+## How far the solver gets
+
+Without the quest facts (only `uw1-facts.json`): 212 of 246 zones with the defaults (22
+spheres); picking on 215; Magic off 212 (the ring through the boots gives levitation);
+killing NPCs 221. The goal is not reached (no goal fact). Blocked: the tombs (the crystal is
+Kallistan's), Smonden's key 26, `flag:var27_is_38` (the plate area code), picks 10 and 14.
+
+With `uw1-quests.json` (C2, read from its branch): the goal is reached with every main option
+set, 227 to 228 zones in 23 to 26 spheres.
+
+## Not settled
+
+- Stairs are not rebuilt with their level: a stairs link keeps the base zone of its ends.
+- A change that opens and closes is applied at once when it can go off; the solver does not
+  choose to wait.
+- The classification compares the level before and after; a few hidden-gate links that a
+  change replaces still show as "gone".
+- The L3 door at (6, 8) is closed in both directions, which is strict.
+- A lever is never used across a closed portcullis, though the game's reach test
+  (`ui/INTERACT.C InPickRange`, `BlockingTerrain`) does not look at doors.

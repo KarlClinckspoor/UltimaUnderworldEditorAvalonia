@@ -20,33 +20,57 @@ namespace UwEditor.Core.Randomizer
         public int PickSkill = 30;
         /// <summary>A failed pick can be tried again (UseLockpickOn keeps the pick): any chance counts.</summary>
         public bool PickRetry = true;
-        /// <summary>Bashing doors is in logic.</summary>
-        public bool Bashing = true;
         /// <summary>The Search skill assumed for look triggers, 0-30.</summary>
         public int SearchSkill;
         /// <summary>A failed look can be tried again: any chance counts. Off: even odds (skill at least the height).</summary>
         public bool SearchRetry = true;
         /// <summary>Every tile of every level holding a move trigger that hurts the player is a wall (not only the damaging maze).</summary>
         public bool DamageTrapWalls;
+        /// <summary>
+        /// Karl: the Ring of Levitation's area on L7 counts as reached only with lava protection
+        /// (the jumps from (59, 43) that reach it without any are an ordeal); off, it is merged with
+        /// the zone of (59, 43). The facts' link "ring_of_levitation" tests option:ring_needs_lava.
+        /// </summary>
+        public bool RingNeedsLava = true;
+        /// <summary>An item a non-hostile NPC carries can be had by killing it once its zone is reached (option:kill_npcs).</summary>
+        public bool KillNpcs;
+
+        // Bashing is always in the logic (Karl: fists bash any breakable door), so it is no option.
 
         public AbilityOptions Clone() { return (AbilityOptions)MemberwiseClone(); }
 
-        /// <summary>The solver's options for these.</summary>
+        /// <summary>The option tokens these set (option:NAME; FactSet.KnownOptions).</summary>
+        public HashSet<string> Tokens()
+        {
+            var h = new HashSet<string>();
+            if (Magic) h.Add("magic");
+            if (SingleUseItems) h.Add("single_use");
+            if (LockPicking) h.Add("lockpick");
+            if (PickRetry) h.Add("pick_retry");
+            if (SearchRetry) h.Add("search_retry");
+            if (DamageTrapWalls) h.Add("damage_walls");
+            if (RingNeedsLava) h.Add("ring_needs_lava");
+            if (KillNpcs) h.Add("kill_npcs");
+            return h;
+        }
+
+        /// <summary>The solver's options for these (bashing always allowed).</summary>
         public SolverOptions ToSolver()
         {
             return new SolverOptions
             {
                 AbilitySources = true, AllowSpells = false, Magic = Magic, SingleUseItems = SingleUseItems,
-                AllowBash = Bashing, LockpickSkill = LockPicking ? PickSkill : -1, PickRetry = PickRetry, PickNeedsLockpick = true,
-                SearchSkill = SearchSkill, SearchRetry = SearchRetry,
+                AllowBash = true, LockpickSkill = LockPicking ? PickSkill : -1, PickRetry = PickRetry, PickNeedsLockpick = true,
+                SearchSkill = SearchSkill, SearchRetry = SearchRetry, OptionsOn = Tokens(),
             };
         }
 
         public override string ToString()
         {
-            return string.Format("Magic {0}, single-use items {1}, lock picking {2}, bashing {3}, Search {4}{5}, damage-trap tiles are walls {6}",
+            return string.Format("Magic {0}, single-use items {1}, lock picking {2}, bashing always, Search {3}{4}, damage-trap tiles are walls {5}, Ring of Levitation {6}, killing NPCs {7}",
                 Magic ? "on" : "off", SingleUseItems ? "count" : "do not count", LockPicking ? "on (skill " + PickSkill + (PickRetry ? ", retry" : "") + ")" : "off",
-                Bashing ? "on" : "off", SearchSkill, SearchRetry ? " with retry" : " without retry", DamageTrapWalls ? "everywhere" : "only in the facts' areas");
+                SearchSkill, SearchRetry ? " with retry" : " without retry", DamageTrapWalls ? "everywhere" : "only in the facts' areas",
+                RingNeedsLava ? "needs lava protection" : "free", KillNpcs ? "in logic" : "not in logic");
         }
     }
 
@@ -104,6 +128,14 @@ namespace UwEditor.Core.Randomizer
         public List<KeyValuePair<string, SolveResult>> Variants = new List<KeyValuePair<string, SolveResult>>();
         public List<DoorToOpen> DoorsToOpen = new List<DoorToOpen>();
         public List<string> Warnings = new List<string>();
+        /// <summary>The tiles made walls, per level (y * 64 + x).</summary>
+        public Dictionary<int, HashSet<int>> WallTiles = new Dictionary<int, HashSet<int>>();
+        /// <summary>The level of each level as the zones see it (the walls in), read once.</summary>
+        public Func<int, LevelModel> WalledLevel;
+        /// <summary>The movement options the zones were built with (the facts' free chains in).</summary>
+        public NavOptions Nav;
+        /// <summary>Placements of items non-hostile NPCs carry (option:kill_npcs), and of items a create trap makes (its flag).</summary>
+        public List<Placement> NpcHeld = new List<Placement>(), Created = new List<Placement>();
         /// <summary>The spells' names (block 6 0x100 + spell), for the report.</summary>
         public Dictionary<int, string> SpellNames = new Dictionary<int, string>();
     }
@@ -120,7 +152,8 @@ namespace UwEditor.Core.Randomizer
         {
             opt = opt ?? new AbilityOptions();
             facts = facts ?? FactSet.Shipped(s.IsUw2);
-            var res = new AbilityZoneResult { Facts = facts, Options = opt };
+            nav = FreeChains(nav ?? new NavOptions(), facts);
+            var res = new AbilityZoneResult { Facts = facts, Options = opt, Nav = nav };
             if (!s.IsUw2) for (int i = 0; i < Abilities.Uw1SpellCount; i++) res.SpellNames[i] = SpellTables.Name(s, i);
             foreach (var w in facts.Check()) res.Warnings.Add("Facts: " + w);
 
@@ -166,10 +199,11 @@ namespace UwEditor.Core.Randomizer
                 return c;
             };
 
+            res.WallTiles = walls;
+            res.WalledLevel = wl;
+
             // ---- the regions, the hidden gates, and where magic does not work
-            var g = NavGraph.Build(s, wl, nav);
-            AddHiddenGates(s, wl, g, res, painted);
-            Narrow(s, wl, g, facts, res);
+            var g = Graph(s, wl, nav, facts, res, painted, null);
 
             // ---- zones, then the Phase B placements
             var auto = AutoZones.FromGraph(s, wl, g, painted);
@@ -183,11 +217,34 @@ namespace UwEditor.Core.Randomizer
                 foreach (int r in h.Regions) { int z = g.Regions[r].Zone; if (z > ZoneSet.Unassigned && z != h.FromZone && !h.ToZones.Contains(z)) h.ToZones.Add(z); }
             }
             AddPlacements(s, wl, zs, facts, res);
+            if (!s.IsUw2) ChainPlacements(s, wl, g, zs, facts, res);
             Explain(zs);
 
             // ---- the solves
             Resolve(res);
             return res;
+        }
+
+        /// <summary>The movement options with the facts' free chains (kind "free": objects and triggers) added.</summary>
+        public static NavOptions FreeChains(NavOptions nav, FactSet facts)
+        {
+            nav = nav.Clone();
+            foreach (var f in facts.OfKind("free"))
+                foreach (int i in f.Objects.Concat(f.Triggers)) nav.FreeChains.Add(f.Level + ":" + i);
+            return nav;
+        }
+
+        /// <summary>
+        /// The region graph of the levels given (all when only is null) with Phase B's additions:
+        /// the hidden gates and the narrowing of spell terms where magic does not work. The
+        /// timeline (Phase C) rebuilds one level at a time with it.
+        /// </summary>
+        public static NavGraph Graph(GameSession s, Func<int, LevelModel> wl, NavOptions nav, FactSet facts, AbilityZoneResult res, ZoneSet painted, IEnumerable<int> only)
+        {
+            var g = NavGraph.Build(s, wl, nav, only);
+            AddHiddenGates(s, wl, g, res, painted);
+            Narrow(s, wl, g, facts, res);
+            return g;
         }
 
         /// <summary>Runs the solver again with res.Options (and the variants and the doors to open).</summary>
@@ -201,9 +258,9 @@ namespace UwEditor.Core.Randomizer
                     foreach (bool doors in new[] { true, false })
                     {
                         var o = res.Options.Clone();
-                        o.Magic = magic; o.SingleUseItems = once; o.LockPicking = doors; o.Bashing = doors;
+                        o.Magic = magic; o.SingleUseItems = once; o.LockPicking = doors;
                         if (doors) { o.PickSkill = 30; o.PickRetry = true; }
-                        string label = string.Format("Magic {0}, single-use {1}, picking and bashing {2}", magic ? "on" : "off", once ? "on" : "off", doors ? "on" : "off");
+                        string label = string.Format("Magic {0}, single-use {1}, picking {2}", magic ? "on" : "off", once ? "on" : "off", doors ? "on" : "off");
                         res.Variants.Add(new KeyValuePair<string, SolveResult>(label, new ZoneSolver(zs, o.ToSolver()).Solve(zs.StartZone, zs.GoalZone)));
                     }
             res.DoorsToOpen = DoorsToOpen(zs, res.Options);
@@ -432,13 +489,18 @@ namespace UwEditor.Core.Randomizer
                     Add(zs, zs.StartZone, "cast:" + ab, Abilities.CastRequirement(s, sp), SpellTables.Name(s, sp) + " (" + string.Join(" ", Abilities.Uw1Runes(sp).Select(r => Abilities.RuneNames[r])) + ")", "facts");
             // the rune bag, lock picks, and the items the facts name
             var wanted = new HashSet<string> { "item:rune_bag", "item:lockpick" };
+            var mustExist = new HashSet<string>();
+            // every item a fact's requirement names (craft, trade, flag, and Phase C's link, warp, goal, needs)
             foreach (var f in facts.Facts)
             {
-                if (f.Kind != "craft" && f.Kind != "trade" && f.Kind != "flag") continue;
                 var toks = new List<string>();
-                var r = Requirement.TryParse(f.Requires, out _);
-                if (r != null) r.Tokens(toks);
-                foreach (var t in toks) if (t.StartsWith("item:")) wanted.Add(t);
+                foreach (var text in new[] { f.Requires, f.Otherwise })
+                {
+                    if (string.IsNullOrWhiteSpace(text)) continue;
+                    var r = Requirement.TryParse(text, out _);
+                    if (r != null) r.Tokens(toks);
+                }
+                foreach (var t in toks) if (t.StartsWith("item:")) { wanted.Add(t); if (f.Kind == "craft" || f.Kind == "trade" || f.Kind == "flag") mustExist.Add(t); }
             }
             foreach (var t in zs.Placements.Select(p => Requirement.Normalize(p.Grants)).ToList()) wanted.Remove(t);
             foreach (var f in facts.OfKind("craft")) wanted.Remove(Requirement.Normalize(f.Grants));
@@ -468,8 +530,9 @@ namespace UwEditor.Core.Randomizer
                         Add(zs, z, NavGraph.ItemToken(s, ci), "", where + " (killed, it leaves " + s.Names.Get(ci) + ")", "levels");
                 }
             }
+            var factGrants = facts.Granted();
             foreach (var t in wanted)
-                if (!zs.Placements.Any(p => Requirement.Normalize(p.Grants) == t)) res.Warnings.Add("Nothing in the levels grants " + t + ".");
+                if (mustExist.Contains(t) && !factGrants.Contains(t) && !zs.Placements.Any(p => Requirement.Normalize(p.Grants) == t)) res.Warnings.Add("Nothing in the levels grants " + t + ".");
             // the facts
             foreach (var f in facts.Facts)
             {
@@ -504,6 +567,105 @@ namespace UwEditor.Core.Randomizer
                 if (r != null) r.Tokens(toks);
                 foreach (var t in toks)
                     if (t.StartsWith("npc:") && !zs.Placements.Any(p => Requirement.Normalize(p.Grants) == t)) res.Warnings.Add("Facts: " + f.Id + ": no creature talks as " + t + ".");
+            }
+        }
+
+        static readonly Regex PlacedObject = new Regex(@"^#(\d+) .*?level (\d+) \(");
+
+        /// <summary>
+        /// Phase C's corrections to the placements read from the levels:
+        /// <list type="bullet">
+        /// <item>an item that a non-hostile creature with a name (an NPC: whoami, block 7) carries is
+        /// not simply there to take: it needs option:kill_npcs (killing it once its zone is
+        /// reached), or what a trade fact for its token says (the quest that gets it), or either;
+        /// a hostile creature is fought anyway, so what it carries stays free;</item>
+        /// <item>an item kept in a create trap (its template) is only there once a chain the player
+        /// sets off creates it: it needs that mechanism's flag (event/TRIGGER.C TRAP_CREATE);</item>
+        /// <item>the facts' kind "free" with flags grants each flag in the zone of its place (or at
+        /// the start when it names none).</item>
+        /// </list>
+        /// </summary>
+        static void ChainPlacements(GameSession s, Func<int, LevelModel> level, NavGraph g, ZoneSet zs, FactSet facts, AbilityZoneResult res)
+        {
+            var npcHeld = new Dictionary<string, string>();      // "level:index" -> the NPC's name
+            var created = new Dictionary<string, List<string>>(); // "level:index" -> the flags that create it
+            foreach (var slot in s.LevelSlots())
+            {
+                if (!slot.Present) continue;
+                LevelModel m;
+                try { m = level(slot.Level); } catch (Exception) { continue; }
+                if (m == null || !m.Present) continue;
+                foreach (var o in m.Objects)
+                {
+                    if (o.Free || o.Parent < 0) continue;
+                    // the outermost holder
+                    var h = m.Objects[o.Parent];
+                    int guard = 0;
+                    while (!h.IsCritter && h.Parent >= 0 && guard++ < 16) h = m.Objects[h.Parent];
+                    if (!h.IsCritter || h.Record == null || h.Record.Length < 0x1B) continue;
+                    string npc = ObjectTexts.NpcName(s, h);
+                    int attitude = UltimateEditor.Uw1.Uw1Schemas.MobileObject["Attitude"].Get(h.Record) & 3;   // 0 hostile (include/object.h OBJ_ATTITUDE)
+                    if (npc != null && attitude != 0) npcHeld[slot.Level + ":" + o.Index] = npc;
+                }
+                foreach (var trap in m.Objects)
+                {
+                    if (trap.Free || trap.Item != 0x187 || trap.Link <= 0 || trap.Link >= m.Objects.Length || Triggers.IsSpawner(m, trap)) continue;
+                    var flags = g.Mechanisms.Where(x => x.Level == slot.Level && x.Kind == "create" && x.Trap == trap.Index).Select(x => x.Flag).Distinct().ToList();
+                    if (flags.Count == 0) flags.Add(string.Format("flag:never_created_L{0}_{1}", slot.Level, trap.Index));
+                    // the template and what it holds
+                    var stack = new Stack<int>();
+                    stack.Push(trap.Link);
+                    var seen = new HashSet<int>();
+                    while (stack.Count > 0)
+                    {
+                        int i = stack.Pop();
+                        if (i <= 0 || i >= m.Objects.Length || !seen.Add(i)) continue;
+                        List<string> l;
+                        if (!created.TryGetValue(slot.Level + ":" + i, out l)) created[slot.Level + ":" + i] = l = new List<string>();
+                        l.AddRange(flags.Where(f => !l.Contains(f)));
+                        foreach (int c in m.Objects[i].Children) stack.Push(c);
+                    }
+                }
+            }
+            var traded = new HashSet<string>(facts.OfKind("trade").Select(f => Requirement.Normalize(f.Token)));
+            foreach (var p in zs.Placements)
+            {
+                var mm = PlacedObject.Match(p.Notes ?? "");
+                if (!mm.Success) continue;
+                string key = mm.Groups[2].Value + ":" + mm.Groups[1].Value;
+                List<string> by;
+                if (created.TryGetValue(key, out by))
+                {
+                    p.Requires = ZoneLink.JoinAnd(new[] { p.Requires, string.Join(" | ", by) });
+                    p.Notes += "; made by a create trap (" + string.Join(" | ", by) + ")";
+                    res.Created.Add(p);
+                }
+                string npc;
+                if (npcHeld.TryGetValue(key, out npc) && !p.Grants.StartsWith("npc:"))
+                {
+                    bool trade = traded.Contains(Requirement.Normalize(p.Grants));
+                    string r = string.IsNullOrEmpty(p.Requires) ? "free" : p.Requires;
+                    if (trade) p.Requires = r == "free" ? "" : (r.Contains("|") || r.Contains("&") ? "(" + r + ")" : r) + " | option:kill_npcs";
+                    else p.Requires = ZoneLink.JoinAnd(new[] { r, "option:kill_npcs" });
+                    p.Notes += "; carried by " + npc + (trade ? " (a trade fact, or killing it)" : " (killing it)");
+                    res.NpcHeld.Add(p);
+                }
+            }
+            foreach (var f in facts.OfKind("free"))
+            {
+                if (f.Flags.Count == 0) continue;
+                int zone = zs.StartZone;
+                var at = f.TopSpot;
+                if (at != null)
+                {
+                    LevelModel m = null;
+                    try { m = level(at.Level); } catch (Exception) { }
+                    int x = at.X, y = at.Y;
+                    if (at.HasObject && m != null && at.Object < m.Objects.Length && !m.Objects[at.Object].Free) { x = m.Objects[at.Object].TileX; y = m.Objects[at.Object].TileY; }
+                    if (x >= 0 && y >= 0) zone = zs.NearestZone(at.Level, x, y);
+                    else res.Warnings.Add("Facts: " + f.Id + ": no object #" + at.Object + " on L" + at.Level + ".");
+                }
+                foreach (var t in f.Flags) Add(zs, zone, Requirement.Normalize(t), "", f.Notes, "facts: " + f.Id);
             }
         }
 
@@ -553,7 +715,7 @@ namespace UwEditor.Core.Randomizer
             r.Tokens(toks);
             if (!toks.Any(t => t == "bash" || t.StartsWith("pick:"))) return false;
             // with picking and bashing impossible and every token that some placement grants held, does it still hold?
-            var ctx = new FixedContext(new SolverOptions { AllowBash = false, LockpickSkill = -1, AbilitySources = true, Magic = true, SingleUseItems = true, SearchSkill = 30 }, granted);
+            var ctx = new FixedContext(new SolverOptions { AllowBash = true, LockpickSkill = -1, AbilitySources = true, Magic = true, SingleUseItems = true, SearchSkill = 30, OptionsOn = new HashSet<string>(FactSet.KnownOptions) }, granted);
             return !r.Eval(ctx);
         }
 
@@ -568,14 +730,14 @@ namespace UwEditor.Core.Randomizer
         }
 
         /// <summary>
-        /// With lock picking or bashing off: the door links that nothing but picking or bashing
-        /// opens (no key in the levels fits, no lever), blocked at the end of the solve, and what
-        /// opening each one alone would add.
+        /// With lock picking off: the door links that nothing but picking opens (no key in the
+        /// levels fits, no lever, not breakable: bashing is always in the logic), blocked at the end
+        /// of the solve, and what opening each one alone would add.
         /// </summary>
         public static List<DoorToOpen> DoorsToOpen(ZoneSet zs, AbilityOptions opt)
         {
             var list = new List<DoorToOpen>();
-            if (opt.LockPicking && opt.Bashing) return list;
+            if (opt.LockPicking) return list;
             var so = opt.ToSolver();
             var baseSolve = new ZoneSolver(zs, so).Solve(zs.StartZone, zs.GoalZone);
             var granted = new HashSet<string>(zs.Placements.Select(p => Requirement.Normalize(p.Grants)));
@@ -727,9 +889,9 @@ namespace UwEditor.Core.Randomizer
             }
             sb.AppendLine();
 
-            if (!res.Options.LockPicking || !res.Options.Bashing)
+            if (!res.Options.LockPicking)
             {
-                sb.AppendLine(string.Format("DOORS THE SHUFFLE MUST OPEN (only picking or bashing opens them; lock picking {0}, bashing {1})", res.Options.LockPicking ? "on" : "off", res.Options.Bashing ? "on" : "off"));
+                sb.AppendLine("DOORS THE SHUFFLE MUST OPEN (only picking opens them, lock picking off; bashing is always in the logic)");
                 foreach (var d in res.DoorsToOpen)
                     sb.AppendLine(string.Format("  {0}[{1}] L{2} ({3}, {4}) {5}: {6} -> {7}: {8}. Opening it alone adds {9} zones{10}{11}.", d.Matters ? "" : "(nothing behind) ", d.Link.Id, d.Link.Level, d.Link.X, d.Link.Y, d.Link.Kind, Z(zs, d.FromZone), Z(zs, d.ToZone), d.Link.Requires,
                         d.Gains.Count, d.GainedTokens.Count > 0 ? ", " + string.Join(", ", d.GainedTokens.Take(10)) : "", d.GoalBehind ? ", and the goal" : ""));

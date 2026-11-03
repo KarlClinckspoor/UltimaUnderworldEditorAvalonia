@@ -74,7 +74,7 @@ namespace UwEditor.Core.Randomizer
             for (int i = 0; i < n; i++)
             {
                 var r = g.Regions[i];
-                if (!r.IsDoor || compSize[comp[i]] > 1) continue;
+                if (!r.IsDoor || r.KeepApart || compSize[comp[i]] > 1) continue;
                 SortedSet<int> set;
                 if (neighbours.TryGetValue(i, out set) && set.Count > 0) comp[i] = comp[set.Min];
             }
@@ -184,10 +184,11 @@ namespace UwEditor.Core.Randomizer
         /// ledges that only a jump or levitation reaches, matter to nothing a later phase moves.
         /// Returns how many groups were folded.
         /// </summary>
-        static int FoldDeadEnds(GameSession s, Func<int, LevelModel> level, NavGraph g, int[] comp)
+        internal static int FoldDeadEnds(GameSession s, Func<int, LevelModel> level, NavGraph g, int[] comp, HashSet<int> alsoBusy = null)
         {
             int n = g.Regions.Count;
             var busy = new bool[n];
+            if (alsoBusy != null) foreach (int r in alsoBusy) if (r >= 0 && r < n) busy[r] = true;
             var models = new Dictionary<int, LevelModel>();
             foreach (var r in g.Regions)
             {
@@ -242,7 +243,7 @@ namespace UwEditor.Core.Randomizer
             return (string.IsNullOrEmpty(notes) ? "" : notes + "; ") + "fall " + fall + " steps";
         }
 
-        static List<string> Alternatives(string req)
+        internal static List<string> Alternatives(string req)
         {
             var list = new List<string>();
             int depth = 0, start = 0;
@@ -255,14 +256,14 @@ namespace UwEditor.Core.Randomizer
             return list.Select(x => x.StartsWith("(") && x.EndsWith(")") ? x.Substring(1, x.Length - 2).Trim() : x).ToList();
         }
 
-        static string JoinOr(IEnumerable<string> alts)
+        internal static string JoinOr(IEnumerable<string> alts)
         {
             var a = alts.Distinct().ToList();
             return string.Join(" | ", a.Select(x => x.Contains("&") ? "(" + x + ")" : x));
         }
 
         /// <summary>Drops the terms a link from zone "from" always meets (zone:from), and parses the result once to catch mistakes.</summary>
-        static string Simplify(string req, int from)
+        internal static string Simplify(string req, int from)
         {
             var alts = Alternatives(req).Select(alt =>
             {
@@ -273,7 +274,7 @@ namespace UwEditor.Core.Randomizer
             return JoinOr(alts);
         }
 
-        static string Normalize(string req)
+        internal static string Normalize(string req)
         {
             string err;
             var r = Requirement.TryParse(req, out err);
@@ -384,7 +385,7 @@ namespace UwEditor.Core.Randomizer
         }
 
         /// <summary>Strongly connected parts (Tarjan, iterative): the component id of each node.</summary>
-        static int[] Scc(List<int>[] adj)
+        internal static int[] Scc(List<int>[] adj)
         {
             int n = adj.Length;
             var index = new int[n];

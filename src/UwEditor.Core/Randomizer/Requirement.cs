@@ -35,6 +35,21 @@ namespace UwEditor.Core.Randomizer
 		public bool PickRetry;
 		/// <summary>pick:Z also needs item:lockpick.</summary>
 		public bool PickNeedsLockpick;
+
+		// ---- Phase C: the logic options as tokens
+
+		/// <summary>The logic options that are on, by name (option:NAME holds when NAME is here; see FactSet.KnownOptions).</summary>
+		public HashSet<string> OptionsOn = new HashSet<string>();
+	}
+
+	/// <summary>
+	/// A context that tells "reached now" from "reached at some time" (the timeline's return
+	/// check): now_zone:N, a lever that must be worked again after a door closed behind the
+	/// player, holds only for zones reached in the current search. Other contexts read it as zone:N.
+	/// </summary>
+	public interface INowContext
+	{
+		bool ZoneNow(int zone);
 	}
 
 	/// <summary>What the evaluator asks about the world.</summary>
@@ -68,6 +83,9 @@ namespace UwEditor.Core.Randomizer
 			"use:NAME       an item gives NAME: worn:NAME (worn, works everywhere), perm:NAME (used, no charges), once:NAME (scroll, potion, charged wand; needs the option)",
 			"search:Z       a look trigger of height Z passes with the Search skill option (Z 0: always)",
 			"zone:N         zone N must be reachable (a lever or button on the other side)",
+			"now_zone:N     zone N reached now (a lever to work again after a door closed behind the player); else as zone:N",
+			"option:NAME    a logic option is on (magic, single_use, lockpick, search_retry, ring_needs_lava, kill_npcs ...)",
+			"spell:telekinesis  Telekinesis (Ort Por Ylem): uses things from afar; the links ask for item:pole | spell:telekinesis",
 			"free           nothing needed",
 			"Operators: '&' and, '|' or, parentheses.",
 		};
@@ -140,6 +158,10 @@ namespace UwEditor.Core.Randomizer
 						return o.Magic && ctx.HasToken(Token);
 					case "zone":
 						return int.TryParse(tail, out n) && ctx.ZoneReachable(n);
+					case "now_zone":
+						return int.TryParse(tail, out n) && (ctx is INowContext now ? now.ZoneNow(n) : ctx.ZoneReachable(n));
+					case "option":
+						return o.OptionsOn != null && o.OptionsOn.Contains(tail);
 					case "talismans":
 						return int.TryParse(tail, out n) && ctx.TalismanCount() >= n;
 					case "spell":

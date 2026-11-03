@@ -9,7 +9,7 @@ namespace UwEditor.Core.Randomizer
     {
         public int Level, Index, Item;
         public string Name;
-        /// <summary>levitate, jump, waterwalk, lava, reveal, open, light.</summary>
+        /// <summary>levitate, jump, waterwalk, lava, reveal, open, telekinesis, light.</summary>
         public string Ability;
         /// <summary>worn (an enchantment that works while worn), used (cast on use, no charges), scroll, potion, wand (charged), boots (dragon skin).</summary>
         public string Kind;
@@ -41,7 +41,7 @@ namespace UwEditor.Core.Randomizer
     public static class Abilities
     {
         /// <summary>The abilities, as the tokens' names (spell:levitate, worn:lava ...). Fly counts as levitate (Requirement.Normalize).</summary>
-        public static readonly string[] Names = { "levitate", "jump", "waterwalk", "lava", "reveal", "open", "light" };
+        public static readonly string[] Names = { "levitate", "jump", "waterwalk", "lava", "reveal", "open", "telekinesis", "light" };
 
         public static readonly string[] RuneNames = "An Bet Corp Des Ex Flam Grav Hur In Jux Kal Lor Mani Nox Ort Por Quas Rel Sanct Tym Uus Vas Wis Ylem".Split(' ');
 
@@ -95,7 +95,8 @@ namespace UwEditor.Core.Randomizer
         }
 
         /// <summary>
-        /// The ability an active effect gives (game/PLAYDATA.C player_affected_by): class 1, the
+        /// The ability an active effect gives (game/PLAYDATA.C player_affected_by): class 11 minor 3,
+        /// telekinesis (PickDist 0); class 1, the
         /// motion bits (minor 1 leap, 3 levitate, 4 water walk, 5 fly; 2 slow fall and 6 bounce gate
         /// nothing here); class 3 minor 6, fire resistance (damage_protection_flags 0x08, which
         /// combat/DAMAGE.C check_res uses to cancel the lava's fire damage, motion/PLAYMOVE.C
@@ -105,6 +106,7 @@ namespace UwEditor.Core.Randomizer
         {
             if (cls == 1) return minor == 1 ? "jump" : minor == 3 || minor == 5 ? "levitate" : minor == 4 ? "waterwalk" : null;
             if (cls == 3 && minor == 6) return "lava";
+            if (cls == 11 && minor == 3) return "telekinesis";     // PickDist 0: use and take from any distance (ui/INTERACT.C InPickRange, BlockingTerrain)
             if (cls == 0 && minor > 0) return "light";
             return null;
         }
@@ -116,7 +118,9 @@ namespace UwEditor.Core.Randomizer
             int cls, minor;
             Uw1Spell(spell, out cls, out minor);
             if (cls == 6 && minor == 1) return "reveal";
-            if (cls == 11 && minor == 5) return "open";     // UW1's Open: xt_spells minor 5, then obj_spells picks the lock with skill 45
+            // class 11 spells are xt_spells' subs, not effects: 5 Open (obj_spells picks the lock with skill 45),
+            // 8 Telekinesis (set_curmagic(SPELLC_XT, 3), the PickDist 0 effect); combat/SPELLS.C xt_spells
+            if (cls == 11) return minor == 5 ? "open" : minor == 8 ? "telekinesis" : null;
             return OfEffect(cls, minor);
         }
 

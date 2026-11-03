@@ -56,7 +56,8 @@ namespace UwEditor.Core.Tests
             Assert.Contains(shipped.Facts, f => f.Kind == "walls" && f.Level == 7 && f.Rect.Length == 4);
             Assert.All(shipped.Facts, f => Assert.False(string.IsNullOrEmpty(f.Source)));
             string path = Docs(Path.Combine("facts", "uw1-facts.json"));
-            if (path != null) Assert.Equal(shipped.Facts.Count, FactSet.Load(path).Facts.Count);
+            // Phase C: every docs/facts/uw1-*.json is shipped (uw1-facts.json first, then the quest facts)
+            if (path != null) Assert.Equal(shipped.Facts.Count(f => f.File == "uw1-facts.json"), FactSet.Load(path).Facts.Count);
             Assert.Empty(FactSet.Shipped(true).Facts);
             // a hand edit with a mistake is reported, not thrown
             var bad = FactSet.FromJson("{\"format\":\"uw1-facts\",\"facts\":[{\"id\":\"x\",\"kind\":\"craft\",\"grants\":\"worn:lava\",\"requires\":\"item:a &\"},{\"id\":\"y\",\"kind\":\"what\"}]}");
@@ -184,17 +185,19 @@ namespace UwEditor.Core.Tests
         }
 
         [Fact]
-        public void Doors_to_open_without_picking_and_bashing()
+        public void Doors_to_open_without_picking()
         {
+            // Phase C (Karl): bashing is always in the logic, so only the doors that need picking are left
             var res = Uw1(); if (res == null) return;
             var off = res.Options.Clone();
-            off.LockPicking = false; off.Bashing = false;
+            off.LockPicking = false;
             var doors = AbilityZones.DoorsToOpen(res.Set, off);
             Assert.NotEmpty(doors);
-            Assert.All(doors, d => Assert.True(d.Link.Requires.Contains("pick:") || d.Link.Requires.Contains("bash")));
+            Assert.All(doors, d => Assert.Contains("pick:", d.Link.Requires));
+            Assert.All(doors, d => Assert.DoesNotContain("bash", d.Link.Requires));
             Assert.Contains(doors, d => d.Matters);
             var on = res.Options.Clone();
-            on.LockPicking = true; on.Bashing = true;
+            on.LockPicking = true;
             Assert.Empty(AbilityZones.DoorsToOpen(res.Set, on));
             string report = AbilityZones.Report(res);
             Assert.Contains("DOORS THE SHUFFLE MUST OPEN", report);
@@ -211,14 +214,14 @@ namespace UwEditor.Core.Tests
             foreach (bool once in new[] { false, true })
                 foreach (bool doors in new[] { false, true })
                 {
-                    var on = Solve(res, o => { o.Magic = true; o.SingleUseItems = once; o.LockPicking = doors; o.Bashing = doors; });
-                    var off = Solve(res, o => { o.Magic = false; o.SingleUseItems = once; o.LockPicking = doors; o.Bashing = doors; });
+                    var on = Solve(res, o => { o.Magic = true; o.SingleUseItems = once; o.LockPicking = doors; });
+                    var off = Solve(res, o => { o.Magic = false; o.SingleUseItems = once; o.LockPicking = doors; });
                     Assert.True(off.ZoneSphere.Count <= on.ZoneSphere.Count);
                     Assert.True(on.ZoneSphere.Keys.Count(z => !off.ZoneSphere.ContainsKey(z)) >= 0);
                     Assert.All(off.ZoneSphere.Keys, z => Assert.True(on.ZoneSphere.ContainsKey(z)));
                 }
-            var strictest = Solve(res, o => { o.Magic = false; o.SingleUseItems = false; o.LockPicking = false; o.Bashing = false; });
-            var loosest = Solve(res, o => { o.Magic = true; o.SingleUseItems = true; o.LockPicking = true; o.PickSkill = 30; o.Bashing = true; });
+            var strictest = Solve(res, o => { o.Magic = false; o.SingleUseItems = false; o.LockPicking = false; });
+            var loosest = Solve(res, o => { o.Magic = true; o.SingleUseItems = true; o.LockPicking = true; o.PickSkill = 30; });
             Assert.True(strictest.ZoneSphere.Count < loosest.ZoneSphere.Count);
             Assert.True(res.Solve.ZoneSphere.Count > 150);
             // the old meaning stays for zonings without ability sources

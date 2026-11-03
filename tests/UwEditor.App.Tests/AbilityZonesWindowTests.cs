@@ -46,12 +46,11 @@ namespace UwEditor.App.Tests
             int withMagic = aw.Abilities.Solve.ZoneSphere.Count;
             Shot(aw, "autozones-b");
 
-            // Magic off, lock picking off, bashing off: fewer zones, and the doors to open are listed
+            // Magic off, lock picking off (bashing is always on since Phase C): fewer zones, and the doors to open are listed
             Box(aw, "Magic").IsChecked = false;
-            Box(aw, "Bashing").IsChecked = false;
             Ui.Pump();
             Assert.False(aw.LogicOptions.Magic);
-            Assert.False(aw.LogicOptions.Bashing);
+            Assert.False(aw.LogicOptions.LockPicking);
             aw.BuildNow();
             Ui.Pump();
             Assert.False(aw.Abilities.Options.Magic);

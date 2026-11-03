@@ -2,7 +2,7 @@
   "format": "uw1-facts",
   "version": 1,
   "game": "UW1",
-  "notes": "Facts the automatic zones cannot read from the levels alone: things made or traded, flags set by using an item somewhere, places with special rules, and notes on the hidden gates (the gates themselves are found in the levels). Requirements use the zones' requirement language. kind: craft (grants a token wherever its requirement holds), trade (adds a requirement to every placement of a token), flag (grants a token in the zone of an object, when its requirement holds), nomana (cast spells do not work on a level until a token holds), walls (in a rectangle of a level, the tiles of a kind are walls for the regions), hidden (notes for a look-trigger gate, by level and trigger). Phase C will add the quest facts here.",
+  "notes": "Facts the automatic zones cannot read from the levels alone. Every docs/facts/uw1-*.json is read (this file first, then uw1-quests.json and any other), with the same top-level format: {\"format\": \"uw1-facts\", \"version\": 1, \"game\": \"UW1\", \"notes\": ..., \"facts\": [...]}. Each fact has id (unique over all files), kind, notes, source, and may have confidence (certain, probable, todo). Requirements use the zones' requirement language (key:N, item:NAME, npc:NAME, flag:NAME, spell:X, talismans:N, search:Z, option:NAME; zone:N is not usable in facts: place things by tile or object). A place is {\"level\": L, \"x\": X, \"y\": Y} or {\"level\": L, \"object\": N} (also [L, X, Y] or [L, N]). Kinds: craft (grants: a token wherever requires holds); trade (token: adds requires to every placement of that token; for an item a non-hostile NPC carries, requires is the quest that gets it and killing the NPC, option:kill_npcs, is always the other way); flag (grants a token in the zone of level + object, or level + x, y, when requires holds); nomana (cast spells fail on level until the token in until holds); walls (in rect [x0, y0, x1, y1] of level, the tiles of a kind are walls: tiles \"damage\"); hidden (notes for a look-trigger gate: level, trigger). Phase C: link (from and to are places; the zones there are linked: requires, twoWay true or false, linkKind (default other), replace true removes the other links between those two zones, option NAME makes it exist only when option:NAME is on, otherwise is the requirement used when the option is off, none: no link then); warp (to a place, or \"planted\": from every zone, or from fromLevel's zones only, to the zone of the place when requires holds; option as for link; \"to\": \"planted\" is the silver sapling: once requires holds the player plants it before going one way, so the return check never counts a zone reached later as a trap); goal (where the goal is: level with x and y or object, or at/to a place; requires: what reaching it needs; the first goal fact counts); free (level with objects [N, ...] (switches) and triggers [N, ...]: their chains count as done once the zone they are used from is reached: no pole, Telekinesis or levitation for the reach and no conditions along the chain (inventory or variable checks); flags [\"flag:NAME\", ...]: each granted in the zone of the fact's level + object or x, y, or from the start when it names no place; token, with objects or triggers, only names the flag the chain tested). needs (a mechanism, by token: its flag, or by level and trigger, goes off only when requires holds too; a trade whose token is a mechanism flag does the same). Options as tokens (option:NAME, true when the logic option is on): magic, single_use, lockpick, pick_retry, search_retry, damage_walls, ring_needs_lava, kill_npcs, cut_levels, gap_jumps, diagonal_jumps, glitches (always off: the rules are glitchless). Mechanism flags (flag:terrain_l7_887, flag:door_l7_656, flag:create_l5_635 ... as the automatic zones' report lists them) are granted when the timeline solver sets the mechanism off, so facts may test them.",
   "facts": [
     {
       "id": "dragonskin_boots",
@@ -78,6 +78,58 @@
       "trigger": 343,
       "notes": "Into the tombs (Karl's link 92), secret door #347 at (18, 29).",
       "source": "event/TRIGGER.C UseTrigger"
+    },
+    {
+      "id": "stew_recipe",
+      "kind": "trade",
+      "token": "item:stew_recipe",
+      "requires": "npc:lanugo",
+      "notes": "Lanugo (L1) carries the stew recipe and hands it over when asked about his stew; it is not taken by force unless killing NPCs is in the logic.",
+      "source": "conversation 10 (take_from_npc 1019); obj/COMBINE.C make_stew",
+      "confidence": "certain"
+    },
+    {
+      "id": "ring_of_levitation",
+      "kind": "link",
+      "from": { "level": 7, "x": 59, "y": 43 },
+      "to": { "level": 7, "object": 683 },
+      "requires": "spell:lava",
+      "twoWay": true,
+      "linkKind": "other",
+      "replace": true,
+      "option": "ring_needs_lava",
+      "otherwise": "free",
+      "notes": "Karl: the Ring of Levitation (#683, L7 (44, 44)) can be reached with no prerequisites from (59, 43) by jumping, but it is an ordeal. With option:ring_needs_lava (on by default) its area counts as reached only with lava protection (dragon skin boots or Flameproof); off, it is one zone with that of (59, 43).",
+      "source": "Karl (tested in play, 2026-11); the geometry: L7 (44..49, 39..45), steps of heights 5 to 12 in the lava river",
+      "confidence": "certain"
+    },
+    {
+      "id": "l4_lever_puzzle",
+      "kind": "free",
+      "level": 4,
+      "objects": [526, 811, 853, 799],
+      "notes": "Karl: the four levers around (59, 32) on L4 are a simple puzzle solved with no prerequisites. Each raises the floor from which the next one is reached; the last (#799) opens (57..58, 28..31), the way north to the alcove after the puzzle.",
+      "source": "Karl; levels: use triggers #702, #789, #809, #550 (change terrain); obj/USEITEMS.C UseUtil",
+      "confidence": "certain"
+    },
+    {
+      "id": "l5_levers",
+      "kind": "free",
+      "level": 5,
+      "objects": [662, 663, 664, 667, 670, 679, 653, 680, 681],
+      "notes": "Karl: all levers on L5 can be solved with prior knowledge and are no hindrance. The Kneenibble code: levers #680, #653 and #681 add to variables 31 to 33, and lever #667 opens the portcullis at (3, 27) when they read 7, 2 and 6. The ring puzzle: levers #662, #664, #670 set variable 34 and lever #663 creates the Ring of Humility at (16, 59) when it reads 7. Free from where the levers are used, not from the start.",
+      "source": "Karl; event/TRIGGER.C TRAP_CHECK_VARIABLE, TRAP_SET_VARIABLE, TRAP_CREATE",
+      "confidence": "certain"
+    },
+    {
+      "id": "slasher_chamber_door",
+      "kind": "needs",
+      "level": 8,
+      "trigger": 539,
+      "requires": "item:key_of_infinity",
+      "notes": "The Slasher's chamber on L8: the picture #541 at (32, 27) stands in front of the rock (32, 28). Its open trigger #539 (change terrain #538, delete #535) runs only when the Key of Infinity is used on it, so the mechanism needs the key, not just its zone.",
+      "source": "obj/USEITEMS.C seg040_352B_AFF (the key 0xE7 on a 0x16E object runs its traps with how 7); event/TRIGGER.C UseTrigger",
+      "confidence": "certain"
     }
   ]
 }
