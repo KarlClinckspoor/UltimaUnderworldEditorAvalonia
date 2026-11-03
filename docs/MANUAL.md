@@ -56,6 +56,11 @@ new-game start; in a saved game a **green arrow** marks the player.
     `UW2.EXE`;
   - everything else as its picture, always facing the camera.
 - M switches the models off. Invisible objects and traps or triggers can be shown too.
+- **Facing** (in the Show box) draws a white arrow on each object that faces a way:
+  creatures, 3D models, doors, levers, writings and wall pictures (not the objects drawn as
+  pictures that always face the camera). It points the way the heading says, heading × 45°
+  clockwise from north; on levers and wall pictures, whose heading points into their wall,
+  it points out from the wall, the way their face looks.
 - A yellow grid every N tiles (H; N set in the Show box), laid on the floors. The view's
   edges name each line, as `X: 30` or `Y: 45`.
 - **Light** (in the Show box): full light, or one of the game's eight light levels. These
@@ -135,7 +140,13 @@ the list links, which the editor keeps. Small fields (fine X and Y, height, qual
 owner, heading) have − and + buttons; hold them down to repeat. One-bit flags (invisible,
 enchanted, is quantity and so on) are checkboxes. The heading shows as an arrow, with north
 up. An owner field has a list of the races to choose
-from. Each race is named by its creatures, from OBJECTS.DAT's race byte.
+from. Each race is named by its creatures, from OBJECTS.DAT's race byte. A creature's
+**Attitude**, **Goal** and **Saved goal** have lists too (▾), and the value's meaning shows
+beside the number (8: mill about near home). The **Link** of a creature or a container has
+a **+** that adds an object to its inventory or contents.
+
+The panel's **OBJECT** and **TILE** headings fold their sections away when clicked, and
+unfold them on a second click; the editor remembers which are folded.
 
 **Add…** (Insert) opens a window that lists the items as a tree. The groups are the object
 list's kinds (melee weapons, armour, containers and so on); a search opens the groups that
@@ -183,12 +194,16 @@ global variables window on the variable a set or check variable trap uses.
   creature or a trigger puts it inside (into the trigger's chain for a trap). Esc cancels a
   drag.
 - Deleting several objects is one undo step.
+- **Objects on this tile** (in the right-click menu on a tile) lists every object there,
+  with what each holds under it, and selects the one clicked: the way to reach an object
+  hidden behind another. Once selected, it can be dragged from anywhere on its tile, even
+  where another object is in front of it.
 
 **The right-click menu** (a right click without dragging): on an object, copy, cut,
-duplicate, paste inside, add an object inside, delete, choose a trap's target, go to a
+duplicate, paste inside, add an object inside (to its inventory, for a creature), delete, choose a trap's target, go to a
 teleport's target, **Make it run a trap** (then click the trap: it joins the trigger's
-chain), **Put inside** (then click the container), frame it, select its tile; on a tile, add
-an object here, paste here, use it as the brush template, fill from here, paint the
+chain), **Put inside** (then click the container), frame it, select its tile; on a tile, the
+objects on it, add an object here, paste here, use it as the brush template, fill from here, paint the
 selection, select the tiles walkable from here, play-test from here, and move the new-game
 start or the player there.
 

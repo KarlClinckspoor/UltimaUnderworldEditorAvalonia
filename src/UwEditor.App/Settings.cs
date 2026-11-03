@@ -16,6 +16,11 @@ namespace UwEditor.App
         public bool Grid { get; set; } = true;
         public int GridStep { get; set; } = 5;
         public bool Models { get; set; } = true;
+        /// <summary>The properties panel's sections, folded or not.</summary>
+        public bool ObjectOpen { get; set; } = true;
+        /// <summary>Show ▸ Facing arrows.</summary>
+        public bool Facing { get; set; }
+        public bool TileOpen { get; set; } = true;
         /// <summary>"Dark" or "Light".</summary>
         public string Theme { get; set; } = "Dark";
         /// <summary>View ▸ Layout: Comfortable or Compact (Density).</summary>

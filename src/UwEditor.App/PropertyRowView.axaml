@@ -23,13 +23,17 @@
           <RepeatButton x:Name="Down" Content="−" Classes="step" Click="OnDown" ToolTip.Tip="One less" />
           <RepeatButton x:Name="Up" Content="+" Classes="step" Click="OnUp" ToolTip.Tip="One more" />
         </StackPanel>
+        <TextBlock DockPanel.Dock="Right" Text="{Binding ValueNote}" IsVisible="{Binding HasValueNote}" FontSize="11" Opacity="0.75"
+                   VerticalAlignment="Center" Margin="4,0,2,0" MaxWidth="104" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ValueNote}" />
         <TextBox x:Name="Box" Text="{Binding Value, Mode=OneWay}" FontSize="12"
-                 MinHeight="0" Height="22" Padding="5,0" VerticalContentAlignment="Center"
+                 MinHeight="0" MinWidth="36" Height="22" Padding="5,0" VerticalContentAlignment="Center"
                  KeyDown="OnKeyDown" LostFocus="OnLostFocus" />
       </DockPanel>
       <Button Grid.Column="2" x:Name="PickButton" Content="▾" IsVisible="{Binding HasChoices}" Padding="6,0" Height="22" MinHeight="0"
               FontSize="11" Click="OnPick" ToolTip.Tip="Choose from a list" HorizontalAlignment="Left" />
-      <TextBlock Grid.Column="2" Classes="hex" Text="{Binding Hex}" VerticalAlignment="Center" IsVisible="{Binding !HasChoices}" />
+      <TextBlock Grid.Column="2" Classes="hex" Text="{Binding Hex}" VerticalAlignment="Center" IsVisible="{Binding ShowHexColumn}" />
+      <Button Grid.Column="2" x:Name="AddInsideButton" Content="+" IsVisible="{Binding CanAddInside}" Padding="7,0" Height="22" MinHeight="0"
+              FontSize="12" FontWeight="SemiBold" Click="OnAddInside" ToolTip.Tip="Add an object to its inventory or contents" HorizontalAlignment="Left" />
       <Border Grid.Column="2" IsVisible="{Binding IsHeading}" Width="22" Height="22" CornerRadius="11" BorderThickness="1"
               BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Left" ToolTip.Tip="The way it faces, seen from above with north up (heading × 45°, clockwise)">
         <Path Data="M 10,2 L 15,11 L 11.5,11 L 11.5,18 L 8.5,18 L 8.5,11 L 5,11 Z" Fill="{DynamicResource Accent}" Width="20" Height="20"

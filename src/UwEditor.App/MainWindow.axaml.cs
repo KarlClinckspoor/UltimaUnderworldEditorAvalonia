@@ -53,6 +53,10 @@ namespace UwEditor.App
             vm.ShowModels = settings.Models;
             ColourScheme.Set(settings.Theme);
             Density.Set(settings.Layout);
+            vm.ObjectOpen = settings.ObjectOpen;
+            vm.ShowFacing = settings.Facing;
+            vm.FacingChanged += () => { settings.Facing = vm.ShowFacing; settings.Save(); UpdateMarkers(); };
+            vm.TileOpen = settings.TileOpen;
             ComfortableItem.IsChecked = !Density.IsCompact;
             CompactItem.IsChecked = Density.IsCompact;
             DarkThemeItem.IsChecked = settings.Theme != ColourScheme.Light;
@@ -697,6 +701,9 @@ namespace UwEditor.App
             ApplyAccent(vm.Session != null && vm.Session.IsUw2);
             vm.EditStatus = (name == ColourScheme.Light ? "Light" : "Dark") + " colours.";
         }
+
+        void OnFoldObject(object sender, Avalonia.Input.PointerPressedEventArgs e) { vm.ObjectOpen = !vm.ObjectOpen; settings.ObjectOpen = vm.ObjectOpen; settings.Save(); e.Handled = true; }
+        void OnFoldTile(object sender, Avalonia.Input.PointerPressedEventArgs e) { vm.TileOpen = !vm.TileOpen; settings.TileOpen = vm.TileOpen; settings.Save(); e.Handled = true; }
 
         void OnComfortable(object sender, RoutedEventArgs e) { SetLayout(Density.Comfortable); }
         void OnCompact(object sender, RoutedEventArgs e) { SetLayout(Density.Compact); }

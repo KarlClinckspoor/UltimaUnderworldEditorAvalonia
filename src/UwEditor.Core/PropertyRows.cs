@@ -29,7 +29,7 @@ namespace UwEditor.Core
         public bool IsNumber { get { return Field != null && !IsFlag; } }
         public bool IsChecked { get { return Value == "1"; } }
         /// <summary>Small fields get arrows to step them by one (fine x/y, height, quality, heading...).</summary>
-        public bool HasSteppers { get { return IsNumber && Field.Bits <= 8 && Field.Name != "Item id" && Field.Name != "Link"; } }
+        public bool HasSteppers { get { return IsNumber && Field.Bits <= 8 && Field.Name != "Item id" && Field.Name != "Link" && !HasValueNote; } }
         public bool IsHeading { get { return Field != null && Field.Name == "Heading" && Field.Bits == 3; } }
         /// <summary>The heading as a compass angle (0 north, clockwise), for its arrow.</summary>
         public double HeadingAngle { get { int v; return int.TryParse(Value, out v) ? v * 45 : 0; } }
@@ -39,6 +39,12 @@ namespace UwEditor.Core
         /// <summary>Values to pick from (an owner's race), or null.</summary>
         public List<UwEditor.Core.Editing.Choice> Choices { get; set; }
         public bool HasChoices { get { return Field != null && Choices != null; } }
+        /// <summary>What the value means, shown beside it (a goal's or attitude's name), or "".</summary>
+        public string ValueNote { get; set; } = "";
+        public bool HasValueNote { get { return !string.IsNullOrEmpty(ValueNote); } }
+        /// <summary>The Link row of an object that holds a list (a creature's inventory, a container): a (+) button adds an object to it.</summary>
+        public bool CanAddInside { get; set; }
+        public bool ShowHexColumn { get { return !HasChoices && !CanAddInside; } }
     }
 
     /// <summary>Builds the panels' rows from the record schemas, so every field shows, described.</summary>
@@ -103,6 +109,18 @@ namespace UwEditor.Core
                 ownerRow.Tip = "The race that owns it: taking it in front of them is stealing (OBJECTS.DAT creature byte 9; COMOBJ.DAT's can-own bit is set for this kind)."
                     + (r != null ? "\nNow: " + r.Label : "") + "\n" + ownerRow.Tip;
             }
+            var linkRow = fields.FirstOrDefault(r => r.Name == "Link" && r.Field != null);
+            if (linkRow != null && !o.IsQuantity && !o.IsTrapOrTrigger)
+            {
+                linkRow.CanAddInside = true;
+                linkRow.Tip = (o.IsCritter ? "(+) adds an object to its inventory.\n" : "(+) adds an object inside it.\n") + linkRow.Tip;
+            }
+            if (o.IsMobile)
+            {
+                ChoicesFor(fields, "Attitude", CritterChoices.Attitudes, o);
+                ChoicesFor(fields, "Goal", CritterChoices.Goals(level.Session.IsUw2), o);
+                ChoicesFor(fields, "Saved goal", CritterChoices.Goals(level.Session.IsUw2), o);
+            }
             rows.AddRange(fields);
             rows.Add(new PropertyRow { Name = "Bytes", Value = BitConverter.ToString(o.Record).Replace("-", " "), Hex = "", Tip = "The record as stored." });
             return rows;
@@ -121,6 +139,21 @@ namespace UwEditor.Core
             rows.Add(new PropertyRow { Name = "Record", IsHeader = true, Value = "", Hex = "", Tip = "" });
             rows.AddRange(FromSchema(Uw1Schemas.Tile, t.Record, "tile", t.X + 64 * t.Y));
             return rows;
+        }
+
+        /// <summary>Gives a field's row a list to pick from, and says what the present value means.</summary>
+        static void ChoicesFor(List<PropertyRow> fields, string name, List<UwEditor.Core.Editing.Choice> choices, ObjectInfo o)
+        {
+            var row = fields.FirstOrDefault(r => r.Name == name && r.Field != null);
+            if (row == null) return;
+            row.Choices = choices;
+            int v;
+            if (int.TryParse(row.Value, out v))
+            {
+                var c = choices.FirstOrDefault(x => x.Value == v);
+                row.ValueNote = c != null ? c.Label.Substring(c.Label.IndexOf(' ') + 1) : "";
+                row.Tip = (c != null ? "Now: " + c.Label + "\n" : "") + row.Tip;
+            }
         }
 
         static string KindName(ItemCategory c)

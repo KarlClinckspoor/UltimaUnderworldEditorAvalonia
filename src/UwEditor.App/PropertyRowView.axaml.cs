@@ -11,6 +11,10 @@ namespace UwEditor.App
     {
         /// <summary>A value was typed into a row: the row and the text.</summary>
         public static event Action<PropertyRow, string> Committed;
+        /// <summary>The Link row's (+): add an object inside the row's object.</summary>
+        public static event Action<PropertyRow> AddInsideRequested;
+
+        void OnAddInside(object sender, RoutedEventArgs e) { var row = DataContext as PropertyRow; if (row != null) AddInsideRequested?.Invoke(row); }
 
         public PropertyRowView() { InitializeComponent(); }
 

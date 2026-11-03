@@ -184,7 +184,9 @@
               <CheckBox Content="Objects" IsChecked="{Binding ShowObjects}" Margin="0,0,14,0" />
               <CheckBox Content="Invisible" IsChecked="{Binding ShowInvisible}" Margin="0,0,14,0" />
               <CheckBox Content="Traps and triggers" IsChecked="{Binding ShowTraps}" Margin="0,0,14,0" />
-              <CheckBox Content="3D models" IsChecked="{Binding ShowModels}" />
+              <CheckBox Content="3D models" IsChecked="{Binding ShowModels}" Margin="0,0,14,0" />
+              <CheckBox Content="Facing" IsChecked="{Binding ShowFacing}"
+                        ToolTip.Tip="A white arrow on each object that faces a way: creatures, 3D models, doors, levers, wall pictures. It points the way the heading says; on levers and wall pictures, out from the wall, the way their face looks." />
             </WrapPanel>
             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,2">
               <TextBlock Text="Light" VerticalAlignment="Center" FontSize="12" />
@@ -299,7 +301,9 @@
       <Border Grid.Column="4" Classes="panel">
         <ScrollViewer HorizontalScrollBarVisibility="Disabled" Padding="14,10,16,14">
           <StackPanel>
-            <TextBlock Classes="h first" Text="OBJECT" />
+            <TextBlock Classes="h first fold" Text="{Binding ObjectHeader}" PointerPressed="OnFoldObject" Cursor="Hand"
+                       ToolTip.Tip="Click to fold or unfold the object's details" />
+            <StackPanel IsVisible="{Binding ObjectOpen}">
             <Grid ColumnDefinitions="Auto,*">
               <Border Grid.Column="0" Classes="thumb" Width="42" Height="42" Margin="0,0,10,0" IsVisible="{Binding HasObject}">
                 <Image Source="{Binding ObjectThumb}" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None" Margin="3" />
@@ -332,9 +336,12 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+            </StackPanel>
 
             <StackPanel IsVisible="{Binding HasTile}">
-              <TextBlock Classes="h" Text="TILE" />
+              <TextBlock Classes="h fold" Text="{Binding TileHeader}" PointerPressed="OnFoldTile" Cursor="Hand"
+                         ToolTip.Tip="Click to fold or unfold the tile's details" />
+              <StackPanel IsVisible="{Binding TileOpen}">
               <TextBlock Text="{Binding TileTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
               <StackPanel Orientation="Horizontal" Margin="0,8,0,4" Spacing="12">
                 <StackPanel Spacing="3">
@@ -353,6 +360,7 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
+              </StackPanel>
             </StackPanel>
           </StackPanel>
         </ScrollViewer>

@@ -267,8 +267,13 @@ namespace UwEditor.App
 
         bool CanDragPick(PickResult hit)
         {
-            if (!hit.Hit || hit.Object < 0 || vm.Editor == null || pick != null || carrying != null) return false;
-            return hit.Object == vm.SelectedObject || selObjects.Contains(hit.Object);
+            if (!hit.Hit || vm.Editor == null || pick != null || carrying != null) return false;
+            if (hit.Object >= 0 && (hit.Object == vm.SelectedObject || selObjects.Contains(hit.Object))) return true;
+            // the selected object lying on this tile, hidden behind another (chosen from "Objects on this tile"): a press anywhere on its tile grabs it
+            var level = vm.Level;
+            if (level == null || hit.Tile < 0 || vm.SelectedObject < 0 || selObjects.Count > 1) return false;
+            var sel = level.Objects[vm.SelectedObject];
+            return sel.OnTile && sel.TileX + 64 * sel.TileY == hit.Tile;
         }
 
         /// <summary>Where a drop would put the grabbed object: its tile and fine position (0-7 each way), from the point under the mouse.</summary>
@@ -442,7 +447,7 @@ namespace UwEditor.App
                 items.Add(Item("_Duplicate", () => Duplicate(), editable, "Ctrl+D"));
                 bool container = !o.IsQuantity;
                 if (clip != null) items.Add(Item("_Paste inside", () => PasteClip(0, 0, o.Index), editable && container));
-                items.Add(Item("_Add an object inside…", () => { vm.Select(o.Index, tx, ty, true); _ = AddObject(); }, editable && container));
+                items.Add(Item(o.IsCritter ? "_Add an object to its inventory…" : "_Add an object inside…", () => { vm.Select(o.Index, tx, ty, true); _ = AddObjectInside(); }, editable && container));
                 items.Add(Item("De_lete", DeleteSelected, editable, "Delete"));
                 items.Add(new Separator());
                 if (o.IsTrapOrTrigger)
@@ -461,6 +466,8 @@ namespace UwEditor.App
                 if (hit.Object >= 0) items.Add(new Separator());
                 var t = level.Tiles[tx, ty];
                 items.Add(new MenuItem { Header = string.Format("Tile ({0}, {1})", tx, ty), IsEnabled = false });
+                var here = ObjectsOnTileMenu(level, tx, ty, hit.Object);
+                if (here != null) items.Add(here);
                 items.Add(Item("Add an _object here…", () => { ClearMulti(); vm.Select(-1, tx, ty, true); _ = AddObject(tx, ty, true); }, editable && !t.IsSolid, "Insert"));
                 if (clip != null) items.Add(Item("_Paste here", () => PasteClip(tx, ty, -1), editable && !t.IsSolid, "Ctrl+V"));
                 foreach (var extra in ExtraTileItems(tx, ty)) items.Add(extra);
@@ -468,6 +475,37 @@ namespace UwEditor.App
                 if (vm.Session.IsSave) items.Add(Item("Move the _player here", () => { vm.Select(-1, tx, ty, true); MoveMarker("player", level.Level, tx, ty); }, !t.IsSolid));
             }
             return items;
+        }
+
+        /// <summary>
+        /// "Objects on this tile": every object on the tile, what they hold indented under them, to
+        /// select one hidden behind another. The selected one can then be dragged from anywhere
+        /// on its tile (CanDragPick). Null when the tile holds nothing.
+        /// </summary>
+        MenuItem ObjectsOnTileMenu(LevelModel level, int tx, int ty, int clicked)
+        {
+            var top = level.TileObjects(tx, ty);
+            if (top.Count == 0) return null;
+            var menu = new MenuItem { Header = "Objects on this tile (" + top.Count + ")" };
+            void Add(ObjectInfo o, int depth)
+            {
+                if (menu.Items.Count >= 80) return;
+                string head = new string(' ', depth * 4) + (depth > 0 ? "└ " : "") + "#" + o.Index + " " + o.Name + (o.Index == clicked ? "  (clicked)" : "") + (o.Index == vm.SelectedObject ? "  ✓" : "");
+                int idx = o.Index;
+                var mi = new MenuItem { Header = head, Icon = new Avalonia.Controls.Image { Source = vm.IconOf(o.Item), Width = 16, Height = 16 } };
+                mi.Click += (s, e) =>
+                {
+                    ClearMulti();
+                    vm.Select(idx, tx, ty, true);
+                    if (vm.SelectedNode != null) ObjectTree.ScrollIntoView(vm.SelectedNode);
+                    UpdateMarkers();
+                    vm.EditStatus = "#" + idx + " " + level.Objects[idx].Name + " selected" + (level.Objects[idx].OnTile ? ": drag from anywhere on its tile to move it." : ".");
+                };
+                menu.Items.Add(mi);
+                if (depth < 3) foreach (int c in o.Children) Add(level.Objects[c], depth + 1);
+            }
+            foreach (var o in top) Add(o, 0);
+            return menu;
         }
 
         // ---- picks started from the menu: a trap for a trigger, a container for the selection

@@ -51,8 +51,18 @@ namespace UwEditor.App
             View.GroundAt = GroundAt;
             PropertyRowView.Committed += OnRowCommitted;
             Closed += (s, e) => PropertyRowView.Committed -= OnRowCommitted;
+            PropertyRowView.AddInsideRequested += OnRowAddInside;
+            Closed += (s, e) => PropertyRowView.AddInsideRequested -= OnRowAddInside;
             ObjectTree.DoubleTapped += (s, e) => Frame();
             Closing += OnClosingAskSave;
+        }
+
+        void OnRowAddInside(PropertyRow row)
+        {
+            if (!vm.ObjectRows.Contains(row) || vm.Editor == null) return;
+            var o = vm.Level.Objects[row.TargetIndex];
+            if (vm.SelectedObject != o.Index) vm.Select(o.Index, o.TileX, o.TileY, true);
+            _ = AddObjectInside();
         }
 
         void OnRowCommitted(PropertyRow row, string text)
@@ -310,8 +320,41 @@ namespace UwEditor.App
                 var c = new Vector4(1f, 0.2f, 0.15f, 1f);
                 LevelScene.Line(lines, new Vector3(t.X + 0.5f, y, t.Y + 0.5f), new Vector3(t.X + 0.5f, y + 1.2f, t.Y + 0.5f), c);
             }
+            if (vm.ShowFacing) AddFacingArrows(lines, level);
             AddZoneOverlay(tris);
             return tris;
+        }
+
+        /// <summary>
+        /// The facing arrows: for every object on a tile that the game draws turned by its heading
+        /// (creatures, 3D models, doors, levers and wall pictures; not sprites, traps or triggers),
+        /// a white arrow on its floor pointing the heading's way (heading × 45°, clockwise from
+        /// north, as the properties panel's arrow); on a wall object (a lever, a picture) the way
+        /// its face looks, out from the wall.
+        /// </summary>
+        void AddFacingArrows(List<float> lines, LevelModel level)
+        {
+            var s = vm.Session;
+            var white = new Vector4(1f, 1f, 1f, 1f);
+            foreach (var o in level.Objects)
+            {
+                if (o.Free || !o.OnTile || (o.Invisible && !vm.ShowInvisible)) continue;
+                int model;
+                var kind = ObjectModels.Classify(o.Item, s.RenderTypes, s.IsUw2, out model);
+                if (kind == ObjectModels.Kind.None || kind == ObjectModels.Kind.Sprite) continue;
+                if (kind == ObjectModels.Kind.Critter && !o.IsMobile) continue;
+                var p = new Vector3((float)o.WorldX, (float)o.WorldZ + 0.06f, (float)o.WorldY);
+                // a wall object's heading points into its wall (TrapRecipes.WallPlace, ObjectModels.OffWall): its face looks the other way
+                bool onWall = kind == ObjectModels.Kind.TmapLever || kind == ObjectModels.Kind.TmapWall || (kind == ObjectModels.Kind.Model && (model == 0x0D || model == 0x10 || model == 0x11 || model == 0x12));
+                double a = (o.Heading * 45 + (onWall ? 180 : 0)) * Math.PI / 180;
+                var dir = new Vector3((float)Math.Sin(a), 0, (float)Math.Cos(a));
+                var side = new Vector3(dir.Z, 0, -dir.X);
+                float len = kind == ObjectModels.Kind.Critter ? 0.45f : 0.32f;
+                var tip = p + dir * len;
+                LevelScene.Line(lines, p - dir * 0.08f, tip, white);
+                LevelScene.Line(lines, tip, tip - dir * 0.13f + side * 0.09f, white);
+                LevelScene.Line(lines, tip, tip - dir * 0.13f - side * 0.09f, white);
+            }
         }
 
         /// <summary>Text pinned to points of the view (a teleport's other level), drawn on the label layer.</summary>
@@ -488,8 +531,11 @@ namespace UwEditor.App
         /// <summary>Opens the add window for the selected tile (or the one looked at), or for the selected container.</summary>
         public Task<int> AddObject() { return AddObject(-1, -1, false); }
 
-        /// <summary>The add window for a tile (−1: the selected one), or with inside, for the selected object as the container.</summary>
-        public async Task<int> AddObject(int atX, int atY, bool tileOnly)
+        /// <summary>The add window for the selected object as the container, with "inside" ticked (a creature's inventory, a container's contents).</summary>
+        public Task<int> AddObjectInside() { return AddObject(-1, -1, false, true); }
+
+        /// <summary>The add window for a tile (−1: the selected one), or with inside, for the selected object as the container; intoSelected ticks "inside" whatever the container is.</summary>
+        public async Task<int> AddObject(int atX, int atY, bool tileOnly, bool intoSelected = false)
         {
             var level = vm.Level;
             if (level == null) return -1;
@@ -507,7 +553,7 @@ namespace UwEditor.App
                 if (!o.IsQuantity || o.Item == 0x10F || (o.Item >= 0x140 && o.Item < 0x150)) { container = o.Index; inside = o.ToString(); }
                 else if (o.Parent >= 0) { container = o.Parent; inside = level.Objects[o.Parent].ToString(); }
             }
-            bool byDefault = container >= 0 && (ItemCategories.Of(level.Objects[container].Item, vm.Session.Kind) & (ItemCategory.Container | ItemCategory.Door)) != 0;
+            bool byDefault = container >= 0 && (intoSelected || (ItemCategories.Of(level.Objects[container].Item, vm.Session.Kind) & (ItemCategory.Container | ItemCategory.Door)) != 0);
             var w = await AddObjectWindow.Ask(this, vm.Session, vm.IconOf, false, string.Format("On tile ({0}, {1}) of level {2}.", tx, ty, level.Level), inside, byDefault);
             if (w.Result == null) return -1;
             var spec = w.Result;
