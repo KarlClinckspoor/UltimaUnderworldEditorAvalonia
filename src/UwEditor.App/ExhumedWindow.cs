@@ -26,6 +26,9 @@ namespace UwEditor.App
         readonly StackPanel levelBoxes = new StackPanel { Spacing = 2 };
         readonly TextBlock portText = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
         readonly CheckBox saveBox = new CheckBox { Content = "Save in slot I at the end, and check the levels the game wrote", IsChecked = true };
+        readonly CheckBox aliveBox = new CheckBox { Content = "Keep the player alive (strength 99, defense 30, full hit points before each level)", IsChecked = true };
+        readonly Button untick = new Button { Content = "Untick the levels with nowhere to stand", IsVisible = false };
+        List<int> nowhere = new List<int>();
         readonly TextBox report = new TextBox { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, FontFamily = new FontFamily("Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,monospace"), FontSize = 12, MinHeight = 160 };
         readonly Image shot = new Image { Width = 320, Height = 200, Stretch = Stretch.Uniform };
         readonly Button run = new Button { Content = "Run the check", IsDefault = true };
@@ -91,7 +94,15 @@ namespace UwEditor.App
             openFolder.Click += (o, e) => { if (LastPlan != null) OpenInShell(LastPlan.Folder); };
             buttons.Children.Add(run); buttons.Children.Add(openFolder);
             var top = new StackPanel { Spacing = 4 };
-            top.Children.Add(saveBox); top.Children.Add(buttons);
+            ToolTip.SetTip(aliveBox, "Underworld Exhumed has no god mode. Its test cheat sets strength and defense (the maximum hit points follow), and fills the hit points before each level, so monsters waiting on a level don't end the check.");
+            untick.Click += (o, e) =>
+            {
+                foreach (var b in boxes) if (nowhere.Contains((int)b.Tag)) b.IsChecked = false;
+                untick.IsVisible = false;
+                report.Text = "Unticked " + string.Join(", ", nowhere) + ". Run the check again.";
+            };
+            buttons.Children.Add(untick);
+            top.Children.Add(saveBox); top.Children.Add(aliveBox); top.Children.Add(buttons);
 
             var right = new DockPanel();
             shotBox = new Border { Child = shot, BorderBrush = new SolidColorBrush(Color.Parse("#40808080")), BorderThickness = new Thickness(1), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0), IsVisible = false };
@@ -119,6 +130,12 @@ namespace UwEditor.App
         public List<int> ChosenLevels { get { return boxes.Where(b => b.IsChecked == true).Select(b => (int)b.Tag).ToList(); } }
 
         public void Choose(IList<int> levels) { Tick(levels); }
+
+        /// <summary>The levels the last setup refused for having nowhere to stand.</summary>
+        public List<int> NowhereToStand { get { return nowhere; } }
+
+        /// <summary>Unticks the levels with nowhere to stand (the button's work).</summary>
+        public void UntickNowhere() { untick.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); }
 
         void ShowPort()
         {
@@ -152,7 +169,15 @@ namespace UwEditor.App
             {
                 report.Text = "Setting up…";
                 ExhumedPlan plan;
-                try { plan = main.PrepareExhumed(ChosenLevels, saveBox.IsChecked == true); }
+                untick.IsVisible = false;
+                try { plan = main.PrepareExhumed(ChosenLevels, saveBox.IsChecked == true, aliveBox.IsChecked == true); }
+                catch (NowhereToStandException ex)
+                {
+                    nowhere = ex.Levels;
+                    untick.IsVisible = true;
+                    report.Text = "Could not set the check up: " + ex.Message;
+                    return null;
+                }
                 catch (Exception ex) { report.Text = "Could not set the check up: " + ex.Message; return null; }
                 LastPlan = plan;
                 openFolder.IsEnabled = true;

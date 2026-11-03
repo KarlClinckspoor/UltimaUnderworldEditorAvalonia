@@ -280,14 +280,23 @@ check**. The editor then:
    new character), then for each level the port's test cheat `goto LEVEL X Y`, which moves
    the player there as a teleport trap does, so the game loads the level itself. The square
    is open, flat, dry and free, with open floor round it (the start square on the start
-   level when it is one). A level takes about five seconds;
+   level when it is one): the game kills a player it cannot place. When some ticked levels
+   have no such square, the check names them all at once; **Untick the levels with nowhere
+   to stand** unticks them. A level takes about five seconds;
+   With **Keep the player alive** (on at first) the player is made sturdy first, since the
+   port has no god mode: its `set` cheat raises strength to 99 and defense to 30 (the
+   maximum hit points follow, as a level gained does), and fills the hit points before each
+   level, so monsters near the square don't end the check;
 4. in UW1, saves in slot I at the end (Ctrl+S, slot I, Enter), so the game writes every
    level it visited, and checks those levels again here (the object-list check and the list
    errors of **Level ▸ Fixes**).
 
 The report says what went wrong: a crash of the port ("host fault"), a halt, the game's own
 fatal error ("Underworld can no longer run"), a `goto` the game refused, a level never
-reached, or findings in the levels the game saved. It ends with everything the port printed,
+reached, or findings in the levels the game saved. A "far null pointer read" the port logs
+is listed with the level it came after: the game read through a null pointer, which DOS
+let it do, so it goes on; it can mean an object link pointing nowhere, or one of the game's
+own slips (after a death, say). It ends with everything the port printed,
 and shows the last screen. The check's folder keeps the script (`script.txt`), the saved game
 (`home/SAVE1`) and the save as written (`before`), so a problem can be run again by hand:
 `uw1port --data game --home home --input-script script.txt` (with `EXHUME_TEST_CHEATS=1` set,

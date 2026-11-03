@@ -28,6 +28,10 @@ namespace UwEditor.Core
         public bool NewCharacter;
         /// <summary>The script ends by saving in slot I, so the game writes every level it visited.</summary>
         public bool SavesAtEnd;
+        /// <summary>The player is kept alive: strength 99 and defense 30 at the start, hit points filled before each level (the port has no god mode; its set cheat does this).</summary>
+        public bool KeepAlive;
+        /// <summary>The hit points set before each level: the maximum with strength 99 (SKILLS.C player_compute: 30 + level × strength / 5, at most 255).</summary>
+        public int AliveHp;
         public int ExitAfterMs;
         /// <summary>When the files were ready: a save written after it is the game's.</summary>
         public DateTime ReadyUtc;
@@ -36,6 +40,17 @@ namespace UwEditor.Core
         /// <summary>Environment variables the port needs (the test cheats).</summary>
         public readonly Dictionary<string, string> Environment = new Dictionary<string, string>();
         public string Note;
+    }
+
+    /// <summary>Levels a check cannot send the player to: none of their squares is open, flat, dry and free with room around it.</summary>
+    public sealed class NowhereToStandException : InvalidOperationException
+    {
+        public List<int> Levels { get; private set; }
+        public NowhereToStandException(List<int> levels, bool uw2)
+            : base(string.Format("{0} {1} no open, flat, dry square with room around it to send the player to (the game kills a player it cannot place). Untick {2}: {3}.",
+                uw2 ? (levels.Count == 1 ? "Level slot" : "Level slots") : (levels.Count == 1 ? "Level" : "Levels"),
+                levels.Count == 1 ? "has" : "have", levels.Count == 1 ? "it" : "them", string.Join(", ", levels)))
+        { Levels = levels; }
     }
 
     /// <summary>What a check found.</summary>
@@ -154,6 +169,33 @@ namespace UwEditor.Core
             try { return TerrainTable.Load(s); } catch (Exception) { return null; }
         }
 
+        /// <summary>The levels among these with no square to send the player to (all of them, not just the first).</summary>
+        public static List<int> LevelsWithNowhereToStand(GameSession s, LevelEdits edits, IEnumerable<int> levels)
+        {
+            var terrain = TryTerrain(s);
+            var list = new List<int>();
+            foreach (int level in levels.Distinct())
+            {
+                var m = edits != null ? edits.Model(level) : s.LoadLevel(level);
+                if (m == null || !m.Present || GotoSquare(s, m, terrain) == null) list.Add(level);
+            }
+            return list;
+        }
+
+        /// <summary>The player's experience level in the save a check starts from (1 for a new character).</summary>
+        static int PlayerLevelOf(GameSession s, byte[] playerDat)
+        {
+            try
+            {
+                string from = SaveSource(s);
+                byte[] file = playerDat ?? (from == null ? null : File.ReadAllBytes(GameProfile.Find(from, "PLAYER.DAT")));
+                if (file == null) return 1;
+                int l = PlayerDat.Parse(file, s.Kind).Level;
+                return l < 1 || l > 16 ? 1 : l;
+            }
+            catch (Exception) { return 1; }
+        }
+
         /// <summary>The levels changed since they were opened (the default to check).</summary>
         public static List<int> EditedLevels(LevelEdits edits)
         {
@@ -164,11 +206,13 @@ namespace UwEditor.Core
         /// Sets a check up in folder (made afresh; only a folder made here is ever cleared): the
         /// copied game with the edits, the port's home with saved game I holding them, the script.
         /// </summary>
-        public static ExhumedPlan Prepare(GameSession s, LevelEdits edits, byte[] playerDat, IList<int> levels, string folder, bool saveAtEnd = true)
+        public static ExhumedPlan Prepare(GameSession s, LevelEdits edits, byte[] playerDat, IList<int> levels, string folder, bool saveAtEnd = true, bool keepAlive = true)
         {
             if (s == null) throw new InvalidOperationException("Open a game first.");
             levels = (levels ?? new List<int>()).Distinct().ToList();
             if (levels.Count == 0) throw new InvalidOperationException("Choose at least one level to check.");
+            var nowhere = LevelsWithNowhereToStand(s, edits, levels);
+            if (nowhere.Count > 0) throw new NowhereToStandException(nowhere, s.IsUw2);
             string game = Path.GetFullPath(s.GameFolder);
             folder = Path.GetFullPath(folder);
             if (folder.TrimEnd(Path.DirectorySeparatorChar).Equals(game.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) || game.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
@@ -226,13 +270,21 @@ namespace UwEditor.Core
                 t = 12000;
             }
             var terrain = TryTerrain(s);
+            plan.KeepAlive = keepAlive;
+            if (keepAlive)
+            {
+                // no god mode in the port: its set cheat (port/sys/cheats.c c_set) raises the maxima as a level gained does, then the hit points are filled before each level
+                plan.AliveHp = Math.Min(255, 30 + PlayerLevelOf(s, plan.NewCharacter ? null : playerDat) * 99 / 5);
+                sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat set str 99        # keep the player alive\n{1} cheat set defense 30", t, t + 200));
+                t += 500;
+            }
             foreach (int level in levels)
             {
                 var m = edits != null ? edits.Model(level) : s.LoadLevel(level);
-                var sq = GotoSquare(s, m, terrain);
-                if (sq == null) throw new InvalidOperationException((s.IsUw2 ? "Level slot " : "Level ") + level + " has no open, flat, dry square with room around it to send the player to.");
-                plan.Visits.Add(new ExhumedVisit { Level = level, X = sq.Value.X, Y = sq.Value.Y, At = t });
-                sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat goto {1} {2} {3}", t, level, sq.Value.X, sq.Value.Y));
+                var sq = GotoSquare(s, m, terrain).Value;
+                if (keepAlive) { sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat set hp {1}", t, plan.AliveHp)); t += 300; }
+                plan.Visits.Add(new ExhumedVisit { Level = level, X = sq.X, Y = sq.Y, At = t });
+                sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat goto {1} {2} {3}", t, level, sq.X, sq.Y));
                 t += VisitMs;
             }
             plan.SavesAtEnd = saveAtEnd && !s.IsUw2;
@@ -253,7 +305,7 @@ namespace UwEditor.Core
                 "--exit-after", plan.ExitAfterMs.ToString(CultureInfo.InvariantCulture) });
             plan.Environment["EXHUME_TEST_CHEATS"] = "1";
             plan.ReadyUtc = DateTime.UtcNow;
-            plan.Note = string.Format("{0}, then {1}{2}.", plan.NewCharacter ? "A new character" : "Saved game I", string.Join(", ", plan.Visits.Select(v => (s.IsUw2 ? "slot " : "level ") + v.Level + " (" + v.X + ", " + v.Y + ")")), plan.SavesAtEnd ? ", then a save in slot I" : "");
+            plan.Note = string.Format("{0}{1}, then {2}{3}.", plan.NewCharacter ? "A new character" : "Saved game I", keepAlive ? " kept alive (strength 99, defense 30, " + plan.AliveHp + " hit points before each level)" : "", string.Join(", ", plan.Visits.Select(v => (s.IsUw2 ? "slot " : "level ") + v.Level + " (" + v.X + ", " + v.Y + ")")), plan.SavesAtEnd ? ", then a save in slot I" : "");
             return plan;
         }
 
@@ -347,6 +399,15 @@ namespace UwEditor.Core
                     int lv = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
                     if (m.Groups[4].Success) { r.Refused.Add("level " + lv + ": " + m.Groups[5].Value); r.Problems.Add("going to " + (s.IsUw2 ? "slot " : "level ") + lv + " (" + m.Groups[2].Value + ", " + m.Groups[3].Value + ") was refused: " + m.Groups[5].Value); }
                     else r.Reached.Add(lv);
+                    continue;
+                }
+                var sm = System.Text.RegularExpressions.Regex.Match(line, @"cheat: (set \S+ \S+): (.*) \(not as DOS\)");
+                if (sm.Success) { r.Notes.Add("Keeping the player alive: \"" + sm.Groups[1].Value + "\" was refused: " + sm.Groups[2].Value + "."); continue; }
+                var nm = System.Text.RegularExpressions.Regex.Match(line, @"far null pointer read at (\S+)");
+                if (nm.Success)
+                {
+                    string after = r.Reached.Count > 0 ? " after going to " + (s.IsUw2 ? "slot " : "level ") + r.Reached[r.Reached.Count - 1] : " before the first level";
+                    r.Notes.Add("The game read through a null pointer at " + nm.Groups[1].Value + after + ". The port reads what DOS would have, so the game goes on; it can mean an object link that points nowhere, or a path the game itself gets wrong (a death, say).");
                     continue;
                 }
                 if (line.Contains("host fault")) r.Problems.Add("the port crashed (" + line + ")");
