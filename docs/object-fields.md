@@ -79,18 +79,18 @@ mean nothing for it; that explains UW2's missiles with "Bit 0D.11" set.
 | Rate | 0x14 bits 0-2 | Update interval (bin step). | confirmed | `move_mobile`. Critters ship with 4 or 6 (one with 3). | Same. |
 | Pitch | 0x14 bits 3-7 | Vertical speed, (pitch - 16) * 64. | confirmed | `get_phys_data`. | Same. |
 | Sequence | 0x15 bits 0-5 | Animation sequence. | confirmed | `do_obj`. | UW1 directional sequences are 0x20 and up; UW2 numbers them 0-7. |
-| Bit 15.6 | 0x15 bit 6 | Standing still: the next physics step is skipped while speed is 0 and pitch 16. Cleared each step, set when the goal stands. | confirmed | `critter/AI.C critter_mv, crit_drunkwalk, constrain_movement`; `PATHFIND.C crit_head_for_loc`. UW1 21 critters (242 in saves); UW2 92. | Same. |
-| Bit 15.7 | 0x15 bit 7 | Critter: following a stored path. Missile: has hit a mobile, passes through others. | confirmed | `PATHFIND.C crit_head_for_loc`; `motion/OBJPHYS.C`; `motion/COLLIDE.C ObjectCheck`. 0 shipped, 1 in saves. | Same. |
+| Standing still (was Bit 15.6) | 0x15 bit 6 | Standing still: the next physics step is skipped while speed is 0 and pitch 16. Cleared each step, set when the goal stands. | confirmed | `critter/AI.C critter_mv, crit_drunkwalk, constrain_movement`; `PATHFIND.C crit_head_for_loc`. UW1 21 critters (242 in saves); UW2 92. | Same. |
+| On a path (was Bit 15.7) | 0x15 bit 7 | Critter: following a stored path. Missile: has hit a mobile, passes through others. | confirmed | `PATHFIND.C crit_head_for_loc`; `motion/OBJPHYS.C`; `motion/COLLIDE.C ObjectCheck`. 0 shipped, 1 in saves. | Same. |
 | Path index | 0x16 bits 0-3 | Path slot (of 16) while Bit 15.7 is set. | confirmed | `crit_head_for_loc`. | Same. |
 | Fine heading | 0x18 bits 0-4 | Low 5 bits of the facing. | confirmed | `combat/COMBAT.C resolve_attack`, `combat/SPELLS.C`, `combat/MISSILE.C`. | Same. |
-| Bit 18.5 | 0x18 bit 5 | New destination this step; drops the stored path. | confirmed | `set_loc`, `critter_mv`. UW1 433 of 657, left from the last step before the level was saved. | Same. |
-| Bit 18.6 | 0x18 bit 6 | Gave up on the destination; wanders, forgets 1 step in 8. | confirmed | `crit_head_for_loc`. | Same. |
-| Bit 18.7 | 0x18 bit 7 | Straight line to the destination is clear. | confirmed | `crit_head_for_loc`. | Same. |
-| Bit 19.0 | 0x19 bit 0 | Knows where its target is. | confirmed | `crit_guard`, `target_found`, `critter_mv`; cleared in `up_crit`. | Same. |
-| Bit 19.1 | 0x19 bit 1 | Heard something. | confirmed | `crit_guard`. | Same. |
+| New destination (was Bit 18.5) | 0x18 bit 5 | New destination this step; drops the stored path. | confirmed | `set_loc`, `critter_mv`. UW1 433 of 657, left from the last step before the level was saved. | Same. |
+| Gave up (was Bit 18.6) | 0x18 bit 6 | Gave up on the destination; wanders, forgets 1 step in 8. | confirmed | `crit_head_for_loc`. | Same. |
+| Straight line clear (was Bit 18.7) | 0x18 bit 7 | Straight line to the destination is clear. | confirmed | `crit_head_for_loc`. | Same. |
+| Knows target (was Bit 19.0) | 0x19 bit 0 | Knows where its target is. | confirmed | `crit_guard`, `target_found`, `critter_mv`; cleared in `up_crit`. | Same. |
+| Heard something (was Bit 19.1) | 0x19 bit 1 | Heard something. | confirmed | `crit_guard`. | Same. |
 | Casting | 0x19 bits 2-3 | Spell slot 1-3 about to be cast. | confirmed | `critter/AI.C`. | Cast on frame 4 (UW1) or 3 (UW2). |
-| Bit 19.4 | 0x19 bit 4 | Cornered: fights on when hit instead of fleeing. | confirmed | `crit_flee`, `critter_mv`. | Same. |
-| Bit 19.5 | 0x19 bit 5 | Committed to the attack. | confirmed | `critter_mv`, and the guard return in `critter/AI.C`. | Same. |
+| Cornered (was Bit 19.4) | 0x19 bit 4 | Cornered: fights on when hit instead of fleeing. | confirmed | `crit_flee`, `critter_mv`. | Same. |
+| Committed (was Bit 19.5) | 0x19 bit 5 | Committed to the attack. | confirmed | `critter_mv`, and the guard return in `critter/AI.C`. | Same. |
 
 The names "Bit 15.6" to "Bit 19.5" were kept so the layout and the code that looks fields up by
 name do not change; the tooltips now start with the meaning. Byte 0x19's bit meanings agree with
