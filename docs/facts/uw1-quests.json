@@ -1,0 +1,618 @@
+{
+  "format": "uw1-facts",
+  "version": 1,
+  "game": "UW1",
+  "notes": "The quest facts of Ultima Underworld 1: what ending the game needs, the eight talismans, the Key of Infinity, the shrine mantra, items NPCs hold, doors NPCs open, Gate Travel and the silver sapling. Glitchless: no tricks beyond plain play. The player is assumed to know every mantra, password, tune and lever code. Same kinds as uw1-facts.json (craft, trade, flag, free) plus Phase C's link, warp and goal. link: from and to are tiles ({level, x, y}); the link joins their zones. warp: from 'any' (every zone) to the zone of a tile or object ({level, x, y, object}); to 'planted' is the silver sapling. goal: the tile or trigger whose zone ends the game. free: a mechanism or a lever code that counts as done once its trigger's zone is reached (token: the flag that becomes true). Fields 'x', 'y' on a flag fact are information only. Every fact has a confidence: certain (read in the data and the code), probable (read, but a step is assumed), todo. The readable account with the evidence is uw1-quests.md.",
+  "facts": [
+    {
+      "id": "goal_void_end",
+      "kind": "goal",
+      "level": 9,
+      "x": 52,
+      "y": 51,
+      "trigger": 1022,
+      "requires": "talismans:8 & flag:garamon_buried",
+      "notes": "The end of the game: move trigger #1022 at L9 (52, 51), on the high platform of the Ethereal Void, runs hack trap #1021 (quality 0x3F), which ends the game. Level 9 is reached only through the ritual (link 'ritual'), so the requirement repeats the ritual's. On level 9 nothing can be picked up or cast, and the player cannot die.",
+      "source": "L9 #1022 move trigger -> #1021 do trap q 63; event/TRIGGER.C do_trap_hack case 0x3F (EndGameMode); game/SKILLS.C check_victory, player_is_dead; combat/SPELLS.C do_spell (no spells on level 9); motion/OBJPHYS.C mob_to_static (nothing kept on level 9)",
+      "confidence": "probable"
+    },
+    {
+      "id": "ritual",
+      "kind": "link",
+      "from": { "level": 8, "x": 32, "y": 30 },
+      "to": { "level": 9, "x": 27, "y": 23 },
+      "requires": "talismans:8 & flag:garamon_buried",
+      "twoWay": false,
+      "notes": "Throwing the eight talismans (items of fate 10) into the lava pool of the Slasher chamber (lava within |dx| + |dy| < 6 of (32, 32)) destroys them one by one, but only once Garamon is buried (talisman_ok); before that nothing happens to them. When the last one goes, a moongate opens at (32, 32), the Slasher of Veils is dragged through, and the player follows to L9 (27, 23). No way back.",
+      "source": "motion/OBJPHYS.C mob_to_static (fate 10, level 8, lava, abs(x-32)+abs(y-32) < 6, player->talisman_ok, --player->talismans); game/SKILLS.C check_victory (do_teleport to 0x1B, 0x17, level 9); COMOBJ.DAT fate 10: 0x0A, 0x36, 0x37, 0x93, 0x97, 0xAE, 0xBF, 0x11F, 0x136",
+      "confidence": "certain"
+    },
+    {
+      "id": "garamon_bones",
+      "kind": "flag",
+      "grants": "item:garamon_bones",
+      "level": 8,
+      "object": 820,
+      "requires": "free",
+      "notes": "Garamon's bones: the pile of bones #820 (item 0xC6, owner 0x3E) at L8 (2, 15), with the Vas stone #757. The other piles of bones have owner 0 and do nothing, so the bones get their own token.",
+      "source": "L8 #820 (item 0xC6 owner 62); obj/USEITEMS.C UseBonesOn (owner 0x3E)",
+      "confidence": "certain"
+    },
+    {
+      "id": "garamon_buried",
+      "kind": "flag",
+      "grants": "flag:garamon_buried",
+      "level": 5,
+      "object": 599,
+      "requires": "item:garamon_bones",
+      "notes": "Using Garamon's bones on his grave, the gravestone #599 at L5 (54, 54) (special link 0x21), buries him: it sets talisman_ok, without which the talismans are not destroyed, Garamon's ghost talks (conversation 0x1B: 'cast all eight into the Abyss') and the trigger at (54, 52) is set off. Garamon's conversation sets quest 5, which nothing checks.",
+      "source": "obj/USEITEMS.C UseBonesOn (gravestone 0x165, link 0x221, player->talisman_ok = 1); L5 #599 link 545 = 0x221; conversation 27 (Garamon)",
+      "confidence": "certain"
+    },
+    {
+      "id": "slasher_door",
+      "kind": "link",
+      "from": { "level": 8, "x": 32, "y": 26 },
+      "to": { "level": 8, "x": 32, "y": 29 },
+      "requires": "item:key_of_infinity",
+      "twoWay": true,
+      "notes": "The Slasher chamber's door is the door picture #541 at L8 (32, 27) in front of rock (32, 28). Using the Key of Infinity on it uses the key up and sets off open trigger #539, whose change-terrain trap #538 opens (32, 28) at height 2 for good, and delete trap #535 removes the picture. Nothing else sets the trigger off (it needs 'how 7'). For C1: mechanism flag:terrain_L8_539 must carry the condition item:key_of_infinity; it is not free once its region is reached.",
+      "source": "obj/USEITEMS.C seg040_352B_AFF (item 0xE7 on a 0x16E object over a textured door, checkTrap how 7); L8 #541, #539, #538, #535",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_infinity",
+      "kind": "craft",
+      "grants": "item:key_of_infinity",
+      "requires": "item:key_of_truth & item:key_of_love & item:key_of_courage",
+      "notes": "The three parts combine in the inventory in any order: two parts make a two-part key (0xE4-0xE6), the third makes the Key of Infinity (0xE7). Nothing else is needed.",
+      "source": "DATA/CMB.DAT (rules E1+E2=E6, E1+E3=E4, E2+E3=E5, E1+E5, E2+E4, E3+E6 = E7, sources used up); obj/COMBINE.C",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_truth_L1",
+      "kind": "flag",
+      "grants": "item:key_of_truth",
+      "level": 1,
+      "object": 879,
+      "requires": "free",
+      "notes": "Chanting the mantra FANLO at any shrine puts the Key of Truth in the player's hand, once. One fact per shrine, so one reachable shrine is enough (Karl: the player knows all mantras). This is the shrine at L1 (46, 18).",
+      "source": "game/SKILLS.C mantra_advance (mantra 21 = string block 2 0x48 'FANLO': place_new ITEM_KEY_OF_TRUTH, player->key); conv/CONVERSE.C TalkTo (a shrine, 0x157, starts the mantra)",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_truth_L2",
+      "kind": "flag",
+      "grants": "item:key_of_truth",
+      "level": 2,
+      "object": 834,
+      "requires": "free",
+      "notes": "FANLO at the shrine L2 (4, 59).",
+      "source": "game/SKILLS.C mantra_advance",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_truth_L3_sword",
+      "kind": "flag",
+      "grants": "item:key_of_truth",
+      "level": 3,
+      "object": 633,
+      "requires": "free",
+      "notes": "FANLO at the shrine L3 (61, 8), in the sword blade area.",
+      "source": "game/SKILLS.C mantra_advance",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_truth_L3_lizardmen",
+      "kind": "flag",
+      "grants": "item:key_of_truth",
+      "level": 3,
+      "object": 634,
+      "requires": "free",
+      "notes": "FANLO at the shrine L3 (41, 22), the lizardmen's shrine.",
+      "source": "game/SKILLS.C mantra_advance",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_truth_L3_lake",
+      "kind": "flag",
+      "grants": "item:key_of_truth",
+      "level": 3,
+      "object": 756,
+      "requires": "free",
+      "notes": "FANLO at the shrine L3 (28, 44).",
+      "source": "game/SKILLS.C mantra_advance",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_truth_L4_rawstag",
+      "kind": "flag",
+      "grants": "item:key_of_truth",
+      "level": 4,
+      "object": 518,
+      "requires": "free",
+      "notes": "FANLO at the shrine L4 (60, 2), Rawstag's ankh shrine.",
+      "source": "game/SKILLS.C mantra_advance",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_truth_L4",
+      "kind": "flag",
+      "grants": "item:key_of_truth",
+      "level": 4,
+      "object": 663,
+      "requires": "free",
+      "notes": "FANLO at the shrine L4 (9, 34).",
+      "source": "game/SKILLS.C mantra_advance",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_truth_L5",
+      "kind": "flag",
+      "grants": "item:key_of_truth",
+      "level": 5,
+      "object": 843,
+      "requires": "free",
+      "notes": "FANLO at the shrine L5 (20, 36).",
+      "source": "game/SKILLS.C mantra_advance",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_truth_L6",
+      "kind": "flag",
+      "grants": "item:key_of_truth",
+      "level": 6,
+      "object": 908,
+      "requires": "free",
+      "notes": "FANLO at the shrine L6 (3, 32).",
+      "source": "game/SKILLS.C mantra_advance",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_truth_L7",
+      "kind": "flag",
+      "grants": "item:key_of_truth",
+      "level": 7,
+      "object": 906,
+      "requires": "free",
+      "notes": "FANLO at the shrine L7 (40, 54).",
+      "source": "game/SKILLS.C mantra_advance",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_truth_L8",
+      "kind": "flag",
+      "grants": "item:key_of_truth",
+      "level": 8,
+      "object": 793,
+      "requires": "free",
+      "notes": "FANLO at the shrine L8 (31, 61).",
+      "source": "game/SKILLS.C mantra_advance",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_of_love",
+      "kind": "craft",
+      "grants": "item:key_of_love",
+      "requires": "item:picture_tom & npc:judy & (spell:lava | spell:telekinesis)",
+      "notes": "Judy (L5 (34, 8)) takes the picture of Tom, weeps, and the Key of Love appears in the lava at (33, 8) (place_object). It does not burn (fate 0), but the hand cannot reach it from Judy's ledge: it lies two floor steps below and across another terrain class. So the player walks into the lava (lava protection) or takes it with Telekinesis (which reaches anything). Walking in for a moment unprotected costs little health; the logic follows Karl's lava rule.",
+      "source": "conversation 23 (find_barter 272, do_inv_create 226, place_object 33, 8); conv/BABLHACK.C place_object; ui/INTERACT.C InPickRange (12 below at most) and BlockingTerrain (terrain class); COMOBJ.DAT fate of 0xE2 is 0",
+      "confidence": "probable"
+    },
+    {
+      "id": "picture_tom",
+      "kind": "trade",
+      "token": "item:picture_tom",
+      "requires": "npc:bolinard",
+      "notes": "Bolinard (L7 prison cell behind key 27) gives the picture of Tom when he offers to sketch a map ('I can help thee with a map'): no payment. Listed so the source is on record; it adds nothing.",
+      "source": "conversation 214 (take_from_npc 272)",
+      "confidence": "certain"
+    },
+    {
+      "id": "smonden_key",
+      "kind": "trade",
+      "token": "key:26",
+      "requires": "npc:smonden",
+      "notes": "Smonden (L7 prison cell behind key 27) gives key 26, the key to the way up to the Key of Courage, when asked: no payment. Listed for the record; it adds nothing.",
+      "source": "conversation 215 (take_from_npc 1016)",
+      "confidence": "certain"
+    },
+    {
+      "id": "kallistan_crystal",
+      "kind": "trade",
+      "token": "item:crystal",
+      "requires": "npc:kallistan",
+      "notes": "Kallistan (L7 prison cell behind key 23) gives the crystal splinter after an oath against Tyball ('Thou shalt just have to trust me', 'Very well', any oath, 'I have no fear'). The password Deco Morono is a second way in, not needed. Carried past (20, 42), the splinter opens the rock into the tombs (Phase A: flag:terrain_L7_887, condition item:crystal).",
+      "source": "conversation 212 (func_0606 to func_06F2: take_from_npc 273); L7 #887 move trigger, #896 inventory trap",
+      "confidence": "certain"
+    },
+    {
+      "id": "carasso_key",
+      "kind": "trade",
+      "token": "key:28",
+      "requires": "npc:carasso",
+      "notes": "Carasso (L8 (47, 44)) gives key 28 when asked about the chamber's door: no payment. Listed for the record.",
+      "source": "conversation 232 (func_03DA, func_0422, func_04B7: take_from_npc 1016)",
+      "confidence": "certain"
+    },
+    {
+      "id": "sword_of_justice",
+      "kind": "craft",
+      "grants": "talisman:sword",
+      "requires": "item:broken_blade & item:broken_hilt & npc:shak & item:coin",
+      "notes": "Shak, the smith (L2 (60, 3)), takes the blade and the hilt of Caliburn together, asks the player to come back in an hour and to pay 20 gold then, and hands over the Sword of Justice. The blade lies in the L3 sword area (#882, (58, 9)), the hilt on L5 (#932, (54, 49)). There is no anvil step for the sword.",
+      "source": "conversation 2 (func_0443: show_inv 280 and 281; func_0ADA; func_1064: do_inv_delete 280, 281, do_inv_create 10, payment of 20 in func_11F7)",
+      "confidence": "certain"
+    },
+    {
+      "id": "cup_of_wonder",
+      "kind": "flag",
+      "grants": "talisman:cup",
+      "level": 3,
+      "object": 756,
+      "x": 24,
+      "y": 45,
+      "requires": "item:flute",
+      "notes": "Playing Mardin's Song of Wonder (notes 3 5 4 2 3 7 8 7 5, taught by Eyesnack, L5) on a flute while standing within two squares of L3 (24, 45) puts the Cup of Wonder in the player's hand, once. The anchor object is the shrine #756 at (28, 44), in the same zone as the spot. The mantra INSAHN at a shrine only tells where the cup is. Flutes: L2 #584, L4 #580, L5 #586.",
+      "source": "sound/SOUND.C play_instrument (flute, level 3, abs(x-0x18) <= 2, abs(y-0x2D) <= 2), play_cup_tune (place_new 0xAE); game/SKILLS.C mantra_advance (mantra 20, print_path_to); conversation 5 (Eyesnack)",
+      "confidence": "certain"
+    },
+    {
+      "id": "ring_lever_code",
+      "kind": "free",
+      "level": 5,
+      "trigger": 635,
+      "token": "flag:var34_is_7",
+      "notes": "The Ring of Humility's lever puzzle on L5 ((10..21, 57..61)): levers #662, #670 and #664 and the floor triggers set game variable 34; lever #663 creates the ring at (16, 59) when variable 34 reads 7. A code solved with knowledge, so it counts as solved once the room is reached (Karl: all levers on L5 can be solved with prior knowledge).",
+      "source": "L5 #635 use trigger -> #643 check variable -> #639 -> create #636 (template #934 iron ring); event/TRIGGER.C",
+      "confidence": "certain"
+    },
+    {
+      "id": "ring_of_humility",
+      "kind": "trade",
+      "token": "talisman:ring",
+      "requires": "flag:create_L5_635",
+      "notes": "The ring #934 is only a template inside create-object trap #636: the ring exists once lever #663 has made it (mechanism flag:create_L5_635, whose condition the free fact 'ring_lever_code' satisfies).",
+      "source": "L5 #636 create object trap holding #934 (iron ring, fate 10)",
+      "confidence": "certain"
+    },
+    {
+      "id": "shield_of_valor",
+      "kind": "trade",
+      "token": "talisman:shield",
+      "requires": "flag:golem",
+      "notes": "The stone golem (L6 (6, 22)) carries the Shield of Valor. It cannot be killed: below 10 hit points it yields, talks and hands over the shield. Fighting it is the quest itself, so no 'kill NPCs' option is needed.",
+      "source": "event/WORLDEV.C death_check (whoami 0x16 never dies, talks); conversation 22 (npc_hp < 10: take_from_npc 55)",
+      "confidence": "certain"
+    },
+    {
+      "id": "taper_of_sacrifice",
+      "kind": "trade",
+      "token": "talisman:taper",
+      "requires": "(npc:zak & item:food) | (option:kill_npcs & npc:zak)",
+      "notes": "Zak (L3 (47, 38)) collects lights and trades them: his four trade slots get his candle, torch, lantern and the taper (his longsword, the first weapon, is skipped). He likes food and lights; food buys the taper (value 1). Once traded he waits a few days before trading again. Killing him also gives it.",
+      "source": "conversation 28 (func_0836 likes 1011, 1009; setup_to_barter; do_offer); conv/BARTER.C setup_to_barter; object values (taper 1)",
+      "confidence": "probable"
+    },
+    {
+      "id": "standard_of_honor",
+      "kind": "trade",
+      "token": "talisman:standard",
+      "requires": "(npc:dorna_ironfist & flag:rodrick_dead) | (option:kill_npcs & npc:dorna_ironfist)",
+      "notes": "Dorna Ironfist (L4 (8, 4)) offers the Standard of Honor once Rodrick, the Chaos Knight, is dead (quest 11), with or without the knights' quest. Rodrick always attacks, so killing him is plain play.",
+      "source": "conversation 12 (quest 11: func_0CE2, func_0D92, take_from_npc 287); event/WORLDEV.C death_check (0x8E sets quest 11); conversation 142 (Rodrick always fights)",
+      "confidence": "certain"
+    },
+    {
+      "id": "rodrick_key",
+      "kind": "trade",
+      "token": "key:13",
+      "requires": "flag:rodrick_dead",
+      "notes": "Rodrick (L4 (32, 61)) carries key 13 and only fights; killing him is the knights' own quest.",
+      "source": "L4 #544 in #194; conversation 142",
+      "confidence": "certain"
+    },
+    {
+      "id": "retichall_key",
+      "kind": "trade",
+      "token": "key:3",
+      "requires": "option:kill_npcs & npc:retichall",
+      "notes": "Retichall, the grey goblin queen (L1 (57, 55)), carries key 3 and gives it to no one (her conversation only grants an audience). Key 3 opens the grey goblins' storage door, which can also be bashed or picked.",
+      "source": "L1 #538 in #249; conversation 8",
+      "confidence": "certain"
+    },
+    {
+      "id": "goblin_key_4",
+      "kind": "trade",
+      "token": "key:4",
+      "requires": "option:kill_npcs & (npc:drog | npc:vernix)",
+      "notes": "Drog (L1 (15, 35)) and King Vernix (L1 (2, 57)) each carry a key 4; neither gives it. Key 4 opens the green goblins' portcullis (Drog opens it anyway) and their storage door (breakable).",
+      "source": "L1 #537 in #220, #534 in #231; conversations 66 and 9",
+      "confidence": "certain"
+    },
+    {
+      "id": "tyball_keys",
+      "kind": "trade",
+      "token": "key:27",
+      "requires": "flag:tyball_dead",
+      "notes": "Tyball (L7 (54, 10)) carries keys 23 and 27, the medallion, strong thread and incense. He always attacks, so killing him is plain play (breaking the orb first halves his hit points, but is not needed). Key 27 opens the cells of Smonden, Bolinard and Gurstang, Arial's prison and the way to L8 from his crib.",
+      "source": "L7 #877 in #203; conversation 231 (always fights); event/WORLDEV.C death_check (0xE7, TyballDeath); obj/USEITEMS.C TybalsOrb_seg040_A12",
+      "confidence": "certain"
+    },
+    {
+      "id": "key_23",
+      "kind": "trade",
+      "token": "key:23",
+      "requires": "flag:tyball_dead | (option:kill_npcs & npc:guard)",
+      "notes": "Key 23 is carried by Tyball and by the troll jailer of guard room 2 (#251, L7 (26, 56)). The jailer opens the inner gate for a bribe but never gives the key, so his is had only by killing him.",
+      "source": "L7 #476 in #203, #651 in #251; conversation 216",
+      "confidence": "certain"
+    },
+    {
+      "id": "ghost_key_15",
+      "kind": "trade",
+      "token": "key:15",
+      "requires": "flag:create_L5_648",
+      "notes": "Key 15 is carried by the dire ghost that move trigger #648 at L5 (54, 2) creates in the Nolant tomb vestibule; the ghost is a plain monster, killed in plain play.",
+      "source": "L5 #648 -> create #661 (template #240 dire ghost holding #665 key 15)",
+      "confidence": "certain"
+    },
+    {
+      "id": "writ_of_lorne",
+      "kind": "flag",
+      "grants": "item:writ_of_lorne",
+      "level": 4,
+      "object": 552,
+      "requires": "free",
+      "notes": "The writ of Lorne is the scroll #552 (0x13A, text 0x65) at L4 (59, 2), beside the shrine in Rawstag's room. Its own token, since 'item:scroll' would match every scroll.",
+      "source": "conversation 12 func_0B48 (item 314 with link 101); L4 #552 link 0x265",
+      "confidence": "certain"
+    },
+    {
+      "id": "crux_gold_plate",
+      "kind": "flag",
+      "grants": "item:crux_plate",
+      "level": 4,
+      "object": 541,
+      "requires": "free",
+      "notes": "The order's gold plate is #541 (0xAC, owner 31) at L4 (10, 44), in the plate secret area behind the switch code of (13, 43..45). The other two gold plates (owner 0) do not count, hence its own token.",
+      "source": "conversation 12 func_0C2E (item 172 with owner 31); L4 #541",
+      "confidence": "certain"
+    },
+    {
+      "id": "plate_area_code",
+      "kind": "free",
+      "level": 4,
+      "trigger": 747,
+      "token": "flag:var27_is_38",
+      "notes": "The plate secret area's switches (#746/#563/#564 and #747 at (13, 43..45)) set game variable 27; #747 toggles the massive door at (13, 44) when it reads right. A code puzzle, solved with knowledge (Karl's painted link 62 marks it free).",
+      "source": "L4 #747, #746, #563, #564 (set and check variable 27); Phase A mechanism flag:var27_is_38; docs/examples/uw1-zones.json link 62",
+      "confidence": "probable"
+    },
+    {
+      "id": "crux_writ",
+      "kind": "craft",
+      "grants": "flag:crux_writ",
+      "requires": "npc:dorna_ironfist & (npc:ree | npc:doris | npc:kyle | npc:cecil | npc:meredith) & item:writ_of_lorne & item:crux_plate",
+      "notes": "The knights' quest (quest byte 32): a knight sends the player to Dorna (32 = 1); Dorna's questions and the cup of 'venom' make him a squire (2); the writ of Lorne makes him a knight (3, the plate helm); the order's gold plate makes Dorna open the armoury (4). The knights all stand in the L4 knights' hall with Dorna.",
+      "source": "conversations 140, 146, 147, 148, 149 (set_quest 32, 1); conversation 12 (func_045B, func_076E set_quest 32, 2; func_0B48 32, 3; func_0C2E 32, 4 and gronk_door 3, 10)",
+      "confidence": "probable"
+    },
+    {
+      "id": "armoury_door",
+      "kind": "link",
+      "from": { "level": 4, "x": 3, "y": 9 },
+      "to": { "level": 4, "x": 3, "y": 11 },
+      "requires": "flag:crux_writ",
+      "twoWay": true,
+      "notes": "The massive door of the knights' armoury at L4 (3, 10) (pick 14, no key, unbreakable) is opened by Dorna at the end of the knights' quest; a pull chain inside reopens it. Nothing in the armoury is needed for the goal. (Phase A counts the inside pull chain #830 as reachable from outside; in the game it is not.)",
+      "source": "conversation 12 (gronk_door 3, 10, 0); L4 #830",
+      "confidence": "probable"
+    },
+    {
+      "id": "rawstag_door",
+      "kind": "link",
+      "from": { "level": 4, "x": 61, "y": 6 },
+      "to": { "level": 4, "x": 61, "y": 4 },
+      "requires": "npc:rawstag & (item:ruby | item:red_gem)",
+      "twoWay": true,
+      "notes": "Rawstag the troll (L4 (58, 9)) opens the massive door at (61, 5) (pick 14) to his ankh shrine for a ruby or a red gem shown to him (any of the many in the levels; he carries his own). Behind it: a shrine and the writ of Lorne.",
+      "source": "conversation 144 (func_0610: find_barter 162, 163, gronk_door 61, 5, 0)",
+      "confidence": "certain"
+    },
+    {
+      "id": "eb_portcullis",
+      "kind": "link",
+      "from": { "level": 1, "x": 46, "y": 51 },
+      "to": { "level": 1, "x": 48, "y": 51 },
+      "requires": "npc:eb",
+      "twoWay": false,
+      "notes": "Eb, the grey goblins' doorman, stands outside at (45, 52) and opens the portcullis at (47, 51) (key 3, pick 4) when talked to. Walking through closes it (#634); the button #840 inside opens it again.",
+      "source": "conversation 65 (gronk_door 47, 51, 0); L1 #634, #840",
+      "confidence": "certain"
+    },
+    {
+      "id": "drog_portcullis",
+      "kind": "link",
+      "from": { "level": 1, "x": 15, "y": 33 },
+      "to": { "level": 1, "x": 15, "y": 35 },
+      "requires": "free",
+      "twoWay": false,
+      "notes": "Drog stands just inside the green goblins' portcullis at (15, 34) (key 4, pick 5) and opens it when talked to through the bars. Walking through closes it (#635); the button #807 inside opens it.",
+      "source": "conversation 66 (gronk_door 15, 34, 0); L1 #635, #807",
+      "confidence": "probable"
+    },
+    {
+      "id": "brawnclan_portcullis",
+      "kind": "link",
+      "from": { "level": 2, "x": 13, "y": 31 },
+      "to": { "level": 2, "x": 13, "y": 29 },
+      "requires": "free",
+      "twoWay": false,
+      "notes": "Brawnclan, the mountainfolk's doorman (inside, (12, 28)), opens the portcullis at (13, 30) (no key, pick 6) when talked to; the lever #854 inside opens it from that side. Move trigger #844 closes it again.",
+      "source": "conversation 88 (gronk_door 13, 30, 0); L2 #844, #854",
+      "confidence": "probable"
+    },
+    {
+      "id": "deco_morono",
+      "kind": "flag",
+      "grants": "flag:deco_morono",
+      "level": 2,
+      "object": 255,
+      "requires": "free",
+      "notes": "The password Deco Morono: Goldthirst (L2 (9, 8)) tells it when the player asks to see his hoard. Known by the player anyway (Karl: all words known); placed at Goldthirst for the record. It opens only Steeltoe's vault door; Kallistan does not need it.",
+      "source": "conversation 3 (func_0424 #16); conversation 21 (contains 'Deco Morono', gronk_door 11, 13, 0); conversation 212",
+      "confidence": "certain"
+    },
+    {
+      "id": "steeltoe_vault",
+      "kind": "link",
+      "from": { "level": 2, "x": 10, "y": 13 },
+      "to": { "level": 2, "x": 12, "y": 13 },
+      "requires": "npc:steeltoe & flag:deco_morono",
+      "twoWay": true,
+      "notes": "Steeltoe (L2 (9, 14)) opens the massive door at (11, 13) (no key, pick 10, unbreakable) to Goldthirst's vault ledge for the password. The vault holds nothing the goal needs.",
+      "source": "conversation 21 (func_041C: gronk_door 11, 13, 0)",
+      "confidence": "certain"
+    },
+    {
+      "id": "guard_gate_north",
+      "kind": "link",
+      "from": { "level": 7, "x": 20, "y": 4 },
+      "to": { "level": 7, "x": 18, "y": 4 },
+      "requires": "free",
+      "twoWay": true,
+      "notes": "Tyball's goblin guards (conversation 0xD1) open the massive door at L7 (19, 4) (key 23, pick 13) and the portcullis at (22, 5) for the medallion (#998 at (43, 13), or Tyball's), and also open them when they come out to fight a player without one. Either way the gates open: plain play. A pull chain #673 at (17, 5) works from the west side.",
+      "source": "conversation 209 (item 300 = medallion; gronk_door 19, 4 and 22, 5 in every branch, including the hostile ones)",
+      "confidence": "probable"
+    },
+    {
+      "id": "guard_gate_prison",
+      "kind": "link",
+      "from": { "level": 7, "x": 27, "y": 53 },
+      "to": { "level": 7, "x": 27, "y": 55 },
+      "requires": "free",
+      "twoWay": true,
+      "notes": "The guard at guard room 2 (conversation 0xDC) opens the portcullis at L7 (27, 54) (key 23, pick 13) for the medallion, or when he attacks. Beyond lies the jail: the guards can lock the player in (variables 50 and 51), which C1's timeline has to treat as a closing change.",
+      "source": "conversation 220 (gronk_door 27, 54, 0; x_traps 50, 51)",
+      "confidence": "probable"
+    },
+    {
+      "id": "jailer_gate",
+      "kind": "link",
+      "from": { "level": 7, "x": 22, "y": 56 },
+      "to": { "level": 7, "x": 20, "y": 56 },
+      "requires": "free",
+      "twoWay": true,
+      "notes": "The troll jailer (#251, conversation 0xD8) opens the inner gate at L7 (21, 56) (key 23, pick 12) for a bribe of whatever the player shows him ('Not enough... More!'); killing him gives key 23. Assumed affordable.",
+      "source": "conversation 216 (gronk_door 21, 56, 0)",
+      "confidence": "probable"
+    },
+    {
+      "id": "bullfrog_puzzle",
+      "kind": "link",
+      "from": { "level": 4, "x": 52, "y": 52 },
+      "to": { "level": 4, "x": 58, "y": 48 },
+      "requires": "free",
+      "twoWay": false,
+      "notes": "The bullfrog puzzle: the levers and buttons at (46..48, 45..47) raise and lower the squares of the 8 by 8 pool (48..55, 48..55), 63 moves, with a reset. Raising (55, 48) and its neighbours into a stair to height 12 lets the player jump east over (56..57, 48) to the exit ledge (58, 48) (painted zone 43). Karl: always solvable; levitation also skips it.",
+      "source": "event/WORLDEV.C work_bullfrog_tiles (variables 24, 25, 26; area 0x30, 0x30 by 8); L4 #980..#983, #1004, #1007",
+      "confidence": "probable"
+    },
+    {
+      "id": "gate_travel",
+      "kind": "warp",
+      "from": "any",
+      "to": { "level": 2, "x": 9, "y": 35, "object": 868 },
+      "requires": "spell:gate_travel",
+      "notes": "Gate Travel (Vas Rel Por) takes the player to the moonstone, wherever it lies: at first L2 (9, 35), inside the sealed moonorb area, which nothing else enters. From inside, move trigger #869 at (8, 34) opens (7, 34) into L2's main area (mechanism flag:terrain_L2_869). While the moonstone is carried the spell fails; dropping it elsewhere moves the target there (a second movable return point, like the sapling). Not castable on level 9 or on no-magic squares, and on L7 cast only after the orb is broken (scrolls work).",
+      "source": "combat/SPELLS.C xt_spells case 10 (player->moonstone, do_mstone); game/SKILLS.C do_mstone, moveto; ui/INTERACT.C and inv/BAGS.C (player->moonstone 0 while carried, the level where dropped); game/CHARGEN.C (moonstone on level 2)",
+      "confidence": "certain"
+    },
+    {
+      "id": "gate_travel_cast",
+      "kind": "craft",
+      "grants": "cast:gate_travel",
+      "requires": "item:rune_bag & rune:vas & rune:rel & rune:por",
+      "notes": "Casting Gate Travel: Vas Rel Por in the rune bag (spell 32, class 11 minor 10). Vas lies only with Garamon's bones (L8 (2, 15)) and comes from the L6 emerald puzzle. Drop this if C1 adds gate_travel to the ability sources.",
+      "source": "combat/SPELLS.C spells[] entry 32 (runes 0x562F = Vas Rel Por)",
+      "confidence": "certain"
+    },
+    {
+      "id": "gate_travel_scroll_L2",
+      "kind": "flag",
+      "grants": "once:gate_travel",
+      "level": 2,
+      "object": 560,
+      "requires": "free",
+      "notes": "A Gate Travel scroll, L2 (10, 35), inside the moonorb area beside the moonstone (so useful only after a first trip there).",
+      "source": "L2 #560 (scroll enchanted with spell 32); obj/USEITEMS.C UseBook",
+      "confidence": "certain"
+    },
+    {
+      "id": "gate_travel_scroll_L5",
+      "kind": "flag",
+      "grants": "once:gate_travel",
+      "level": 5,
+      "object": 899,
+      "requires": "free",
+      "notes": "A Gate Travel scroll, L5 (2, 27), in the zanium mine dispatch corridor.",
+      "source": "L5 #899 (spell 32)",
+      "confidence": "certain"
+    },
+    {
+      "id": "gate_travel_scroll_L6",
+      "kind": "flag",
+      "grants": "once:gate_travel",
+      "level": 6,
+      "object": 726,
+      "requires": "free",
+      "notes": "A Gate Travel scroll, L6 (16, 11).",
+      "source": "L6 #726 (spell 32)",
+      "confidence": "certain"
+    },
+    {
+      "id": "gate_travel_scroll_L7",
+      "kind": "flag",
+      "grants": "once:gate_travel",
+      "level": 7,
+      "object": 760,
+      "requires": "free",
+      "notes": "A Gate Travel scroll, L7 (61, 62) (Karl's alcove with the Gate Travel scroll).",
+      "source": "L7 #760 (spell 32)",
+      "confidence": "certain"
+    },
+    {
+      "id": "emerald_vas",
+      "kind": "flag",
+      "grants": "rune:vas",
+      "level": 6,
+      "object": 912,
+      "requires": "free",
+      "notes": "The emerald puzzle on L6: with an emerald on each corner of the 9 by 9 square around (53, 18) ((49, 14), (57, 14), (49, 22), (57, 22)), the button #912 at (53, 19) makes a Vas stone appear at (53, 19) and uses the emeralds up. Six emeralds lie at (53, 19). The only Vas stone besides L8 #757, so it matters for Fly and Gate Travel.",
+      "source": "event/WORLDEV.C emerald_trap (class 2, 2, 7 at the corners; CreateObj ITEM_VAS_STONE); L6 #902 -> #945 hack trap quality 0x28",
+      "confidence": "probable"
+    },
+    {
+      "id": "silver_seed",
+      "kind": "flag",
+      "grants": "item:silver_seed",
+      "level": 1,
+      "object": 967,
+      "requires": "free",
+      "notes": "Using the silver tree #967 at L1 (36, 2) withers it into a silver seed in the player's hand. The tree there is not yet a return point (player->tree starts at 0).",
+      "source": "obj/USEITEMS.C UseObj (MAJOR_ANIMOBJ class 0xA: place_new ITEM_SILVER_SEED, player->tree = 0); game/CHARGEN.C (tree 0)",
+      "confidence": "certain"
+    },
+    {
+      "id": "silver_sapling",
+      "kind": "warp",
+      "from": "any",
+      "to": "planted",
+      "requires": "item:silver_seed",
+      "notes": "For C1's return check. Using the seed plants it on the square ahead if it is open with a floor texture of 5-11, 18-22, 27-31 or 35-40 (161 of the 242 zones have such squares; none on L9) and records the level. From then on death is not the end: the player comes back at the tree with nearly full health. Using the tree again gives the seed back, so the return point moves with the player. Planting is refused on level 9, and death there is not rescued (but on L9 the player cannot die). Armageddon forgets the tree.",
+      "source": "game/SKILLS.C plant_seed, player_is_dead (player->tree, do_teleport, do_resurrect), moveto; obj/USEITEMS.C (seed, tree); combat/SPELLS.C Armageddon",
+      "confidence": "certain"
+    }
+  ]
+}
