@@ -49,7 +49,7 @@ namespace UwEditor.App
             this.main = main;
             session = s;
             Title = "Key item shuffle";
-            Width = 1000; Height = 820; MinWidth = 680; MinHeight = 520;
+            Width = 1000; Height = 900; MinWidth = 680; MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             opt.Nav.MaxClimb = main.ZoneClimb;
             opt.Nav.JumpSpellClimb = 2 * opt.Nav.MaxClimb;
@@ -110,7 +110,7 @@ namespace UwEditor.App
 
             // the settings scroll when the window is short; the buttons stay in sight, the log takes the rest
             var root = new Grid { Margin = new Thickness(16), RowDefinitions = new RowDefinitions("Auto,Auto,*") };
-            var scroll = new ScrollViewer { Content = top, MaxHeight = 440, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
+            var scroll = new ScrollViewer { Content = top, MaxHeight = 560, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
             Grid.SetRow(actions, 1);
             Grid.SetRow(report, 2);
             root.Children.Add(scroll); root.Children.Add(actions); root.Children.Add(report);

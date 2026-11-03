@@ -114,6 +114,7 @@ namespace UwEditor.App
                 case "automap": ShowAutomap(); break;
                 case "autozones": ShowAutoZones()?.BuildNow(); break;
                 case "challenges": ShowChallenges(); break;
+                case "keyshuffle": ShowKeyShuffle(); break;
                 case "sound": ShowSound(); break;
                 case "sound-effects": { var s = ShowSound(); if (s != null) s.Tabs.SelectedIndex = 1; } break;
                 case "music": { var s = ShowSound(); if (s != null) s.Tabs.SelectedIndex = 2; } break;
