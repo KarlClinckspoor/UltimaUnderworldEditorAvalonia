@@ -116,6 +116,9 @@ namespace UwEditor.Core.Mods
                     continue;
                 }
                 byte[] old = File.ReadAllBytes(orig);
+                // an empty NAME.EXT.ORIG marks a file the editor created (the sound window's new
+                // SPnn.VOC / UWnn.VOC, a file a mod added): the mod carries it as a new file
+                if (reference == null && old.Length == 0 && now.Length > 0) { m.AddWhole(rel, null, now); continue; }
                 if (old.SequenceEqual(now)) continue;
                 m.AddDiff(rel, old, now, kind);
             }
@@ -473,6 +476,8 @@ namespace UwEditor.Core.Mods
             foreach (var o in outputs)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(o.Item2));
+                // a file the mod adds gets the empty .ORIG mark of a new file, so a mod made from this folder carries it too
+                if (!File.Exists(o.Item2) && !File.Exists(o.Item2 + SafeFile.OriginalSuffix)) File.WriteAllBytes(o.Item2 + SafeFile.OriginalSuffix, new byte[0]);
                 SafeFile.Write(o.Item2, o.Item3);
                 written.Add(o.Item1);
             }
