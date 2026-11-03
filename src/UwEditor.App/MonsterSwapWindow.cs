@@ -36,6 +36,7 @@ namespace UwEditor.App
         const double MinReport = 120;
         static readonly string[] Scopes = { "level", "world", "all" };
         static readonly string[] Measures = { "xp", "hp", "damage", "combined", "none" };
+        static readonly string[] Rules = { "rank", "progression" };
 
         public MonsterSwapWindow(MainWindow main, GameSession s)
         {
@@ -58,11 +59,25 @@ namespace UwEditor.App
             var measure = new ComboBox { ItemsSource = new[] { "Experience value (the game's own rating)", "Hit points", "Damage per round (attacks and spells)", "Combined: √(toughness × damage)", "None: uniform" }, SelectedIndex = Math.Max(0, Array.IndexOf(Measures, opt.Measure)), Width = 300 };
             measure.SelectionChanged += (o, e) => { opt.Measure = Measures[Math.Max(0, measure.SelectedIndex)]; Changed(); };
 
+            ruleBox = new ComboBox { ItemsSource = new[] { "Rank matching: by the swap, target and spread below", "Uniform progression: the weakest on the first level, the strongest on the last" }, SelectedIndex = Math.Max(0, Array.IndexOf(Rules, opt.Rule)), Width = 560 };
+            ruleBox.SelectionChanged += (o, e) => { opt.Rule = Rules[Math.Max(0, ruleBox.SelectedIndex)]; Changed(); };
+            ruleNote = new TextBlock
+            {
+                FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(90, 0, 0, 0),
+                Text = "Each movement class (fliers, swimmers, fire-resistant, other walkers) is sorted by the strength below and handed out level by level, " +
+                       (s.IsUw2 ? "world by world in the order Britannia, Prison Tower, Killorn Keep, Ice Caverns, Talorus, Scintillus Academy, Pits of Carnage, Tomb of Praecor Loth, Ethereal Void. " : "from level 1 to level 9. ") +
+                       "Each level keeps its number of creatures of each class and takes the next ones; within a level they go to its spots at random. Level-bound creatures stay on their level. The swap, target and spread do not apply.",
+            };
+            scopeRow = Row(Label("Swap"), scope);
+            targetRow = Row(Label("Target"), Bar(opt.DepthBlend, x => opt.DepthBlend = x), Note("0: each spot keeps its difficulty (the strength of the monster that was there). 100: stronger deeper. Between: a blend."));
+            spreadRow = Row(Label("Spread"), Bar(opt.Spread, x => opt.Spread = x), Note("0: strongest to hardest, strictly. 100: uniform."));
             settings.Children.Add(Row(Label("Seed"), seed, newSeed));
-            settings.Children.Add(Row(Label("Swap"), scope));
+            settings.Children.Add(Row(Label("Order"), ruleBox));
+            settings.Children.Add(ruleNote);
+            settings.Children.Add(scopeRow);
             settings.Children.Add(Row(Label("Strength"), measure));
-            settings.Children.Add(Row(Label("Target"), Bar(opt.DepthBlend, x => opt.DepthBlend = x), Note("0: each spot keeps its difficulty (the strength of the monster that was there). 100: stronger deeper. Between: a blend.")));
-            settings.Children.Add(Row(Label("Spread"), Bar(opt.Spread, x => opt.Spread = x), Note("0: strongest to hardest, strictly. 100: uniform.")));
+            settings.Children.Add(targetRow);
+            settings.Children.Add(spreadRow);
             settings.Children.Add(Row(Label(""), Check("Keep the hit points at the spot (a golem in a worm's place gets the worm's hit points)", opt.KeepHp, x => opt.KeepHp = x)));
             settings.Children.Add(Row(Label(""), Check("Carried items go with the monster (those monsters then only swap within their level)", opt.LootWithMonster, x => opt.LootWithMonster = x)));
             settings.Children.Add(Row(Label(""), Check("Creatures with a conversation may move within their own level", opt.TalkersInLevel, x => opt.TalkersInLevel = x)));
@@ -73,6 +88,7 @@ namespace UwEditor.App
             settings.Children.Add(Note("A powerful monster has armour × 5/3, +7..12 attack skill, +4..15 damage and × 1.5..3 experience; every strength measure counts it. Depth at 100 doubles the chance on the deepest level."));
             settings.Children.Add(new TextBlock { Text = "Formula: N(μ, σ) is a normal distribution of mean μ and standard deviation σ, U(0, 1) uniform", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
             settings.Children.Add(formula);
+            UpdateRule();
             UpdateFormula();
 
             top = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 0, 8) };
@@ -82,7 +98,8 @@ namespace UwEditor.App
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
                 Text = "The monsters trade places: each spot keeps its position, home, goal and (by default) what lies in its inventory, and takes another monster's kind, hit points, powerful flag and attitude. " +
                        "Creatures with a conversation stay (the plot finds them by their conversation, on their own level) unless whitelisted, and so do templates inside traps and ignored ones. " +
-                       "Race-bound creatures (liches, guards, Tybal's men...) only swap within their level; swimmers swap with swimmers; a monster only goes where its height fits, and only fliers, swimmers and fire-resistant ones go on water or lava.",
+                       "Race-bound creatures (liches, guards, Tybal's men...) only swap within their level; swimmers swap with swimmers; a monster only goes where its height fits, and only fliers, swimmers and fire-resistant ones go on water or lava. " +
+                       "Uniform progression instead sorts them by strength and hands them out level by level, the weakest first.",
             });
             settingsView = new ScrollViewer { Content = settings, Padding = new Thickness(4, 8, 16, 8) };
 
@@ -112,6 +129,9 @@ namespace UwEditor.App
 
         ScrollViewer settingsView;
         CheckBox specialCheck;
+        ComboBox ruleBox;
+        TextBlock ruleNote;
+        StackPanel scopeRow, targetRow, spreadRow;
         SortableTable<MonsterSwap.StrengthRow> strengthTable;
 
         /// <summary>
@@ -131,7 +151,16 @@ namespace UwEditor.App
             if (double.IsNaN(tabs.Height) || Math.Abs(tabs.Height - h) > 0.5) tabs.Height = h;
         }
 
-        void Changed() { UpdateFormula(); }
+        void Changed() { UpdateRule(); UpdateFormula(); }
+
+        /// <summary>Uniform progression has no use for the swap's scope, target and spread: they are greyed and the note says why.</summary>
+        void UpdateRule()
+        {
+            if (ruleBox == null) return;
+            bool prog = opt.IsProgression;
+            ruleNote.IsVisible = prog;
+            scopeRow.IsEnabled = targetRow.IsEnabled = spreadRow.IsEnabled = !prog;
+        }
 
         void UpdateFormula() { formula.Text = MonsterSwap.Formula(session, opt); }
 
@@ -228,6 +257,10 @@ namespace UwEditor.App
         /// <summary>The formula box's text (live with the settings).</summary>
         public string FormulaText { get { return formula.Text; } }
         public CheckBox SpecialKindsCheck { get { return specialCheck; } }
+        /// <summary>The Order box: rank matching or Uniform progression.</summary>
+        public ComboBox RuleBox { get { return ruleBox; } }
+        /// <summary>The swap's scope row, greyed under Uniform progression.</summary>
+        public Control ScopeRow { get { return scopeRow; } }
         public IgnoreListPanel WhitelistPanel { get; private set; }
         public IgnoreListPanel IgnoredPanel { get; private set; }
         public SortableTable<MonsterSwap.StrengthRow> StrengthTableView { get { return strengthTable; } }

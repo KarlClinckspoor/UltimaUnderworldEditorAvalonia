@@ -203,13 +203,16 @@ namespace UwEditor.Core.Randomizer
                 if (!classes.TryGetValue(k, out l)) classes[k] = l = new List<Cand>();
                 l.Add(c);
             }
-            res.Report.AppendLine("Then the enchantments trade places within each class:");
+            res.Report.AppendLine(opt.IsProgression ? "Then the enchantments trade places within each class, by Uniform progression (curses and effects without degrees count " + Progression.MidLevel.ToString(System.Globalization.CultureInfo.InvariantCulture) + "):" : "Then the enchantments trade places within each class:");
             if (classes.Count == 0) res.Report.AppendLine("  no weapons, armour or spell scrolls to swap.");
             foreach (var g in classes.OrderBy(x => x.Key, StringComparer.Ordinal))
             {
                 var list = g.Value;
                 var units = list.Select(c => (c.R.Enchanted, c.R.IsQuantity, c.R.Link, F11: c.R.Flags & 4)).ToList();
-                var p = Permutation(rng, s, list.Select(c => c.Level).ToList(), opt);
+                // Uniform progression: the enchantments sorted by their level (Progression.EnchantLevel), handed out level by level
+                var p = opt.IsProgression
+                    ? ProgressionOf(s, rng, res, g.Key + "' enchantments (level)", list.Select(c => c.Level).ToList(), list.Select((c, i) => Progression.EnchantLevel(s, c.R.Item, units[i].Enchanted, units[i].IsQuantity, units[i].Link, units[i].F11 != 0)).ToList())
+                    : Permutation(rng, s, list.Select(c => c.Level).ToList(), opt);
                 int moved = 0;
                 for (int i = 0; i < list.Count; i++)
                 {

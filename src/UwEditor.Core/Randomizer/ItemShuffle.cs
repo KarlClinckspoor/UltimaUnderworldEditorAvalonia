@@ -837,6 +837,12 @@ namespace UwEditor.Core.Randomizer
         /// </summary>
         static void Swap(GameSession s, ShuffleOptions opt, Random rng, List<Cand> all, ShuffleResult res, bool anyKind)
         {
+            // Uniform progression ranks each kind on its own over the whole game (ItemProgression.cs)
+            bool progression = opt.IsProgression;
+            bool anyAsked = anyKind;
+            if (progression) anyKind = false;
+            var scopeOpt = progression ? WholeGame : opt;
+            byte[] objects = progression ? Progression.ReadObjects(s) : null;
             var byKey = all.ToDictionary(c => (long)c.Level << 32 | (uint)c.Index);
             var groups = new Dictionary<string, List<Cand>>();
             var wands = new List<Cand[]>();      // a charged wand and its spell object, moved together
@@ -859,12 +865,19 @@ namespace UwEditor.Core.Randomizer
                 if (!groups.TryGetValue(key, out l)) groups[key] = l = new List<Cand>();
                 l.Add(c);
             }
-            res.Report.AppendLine((anyKind ? "Swap, any kind: existing objects trade places across every kind taking part, " : "Swap, same kind: existing objects trade places within their kind, ") + ScopeText(s, opt) + ".");
+            if (progression)
+            {
+                res.Report.AppendLine("Swap, Uniform progression: within each kind, across the whole game; weapons, armour, spell scrolls and wands sorted by strength and handed out level by level (" + Progression.OrderText(s) + "), the other kinds at random." + (anyAsked ? " (\"Across all the ticked kinds\" does not apply.)" : ""));
+                res.Report.AppendLine("  Strength: weapons the highest of slash, bash and stab (ammunition and launchers the missile's damage) + the enchantment's level; armour the protection + the enchantment's level; spell scrolls and wands the spell's circle.");
+            }
+            else res.Report.AppendLine((anyKind ? "Swap, any kind: existing objects trade places across every kind taking part, " : "Swap, same kind: existing objects trade places within their kind, ") + ScopeText(s, opt) + ".");
             foreach (var g in groups.OrderBy(x => x.Key, StringComparer.Ordinal))
             {
                 var list = g.Value;
                 var records = list.Select(c => Of(c.O)).ToList();
-                var p = Permutation(rng, s, list.Select(c => c.Level).ToList(), opt);
+                var p = progression && Ranked(g.Key)
+                    ? ProgressionOf(s, rng, res, KindName(g.Key), list.Select(c => c.Level).ToList(), records.Select(r => ItemStrength(s, objects, r)).ToList())
+                    : Permutation(rng, s, list.Select(c => c.Level).ToList(), scopeOpt);
                 int moved = 0;
                 for (int i = 0; i < list.Count; i++)
                 {
@@ -882,7 +895,9 @@ namespace UwEditor.Core.Randomizer
                 // each wand keeps its own list; the wand's item, quality and owner and the spell
                 // object's spell and charges move
                 var units = wands.Select(u => new[] { Of(u[0].O), Of(u[1].O) }).ToList();
-                var p = Permutation(rng, s, wands.Select(u => u[0].Level).ToList(), opt);
+                var p = progression
+                    ? ProgressionOf(s, rng, res, "charged wands", wands.Select(u => u[0].Level).ToList(), units.Select(u => ItemStrength(s, objects, u[0], u[1])).ToList())
+                    : Permutation(rng, s, wands.Select(u => u[0].Level).ToList(), opt);
                 for (int i = 0; i < wands.Count; i++)
                 {
                     var w = units[p[i]][0]; var sp = units[p[i]][1];
