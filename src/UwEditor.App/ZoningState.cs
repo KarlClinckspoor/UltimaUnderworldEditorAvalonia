@@ -85,6 +85,7 @@ namespace UwEditor.App
             Set.Save(path);
             Path = path;
             Dirty = false;
+            AskForName = false;
             Changed?.Invoke("saved");
         }
 
@@ -107,6 +108,21 @@ namespace UwEditor.App
             Dirty = true;
             undo.Clear();
             current = Set.StartZone;
+            Raise("file");
+        }
+
+        /// <summary>Saving asks for a file name first (a set made elsewhere, such as the automatic zones).</summary>
+        public bool AskForName { get; private set; }
+
+        /// <summary>Takes a zoning made elsewhere (the automatic zones) to view and edit; saving asks for a file name, suggesting path.</summary>
+        public void Adopt(ZoneSet set, string path)
+        {
+            Set = set;
+            Path = path;
+            AskForName = true;
+            Dirty = true;
+            undo.Clear();
+            current = Set.Zones.Where(z => z.Id > ZoneSet.Unassigned).Select(z => z.Id).DefaultIfEmpty(2).First();
             Raise("file");
         }
 

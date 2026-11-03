@@ -326,7 +326,7 @@ namespace UwEditor.App
         async void SaveFile(bool ask)
         {
             string path = z.Path;
-            if (ask)
+            if (ask || z.AskForName)
             {
                 var f = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
                 {
