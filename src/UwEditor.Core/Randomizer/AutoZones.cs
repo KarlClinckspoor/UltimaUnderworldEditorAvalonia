@@ -122,7 +122,13 @@ namespace UwEditor.Core.Randomizer
                 else if (k.Requires != "free")
                 {
                     if (req == "free") { k.Requires = "free"; k.Level = e.Level; k.X = e.X; k.Y = e.Y; k.Notes = e.Notes; }
-                    else if (!Alternatives(k.Requires).Contains(req)) k.Requires = Alternatives(k.Requires).Concat(new[] { req }).Count() > 6 ? k.Requires : JoinOr(Alternatives(k.Requires).Concat(new[] { req }));
+                    else
+                    {
+                        // add the new requirement's alternatives that are not there yet (at most 6 in all)
+                        var have = Alternatives(k.Requires);
+                        var add = Alternatives(req).Where(a => !have.Contains(a)).ToList();
+                        if (add.Count > 0 && have.Count + add.Count <= 6) k.Requires = Normalize(JoinOr(have.Concat(add)));
+                    }
                 }
                 linkCount[k] += e.Count;
                 if (e.Kind == "drop" && e.Fall > 0) k.Notes = MaxFallNote(k.Notes, e.Fall);

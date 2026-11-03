@@ -7,4 +7,8 @@
   <ItemGroup>
     <ProjectReference Include="../Underworld.Formats/Underworld.Formats.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- the randomizer's hand-written UW1 facts (Randomizer/Facts.cs FactSet.Shipped) -->
+    <EmbeddedResource Include="../../docs/facts/uw1-facts.json" LogicalName="uw1-facts.json" />
+  </ItemGroup>
 </Project>

@@ -297,6 +297,16 @@ namespace UwEditor.Core.Randomizer
 					if (int.TryParse(t.Substring(10), out n) && have < n) res.NoSource.Add(t + " (" + have + " talisman placements known)");
 					continue;
 				}
+				if (t.StartsWith("search:")) continue;
+				if (options.AbilitySources && (t.StartsWith("spell:") || t.StartsWith("use:") || t.StartsWith("cast:")))
+				{
+					// an ability: any of its sources counts (Requirement's spell:, use: and cast: terms), whatever the options
+					string ab = t.Substring(t.IndexOf(':') + 1);
+					bool item = granted.Contains("worn:" + ab) || granted.Contains("perm:" + ab) || granted.Contains("once:" + ab);
+					bool any = t.StartsWith("cast:") ? granted.Contains(t) : t.StartsWith("use:") ? item : item || granted.Contains(t) || granted.Contains("cast:" + ab);
+					if (!any) res.NoSource.Add(t);
+					continue;
+				}
 				if (t.StartsWith("spell:") && options.AllowSpells) continue;
 				if (!granted.Contains(t)) res.NoSource.Add(t);
 			}
