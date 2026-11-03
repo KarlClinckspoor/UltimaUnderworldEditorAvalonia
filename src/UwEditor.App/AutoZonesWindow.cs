@@ -62,25 +62,8 @@ namespace UwEditor.App
                        "Doors closed behind the player are one way. A return check looks for zones he can enter but not leave. " +
                        "The logic options say what the solver may expect of the player: where each ability comes from, picking, the Search skill. Bashing doors is always allowed." + (s.IsUw2 ? " Made for UW1; UW2's levels are read the same way but not checked." : ""),
             });
-            var climb = Num(opt.MaxClimb, 1, 15, v => { opt.MaxClimb = v; });
-            var spellClimb = Num(opt.JumpSpellClimb, 1, 15, v => opt.JumpSpellClimb = v);
-            var gap = Num(opt.GapTiles, 0, 6, v => opt.GapTiles = v);
-            var spellGap = Num(opt.JumpSpellGapTiles, 0, 8, v => opt.JumpSpellGapTiles = v);
-            top.Children.Add(Row(Label("Highest climb"), climb, Note("floor steps, both ways inside a region (the Zones window's setting)"), Label("with the jump spell", 130), spellClimb));
-            top.Children.Add(Row(Label("Gap jumps"), Check("on", opt.GapJumps, v => opt.GapJumps = v), Label("tiles", 40), gap, Label("with the jump spell", 130), spellGap,
-                Check("diagonals too", opt.DiagonalJumps, v => opt.DiagonalJumps = v)));
-            top.Children.Add(Row(Label("Zones"), Check("Cut at level changes", opt.CutAtLevelChanges, v => opt.CutAtLevelChanges = v),
-                Check("Fold empty dead ends (pits and ledges with nothing in them)", opt.FoldEmptyDeadEnds, v => opt.FoldEmptyDeadEnds = v)));
-            // Phase B: what the logic may expect of the player
-            var pickSkill = Num(abil.PickSkill, 0, 30, v => abil.PickSkill = v);
-            var search = Num(abil.SearchSkill, 0, 30, v => abil.SearchSkill = v);
-            top.Children.Add(Row(Label("Logic"), Check("Magic (casting from runes)", abil.Magic, v => abil.Magic = v),
-                Check("Single-use items count (scrolls, potions, charged wands)", abil.SingleUseItems, v => abil.SingleUseItems = v)));
-            top.Children.Add(Row(Label(""), Check("Lock picking in logic, skill", abil.LockPicking, v => abil.LockPicking = v), pickSkill,
-                Check("Killing NPCs in logic (to take what they carry)", abil.KillNpcs, v => abil.KillNpcs = v)));
-            top.Children.Add(Row(Label(""), Label("Search skill", 90), search, Check("Retry until found", abil.SearchRetry, v => abil.SearchRetry = v),
-                Check("Damage-trap tiles are walls everywhere", abil.DamageTrapWalls, v => abil.DamageTrapWalls = v)));
-            top.Children.Add(Row(Label(""), Check("Ring of Levitation needs lava protection", abil.RingNeedsLava, v => abil.RingNeedsLava = v)));
+            // the movement and logic options (shared with the Key item shuffle window)
+            top.Children.Add(new LogicOptionsPanel(opt, abil, true));
             compareBox.ItemsSource = CompareChoices();
             compareBox.SelectedIndex = 0;
             top.Children.Add(Row(Label("Compare with"), compareBox));
@@ -208,20 +191,5 @@ namespace UwEditor.App
         }
 
         static TextBlock Label(string t, double w = 110) { return new TextBlock { Text = t, Width = w, VerticalAlignment = VerticalAlignment.Center }; }
-        static TextBlock Note(string t) { return new TextBlock { Text = t, FontSize = 12, Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center }; }
-
-        static CheckBox Check(string t, bool on, Action<bool> set)
-        {
-            var c = new CheckBox { Content = t, IsChecked = on, VerticalAlignment = VerticalAlignment.Center };
-            c.IsCheckedChanged += (o, e) => set(c.IsChecked == true);
-            return c;
-        }
-
-        static NumericUpDown Num(int v, int min, int max, Action<int> set)
-        {
-            var n = new NumericUpDown { Minimum = min, Maximum = max, Increment = 1, FormatString = "0", Value = v, Width = 110 };
-            n.ValueChanged += (o, e) => set((int)(n.Value ?? v));
-            return n;
-        }
     }
 }

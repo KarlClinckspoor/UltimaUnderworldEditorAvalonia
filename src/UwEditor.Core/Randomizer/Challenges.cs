@@ -303,10 +303,10 @@ namespace UwEditor.Core.Randomizer
             new ChallengeInfo(Challenge.Peaceful, "Peaceful", "Every creature is friendly at the start."),
             new ChallengeInfo(Challenge.Precognition, "Precognition", "Every level's map is fully drawn from the start."),
             new ChallengeInfo(Challenge.Ranger, "Ranger", "Each melee weapon becomes a launcher or a stack of ammunition."),
-            new ChallengeInfo(Challenge.Starvation, "Starvation", "No food and no fishing poles; the Ylem runestones become other runes."),
+            new ChallengeInfo(Challenge.Starvation, "Starvation", "No food and no fishing poles; the Ylem runestones become other runes. The only exception: in Ultima Underworld, one piece of meat beside Zak, the least he takes for the Taper of Sacrifice."),
             new ChallengeInfo(Challenge.Utopia, "Utopia", "Every weapon and piece of armour is in excellent shape (quality 63)."),
             new ChallengeInfo(Challenge.Vegetarian, "Vegetarian", "No meat, no fish, no fishing poles."),
-            new ChallengeInfo(Challenge.VowOfPoverty, "Vow of poverty", "No coins and no gems, and creatures carry no treasure."),
+            new ChallengeInfo(Challenge.VowOfPoverty, "Vow of poverty", "No coins and no gems, and creatures carry no treasure. The only exception: in Ultima Underworld, a pile of 20 coins beside Shak, his price for the Sword of Justice."),
         };
 
         /// <summary>

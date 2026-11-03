@@ -21,6 +21,8 @@ namespace UwEditor.Core.Randomizer
             /// <summary>Item kinds the game looks for by kind (ItemCleaner's rule): what inventory traps ask for, the puzzle pieces.</summary>
             public HashSet<int> Guarded;
             public HashSet<long> Special;
+            /// <summary>The piles the challenges' exceptions put down (level &lt;&lt; 32 | index): the later challenges leave them alone.</summary>
+            public readonly HashSet<long> Exceptions = new HashSet<long>();
 
             public Ctx(ChallengeWorld w, ChallengeOptions opt)
             {
@@ -145,6 +147,7 @@ namespace UwEditor.Core.Randomizer
             // ui/INTERACT.C: picking up a tenacious book 0x138 sets a quest bit and is a crime
             if (s.IsUw2 && o.Item == 0x138 && o.Record.Length > 1 && (o.Record[1] & 0x20) != 0) return "quest items";
             if (ItemShuffle.IsMarkedBones(o)) return "quest items";
+            if (m != null && x.Exceptions.Contains((long)m.Level << 32 | (uint)o.Index)) return "the exceptions beside Shak and Zak";
             if (x.Guarded.Contains(o.Item)) return "kinds the game looks for (puzzles, inventory traps)";
             if (m != null && named != null && named.Contains(o.Index)) return "objects a trap names";
             if (m != null && o.Children.Any(ch => m.Objects[ch].IsTrapOrTrigger)) return "objects holding a trap or trigger";
@@ -497,6 +500,7 @@ namespace UwEditor.Core.Randomizer
                 x.Sec.Add(0, Kind(x, row) + ": no treasure");
             }
             ClearLoot(x, i => IsCoinOrGem(x.S, i), null);
+            PovertyException(x);
         }
 
         /// <summary>The wand spells the plot needs (decode_obj_spell's reading of the spell's link): UW1's class 13 effect 3, the bullfrog (combat/SPELLS.C work_bullfrog_tiles, the level 4 puzzle); UW2's spells 39 Telekinesis and 5 Light (its Academy wands).</summary>
@@ -737,6 +741,7 @@ namespace UwEditor.Core.Randomizer
                 x.W.PlayerChanged = true;
                 x.Sec.Add(-1, "the Ylem rune → " + s.Names.Get(0xE8 + other));
             }
+            StarvationException(x);
         }
 
         /// <summary>Fasting: of the food (as Starvation counts it), the given share stays, picked at random; the creatures' food chances are scaled by it.</summary>

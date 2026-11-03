@@ -95,6 +95,9 @@ namespace UwEditor.Core.Randomizer
         public string Requires = "";    // optional: granted only when this holds too
         public string Notes = "";
         public string Source = "";  // "" (hand), "levark" (found in the levels)
+        /// <summary>Phase D: the count fact (kind "count") this object adds to, with Grants empty; the solver adds Quantity once the placement is reached.</summary>
+        public string Counts = "";
+        public int Quantity;
     }
 
     /// <summary>
@@ -356,7 +359,7 @@ namespace UwEditor.Core.Randomizer
                     Confidence = S(k, "confidence").Length > 0 ? S(k, "confidence") : "certain", Level = I(k, "level", 0), X = I(k, "x", -1), Y = I(k, "y", -1),
                 });
             foreach (var p in (root["placements"] as JsonArray) ?? new JsonArray())
-                zs.Placements.Add(new Placement { Zone = I(p, "zone", 0), Grants = S(p, "grants"), Requires = S(p, "requires"), Notes = S(p, "notes"), Source = S(p, "source") });
+                zs.Placements.Add(new Placement { Zone = I(p, "zone", 0), Grants = S(p, "grants"), Requires = S(p, "requires"), Notes = S(p, "notes"), Source = S(p, "source"), Counts = S(p, "counts"), Quantity = I(p, "quantity", 0) });
             if (root["openSources"] is JsonObject os) foreach (var kv in os) zs.OpenSources[kv.Key] = kv.Value == null ? "" : kv.Value.ToString();
             if (root["importance"] is JsonObject im) foreach (var kv in im) { try { zs.Importance[kv.Key] = (bool)kv.Value; } catch (Exception) { } }
             if (tl != null)
@@ -413,6 +416,7 @@ namespace UwEditor.Core.Randomizer
                 if (!string.IsNullOrEmpty(p.Requires)) d["requires"] = p.Requires;
                 d["notes"] = p.Notes;
                 if (!string.IsNullOrEmpty(p.Source)) d["source"] = p.Source;
+                if (!string.IsNullOrEmpty(p.Counts)) { d["counts"] = p.Counts; d["quantity"] = p.Quantity; }
                 places.Add(d);
             }
             root["placements"] = places;

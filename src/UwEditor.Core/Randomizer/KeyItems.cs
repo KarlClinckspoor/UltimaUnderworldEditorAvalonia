@@ -77,6 +77,8 @@ namespace UwEditor.Core.Randomizer
             if (o.Item < 0x140 && ((Races.ComObjByte(s, o.Item, 7) >> 1) & 15) == 10) { kind = "talisman"; return "talisman:" + Slug(s.Names.Get(o.Item)); }
             string tok;
             if (!uw2 && Uw1Notable.TryGetValue(o.Item, out tok)) { kind = "quest item"; return tok; }
+            // Garamon's bones (owner 0x3E, obj/USEITEMS.C UseBonesOn): the token follows the bones wherever they lie
+            if (!uw2 && ItemShuffle.IsMarkedBones(o)) { kind = "quest item"; return "item:garamon_bones"; }
             if (o.IsCritter)
             {
                 int who = o.Record.Length > 0x1A ? o.Record[0x1A] : 0;
@@ -125,8 +127,12 @@ namespace UwEditor.Core.Randomizer
             return list;
         }
 
-        /// <summary>Placements a zoning would get from its key items (one per token and zone), not already in it.</summary>
-        public static List<Placement> SuggestPlacements(ZoneSet zs, IEnumerable<KeyItem> items)
+        /// <summary>
+        /// Placements a zoning would get from its key items (one per token and zone), not already in
+        /// it; with perObject one per object (the automatic zones from Phase B on, so that the key
+        /// item shuffle can move objects one by one).
+        /// </summary>
+        public static List<Placement> SuggestPlacements(ZoneSet zs, IEnumerable<KeyItem> items, bool perObject = false)
         {
             var have = new HashSet<string>(zs.Placements.Select(p => p.Zone + "|" + Requirement.Normalize(p.Grants)));
             var add = new List<Placement>();
@@ -134,7 +140,7 @@ namespace UwEditor.Core.Randomizer
             {
                 if (k.Zone <= ZoneSet.Unassigned) continue;
                 string id = k.Zone + "|" + Requirement.Normalize(k.Token);
-                if (!have.Add(id)) continue;
+                if (!have.Add(id) && !perObject) continue;
                 add.Add(new Placement { Zone = k.Zone, Grants = k.Token, Notes = string.Format("#{0} {1}, level {2} ({3}, {4})", k.Index, k.Name, k.Level, k.TileX, k.TileY), Source = "levels" });
             }
             return add;
