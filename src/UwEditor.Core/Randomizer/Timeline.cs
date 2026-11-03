@@ -89,6 +89,16 @@ namespace UwEditor.Core.Randomizer
         public int GoalZone;
         public string GoalRequires = "free";
         public Fact GoalFact;
+        /// <summary>Goal facts with an option (Phase D: goal_orb, option:require_orb): their requirement joins the goal's when the option is on.</summary>
+        public readonly List<Fact> GoalExtras = new List<Fact>();
+
+        /// <summary>What the goal needs with these solver options: the goal fact's requirement and those of the goal facts whose option is on.</summary>
+        public string GoalFor(SolverOptions so)
+        {
+            var terms = new List<string> { GoalRequires };
+            foreach (var f in GoalExtras) if (so.OptionsOn.Contains(f.Option)) terms.Add(f.Requires);
+            return ZoneLink.JoinAnd(terms);
+        }
         public TimelineSolve Solve;
         public readonly List<KeyValuePair<string, TimelineSolve>> Variants = new List<KeyValuePair<string, TimelineSolve>>();
         public readonly List<string> Warnings = new List<string>();
@@ -131,12 +141,19 @@ namespace UwEditor.Core.Randomizer
             if (n.DiagonalJumps) into.Add("diagonal_jumps");
         }
 
-        /// <summary>One timeline solve with the given logic options (the zones and the facts as built).</summary>
-        public static TimelineSolve Solve(TimelineResult res, AbilityOptions opt, string label, IEnumerable<string> startTokens = null)
+        /// <summary>The solver's options for these logic options and these zones (the movement options as tokens too), with tokens held from the start.</summary>
+        public static SolverOptions SolverFor(TimelineResult res, AbilityOptions opt, IEnumerable<string> startTokens)
         {
             var so = opt.ToSolver();
             if (startTokens != null) so.StartTokens.AddRange(startTokens);
             NavTokens(res.Abilities.Nav, so.OptionsOn);
+            return so;
+        }
+
+        /// <summary>One timeline solve with the given logic options (the zones and the facts as built).</summary>
+        public static TimelineSolve Solve(TimelineResult res, AbilityOptions opt, string label, IEnumerable<string> startTokens = null)
+        {
+            var so = SolverFor(res, opt, startTokens);
             var sv = res.Engine.Run(so, opt, label, null);
             res.Engine.ReturnCheck(sv, so);
             if (sv.Traps.Count > 0)
@@ -300,6 +317,8 @@ namespace UwEditor.Core.Randomizer
             /// <summary>Placements on this level that lie in another zone now.</summary>
             public readonly Dictionary<Placement, int> PlacementZone = new Dictionary<Placement, int>();
             public int ZoneOfBase(int z) { int t; return Absorbed.TryGetValue(z, out t) ? t : z; }
+            /// <summary>Tile (y * 64 + x) -> zone, for placements found later (Phase D).</summary>
+            public readonly Dictionary<int, int> TileZone = new Dictionary<int, int>();
         }
 
         /// <summary>The changing world: the base zones, the level states (cached by the changes applied) and the solver.</summary>
@@ -323,6 +342,11 @@ namespace UwEditor.Core.Randomizer
             /// <summary>Zones that are only a door kept apart (a closer's doorway): the player passes them, he never stays in them.</summary>
             readonly HashSet<int> doorways = new HashSet<int>();
             int nextFresh = 1000;
+            /// <summary>Phase D (the key item shuffle): the placements a run uses instead of the zone set's, and where the new ones lie (level, x, y).</summary>
+            List<Placement> placements;
+            readonly Dictionary<Placement, int[]> extraSpot = new Dictionary<Placement, int[]>();
+            /// <summary>The count facts (kind "count"), by id.</summary>
+            Dictionary<string, Fact> countFacts = new Dictionary<string, Fact>();
             readonly Dictionary<string, int> freshIds = new Dictionary<string, int>();
             /// <summary>The flags of the changes applied when set off (Classify).</summary>
             public HashSet<string> Applicable = new HashSet<string>();
@@ -381,6 +405,28 @@ namespace UwEditor.Core.Randomizer
                     }
                 }
                 Facts(lm);
+                countFacts = res.Facts.OfKind("count").Where(f => f.Grants.Length > 0 && f.AtLeast > 0).GroupBy(f => f.Id).ToDictionary(g => g.Key, g => g.First());
+            }
+
+            /// <summary>The placements the runs use (null: the zone set's again), with the tiles of those the zone set does not hold.</summary>
+            public void UsePlacements(List<Placement> list, Dictionary<Placement, int[]> spots)
+            {
+                placements = list;
+                extraSpot.Clear();
+                if (spots != null) foreach (var kv in spots) extraSpot[kv.Key] = kv.Value;
+            }
+
+            List<Placement> Placements { get { return placements ?? zs.Placements; } }
+
+            /// <summary>The zone of a placement's tile in a changed level (placements the zone set does not hold).</summary>
+            int ZoneOfTile(LevelState st, int[] t, int dflt)
+            {
+                int key = t[2] * 64 + t[1], z;
+                if (st.TileZone.TryGetValue(key, out z)) return z > 0 ? z : dflt;
+                int r = st.Graph.NearestRegion(st.Level, t[1], t[2], 2, true);
+                z = r >= 0 && r < st.Zone.Length ? st.Zone[r] : 0;
+                st.TileZone[key] = z;
+                return z > 0 ? z : dflt;
             }
 
             int[] Tile(FactSpot at, Func<int, LevelModel> lm)
@@ -410,7 +456,8 @@ namespace UwEditor.Core.Randomizer
                     res.Warps.Add(f);
                     if (f.To != null && f.To.IsPlanted) plantedRequires = plantedRequires == null ? f.Requires : plantedRequires + " | " + f.Requires;
                 }
-                var goals = res.Facts.OfKind("goal").ToList();
+                var goals = res.Facts.OfKind("goal").Where(f => f.Option.Length == 0).ToList();
+                res.GoalExtras.AddRange(res.Facts.OfKind("goal").Where(f => f.Option.Length > 0));
                 res.GoalZone = zs.GoalZone;
                 if (goals.Count > 0)
                 {
@@ -729,6 +776,7 @@ namespace UwEditor.Core.Randomizer
                     int z;
                     if (st.PlacementZone.TryGetValue(p, out z)) return z;
                 }
+                else if (extraSpot.TryGetValue(p, out t) && cur.TryGetValue(t[0], out st)) return ZoneOfTile(st, t, p.Zone);
                 return p.Zone;
             }
 
@@ -760,6 +808,8 @@ namespace UwEditor.Core.Randomizer
                 ctx.Reach.Add(start);
                 sv.ZoneSphere[start] = 0;
                 var warpTo = res.Warps.ToDictionary(f => f, f => WarpTarget(f));
+                var counted = new HashSet<Placement>();
+                var tally = new Dictionary<string, int>();
                 var sphere = new TimelineSphere { Index = 0 };
                 sphere.Zones.Add(start);
                 List<ZoneLink> links = LinksOf(cur, so);
@@ -797,13 +847,24 @@ namespace UwEditor.Core.Randomizer
                     while (gained)
                     {
                         gained = false;
-                        foreach (var p in zs.Placements)
+                        foreach (var p in Placements)
                         {
                             string t = Requirement.Normalize(p.Grants);
-                            if (t.Length == 0 || ctx.Tokens.Contains(t)) continue;
+                            bool counts = t.Length == 0 && !string.IsNullOrEmpty(p.Counts);
+                            if (counts ? counted.Contains(p) : (t.Length == 0 || ctx.Tokens.Contains(t))) continue;
                             int z = PlacementZone(p, cur);
                             if (!ctx.Reach.Contains(z) || (banned != null && banned.Contains(z))) continue;
                             if (!string.IsNullOrEmpty(p.Requires) && !Req(p.Requires).Eval(ctx)) continue;
+                            if (counts)
+                            {
+                                // a count fact (Shak's 20 gold): the quantities add up; the token comes once the total is reached
+                                counted.Add(p);
+                                int n; tally.TryGetValue(p.Counts, out n); tally[p.Counts] = n += p.Quantity;
+                                Fact cf;
+                                if (!countFacts.TryGetValue(p.Counts, out cf) || n < cf.AtLeast) continue;
+                                t = Requirement.Normalize(cf.Grants);
+                                if (ctx.Tokens.Contains(t)) continue;
+                            }
                             ctx.Tokens.Add(t);
                             sphere.Tokens.Add(t);
                             sphere.TokenSources.Add(t + " (zone " + z + (string.IsNullOrEmpty(p.Requires) ? "" : ", with " + p.Requires) + ")");
@@ -852,7 +913,7 @@ namespace UwEditor.Core.Randomizer
                 }
                 // the goal
                 sv.GoalZoneReached = ctx.Reach.Contains(res.GoalZone);
-                var greq = Req(res.GoalRequires);
+                var greq = Req(res.GoalFor(so));
                 sv.GoalReached = sv.GoalZoneReached && greq.Eval(ctx);
                 if (!sv.GoalZoneReached) sv.GoalMissing.Add("the goal zone " + ZoneName(res.GoalZone));
                 greq.Missing(ctx, sv.GoalMissing);
@@ -910,10 +971,10 @@ namespace UwEditor.Core.Randomizer
                     for (int round = 0; round < 300 && !back; round++)
                     {
                         bool any = false;
-                        foreach (var p in zs.Placements)
+                        foreach (var p in Placements)
                         {
                             string t = Requirement.Normalize(p.Grants);
-                            if (ctx.Tokens.Contains(t) || !ctx.Reach.Contains(PlacementZone(p, cur))) continue;
+                            if (t.Length == 0 || ctx.Tokens.Contains(t) || !ctx.Reach.Contains(PlacementZone(p, cur))) continue;
                             if (!string.IsNullOrEmpty(p.Requires) && !Req(p.Requires).Eval(ctx)) continue;
                             ctx.Tokens.Add(t); any = true;
                         }
@@ -940,18 +1001,18 @@ namespace UwEditor.Core.Randomizer
                 var used = new HashSet<string>();
                 var needed = new List<string>();
                 foreach (var k in lastLinks ?? new List<ZoneLink>()) Req(k.Requires).Tokens(needed);
-                foreach (var p in zs.Placements) if (!string.IsNullOrEmpty(p.Requires)) Req(p.Requires).Tokens(needed);
-                Req(res.GoalRequires).Tokens(needed);
+                foreach (var p in Placements) if (!string.IsNullOrEmpty(p.Requires)) Req(p.Requires).Tokens(needed);
+                Req(res.GoalFor(so)).Tokens(needed);
                 foreach (var t in needed) used.Add(Requirement.Normalize(t));
                 var inTrap = new HashSet<int>(trapZones.Keys);
                 foreach (var trap in sv.Traps)
                 {
                     var here = new HashSet<int>(trap.Inside) { trap.Zone };
-                    foreach (var p in zs.Placements)
+                    foreach (var p in Placements)
                     {
                         string t = Requirement.Normalize(p.Grants);
-                        if (!here.Contains(p.Zone) || !sv.TokenSphere.ContainsKey(t)) continue;
-                        bool elsewhere = zs.Placements.Any(q => Requirement.Normalize(q.Grants) == t && sv.ZoneSphere.ContainsKey(q.Zone) && !inTrap.Contains(q.Zone) && !here.Contains(q.Zone));
+                        if (t.Length == 0 || !here.Contains(p.Zone) || !sv.TokenSphere.ContainsKey(t)) continue;
+                        bool elsewhere = Placements.Any(q => Requirement.Normalize(q.Grants) == t && sv.ZoneSphere.ContainsKey(q.Zone) && !inTrap.Contains(q.Zone) && !here.Contains(q.Zone));
                         if (elsewhere || trap.Holds.Contains(t)) continue;
                         trap.Holds.Add(t);
                         if (used.Contains(t) || (t.StartsWith("talisman:") && used.Any(u => u.StartsWith("talismans:")))) trap.Strands.Add(t);

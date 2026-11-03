@@ -117,7 +117,8 @@ namespace UwEditor.Core.Tests
             int left = w.Levels.Sum(l => Items(w.Model(l)).Count(o => Challenges.IsCoinOrGem(s, o.Item)));
             var sec = r.Sections.Single();
             output.WriteLine("left {0}, kept {1}", left, string.Join(", ", sec.Kept.Select(k => k.Key + " " + k.Value)));
-            Assert.Equal(sec.Kept.Values.Sum(), left);
+            // UW1: plus the one exception, the pile of 20 coins beside Shak (ChallengeExceptionTests)
+            Assert.Equal(sec.Kept.Values.Sum() + (s.IsUw2 ? 0 : 1), left);
             if (!s.IsUw2) Assert.Equal(11, sec.Kept["kinds the game looks for (puzzles, inventory traps)"]);   // UW1's emeralds (the puzzle)
             var schema = UltimateEditor.Uw1.Uw1Schemas.Creature;
             for (int row = 0; row < 64; row++)
@@ -325,7 +326,8 @@ namespace UwEditor.Core.Tests
             int food = count(w0, i => Challenges.IsFood(s, i));
             var w1 = ChallengeWorld.Copy(s, edits, null, null);
             var r1 = Challenges.Run(w1, Only(s, edits, 4, Challenge.Starvation));
-            Assert.Equal(r1.Sections[0].Kept.Values.Sum(), count(w1, i => Challenges.IsFood(s, i) || i == ItemTables.FishingPole || i == 0xFF) - 0);
+            // UW1: less the one exception, the piece of meat beside Zak (ChallengeExceptionTests)
+            Assert.Equal(r1.Sections[0].Kept.Values.Sum(), count(w1, i => Challenges.IsFood(s, i) || i == ItemTables.FishingPole || i == 0xFF) - (s.IsUw2 ? 0 : 1));
             Assert.Equal(0, count(w1, i => i == 0xFF));
             var o = Only(s, edits, 4, Challenge.Fasting);
             o.FastingKeep = 25;

@@ -36,7 +36,7 @@ namespace UwEditor.Core.Randomizer
     public sealed class Fact
     {
         public string Id = "";
-        /// <summary>craft, trade, flag, nomana, walls, hidden; Phase C: link, warp, goal, free, needs.</summary>
+        /// <summary>craft, trade, flag, nomana, walls, hidden; Phase C: link, warp, goal, free, needs; Phase D: count.</summary>
         public string Kind = "";
         /// <summary>craft, flag: the token granted.</summary>
         public string Grants = "";
@@ -82,6 +82,13 @@ namespace UwEditor.Core.Randomizer
         public readonly List<int> Triggers = new List<int>();
         public readonly List<string> Flags = new List<string>();
 
+        // ---- Phase D
+
+        /// <summary>count: the item ids whose quantities add up (a stack counts its quantity, as conv/CONVERSE.C count_inv does).</summary>
+        public readonly List<int> Items = new List<int>();
+        /// <summary>count: the total that grants the token.</summary>
+        public int AtLeast;
+
         public bool InRect(int x, int y) { return Rect != null && Rect.Length == 4 && x >= Rect[0] && x <= Rect[2] && y >= Rect[1] && y <= Rect[3]; }
         public override string ToString() { return Id + " (" + Kind + ")"; }
 
@@ -117,7 +124,7 @@ namespace UwEditor.Core.Randomizer
         public static readonly string[] KnownOptions =
         {
             "magic", "single_use", "lockpick", "pick_retry", "search_retry", "damage_walls", "ring_needs_lava", "kill_npcs",
-            "cut_levels", "gap_jumps", "diagonal_jumps", "glitches",
+            "cut_levels", "gap_jumps", "diagonal_jumps", "glitches", "require_orb",
         };
 
         public IEnumerable<Fact> OfKind(string kind) { return Facts.Where(f => f.Kind == kind); }
@@ -142,6 +149,7 @@ namespace UwEditor.Core.Randomizer
             foreach (var f in Facts)
             {
                 if ((f.Kind == "craft" || f.Kind == "flag") && f.Grants.Length > 0) h.Add(Requirement.Normalize(f.Grants));
+                if (f.Kind == "count" && f.Grants.Length > 0) h.Add(Requirement.Normalize(f.Grants));
                 if (f.Kind == "free") foreach (var t in f.Flags) h.Add(Requirement.Normalize(t));
             }
             return h;
@@ -294,6 +302,11 @@ namespace UwEditor.Core.Randomizer
                     if (f.From != null && f.From.Level > 0 && f.FromLevel == 0 && !f.From.HasTile && !f.From.HasObject) f.FromLevel = f.From.Level;
                 }
                 if (f.Kind == "goal" && f.To == null) f.To = f.TopSpot;
+                if (f.Kind == "count")
+                {
+                    if (n?["items"] is JsonArray items) foreach (var x in items) { int k = Int(x, -1); if (k >= 0) f.Items.Add(k); }
+                    f.AtLeast = I(n, "atLeast", 0);
+                }
                 if (f.Kind == "free")
                 {
                     Ints(n, "object", "objects", f.Objects);
@@ -353,8 +366,14 @@ namespace UwEditor.Core.Randomizer
                         option(f.Option);
                         break;
                     case "goal":
-                        if (f.To == null || !(f.To.HasTile || f.To.HasObject)) list.Add(f.Id + ": a goal needs where it is: 'level' with 'x' and 'y' or 'object' (or 'at').");
+                        // a goal fact with an option only adds its requirement when the option is on (Phase D: option:require_orb)
+                        if (f.Option.Length == 0 && (f.To == null || !(f.To.HasTile || f.To.HasObject))) list.Add(f.Id + ": a goal needs where it is: 'level' with 'x' and 'y' or 'object' (or 'at').");
                         req(f.Requires);
+                        option(f.Option);
+                        break;
+                    case "count":
+                        if (f.Grants.Length == 0) list.Add(f.Id + ": no 'grants'.");
+                        if (f.Items.Count == 0 || f.AtLeast <= 0) list.Add(f.Id + ": a count needs 'items' [ids] and 'atLeast' N.");
                         break;
                     case "needs":
                         if (f.Token.Length == 0 && (f.Level <= 0 || f.Trigger < 0)) list.Add(f.Id + ": 'needs' names a mechanism by 'token' (its flag) or by 'level' and 'trigger'.");

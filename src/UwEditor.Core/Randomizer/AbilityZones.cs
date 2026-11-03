@@ -34,6 +34,8 @@ namespace UwEditor.Core.Randomizer
         public bool RingNeedsLava = true;
         /// <summary>An item a non-hostile NPC carries can be had by killing it once its zone is reached (option:kill_npcs).</summary>
         public bool KillNpcs;
+        /// <summary>Karl (Phase D): the goal also needs Tyball's orb on L7 broken (option:require_orb; the goal fact "goal_orb").</summary>
+        public bool RequireOrb;
 
         // Bashing is always in the logic (Karl: fists bash any breakable door), so it is no option.
 
@@ -51,6 +53,7 @@ namespace UwEditor.Core.Randomizer
             if (DamageTrapWalls) h.Add("damage_walls");
             if (RingNeedsLava) h.Add("ring_needs_lava");
             if (KillNpcs) h.Add("kill_npcs");
+            if (RequireOrb) h.Add("require_orb");
             return h;
         }
 
@@ -67,10 +70,10 @@ namespace UwEditor.Core.Randomizer
 
         public override string ToString()
         {
-            return string.Format("Magic {0}, single-use items {1}, lock picking {2}, bashing always, Search {3}{4}, damage-trap tiles are walls {5}, Ring of Levitation {6}, killing NPCs {7}",
+            return string.Format("Magic {0}, single-use items {1}, lock picking {2}, bashing always, Search {3}{4}, damage-trap tiles are walls {5}, Ring of Levitation {6}, killing NPCs {7}{8}",
                 Magic ? "on" : "off", SingleUseItems ? "count" : "do not count", LockPicking ? "on (skill " + PickSkill + (PickRetry ? ", retry" : "") + ")" : "off",
                 SearchSkill, SearchRetry ? " with retry" : " without retry", DamageTrapWalls ? "everywhere" : "only in the facts' areas",
-                RingNeedsLava ? "needs lava protection" : "free", KillNpcs ? "in logic" : "not in logic");
+                RingNeedsLava ? "needs lava protection" : "free", KillNpcs ? "in logic" : "not in logic", RequireOrb ? ", the goal needs the orb broken" : "");
         }
     }
 
@@ -211,6 +214,9 @@ namespace UwEditor.Core.Randomizer
             var zs = auto.Set;
             zs.Source = "automatic zones (Underworld Editor), Phase B";
             zs.OpenSources.Remove("hazard:lava");
+            // one placement per object, not per zone and token (Phase D: the key item shuffle moves objects one by one)
+            zs.Placements.RemoveAll(p => p.Source == "levels");
+            zs.Placements.AddRange(KeyItems.SuggestPlacements(zs, KeyItems.Find(s, wl, zs), true));
             foreach (var h in res.Hidden)
             {
                 h.FromZone = h.FromRegion >= 0 ? g.Regions[h.FromRegion].Zone : 0;
@@ -470,10 +476,11 @@ namespace UwEditor.Core.Randomizer
 
         static string Slug(string t) { return new string((t ?? "").ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray()).Trim('_'); }
 
-        static void Add(ZoneSet zs, int zone, string grants, string requires, string notes, string source)
+        /// <summary>Adds a placement; with perObject (an object of the levels) always, else only when the zone has none like it.</summary>
+        static void Add(ZoneSet zs, int zone, string grants, string requires, string notes, string source, bool perObject = false)
         {
             if (zone <= ZoneSet.Unassigned) return;
-            if (zs.Placements.Any(p => p.Zone == zone && Requirement.Normalize(p.Grants) == Requirement.Normalize(grants) && (p.Requires ?? "") == (requires ?? ""))) return;
+            if (!perObject && zs.Placements.Any(p => p.Zone == zone && Requirement.Normalize(p.Grants) == Requirement.Normalize(grants) && (p.Requires ?? "") == (requires ?? ""))) return;
             zs.Placements.Add(new Placement { Zone = zone, Grants = grants, Requires = requires ?? "", Notes = notes, Source = source });
         }
 
@@ -482,7 +489,7 @@ namespace UwEditor.Core.Randomizer
             // the items that give abilities
             res.Sources = Abilities.Find(s, level, zs);
             foreach (var src in res.Sources)
-                Add(zs, src.Zone, src.Token, "", string.Format("#{0} {1} ({2}, {3}{4}), level {5} ({6}, {7})", src.Index, src.Name, src.Spell, src.Kind, src.Charges >= 0 ? " " + src.Charges + " charges" : "", src.Level, src.TileX, src.TileY), "levels");
+                Add(zs, src.Zone, src.Token, "", string.Format("#{0} {1} ({2}, {3}{4}), level {5} ({6}, {7})", src.Index, src.Name, src.Spell, src.Kind, src.Charges >= 0 ? " " + src.Charges + " charges" : "", src.Level, src.TileX, src.TileY), "levels", true);
             // casting: the runes in the rune bag (combat/RUNES.C try_cast; ignoring character level and mana)
             foreach (var ab in Abilities.Names)
                 foreach (int sp in Abilities.SpellsGiving(s.IsUw2, ab))
@@ -502,32 +509,37 @@ namespace UwEditor.Core.Randomizer
                 }
                 foreach (var t in toks) if (t.StartsWith("item:")) { wanted.Add(t); if (f.Kind == "craft" || f.Kind == "trade" || f.Kind == "flag") mustExist.Add(t); }
             }
+            // tokens the key items already give (one placement per object: KeyItems) are not scanned again
             foreach (var t in zs.Placements.Select(p => Requirement.Normalize(p.Grants)).ToList()) wanted.Remove(t);
             foreach (var f in facts.OfKind("craft")) wanted.Remove(Requirement.Normalize(f.Grants));
             var corpse = CorpseItems(s);
+            var counts = facts.OfKind("count").Where(f => f.Grants.Length > 0 && f.AtLeast > 0).ToList();
             foreach (var slot in s.LevelSlots())
             {
-                if (!slot.Present || wanted.Count == 0) continue;
+                if (!slot.Present || (wanted.Count == 0 && counts.Count == 0)) continue;
                 LevelModel m;
                 try { m = level(slot.Level); } catch (Exception) { continue; }
                 if (m == null || !m.Present) continue;
-                var foodZones = new HashSet<int>();
                 foreach (var o in m.Objects)
                 {
                     if (o.Free || o.TileX < 0) continue;
                     int z = zs.NearestZone(slot.Level, o.TileX, o.TileY);
                     string where = string.Format("#{0} {1}{2}, level {3} ({4}, {5})", o.Index, o.Name, o.Parent >= 0 ? " in " + m.Objects[o.Parent] : "", slot.Level, o.TileX, o.TileY);
                     string tok = NavGraph.ItemToken(s, o.Item);
-                    if (wanted.Contains(tok)) Add(zs, z, tok, "", where, "levels");
+                    if (wanted.Contains(tok)) Add(zs, z, tok, "", where, "levels", true);
                     // any food pays Marrowsuck: items 0xB0-0xBF (major 2 minor 3, conv/CONVERSE.C find_barter 1011)
-                    if (wanted.Contains("item:food") && o.Item >= 0xB0 && o.Item < 0xC0 && foodZones.Add(z)) Add(zs, z, "item:food", "", where + " (food)", "levels");
+                    if (wanted.Contains("item:food") && o.Item >= 0xB0 && o.Item < 0xC0 && o.Item != 0xBF) Add(zs, z, "item:food", "", where + " (food)", "levels", true);
                     // the stew recipe: a book or scroll whose text number is 0x100 or more (obj/USEITEMS.C UseBook, obj/COMBINE.C make_stew)
                     if (wanted.Contains("item:stew_recipe") && !s.IsUw2 && o.Item >= 0x130 && o.Item < 0x140 && o.Item != 0x13B && !o.Enchanted && o.IsQuantity && (o.Link & 0x1FF) >= 0x100)
-                        Add(zs, z, "item:stew_recipe", "", where + " (make_stew)", "levels");
+                        Add(zs, z, "item:stew_recipe", "", where + " (make_stew)", "levels", true);
                     // a creature that leaves the item when killed (critter/PATHFIND.C build_corpse: item 0xD8 + its corpse field, where it lay)
                     int ci;
                     if (o.IsCritter && corpse.TryGetValue(o.Item, out ci) && wanted.Contains(NavGraph.ItemToken(s, ci)))
-                        Add(zs, z, NavGraph.ItemToken(s, ci), "", where + " (killed, it leaves " + s.Names.Get(ci) + ")", "levels");
+                        Add(zs, z, NavGraph.ItemToken(s, ci), "", where + " (killed, it leaves " + s.Names.Get(ci) + ")", "levels", true);
+                    // the count facts (Phase D: Shak's 20 gold): each stack adds its quantity (conv/CONVERSE.C count_inv)
+                    foreach (var cf in counts)
+                        if (cf.Items.Contains(o.Item))
+                            zs.Placements.Add(new Placement { Zone = z, Grants = "", Counts = cf.Id, Quantity = CountOf(o), Notes = where + " (" + CountOf(o) + " towards " + cf.Grants + ")", Source = "levels" });
                 }
             }
             var factGrants = facts.Granted();
@@ -570,6 +582,37 @@ namespace UwEditor.Core.Randomizer
             }
         }
 
+        /// <summary>
+        /// What opens the locked container an object lies in (however deep), or null: the lock
+        /// (0x10F) in a container's list with its locked flag (flag 9) set opens with its key (the
+        /// lock's link &amp; 0x1FF; 0: no key fits) or by picking (its Z, below 15), as checkLock reads
+        /// it (obj/USEITEMS.C UseCont, checkLock); a locked chest is not broken open. Only UW1's
+        /// fixed chests (0x15D) carry locks in the shipped levels.
+        /// </summary>
+        public static string ContainerLock(LevelModel m, ObjectInfo o)
+        {
+            var terms = new List<string>();
+            for (int up = o.Parent, g = 0; up >= 0 && g < 64; up = m.Objects[up].Parent, g++)
+            {
+                var h = m.Objects[up];
+                if (h.IsCritter || h.IsTrapOrTrigger) break;
+                foreach (int c in h.Children)
+                {
+                    var lk = m.Objects[c];
+                    if (lk.Free || lk.Item != 0x10F || lk.Record == null || ((lk.Record[1] >> 1) & 1) == 0) continue;
+                    int key = lk.Link & 0x1FF, z = lk.Z;
+                    var alts = new List<string>();
+                    if (key > 0) alts.Add("key:" + key);
+                    if (z < 15) alts.Add("pick:" + z);
+                    terms.Add(alts.Count == 0 ? "flag:never_opened" : alts.Count == 1 ? alts[0] : "(" + string.Join(" | ", alts) + ")");
+                }
+            }
+            return terms.Count == 0 ? null : string.Join(" & ", terms);
+        }
+
+        /// <summary>How many an object counts as: its quantity, or 1 (conv/CONVERSE.C count_inv: a quantity below 0x200, else 1).</summary>
+        public static int CountOf(ObjectInfo o) { return o.IsQuantity && o.Link > 0 && o.Link < 0x200 ? o.Link : 1; }
+
         static readonly Regex PlacedObject = new Regex(@"^#(\d+) .*?level (\d+) \(");
 
         /// <summary>
@@ -589,6 +632,7 @@ namespace UwEditor.Core.Randomizer
         {
             var npcHeld = new Dictionary<string, string>();      // "level:index" -> the NPC's name
             var created = new Dictionary<string, List<string>>(); // "level:index" -> the flags that create it
+            var lockedIn = new Dictionary<string, string>();      // "level:index" -> what opens the locked container it lies in
             foreach (var slot in s.LevelSlots())
             {
                 if (!slot.Present) continue;
@@ -598,6 +642,8 @@ namespace UwEditor.Core.Randomizer
                 foreach (var o in m.Objects)
                 {
                     if (o.Free || o.Parent < 0) continue;
+                    string lk = ContainerLock(m, o);
+                    if (lk != null) lockedIn[slot.Level + ":" + o.Index] = lk;
                     // the outermost holder
                     var h = m.Objects[o.Parent];
                     int guard = 0;
@@ -639,6 +685,12 @@ namespace UwEditor.Core.Randomizer
                     p.Requires = ZoneLink.JoinAnd(new[] { p.Requires, string.Join(" | ", by) });
                     p.Notes += "; made by a create trap (" + string.Join(" | ", by) + ")";
                     res.Created.Add(p);
+                }
+                string lockReq;
+                if (lockedIn.TryGetValue(key, out lockReq))
+                {
+                    p.Requires = ZoneLink.JoinAnd(new[] { p.Requires, lockReq });
+                    p.Notes += "; in a locked container (" + lockReq + ")";
                 }
                 string npc;
                 if (npcHeld.TryGetValue(key, out npc) && !p.Grants.StartsWith("npc:"))

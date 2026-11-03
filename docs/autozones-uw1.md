@@ -445,3 +445,103 @@ set, 227 to 228 zones in 23 to 26 spheres.
 - The L3 door at (6, 8) is closed in both directions, which is strict.
 - A lever is never used across a closed portcullis, though the game's reach test
   (`ui/INTERACT.C InPickRange`, `BlockingTerrain`) does not look at doors.
+
+# Phase D: the key item shuffle
+
+The code is `Core/Randomizer/KeyShuffle.cs` (survey, fill, check, writing, log),
+`ChallengeExceptions.cs` (the two challenge exceptions), additions to `Facts.cs` (kind `count`,
+goal facts with an option), `Timeline.cs` (counts, the goal's options, placements a run can
+replace) and `AbilityZones.cs` (one placement per object, count placements, locked
+containers), and `App/KeyShuffleWindow.cs` with `App/LogicOptionsPanel.cs` (the logic options,
+now shared with the Automatic zones window). The tests are
+`tests/UwEditor.Core.Tests/KeyShuffleTests.cs` and `tests/UwEditor.App.Tests/KeyShuffleWindowTests.cs`.
+
+## Karl's corrections
+
+1. **20 gold for Shak, food for Zak.** The sword needs `item:gold_20`: fact `gold_20` (kind
+   `count`) adds up the coins (0xA0) and gold coins (0xA1) of the zones reached, each stack by
+   its quantity (conversation 2 func_11F7, conv/CONVERSE.C count_inv; a gold coin counts 1, not
+   10). The taper needs `item:food` (or killing Zak with the option). Both are needed for the goal
+   through the talismans: with every coin deleted, or every food deleted, the goal is not reached.
+   - **Vow of poverty** leaves one pile of 20 coins at **L2 (60, 4)**, beside Shak (60, 3).
+   - **Starvation** leaves **one piece of meat** (0xB0, quality 40) at **L3 (48, 38)**, beside
+     Zak (47, 38). That is the least he takes: the taper is worth 1, the meat 3 (at worst 2 after
+     his appraisal), and his greed is at most 67 % (conv/BARTER.C do_offer, assess_value; creature
+     0x68: haggle 9, shrewd 10).
+   - These are the only exceptions; the later challenges (Fasting, Merchant, Hoarding) leave
+     them alone. **Contradiction:** Zak does not need food as such. He likes food and drink
+     (0xB0-0xBF) and lights and wands (0x90-0x9F), and takes any offer worth 2 or more. The logic
+     keeps Karl's rule, which is stricter.
+2. **The goal is reaching L9** (fact `goal_reach_level9`, L9 (27, 23)); the end trigger is no
+   longer a step.
+3. **The Key of Love** needs `npc:judy & item:picture_tom` only.
+4. **Require breaking the orb** (`option:require_orb`, off by default; fact `goal_orb`): the goal
+   also needs `flag:orb_destroyed`. Both windows have the checkbox.
+
+Also changed so that facts follow the items the shuffle moves: Gate Travel is an ability (its
+scrolls are found wherever they lie; the five gate travel facts are gone), and Garamon's bones
+give `item:garamon_bones` wherever they lie (the flag fact is gone). The automatic zones now
+keep one placement per object (not one per zone and token), and an item in a locked chest needs
+what opens the lock (`key:N | pick:Z`; UW1 has two locked chests: L1 (3, 50), key 4, and L4
+(19, 20), no key).
+
+## What moves
+
+With the default categories (creature inventories and filler off), **161 objects move**:
+ability items 28 (17 key items), Key of Infinity parts 1 (the Key of Courage), boots'
+ingredients 37, keys 11, plot items 39 (16 key), runestones and the rune bag 43 (28 key),
+talismans 2 (book, wine). 112 are key items (a token they give is one the logic asks for); the
+other 49 fill the rest. With filler on, 515 objects move; with creature inventories also, 523.
+
+What stays (with the defaults): 26 carried by creatures (with creature inventories on: those
+whose creature has a conversation, 63 with filler), 3 orbs holding triggers, 2 create trap
+templates (the Ring of Humility, the ghost's key 15), the moonstone (Gate Travel goes to it;
+the sealed moonorb area is entered only that way) and Tyball's orb (#820, named by
+orb_destroyed). Never: objects a trap or trigger names, objects holding a trigger or other
+objects (their lists stay on their level), mobile records, the emeralds and inventory-trap
+kinds, items whose token a trade fact ties to a holder, coins and food beside Shak and Zak.
+
+## The algorithm as built
+
+1. Build the zones and the timeline on the levels as they are (with the chosen options).
+2. Lock picking off: solve with every moving item held. If the goal is blocked by a door that
+   only picking opens, unlock it (clear the lock's locked flag) and rebuild; repeat.
+3. Survey the objects; the places are the slots of the objects that move.
+4. Probe every place in the original game (its zone and sphere).
+5. For seed, seed + 1, …: shuffle the key items; for each, solve with the placed items at their
+   places, the items not yet placed (and all the others) assumed held, and a probe token on
+   every empty place; choose a reached place at random. Then the other items fill the rest at
+   random.
+6. Write the records into a copy of the levels, build the timeline afresh and solve with
+   nothing assumed. Accept when the goal is reached and no one-way trap strands the player.
+
+Each fill step is one timeline run (15 to 120 ms); a whole shuffle takes about 2.5 s (3 s with
+filler).
+
+## Results
+
+| Options | Seeds | Success | Attempts | Spheres after (before) |
+| --- | --- | --- | --- | --- |
+| defaults | 20 | 20 | 20 | 21-23 (26) |
+| filler | 5 | 5 | 5 | 21-24 |
+| creature inventories | 5 | 5 | 5 | 21-24 |
+| Magic off | 5 | 5 | 5 | 21 |
+| Magic off, single-use | 5 | 5 | 5 | 21-24 |
+| lock picking on | 5 | 5 | 5 | 21-24 |
+| require the orb | 5 | 5 | 5 | 21-25 |
+| Magic off, orb, filler, creatures | 10 | 10 | 10 | 21-24 |
+| killing NPCs, creatures, filler | 5 | 5 | 5 | 21-23 |
+| Vow of poverty + Starvation, filler | 1 | 1 | 1 | 24 |
+
+No attempt failed the final check. Doors unlocked with picking off on the shipped levels: none
+(no door that only picking opens blocks the goal: the L2 vault ledge and Rawstag's shrine hold
+nothing needed). The test makes the shadow beasts' door on L3 (4, 55) pick-only and keeps the
+keys in place: the shuffle unlocks it.
+
+## Not settled
+
+- The fill counts every filler item as held while it places the key items, so food and coins
+  are checked only by the final solve (they are plentiful; no attempt has failed on them).
+- A chest's lock is taken as unbreakable.
+- Items keep their own owner field; a key item put where a race owns things is not marked as
+  theirs, and an owned item keeps its owner when it moves.

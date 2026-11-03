@@ -9,7 +9,7 @@ namespace UwEditor.Core.Randomizer
     {
         public int Level, Index, Item;
         public string Name;
-        /// <summary>levitate, jump, waterwalk, lava, reveal, open, telekinesis, light.</summary>
+        /// <summary>levitate, jump, waterwalk, lava, reveal, open, telekinesis, light, gate_travel.</summary>
         public string Ability;
         /// <summary>worn (an enchantment that works while worn), used (cast on use, no charges), scroll, potion, wand (charged), boots (dragon skin).</summary>
         public string Kind;
@@ -41,7 +41,7 @@ namespace UwEditor.Core.Randomizer
     public static class Abilities
     {
         /// <summary>The abilities, as the tokens' names (spell:levitate, worn:lava ...). Fly counts as levitate (Requirement.Normalize).</summary>
-        public static readonly string[] Names = { "levitate", "jump", "waterwalk", "lava", "reveal", "open", "telekinesis", "light" };
+        public static readonly string[] Names = { "levitate", "jump", "waterwalk", "lava", "reveal", "open", "telekinesis", "light", "gate_travel" };
 
         public static readonly string[] RuneNames = "An Bet Corp Des Ex Flam Grav Hur In Jux Kal Lor Mani Nox Ort Por Quas Rel Sanct Tym Uus Vas Wis Ylem".Split(' ');
 
@@ -119,8 +119,9 @@ namespace UwEditor.Core.Randomizer
             Uw1Spell(spell, out cls, out minor);
             if (cls == 6 && minor == 1) return "reveal";
             // class 11 spells are xt_spells' subs, not effects: 5 Open (obj_spells picks the lock with skill 45),
-            // 8 Telekinesis (set_curmagic(SPELLC_XT, 3), the PickDist 0 effect); combat/SPELLS.C xt_spells
-            if (cls == 11) return minor == 5 ? "open" : minor == 8 ? "telekinesis" : null;
+            // 8 Telekinesis (set_curmagic(SPELLC_XT, 3), the PickDist 0 effect), 10 Gate Travel (to player->moonstone,
+            // game/SKILLS.C do_mstone; Phase D: so its scrolls are found wherever they lie); combat/SPELLS.C xt_spells
+            if (cls == 11) return minor == 5 ? "open" : minor == 8 ? "telekinesis" : minor == 10 ? "gate_travel" : null;
             return OfEffect(cls, minor);
         }
 

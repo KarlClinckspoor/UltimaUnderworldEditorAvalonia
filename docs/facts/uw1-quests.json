@@ -2,19 +2,27 @@
   "format": "uw1-facts",
   "version": 1,
   "game": "UW1",
-  "notes": "The quest facts of Ultima Underworld 1: what ending the game needs, the eight talismans, the Key of Infinity, the shrine mantra, items NPCs hold, doors NPCs open, Gate Travel and the silver sapling. Glitchless: no tricks beyond plain play. The player is assumed to know every mantra, password, tune and lever code. Same kinds as uw1-facts.json (craft, trade, flag, free) plus Phase C's link, warp and goal. link: from and to are tiles ({level, x, y}); the link joins their zones. warp: from 'any' (every zone) to the zone of a tile or object ({level, x, y, object}); to 'planted' is the silver sapling. goal: the tile or trigger whose zone ends the game. free: a mechanism or a lever code that counts as done once its trigger's zone is reached (token: the flag that becomes true). Fields 'x', 'y' on a flag fact are information only. Every fact has a confidence: certain (read in the data and the code), probable (read, but a step is assumed), todo. The readable account with the evidence is uw1-quests.md.",
+  "notes": "The quest facts of Ultima Underworld 1: what ending the game needs, the eight talismans, the Key of Infinity, the shrine mantra, items NPCs hold, doors NPCs open, Gate Travel and the silver sapling. Glitchless: no tricks beyond plain play. The player is assumed to know every mantra, password, tune and lever code. Same kinds as uw1-facts.json (craft, trade, flag, free) plus Phase C's link, warp and goal. link: from and to are tiles ({level, x, y}); the link joins their zones. warp: from 'any' (every zone) to the zone of a tile or object ({level, x, y, object}); to 'planted' is the silver sapling. goal: the tile or trigger whose zone ends the game. count (Phase D): grants a token once the quantities of the items listed, in the zones reached, add up to atLeast. free: a mechanism or a lever code that counts as done once its trigger's zone is reached (token: the flag that becomes true). Fields 'x', 'y' on a flag fact are information only. Every fact has a confidence: certain (read in the data and the code), probable (read, but a step is assumed), todo. The readable account with the evidence is uw1-quests.md.",
   "facts": [
     {
-      "id": "goal_void_end",
+      "id": "goal_reach_level9",
       "kind": "goal",
       "level": 9,
-      "x": 52,
-      "y": 51,
-      "trigger": 1022,
-      "requires": "talismans:8 & flag:garamon_buried",
-      "notes": "The end of the game: move trigger #1022 at L9 (52, 51), on the high platform of the Ethereal Void, runs hack trap #1021 (quality 0x3F), which ends the game. Level 9 is reached only through the ritual (link 'ritual'), so the requirement repeats the ritual's. On level 9 nothing can be picked up or cast, and the player cannot die.",
-      "source": "L9 #1022 move trigger -> #1021 do trap q 63; event/TRIGGER.C do_trap_hack case 0x3F (EndGameMode); game/SKILLS.C check_victory, player_is_dead; combat/SPELLS.C do_spell (no spells on level 9); motion/OBJPHYS.C mob_to_static (nothing kept on level 9)",
-      "confidence": "probable"
+      "x": 27,
+      "y": 23,
+      "requires": "free",
+      "notes": "Karl: after reaching level 9 the game is beaten; it is straightforward from there. The goal is arriving on L9 (27, 23), where the ritual's moongate puts the player (link 'ritual': the eight talismans in the chamber's lava once Garamon is buried). The end trigger itself (move trigger #1022 at L9 (52, 51), hack trap #1021, EndGameMode) lies in the same region and is no longer a step of the logic.",
+      "source": "Karl (2026-11); game/SKILLS.C check_victory (teleport to L9 (0x1B, 0x17)); L9 #1022 move trigger -> #1021 do trap q 63; event/TRIGGER.C do_trap_hack case 0x3F",
+      "confidence": "certain"
+    },
+    {
+      "id": "goal_orb",
+      "kind": "goal",
+      "option": "require_orb",
+      "requires": "flag:orb_destroyed",
+      "notes": "Karl: an option to require breaking the orb on L7. With option:require_orb on (off by default) the goal also needs Tyball's orb (#820, L7 (54, 9)) broken with an orb rock (fact orb_destroyed). A goal fact with an option names no place: it only adds its requirement to the first goal fact's.",
+      "source": "Karl (2026-11); obj/USEITEMS.C TybalsOrb_seg040_A12",
+      "confidence": "certain"
     },
     {
       "id": "ritual",
@@ -25,17 +33,6 @@
       "twoWay": false,
       "notes": "Throwing the eight talismans (items of fate 10) into the lava pool of the Slasher chamber (lava within |dx| + |dy| < 6 of (32, 32)) destroys them one by one, but only once Garamon is buried (talisman_ok); before that nothing happens to them. When the last one goes, a moongate opens at (32, 32), the Slasher of Veils is dragged through, and the player follows to L9 (27, 23). No way back.",
       "source": "motion/OBJPHYS.C mob_to_static (fate 10, level 8, lava, abs(x-32)+abs(y-32) < 6, player->talisman_ok, --player->talismans); game/SKILLS.C check_victory (do_teleport to 0x1B, 0x17, level 9); COMOBJ.DAT fate 10: 0x0A, 0x36, 0x37, 0x93, 0x97, 0xAE, 0xBF, 0x11F, 0x136",
-      "confidence": "certain"
-    },
-    {
-      "id": "garamon_bones",
-      "kind": "flag",
-      "grants": "item:garamon_bones",
-      "level": 8,
-      "object": 820,
-      "requires": "free",
-      "notes": "Garamon's bones: the pile of bones #820 (item 0xC6, owner 0x3E) at L8 (2, 15), with the Vas stone #757. The other piles of bones have owner 0 and do nothing, so the bones get their own token.",
-      "source": "L8 #820 (item 0xC6 owner 62); obj/USEITEMS.C UseBonesOn (owner 0x3E)",
       "confidence": "certain"
     },
     {
@@ -194,10 +191,10 @@
       "id": "key_of_love",
       "kind": "craft",
       "grants": "item:key_of_love",
-      "requires": "item:picture_tom & npc:judy & (spell:lava | spell:telekinesis)",
-      "notes": "Judy (L5 (34, 8)) takes the picture of Tom, weeps, and the Key of Love appears in the lava at (33, 8) (place_object). It does not burn (fate 0), but the hand cannot reach it from Judy's ledge: it lies two floor steps below and across another terrain class. So the player walks into the lava (lava protection) or takes it with Telekinesis (which reaches anything). Walking in for a moment unprotected costs little health; the logic follows Karl's lava rule.",
-      "source": "conversation 23 (find_barter 272, do_inv_create 226, place_object 33, 8); conv/BABLHACK.C place_object; ui/INTERACT.C InPickRange (12 below at most) and BlockingTerrain (terrain class); COMOBJ.DAT fate of 0xE2 is 0",
-      "confidence": "probable"
+      "requires": "npc:judy & item:picture_tom",
+      "notes": "Karl: the Key of Love is obtainable as soon as the player has access to Judy and the picture of Tom; it can be grabbed regardless, no Telekinesis or lava protection needed. Judy (L5 (34, 8), conversation 23) takes the picture of Tom; do_inv_create(226) and place_object(..., 33, 8) put the key on the lava square next to her (fate 0: it does not burn). The data alone would ask more: the hand reaches at most 12 z units below the feet and the key lies 16 below (ui/INTERACT.C InPickRange, BlockingTerrain); Karl's play settles it.",
+      "source": "Karl (2026-11); conversation 23 (find_inv 272, do_inv_create 226, place_object); ui/INTERACT.C InPickRange",
+      "confidence": "certain"
     },
     {
       "id": "picture_tom",
@@ -239,9 +236,19 @@
       "id": "sword_of_justice",
       "kind": "craft",
       "grants": "talisman:sword",
-      "requires": "item:broken_blade & item:broken_hilt & npc:shak & item:coin",
-      "notes": "Shak, the smith (L2 (60, 3)), takes the blade and the hilt of Caliburn together, asks the player to come back in an hour and to pay 20 gold then, and hands over the Sword of Justice. The blade lies in the L3 sword area (#882, (58, 9)), the hilt on L5 (#932, (54, 49)). There is no anvil step for the sword.",
-      "source": "conversation 2 (func_0443: show_inv 280 and 281; func_0ADA; func_1064: do_inv_delete 280, 281, do_inv_create 10, payment of 20 in func_11F7)",
+      "requires": "item:broken_blade & item:broken_hilt & npc:shak & item:gold_20",
+      "notes": "Shak (L2 (60, 3), conversation 2) takes both halves (give_to_npc 2), says to come back in an hour with 20 pieces of gold (global1 = 20) and then makes the Sword of Justice (do_inv_delete 281 and 280, do_inv_create 10). Paying: func_11F7 adds up count_inv of every offered coin (0xA0) and gold coin (0xA1) and refuses less than global1, so 20 coins are needed (fact gold_20). There is no anvil step.",
+      "source": "conversation 2 (func_0ADA, func_1064, func_11F7: (item == 160 or item == 161), count_inv, local16 < *arg2); conv/CONVERSE.C count_inv",
+      "confidence": "certain"
+    },
+    {
+      "id": "gold_20",
+      "kind": "count",
+      "grants": "item:gold_20",
+      "items": ["0xA0", "0xA1"],
+      "atLeast": 20,
+      "notes": "Twenty coins for Shak: every coin (0xA0) and gold coin (0xA1) in the zones reached counts by its quantity (a stack of 9 counts 9; a gold coin counts 1, not 10). With the Vow of poverty challenge, the only coins are the pile of 20 it puts beside Shak.",
+      "source": "conversation 2 func_11F7 (item 160 or 161, count_inv); conv/CONVERSE.C count_inv (the quantity, or 1)",
       "confidence": "certain"
     },
     {
@@ -290,8 +297,8 @@
       "kind": "trade",
       "token": "talisman:taper",
       "requires": "(npc:zak & item:food) | (option:kill_npcs & npc:zak)",
-      "notes": "Zak (L3 (47, 38)) collects lights and trades them: his four trade slots get his candle, torch, lantern and the taper (his longsword, the first weapon, is skipped). He likes food and lights; food buys the taper (value 1). Once traded he waits a few days before trading again. Killing him also gives it.",
-      "source": "conversation 28 (func_0836 likes 1011, 1009; setup_to_barter; do_offer); conv/BARTER.C setup_to_barter; object values (taper 1)",
+      "notes": "Zak (L3 (47, 38), conversation 28) barters (setup_to_barter, do_offer): his four lights, the taper among them. He likes classes 1011 (items 0xB0-0xBF, food and drink) and 1009 (0x90-0x9F, lights and wands) and dislikes coins, gems, weapons and armour (set_likes_dislikes). do_offer accepts when (player's value - his) * 100 / his reaches his greed. The taper is worth 1 (COMOBJ value 1, quality 40); a liked item is worth 1.5 times its value times quality / 64, blurred by his appraisal (at most 44 %). His greed (haggle 9) is at most 67 %, so any offer valued 2 or more is taken: one piece of meat (value 4, quality 40: 3, at worst 2) is enough. The data would also take a lantern or a wand; Karl's rule is food, and the logic keeps it. Killing him also gets it.",
+      "source": "conversation 28 (func_0836 set_likes_dislikes, func_09CC do_offer); conv/BARTER.C barter_init, do_offer, assess_value, does_npc_like; OBJECTS.DAT creature 0x68 (trade level 6, shrewd 10, haggle 9, patience 10); COMOBJ.DAT values",
       "confidence": "probable"
     },
     {
@@ -527,59 +534,6 @@
       "requires": "spell:gate_travel",
       "notes": "Gate Travel (Vas Rel Por) takes the player to the moonstone, wherever it lies: at first L2 (9, 35), inside the sealed moonorb area, which nothing else enters. From inside, move trigger #869 at (8, 34) opens (7, 34) into L2's main area (mechanism flag:terrain_L2_869). While the moonstone is carried the spell fails; dropping it elsewhere moves the target there (a second movable return point, like the sapling). Not castable on level 9 or on no-magic squares, and on L7 cast only after the orb is broken (scrolls work).",
       "source": "combat/SPELLS.C xt_spells case 10 (player->moonstone, do_mstone); game/SKILLS.C do_mstone, moveto; ui/INTERACT.C and inv/BAGS.C (player->moonstone 0 while carried, the level where dropped); game/CHARGEN.C (moonstone on level 2)",
-      "confidence": "certain"
-    },
-    {
-      "id": "gate_travel_cast",
-      "kind": "craft",
-      "grants": "cast:gate_travel",
-      "requires": "item:rune_bag & rune:vas & rune:rel & rune:por",
-      "notes": "Casting Gate Travel: Vas Rel Por in the rune bag (spell 32, class 11 minor 10). Vas lies only with Garamon's bones (L8 (2, 15)) and comes from the L6 emerald puzzle. Drop this if C1 adds gate_travel to the ability sources.",
-      "source": "combat/SPELLS.C spells[] entry 32 (runes 0x562F = Vas Rel Por)",
-      "confidence": "certain"
-    },
-    {
-      "id": "gate_travel_scroll_L2",
-      "kind": "flag",
-      "grants": "once:gate_travel",
-      "level": 2,
-      "object": 560,
-      "requires": "free",
-      "notes": "A Gate Travel scroll, L2 (10, 35), inside the moonorb area beside the moonstone (so useful only after a first trip there).",
-      "source": "L2 #560 (scroll enchanted with spell 32); obj/USEITEMS.C UseBook",
-      "confidence": "certain"
-    },
-    {
-      "id": "gate_travel_scroll_L5",
-      "kind": "flag",
-      "grants": "once:gate_travel",
-      "level": 5,
-      "object": 899,
-      "requires": "free",
-      "notes": "A Gate Travel scroll, L5 (2, 27), in the zanium mine dispatch corridor.",
-      "source": "L5 #899 (spell 32)",
-      "confidence": "certain"
-    },
-    {
-      "id": "gate_travel_scroll_L6",
-      "kind": "flag",
-      "grants": "once:gate_travel",
-      "level": 6,
-      "object": 726,
-      "requires": "free",
-      "notes": "A Gate Travel scroll, L6 (16, 11).",
-      "source": "L6 #726 (spell 32)",
-      "confidence": "certain"
-    },
-    {
-      "id": "gate_travel_scroll_L7",
-      "kind": "flag",
-      "grants": "once:gate_travel",
-      "level": 7,
-      "object": 760,
-      "requires": "free",
-      "notes": "A Gate Travel scroll, L7 (61, 62) (Karl's alcove with the Gate Travel scroll).",
-      "source": "L7 #760 (spell 32)",
       "confidence": "certain"
     },
     {
