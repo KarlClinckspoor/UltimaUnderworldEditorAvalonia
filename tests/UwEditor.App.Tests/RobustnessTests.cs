@@ -214,3 +214,71 @@ namespace UwEditor.App.Tests
         }
     }
 }
+
+namespace UwEditor.App.Tests
+{
+    public class SpotTestWindowTests
+    {
+        static void Wait(Func<bool> done, int seconds = 30)
+        {
+            var until = DateTime.UtcNow.AddSeconds(seconds);
+            while (!done() && DateTime.UtcNow < until) { Ui.Pump(); System.Threading.Thread.Sleep(20); }
+        }
+
+        [AvaloniaFact]
+        public void The_spot_test_runs_dosbox_a_round_at_a_time_and_counts_the_spots()
+        {
+            if (OperatingSystem.IsWindows()) return;
+            string g = GameData.Game("UW"); if (g == null) return;
+            var w = Ui.Open(g);
+            w.AskBeforeDiscarding = false;
+            var vm = w.ViewModel;
+            string dir = Path.Combine(Path.GetTempPath(), "uwedit-spotw-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            string fake = dir + "-dosbox.sh", calls = dir + "-calls.txt";
+            string oldDosBox = w.DosBoxPath;
+            try
+            {
+                // a DOSBox that notes its configuration and the saved games it was given, then closes
+                File.WriteAllText(fake, "#!/bin/sh\nC=\"$2\"\nM=$(grep '^mount c' \"$C\" | sed 's/mount c \"\\(.*\\)\"/\\1/')\n" +
+                    "echo \"run $(cat \"$M/SAVE1/DESC\")\" >> '" + calls + "'\nsleep 1\nexit 0\n");
+                System.Diagnostics.Process.Start("chmod", new[] { "+x", fake }).WaitForExit();
+                w.DosBoxPath = fake;
+                w.SpotTestFolder = dir;
+                var x = w.ShowSpotTest();
+                Ui.Pump();
+                x.QuickExit = 0;
+                x.Choose(new[] { 2 });
+                x.Sweep = true;
+                int spots = x.Estimate();
+                Assert.True(spots > 4);
+                var task = x.StartTest();
+                Wait(() => task.IsCompleted);
+                Assert.True(task.Result);
+                Assert.False(x.Waiting);
+                Assert.Contains("DOSBox is closed", x.Status);
+                Assert.Equal(fake, x.LastLaunch.Program);
+                Assert.Equal(0, x.Run.Tested);
+                Assert.Equal(4, x.Run.RoundCount);
+                Assert.True(File.Exists(Path.Combine(dir, "SAVE4", "PLAYER.DAT")));
+                // the same four again, then the next four
+                var t2 = x.Again(); Wait(() => t2.IsCompleted);
+                Assert.Equal(0, x.Run.Tested);
+                var t3 = x.NextRound(); Wait(() => t3.IsCompleted);
+                Assert.Equal(4, x.Run.Tested);
+                Assert.Equal(4, x.Run.RoundStart);
+                var lines = File.ReadAllLines(calls);
+                Assert.Equal(3, lines.Length);
+                Assert.StartsWith("run 1/" + spots + " L2", lines[0]);
+                Assert.StartsWith("run 1/" + spots + " L2", lines[1]);
+                Assert.StartsWith("run 5/" + spots + " L2", lines[2]);
+                // stopping keeps the log
+                x.StopTest();
+                Assert.Null(x.Run);
+                Assert.Contains("Stopped with 4 of " + spots + " spots tested", File.ReadAllText(Path.Combine(dir, UwEditor.Core.SpotTest.LogName)));
+                Assert.False(Directory.Exists(Path.Combine(g, "SAVE1")));
+                x.Close();
+            }
+            finally { w.DosBoxPath = oldDosBox; try { Directory.Delete(dir, true); File.Delete(fake); File.Delete(calls); } catch (Exception) { } w.Close(); }
+        }
+    }
+}

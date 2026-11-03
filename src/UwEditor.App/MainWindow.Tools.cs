@@ -125,6 +125,17 @@ namespace UwEditor.App
                 case "savecheck": ShowSaveCheck(); break;
                 case "runpaths": ShowRunPaths(); break;
                 case "exhumed": ShowExhumed()?.Choose(new[] { 1, 2, 3 }); break;
+                case "spottest": ShowSpotTest()?.Choose(new[] { 1, 2, 3 }); break;
+                case "spottest-round":
+                    {
+                        var st = ShowSpotTest();
+                        if (st == null) break;
+                        SpotTestLaunch = false;
+                        SpotTestFolder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "uwedit-spottest-shot");
+                        st.Choose(new[] { 1, 2, 3 }); st.Sweep = true;
+                        _ = st.StartTest();
+                        break;
+                    }
                 case "multi":
                     {
                         var l = vm.Level;

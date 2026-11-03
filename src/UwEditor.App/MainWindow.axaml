@@ -95,6 +95,7 @@
         <Separator />
         <MenuItem Header="_Play-test from the selected tile" Click="OnPlayTest" InputGesture="F5" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Check in Underworld Exhumed…" Click="OnExhumedCheck" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="DOSBox _spot test…" Click="OnSpotTest" IsEnabled="{Binding HasGame}" />
         <Separator />
         <MenuItem Header="Programs and _paths…" Click="OnRunPaths" />
       </MenuItem>

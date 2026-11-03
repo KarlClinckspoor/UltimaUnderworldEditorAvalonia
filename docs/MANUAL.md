@@ -337,6 +337,42 @@ which the port asks for before it runs a test cheat).
 Underworld II is checked from a saved game and does not save at the end (its save menu is
 not scripted yet). Unsaved strings and conversations are not in the copy.
 
+### DOSBox spot test
+
+**Run and Test ▸ DOSBox spot test…** takes the squares the Underworld Exhumed check stops at
+and has you play them in the original game, four at a time. Tick the levels (**Edited**,
+**All**, **None**) and the same options as the check: each level's own square always, plus
+**a spot beside every edit** and **a sweep of each level** (one in every 16 × 16 area with
+room to stand). The window says how many spots that makes and in how many rounds.
+
+The tester is a new character: level 1, no experience, quests, runes or skills, the game
+variables and clock of a new game (as `game/CHARGEN.C` `init_char` sets them), with the
+attributes and **Defense** you set (30 each at first), full hit points and mana as the game
+works them out (`game/SKILLS.C`: 30 + level × strength / 5 hit points), and with **Wear the
+best armour** the best piece for each body slot from `OBJECTS.DAT` (helmet, breastplate,
+plate gauntlets, plate leggings, plate boots, all in perfect condition; the unbreakable
+specials such as the dragon skin boots are left out) and a tower shield in the shield hand.
+He carries nothing else. The player object the game restores (`inv/INVSAVE.C`) is taken
+from a saved game of the game when there is one (the open save, or the folder's first);
+with none it is made from nothing as the game's own `InitPlayerRec` makes it.
+
+**Start the test** copies the game into the editor's settings folder (`Spot test`; the
+game folder is never touched), with the levels as they are now (unsaved edits included).
+Every round uses those same levels. A round is saved games 1–4: each holds those levels,
+the tester standing on its spot, a new game's conversation globals (`BABGLOBS.DAT` with
+every global 0) and a description naming the spot (`5/37 L2 31,40 sweep`: its number, the
+level, the square and why). DOSBox then starts on the copy, with GOG's configuration (or the
+editor's) as **Run in DOSBox** uses. In the game choose **Journey Onward** and the first
+saved game, look around, then **Options ▸ Restore Game** for the next.
+
+When you close DOSBox the window comes back with the prompt: how many spots are tested and
+how many are left, the four just played, and a box for notes. **Next 4 spots** counts the
+four as tested (the notes go in the test's log, `spot-test-log.txt`) and starts DOSBox on
+the next four; **These 4 again** starts DOSBox on the same four; **Stop the test** ends it
+there. If your DOSBox hands over to another program and closes at once, press **DOSBox is
+closed** when you are done. If DOSBox closes within seconds the window says so instead of
+asking. UW1 only for now.
+
 ### New and cleared levels
 
 **Level ▸ Make this slot a level…** turns an empty slot of Underworld II's `LEV.ARK` into a
