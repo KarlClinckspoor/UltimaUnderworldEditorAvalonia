@@ -332,6 +332,8 @@ edits that can be undone; the game folder is not touched until you save.
   lantern); bones and other scenery can join (never Garamon's bones); the starting equipment
   stays; enchantments can trade places within a class afterwards. Both item tools show their
   math as a live formula, and Undo puts everything back.
+- **Uniform progression** in the item and monster swaps: things are sorted by strength and handed
+  out level by level in the game's order, the weakest first; each level keeps its count.
 
 **Help ▸ Manual** (F1) opens [the manual](docs/MANUAL.md), which is built into the program,
 with its sections and a search box. F1 in a tool window opens that tool's section.
