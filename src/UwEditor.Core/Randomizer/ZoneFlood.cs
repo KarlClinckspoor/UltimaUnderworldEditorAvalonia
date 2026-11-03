@@ -61,6 +61,12 @@ namespace UwEditor.Core.Randomizer
             lo = a < b ? a : b; hi = a < b ? b : a;
         }
 
+        /// <summary>Whether a tile of this type is open along the side facing dir (0 N, 1 E, 2 S, 3 W): the wall side of a diagonal is not.</summary>
+        public static bool IsSideOpen(TileType t, int dir) { return SideOpen(t, dir); }
+
+        /// <summary>The lowest and highest floor heights (floor steps) along a tile's side facing dir (0 N, 1 E, 2 S, 3 W); slopes differ by one.</summary>
+        public static void EdgeHeights(TileInfo t, int dir, out int lo, out int hi) { Edge(t, dir, out lo, out hi); }
+
         /// <summary>Whether a step from (x, y) in direction dir (0 N, 1 E, 2 S, 3 W) is allowed.</summary>
         public bool CanStep(int x, int y, int dir)
         {

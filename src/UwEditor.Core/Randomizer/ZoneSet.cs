@@ -28,7 +28,7 @@ namespace UwEditor.Core.Randomizer
         public int Id;
         public int From;
         public int To;
-        public string Kind = "walk";    // walk door portcullis secret doorman drop climb teleport lever stairs other
+        public string Kind = "walk";    // walk door portcullis secret doorman drop climb teleport lever stairs jump other
         /// <summary>The requirement expression (Requirement's language): terms joined with &amp; and |.</summary>
         public string Requires = "free";
         public bool TwoWay;
@@ -37,7 +37,7 @@ namespace UwEditor.Core.Randomizer
         public int Level = 0;           // optional anchor: level and tile of the passage, 0 = none
         public int X = -1, Y = -1;
 
-        public static readonly string[] Kinds = { "walk", "door", "portcullis", "secret", "doorman", "drop", "climb", "teleport", "lever", "stairs", "other" };
+        public static readonly string[] Kinds = { "walk", "door", "portcullis", "secret", "doorman", "drop", "climb", "teleport", "lever", "stairs", "jump", "other" };
 
         public override string ToString()
         {
