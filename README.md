@@ -325,7 +325,9 @@ controls and borders in place of white space, in either colour scheme; font size
   that change the world, compares them with the painted map and runs the solver.
   It knows the player's abilities and where they come from (spells, items, the dragon skin
   boots), hidden walls a look opens, and logic options for magic, single-use items, lock
-  picking, bashing and the Search skill.
+  picking and the Search skill. It follows the world as it changes (levers, terrain changes,
+  doors closed behind the player) with a return check for one-way traps, and with the quest
+  facts (talismans, the Key of Infinity, the ritual) it reaches the end of the game.
 - **Randomizer ▸ Item property shuffle** turns weapons, armour, food, lights, tools, runestones,
   wands, spell scrolls, potions and rings into other items in place, by weights per type, and
   rolls their enchantments again (chance, mean and deviation per kind, raised with depth, or
