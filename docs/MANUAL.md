@@ -855,6 +855,137 @@ conversation uses keeps that behaviour whatever its name. For the selected id:
 Not checked: text that only mentions an item in a conversation's words, and UW2's
 `babl_hack` calls.
 
+## Sound and music
+
+**Tools ▸ Sound and music…** plays, exports and replaces the games' digitised sound and edits
+the effects list. The files are in the game folder's `SOUND` folder; a saved game uses the
+same ones. Nothing is written until **Save**; each file written keeps `NAME.EXT.BKP`, and
+the first version `NAME.EXT.ORIG`. Closing the window with unsaved files asks first.
+
+**Play** plays a file as it is now, unsaved imports too; **Stop** stops it. Sound goes out
+through OpenAL. Without a sound device the status line says so and nothing else happens.
+**Export WAV…** writes the sound as an 8-bit mono WAV file at the file's rate. **Import
+WAV…** replaces it. **Revert to the original** goes back to the file as shipped (its `.ORIG`
+copy), or removes a file the editor added; an unsaved import is simply dropped.
+
+**Importing.** Any WAV file is read: 8, 16, 24 or 32-bit PCM or 32-bit float, any rate,
+mono or stereo. It is mixed to mono, its silent start and end are cut (**Trim silence**),
+it is resampled (a windowed-sinc filter), raised to full volume (**Normalise**) and
+dithered down to 8 bits. It is written the way the game reads it: one plain block of 8-bit
+samples. The game skips the file's first 32 bytes and plays the rest as sound, so any other
+shape would click. **Import at** sets the rate: the game's own (12048 Hz in Underworld,
+11111 Hz in Underworld II), or 8000 to 22050 Hz. Lower rates fit longer clips. A clip over
+the file's limit is refused, or, as **Over the limit** says, shortened or written at a lower
+rate so it fits; the status line gives the length in seconds.
+
+The limits, from the games' code:
+
+| File | Limit |
+|---|---|
+| Underworld `nn.VOC` (speech) | 98,304 bytes (8.2 s at 12048 Hz); the rest is never played |
+| Underworld II `BSPnn.VOC` (speech) | none: it is streamed |
+| Underworld II `SPnn.VOC`, `UWnn.VOC` (effects, trap sounds) | under 65,536 bytes (5.9 s at 11111 Hz) |
+
+Underworld II's digitised effects share a cache of four 16 KB pages: a big one pushes the
+others out, so keep them short.
+
+- **Speech.** Each speech file with the cutscene and the subtitle line it goes with (STRINGS
+  block 0xC00 + the cutscene), its length, rate and size against the limit. In Underworld
+  all 42 files are the introduction's (cutscene 0), one a subtitle line. In Underworld II
+  the eight `BSPnn.VOC` are spoken in cutscenes 4–7 and 24–27; the introduction has no
+  speech. The cutscene's say command starts the file and the next one cuts it, so a new line
+  should take about as long as the old. Conversations have no speech in either game.
+  **Export all…** writes every file into a folder.
+- **Effects** (`SOUNDS.DAT`): every effect, with what plays it in the game, taken from the
+  games' code, and the creatures whose footsteps or death cry it is. Select one to change
+  its patch (a timbre of bank 1 in `UW.AD` and `UW.MT`), note, volume and length (in 1/256
+  seconds). Underworld has 24 effects and Underworld II 49; the games hold no more.
+  Underworld's effects are all notes played on the music card (FM or MT-32), which the
+  editor can't play. **Revert SOUNDS.DAT** goes back to the file as saved.
+  - Underworld II: an effect with **Digital** ticked plays `SOUND\SPnn.VOC` (nn its number)
+    on the Sound Blaster; the others are music-card notes. Ticking **Digital** on any effect
+    makes it digitised: import its `SPnn.VOC` (until there is one, the game plays the note).
+    **Priority** decides which sound keeps the digital channel when two play at once.
+  - Underworld II trap sounds: effects 100 to 163 are `UW00.VOC` to `UW63.VOC`. A
+    special-effects trap (0x184) with quality 2 and owner nn plays `UWnn.VOC` when it is set
+    off. The list shows the ones there are, and the traps in the levels that play each (the
+    game ships `UW00` and `UW01`, each played by traps in one level). **Add a trap sound
+    from WAV…** makes a new `UWnn.VOC`: then put a trap with that owner in a level. New voice
+    lines can be added this way, as data alone.
+
+Make a mod (**Tools ▸ Mods**) carries the changed and new files of `SOUND` with the rest.
+
+### Music
+
+The **Music** tab lists the game's themes. Each theme has two files in `SOUND`: one for the
+FM cards (AdLib, Sound Blaster; UW1 `AWnn.XMI`, UW2 `UWAnn.XMI`) and one for the Roland
+MT-32 (UW1 `UWnn.XMI`, UW2 `UWRnn.XMI`). The two digits are the theme number in octal: theme 8
+is `xx10.XMI`. The list shows each theme's number, when the game plays it, both files' sizes,
+how many timbres each needs, and the result of the checks below. Select a theme to see the
+full report: when it plays and what follows it, the checks of both files and the timbres they
+use.
+
+The editor does not play music. To listen to a theme, export it and open the MIDI file in a
+player. A MIDI player uses General MIDI instruments, not the game's timbres, so it sounds
+different from the game; the MT-32 file plays with the wrong instruments on a General MIDI
+device, because MT-32 program numbers name other instruments.
+
+- **Export FM MIDI…** and **Export MT-32 MIDI…** save the selected theme as a standard MIDI
+  file (format 0). The timing is exact: the game's music runs at 120 ticks a second, and so
+  does the file (60 ticks a beat at 120 beats a minute). The game's own controllers are kept;
+  its loops (controllers 116 and 117) also get `loopStart` and `loopEnd` markers, which other
+  programs read. The file carries the theme's timbre list in an event other programs ignore,
+  so exporting and importing a theme again gives the same file.
+- **Export all…** saves both files of every theme into a folder (`AW01.mid`, `UW01.mid`...).
+- **Import MIDI…** makes the selected theme from a MIDI file (format 0 or 1). **Import makes**
+  picks which files: both (the usual case: the game needs both), FM only or MT-32 only.
+  **MT-32 programs**: a MIDI file made for General MIDI goes through the editor's General MIDI
+  → MT-32 map (each instrument to the MT-32 preset with the closest name); **Keep the program
+  numbers** is for a file made for the MT-32; or give **a second MIDI file** for the MT-32
+  version.
+  - Note-ons and note-offs become notes with durations; tempo changes are followed.
+  - Drums are on channel 10. The FM file can only use the drum keys `UW.AD` has (24 in UW1,
+    26 in UW2). **Replace drums UW.AD lacks** plays the nearest drum it has instead (the
+    report lists them); unchecked, such a theme is refused.
+  - The game plays channels 2 to 10 only. **Move channels 1 and 11–16 to free ones** moves
+    them to unused channels from 2 to 9.
+  - Loops: `loopStart`/`loopEnd` markers (a number after `loopStart` plays the loop that many times)
+    become the game's FOR/NEXT loops. **Controller 111 starts a loop** reads RPG Maker's loop
+    mark. **Loop the whole theme** loops everything endlessly. Most themes need no loop: the
+    game restarts or replaces a theme when it ends.
+  - Bank selects for General MIDI (controllers 0 and 32) are dropped; controller 114 selects
+    the game's timbre bank. Track names and other text are left out to save room.
+
+  The report shows what the conversion changed and the checks. A theme with an error is
+  refused and nothing changes. Otherwise the theme is marked changed; nothing is written until
+  you save.
+- **Revert to the original** puts back both files of the selected theme as the game shipped
+  them (from the `.ORIG` copies the editor keeps), when you save.
+
+The checks follow the game and its sound drivers. Errors:
+
+- **Too big.** UW1 reads a theme into 6,300 bytes, UW2 into 9,000. The game does not check the
+  length: a bigger file overwrites memory.
+- **A missing timbre.** Every timbre a theme lists must be in the timbre library: `UW.AD` for
+  the FM file (UW2 also `UW.OPL`, the same file), `UW.MT` for the MT-32 file. If one is
+  missing, the game turns the music off for the rest of the session. The FM file can use the
+  128 programs of bank 0 and the drum keys of bank 127. The MT-32 file uses the MT-32's own
+  128 presets (bank 0), as all the shipped themes do; `UW.MT` holds the effects' timbres.
+- **More than 32 notes at once.** The game's sequencer holds 32 sounding notes; the next one
+  takes the first one's place and that note never stops.
+- **Loops nested more than 4 deep**, when a loop end then jumps back to the wrong place.
+- **An endless loop in a theme the game waits for** (the victory theme; UW1 theme 11), and a
+  missing end.
+
+Warnings and notes: notes on channels the game does not play; programs or drum keys missing
+from the timbre list; MT-32 drum keys outside 35–76. The sound effects borrow channels from
+the music: up to 4 in UW1, 3 in UW2, each time the one of channels 2–9 with the fewest notes
+sounding (the highest on a tie). While an effect plays, the music's notes on its channel are
+dropped. A theme that uses at most 4 (UW1) or 5 (UW2) of channels 2–9 leaves them free. FM
+cards have 9 voices (18 on an OPL3), shared with the effects.
+
+UW1 theme 11 is never played: no call in the game asks for it.
+
 ## Checkpoints
 
 **File ▸ Checkpoints…** While there are unsaved changes, the editor keeps a copy of them
@@ -1417,6 +1548,7 @@ Limits:
 | `OBJECTS.DAT`, `COMOBJ.DAT` | Object tables |
 | `TERRAIN.DAT`, `SKILLS.DAT`, `CMB.DAT`, `SHADES.DAT`, `DL.DAT` | Game tables |
 | `SCD.ARK` | Schedules (UW2) |
+| `SOUND\*.VOC`, `SOUND\*.XMI`, `SOUNDS.DAT` | Sound and music |
 | `DESC`, save folders | Saved games (rename, copy), Export as a saved game |
 
 In the editor's settings folder (`%APPDATA%\UwEditorAvalonia`, `~/.config/UwEditorAvalonia` on Linux):

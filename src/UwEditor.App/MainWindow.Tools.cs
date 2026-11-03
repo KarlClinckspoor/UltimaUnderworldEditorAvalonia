@@ -112,6 +112,10 @@ namespace UwEditor.App
                 case "swap": ShowItemSwap(); break;
                 case "monsters": ShowMonsterSwap(); break;
                 case "automap": ShowAutomap(); break;
+                case "challenges": ShowChallenges(); break;
+                case "sound": ShowSound(); break;
+                case "sound-effects": { var s = ShowSound(); if (s != null) s.Tabs.SelectedIndex = 1; } break;
+                case "music": { var s = ShowSound(); if (s != null) s.Tabs.SelectedIndex = 2; } break;
                 case "map": ToggleMap(); break;
                 case "pixels": EditItemPicture(0xB5); break;
                 case "pixels-portrait": { var g = ShowGraphics(); g.Model.FileName = vm.Session.IsUw2 ? "HEADS.GR" : "CHARHEAD.GR"; g.EditPicture(); break; }

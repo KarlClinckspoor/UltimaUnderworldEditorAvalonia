@@ -15,6 +15,8 @@ namespace UwEditor.App
             if (vm.Session == null) return null;
             if (soundWindow != null) { soundWindow.Activate(); return soundWindow; }
             var w = soundWindow = new SoundWindow(this, vm.Session);
+            var music = new MusicPanel(this);
+            w.AddPanel("Music", music, () => music.HasChanges, music.SaveAll);
             w.Closed += (s, e) => soundWindow = null;
             MessageWindow.GuardClose(w, "Sound and music", () => w.HasChanges, w.SaveAll, () => AskBeforeDiscarding && !quietClose);
             w.Show(this);

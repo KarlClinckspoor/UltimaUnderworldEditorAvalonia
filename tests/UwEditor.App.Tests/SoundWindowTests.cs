@@ -72,7 +72,7 @@ namespace UwEditor.App.Tests
                     sw.Width = 900; sw.Height = 600;
                     Ui.Pump();
                     Assert.Same(sw, w.ShowSound());
-                    Assert.Equal(new[] { "Speech", "Effects" }, sw.Tabs.Items.Cast<TabItem>().Select(t => (string)t.Header));
+                    Assert.Equal(new[] { "Speech", "Effects", "Music" }, sw.Tabs.Items.Cast<TabItem>().Select(t => (string)t.Header));
                     Assert.False(sw.HasChanges);
                     Assert.Equal(uw2 ? 8 : 42, sw.SpeechList.ItemCount);
                     var rows = sw.EffectList.ItemsSource.Cast<EffectRow>().ToList();
@@ -178,8 +178,8 @@ namespace UwEditor.App.Tests
                 var w = OpenQuiet(copy.Folder);
                 var sw = w.ShowSound();
                 bool dirty = true, saved = false;
-                sw.AddPanel("Music", new TextBlock { Text = "music" }, () => dirty, () => { saved = true; dirty = false; return true; });
-                Assert.Equal(3, sw.Tabs.ItemCount);
+                sw.AddPanel("Extra", new TextBlock { Text = "extra" }, () => dirty, () => { saved = true; dirty = false; return true; });
+                Assert.Equal(4, sw.Tabs.ItemCount);
                 Assert.True(sw.HasChanges);
                 Assert.True(sw.SaveAll());
                 Assert.True(saved);

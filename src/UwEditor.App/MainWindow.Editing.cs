@@ -90,6 +90,7 @@ namespace UwEditor.App
             if (objectTablesWindow != null) { var w = objectTablesWindow; yield return (w, "object tables (OBJECTS.DAT, COMOBJ.DAT)", () => w.HasChanges, w.SaveAll); }
             if (scheduleWindow != null) { var w = scheduleWindow; yield return (w, "schedules (SCD.ARK)", () => w.HasChanges, w.SaveAll); }
             if (gameTablesWindow != null) { var w = gameTablesWindow; yield return (w, "game tables", () => w.HasChanges, w.SaveAll); }
+            if (soundWindow != null) { var w = soundWindow; yield return (w, "sound and music (SOUND folder)", () => w.HasChanges, w.SaveAll); }
         }
 
         bool HasUnsaved() { return UnsavedParts().Count > 0; }

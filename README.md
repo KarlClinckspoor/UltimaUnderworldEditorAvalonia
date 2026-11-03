@@ -306,6 +306,10 @@ edits that can be undone; the game folder is not touched until you save.
   **Export OBJ…** writes a Wavefront OBJ file with an MTL of the colours; **Export all…**
   writes every model.
 
+- **Tools ▸ Sound and music**: play, export and replace the speech and digitised effects from WAV
+  files (converted and checked against the games' limits), edit SOUNDS.DAT, add UW2 trap sounds;
+  export any music theme as MIDI and import MIDI files as new themes (FM and MT-32 versions),
+  checked against the game's limits. The editor does not play the music.
 - **Randomizer ▸ Scatter** (work in progress):
   - **Zones** paints a zone id on every tile, with Glasbey colours and an overlay in the
     view, and lists each zone's key items.
