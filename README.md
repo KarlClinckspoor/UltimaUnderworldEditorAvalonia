@@ -334,6 +334,9 @@ edits that can be undone; the game folder is not touched until you save.
   math as a live formula, and Undo puts everything back.
 - **Uniform progression** in the item and monster swaps: things are sorted by strength and handed
   out level by level in the game's order, the weakest first; each level keeps its count.
+- **Randomizer ▸ Named challenges**: 21 whole-game rules (Monk, Lockdown, Hoarding, Ghost town,
+  Bones rise…) with a preview, one undo step per level and an exact Undo; quest items and
+  conversations stay.
 
 **Help ▸ Manual** (F1) opens [the manual](docs/MANUAL.md), which is built into the program,
 with its sections and a search box. F1 in a tool window opens that tool's section.
