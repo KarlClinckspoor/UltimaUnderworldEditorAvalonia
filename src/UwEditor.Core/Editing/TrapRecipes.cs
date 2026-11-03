@@ -79,6 +79,16 @@ namespace UwEditor.Core.Editing
         public TriggerOptions Trigger = new TriggerOptions();
     }
 
+    /// <summary>A wandering-monster spawner: the square, the creature (UW2: 0x7F for a random one) and the chance each run.</summary>
+    public sealed class SpawnerOptions
+    {
+        public int X = -1, Y = -1;
+        public int Item = 0x43;
+        /// <summary>The chance, in percent, that a run makes the creature (the trap's quality is 63 minus that in 63rds).</summary>
+        public double Chance = 30;
+        public bool Hostile = true;
+    }
+
     /// <summary>What a recipe made.</summary>
     public sealed class RecipeResult
     {
@@ -137,6 +147,7 @@ namespace UwEditor.Core.Editing
             new RecipeInfo { Name = "Teleport", Explanation = "Stepping on a square sends the player to another square, on this level or another one (the teleport's z is the level). Optionally a second pair sends him back. Only the player is teleported." },
             new RecipeInfo { Name = "Pressure plate", Explanation = "Stepping on a square runs a trap: damage, a message, a variable, a new object or creature, a door, or removing an object. A move trigger works in both games; Underworld II also has pressure plates, which fire when weight comes onto the square." },
             new RecipeInfo { Name = "Object trigger", Explanation = "Picking up, using or looking at an object runs a trap: a message, a variable, damage, a new object or creature, a door, or removing an object. The trigger goes inside the object." },
+            new RecipeInfo { Name = "Wandering monsters", Explanation = "A spawner: a create-object trap with no trigger, which the game runs by itself every few game minutes (10 in Underworld II, 8 in Ultima Underworld) with chance 1 in 4 while the player is more than 8 squares away, and whenever he sleeps. Each run makes its creature with the chance set here, unless a creature it made is still within 4 squares. Made creatures go away when the player sleeps. In Underworld II the creature can be a random monster that grows stronger with the level, the castle plot and the player's level." },
         };
 
         static FieldDef Field(int index, string name) { return (index < LevelBlock.Mobiles ? Uw1Schemas.MobileObject : Uw1Schemas.StaticObject)[name]; }
@@ -670,6 +681,52 @@ namespace UwEditor.Core.Editing
             AddString(a, strings, str);
             string verb = when == ObjectEvent.PickUp ? "Picking up" : when == ObjectEvent.Look ? "Looking at" : "Using";
             r.Summary = string.Format("{0} #{1} {2} {3}: {4} trigger #{5}, {6} #{7}.", verb, index, host.Name, Describe(s, a, str), when == ObjectEvent.PickUp ? "pick up" : when.ToString().ToLowerInvariant(), r.Trigger, Name(s, e.Model.Objects[r.Trap].Item), r.Trap);
+            return r;
+        }
+
+        // ---- 5. wandering monsters
+
+        /// <summary>
+        /// A wandering-monster spawner on (x, y): a create-object trap with flags 0 (no trigger
+        /// counts itself on it) holding the creature as its template, which the game runs by
+        /// itself (event/TRIGGER.C DoWanderingMonsters, both games). Its quality q gives the chance
+        /// (63 − q) in 63 a run (UseTrap TRAP_CREATE_OBJECT). In UW2 the adventurer (0x7F) is a
+        /// random monster chosen each run; UW1 copies its template as it is, so it needs a real
+        /// creature. The template's quality and owner are its home square, as the shipped
+        /// spawners have them. One undo step; r.Trap is the spawner, there is no trigger.
+        /// </summary>
+        public static RecipeResult Spawner(LevelEditor e, SpawnerOptions o)
+        {
+            var s = e.Session;
+            var m = e.Model;
+            Need(o != null, "Choose the square and the creature.");
+            Square(m, o.X, o.Y, "The spawner");
+            Need(o.Item >= 0x40 && o.Item < 0x80, "A spawner makes a creature (0x40-0x7F).");
+            Need(s.IsUw2 || o.Item != Triggers.Adventurer, "Ultima Underworld has no random monster: choose a creature.");
+            Need(o.Chance > 0 && o.Chance <= 100, "The chance is more than 0 and at most 100 %.");
+            int q = Triggers.SpawnQuality(o.Chance);
+            Need(q < 63, "The chance is too low: the trap would never make anything.");
+            var first = Triggers.FirstCreateTrapOn(m, o.X, o.Y);
+            Need(first == null, string.Format("({0}, {1}) already holds create-object trap #{2}: the game runs only the first one on a square, so a spawner there would never run.", o.X, o.Y, first == null ? 0 : first.Index));
+            var near = Triggers.Spawners(m).Where(x => Math.Abs(x.TileX - o.X) <= 4 && Math.Abs(x.TileY - o.Y) <= 4).ToList();
+            var r = new RecipeResult { Level = e.Level };
+            e.Batch("Recipe: wandering monsters", () =>
+            {
+                var t = TrapSpec(CreateTrap, e.FloorZ(o.X, o.Y));
+                t.Quality = q;
+                int trap = Add(e, r, t, o.X, o.Y);
+                var tmp = ObjectSpec.Default(o.Item, s.Kind);
+                tmp.Z = e.FloorZ(o.X, o.Y, tmp.FineX, tmp.FineY);
+                tmp.Quality = o.X; tmp.Owner = o.Y;              // its home, as the shipped templates have it
+                if (o.Hostile) tmp.Attitude = 0;
+                int made = Add(e, r, tmp, o.X, o.Y, trap);
+                OffActiveList(e, made);
+                Checked(e);
+                r.Trap = trap;
+            });
+            string what = s.IsUw2 && o.Item == Triggers.Adventurer ? "a random monster" : Name(s, o.Item);
+            r.Summary = string.Format("Spawner #{0} on ({1}, {2}) makes {3}, {4:0} % each run (quality {5}).{6}", r.Trap, o.X, o.Y, what, Triggers.SpawnChance(q), q,
+                near.Count > 0 ? " Spawners within 4 squares (" + string.Join(", ", near.Select(x => "#" + x.Index)) + ") hold each other back: a creature made by one stops the others." : "");
             return r;
         }
     }

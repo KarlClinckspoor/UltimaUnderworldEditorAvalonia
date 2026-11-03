@@ -41,6 +41,9 @@ namespace UwEditor.App
         public int Value = 1;
         public int CreateItem = 0x43;
         public bool Hostile = true;
+        // wandering monsters
+        public int SpawnItem = -1;
+        public double SpawnChance = 30;
         public DoorAction DoorAction = DoorAction.Open;
         public bool Unlock;
         // the trigger
@@ -193,6 +196,7 @@ namespace UwEditor.App
                 case 1: BuildTeleport(); break;
                 case 2: BuildPlate(); break;
                 case 3: BuildObject(); break;
+                case 4: BuildSpawner(); return;     // no trigger
             }
             body.Children.Add(Row(Label("Trigger"), Check("Works every time (otherwise once, then the chain is deleted)", Form.Reusable, v => Form.Reusable = v)));
             body.Children.Add(Row(Label(""), Check("Creatures set it off too", Form.Creatures, v => Form.Creatures = v)));
@@ -257,6 +261,43 @@ namespace UwEditor.App
             body.Children.Add(PlaceRow("object", "Object", true, "A single object in the level (not a stack, a creature or an enchanted item) that holds no trigger yet."));
             body.Children.Add(Row(Label("When"), Combo(new[] { "Picked up", "Used", "Looked at" }, (int)Form.When, i => Form.When = (ObjectEvent)i)));
             BuildAction(true);
+        }
+
+        int SpawnItem() { return Form.SpawnItem >= 0 ? Form.SpawnItem : session.IsUw2 ? Triggers.Adventurer : 0x43; }
+
+        void BuildSpawner()
+        {
+            body.Children.Add(PlaceRow("spawn", "Spawner's square", false, "The open square the creatures appear on. The game does not run it while the player is within 8 squares, so it is not seen to happen."));
+            var name = new TextBlock { VerticalAlignment = VerticalAlignment.Center, MinWidth = 200 };
+            Action showName = () =>
+            {
+                int i = SpawnItem();
+                name.Text = session.IsUw2 && i == Triggers.Adventurer ? "a random monster (adventurer)" : session.Names.Get(i) ?? "?";
+            };
+            var item = new TextBox { Text = "0x" + SpawnItem().ToString("X3"), Width = 90 };
+            item.TextChanged += (s, e) =>
+            {
+                int v;
+                if (MainViewModel.TryParse(item.Text, out v) && v >= 0x40 && v < 0x80) Form.SpawnItem = v;
+                showName();
+            };
+            showName();
+            body.Children.Add(Row(Label("Creature (item id)"), item, name));
+            if (session.IsUw2)
+            {
+                var random = new Button { Content = "Random monster (0x07F)" };
+                random.Click += (s, e) => { item.Text = "0x07F"; };
+                body.Children.Add(Row(Label(""), random));
+                body.Children.Add(Note("The random monster is chosen each run: creatures 0x40 + row × 16 + column, with rows up to (the level's place in its world × 3 + the castle plot's progress) / 9 and columns up to the player's level + the castle plot's progress + 1, at most 16. A strong creature is kept only with chance 1 in its strength. So deeper levels of a world, the castle plot moving on and a stronger player all bring stronger monsters."));
+            }
+            var pct = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+            Action showPct = () => { int q = Triggers.SpawnQuality(Form.SpawnChance); pct.Text = string.Format("% each run (quality {0}: {1:0.#} %)", q, Triggers.SpawnChance(q)); };
+            var chance = new NumericUpDown { Minimum = 2, Maximum = 100, Increment = 5, FormatString = "0", Value = (decimal)Form.SpawnChance, Width = 130 };
+            chance.ValueChanged += (s, e) => { Form.SpawnChance = (double)(chance.Value ?? 30); showPct(); };
+            showPct();
+            body.Children.Add(Row(Label("Chance"), chance, pct));
+            body.Children.Add(Row(Label(""), Check("Hostile", Form.Hostile, v => Form.Hostile = v)));
+            body.Children.Add(Note("The shipped spawners make their creature 5 to 100 % of the runs; half of them between 20 and 50 %. A creature made goes away when the player sleeps, and none is made while one it made is within 4 squares."));
         }
 
         static readonly string[] Kinds = { "Damage", "Show a message", "Set a variable", "Create an object or creature", "Work a door", "Remove an object" };
@@ -408,6 +449,12 @@ namespace UwEditor.App
                         r = TrapRecipes.Plate(Editor(plate.Level), plate.X, plate.Y, Form.Pressure && session.IsUw2, a, t, a.Kind == RecipeTrap.Message ? main.Strings() : null);
                         break;
                     }
+                    case 4:
+                    {
+                        var at = Need("spawn", "the spawner's square");
+                        r = TrapRecipes.Spawner(Editor(at.Level), new SpawnerOptions { X = at.X, Y = at.Y, Item = SpawnItem(), Chance = Form.SpawnChance, Hostile = Form.Hostile });
+                        break;
+                    }
                     default:
                     {
                         var obj = Need("object", "the object", -1, true);
@@ -427,7 +474,7 @@ namespace UwEditor.App
             if (r.StringIndex >= 0 && Form.Kind == RecipeTrap.Message) text += " The message is string " + r.StringIndex + " of block 9: save it in Tools ▸ Strings.";
             SetStatus(text);
             main.ViewModel.EditStatus = r.Summary;
-            main.SelectMade(r.Level, r.Trigger);
+            main.SelectMade(r.Level, r.Trigger >= 0 ? r.Trigger : r.Trap);
             foreach (var f in refreshPlaces) f();
             return r;
         }

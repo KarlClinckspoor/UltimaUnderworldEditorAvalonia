@@ -227,7 +227,8 @@ near the object limits. **Play test** (F5) runs the game in DOSBox from a copy w
 unsaved levels and the player on the selected square. **Trap recipes** (Edit menu) build a
 lever for a door, teleports there and back (also to another level), pressure plates and
 pick-up, use or look triggers running damage, a message, a variable, a new object or
-creature, a door or a removal, each as one undo step. **Fixes** (Level menu) finds and
+creature, a door or a removal, and wandering-monster spawners (UW2's random monster
+included), each as one undo step; the triggers window labels the shipped spawners. **Fixes** (Level menu) finds and
 repairs object-list and game-logic problems; the **Item cleaner** removes debris, bones,
 junk or any loose items while keeping quest items, keys, texts and trap-linked objects.
 **Make this slot a level** and **Clear the level** (Level menu) create or empty levels.

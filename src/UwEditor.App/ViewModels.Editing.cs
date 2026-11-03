@@ -119,6 +119,8 @@ namespace UwEditor.App
             string help = Triggers.Explain(session, o) ?? "";
             Targets = Triggers.Targets(level, o);
             if (Targets.Count > 0) help = "Acts on: " + string.Join("; ", Targets.Select(t => t.ToString())) + "\n\n" + help;
+            string spawner = Triggers.SpawnerText(session, level, o);
+            if (spawner != null) help = "A " + spawner + "\n\n" + help;
             ObjectHelp = help;
             IsTrapSelected = true;
             HasTargetSquare = Triggers.HasTargetSquare(o.Item);

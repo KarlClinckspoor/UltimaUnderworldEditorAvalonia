@@ -94,6 +94,93 @@ namespace UwEditor.Core.Editing
             return m.Objects.Where(o => !o.Free && o.TileX >= 0 && IsTrap(o.Item) && !reached.Contains(o.Index)).OrderBy(o => o.Index).ToList();
         }
 
+        /// <summary>The item a create-object trap copies as a random monster in UW2 (include/items.h ITEM_ADVENTURER).</summary>
+        public const int Adventurer = 0x7F;
+
+        /// <summary>
+        /// A wandering-monster spawner: a create-object trap on a tile whose flags are 0 (no
+        /// trigger counts itself on it) and whose link holds a mobile object. The game runs these
+        /// itself, without a trigger (event/TRIGGER.C DoWanderingMonsters, both games).
+        /// </summary>
+        public static bool IsSpawner(LevelModel m, ObjectInfo o)
+        {
+            if (o == null || o.Free || o.Item != 0x187 || o.TileX < 0 || o.IsQuantity) return false;
+            int flags = (o.Record[1] >> 1) & 7;
+            return flags == 0 && o.Link > 0 && o.Link < LevelBlock.Mobiles && o.Link < m.Objects.Length && !m.Objects[o.Link].Free;
+        }
+
+        /// <summary>
+        /// The first create-object trap on o's square, searching the tile's list and the lists
+        /// inside its objects in order (obj/OBJECTS.C Obj_FindInMap with recursion): the game's
+        /// wandering-monster scan takes only that one on each square, so a spawner behind another
+        /// create-object trap there never runs.
+        /// </summary>
+        public static ObjectInfo FirstCreateTrapOn(LevelModel m, int x, int y)
+        {
+            foreach (var o in m.TileObjects(x, y))
+            {
+                var f = FirstCreateTrapIn(m, o, 0);
+                if (f != null) return f;
+            }
+            return null;
+        }
+
+        static ObjectInfo FirstCreateTrapIn(LevelModel m, ObjectInfo o, int depth)
+        {
+            if (o.Item == 0x187) return o;
+            if (depth > 16) return null;
+            foreach (int c in o.Children)
+            {
+                var f = FirstCreateTrapIn(m, m.Objects[c], depth + 1);
+                if (f != null) return f;
+            }
+            return null;
+        }
+
+        /// <summary>A spawner the game never runs, because another create-object trap comes first on its square.</summary>
+        public static bool SpawnerHidden(LevelModel m, ObjectInfo o)
+        {
+            if (!IsSpawner(m, o)) return false;
+            var first = FirstCreateTrapOn(m, o.TileX, o.TileY);
+            return first != null && first.Index != o.Index;
+        }
+
+        /// <summary>The chance, in percent, that a spawner makes its creature each time it runs: (63 − quality) in 63 (UseTrap TRAP_CREATE_OBJECT).</summary>
+        public static double SpawnChance(int quality) { return Math.Max(0, 63 - quality) * 100.0 / 63; }
+
+        /// <summary>The quality that gives a spawn chance of about percent.</summary>
+        public static int SpawnQuality(double percent) { return Math.Max(0, Math.Min(63, (int)Math.Round(63 - percent * 63 / 100))); }
+
+        /// <summary>What a wandering-monster spawner does, in a sentence or two (null when o is not one).</summary>
+        public static string SpawnerText(GameSession s, LevelModel m, ObjectInfo o)
+        {
+            if (!IsSpawner(m, o)) return null;
+            var t = m.Objects[o.Link];
+            string what = s.IsUw2 && t.Item == Adventurer
+                ? "a random monster (the \"adventurer\" template: the creature is chosen each time from the level's place in its world, the castle plot's progress and the player's level)"
+                : (s.Names.Get(t.Item) ?? "item 0x" + t.Item.ToString("X3"));
+            if (SpawnerHidden(m, o))
+                return string.Format("wandering-monster spawner that never runs: create-object trap #{0} comes first on its square, and the game's scan takes only the first one there.", FirstCreateTrapOn(m, o.TileX, o.TileY).Index);
+            return string.Format("wandering-monster spawner: makes {0}, {1:0} % each time it runs. The game runs it every {2} game minutes with chance 1 in 4 while the player is more than 8 squares away, and when he sleeps; not while a creature it made is within 4 squares. The creature goes when the player sleeps.",
+                what, SpawnChance(o.Quality), s.IsUw2 ? 10 : 8);
+        }
+
+        /// <summary>
+        /// UW2's random monster for a spawner whose template is the adventurer (UseTrap
+        /// TRAP_CREATE_OBJECT): creature 0x40 + row × 16 + column, rows 0 to
+        /// lo − 1 with lo = (place in world × 3 + castle clock) / 9 (at least 1), columns 0 to
+        /// range − 1 with range = player level + castle clock + 1 (at most 16); a pick is kept
+        /// with chance 1 in its strength (eligible_castle_monster), never for strength 0.
+        /// </summary>
+        public static void AdventurerRange(int placeInWorld, int castleClock, int playerLevel, out int rows, out int columns)
+        {
+            rows = Math.Max(1, (placeInWorld * 3 + castleClock) / 9);
+            columns = Math.Min(16, playerLevel + castleClock + 1);
+        }
+
+        /// <summary>The level's wandering-monster spawners.</summary>
+        public static List<ObjectInfo> Spawners(LevelModel m) { return m.Objects.Where(o => IsSpawner(m, o)).OrderBy(o => o.Index).ToList(); }
+
         /// <summary>The triggers whose chain reaches o.</summary>
         public static List<ObjectInfo> TriggersReaching(LevelModel m, ObjectInfo o)
         {

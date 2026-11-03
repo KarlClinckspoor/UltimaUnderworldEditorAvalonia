@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -53,7 +54,7 @@ namespace UwEditor.App
                 {
                     var o = level.Objects[value.Index];
                     var targets = Triggers.Targets(level, o);
-                    Help = (targets.Count > 0 ? "Acts on: " + string.Join("; ", targets.Select(t => t.ToString())) + "\n\n" : "") + (Triggers.Explain(main.Session, o) ?? "Not a trap or trigger: " + o.Name + ".");
+                    Help = (targets.Count > 0 ? "Acts on: " + string.Join("; ", targets.Select(t => t.ToString())) + "\n\n" : "") + (Triggers.SpawnerText(main.Session, level, o) is string sp ? "A " + sp + "\n\n" : "") + (Triggers.Explain(main.Session, o) ?? "Not a trap or trigger: " + o.Name + ".");
                     variable = Triggers.VariableOf(main.Session, o);
                     this.value = o.Quality << 5 | o.Owner;
                 }
@@ -99,7 +100,24 @@ namespace UwEditor.App
                 }
                 Nodes.Add(n);
             }
-            var lone = Triggers.Unreached(m, chains);
+            var spawners = Triggers.Spawners(m);
+            var spawnerSet = new HashSet<int>(spawners.Select(o => o.Index));
+            var lone = Triggers.Unreached(m, chains).Where(o => !spawnerSet.Contains(o.Index)).ToList();
+            if (spawners.Count > 0)
+            {
+                var h = new ChainNode { Header = spawners.Count + " wandering-monster spawners: create-object traps the game runs by itself, no trigger needed (every " + (s.IsUw2 ? 10 : 8) + " game minutes with chance 1 in 4 while the player is more than 8 squares away, and when he sleeps)", IsExpanded = true };
+                foreach (var o in spawners)
+                {
+                    var tmpl = m.Objects[o.Link];
+                    string made = s.IsUw2 && tmpl.Item == Triggers.Adventurer ? "a random monster (adventurer template)" : tmpl.Name;
+                    h.Children.Add(new ChainNode
+                    {
+                        Header = string.Format("#{0} {1}: spawns {2}, {3:0} % each run  {4}{5}", o.Index, o.Name, made, Triggers.SpawnChance(o.Quality), Where(o), Triggers.SpawnerHidden(m, o) ? "  · never runs: #" + Triggers.FirstCreateTrapOn(m, o.TileX, o.TileY).Index + " comes first on its square" : ""),
+                        Icon = main.IconOf(o.Item), Level = m.Level, Index = o.Index,
+                    });
+                }
+                Nodes.Add(h);
+            }
             if (lone.Count > 0)
             {
                 var h = new ChainNode { Header = lone.Count + " traps no trigger reaches (fired by a door, a hack trap, a conversation, a schedule, or nothing)", IsExpanded = true };
@@ -114,7 +132,7 @@ namespace UwEditor.App
                 }
                 Nodes.Add(h);
             }
-            Status = string.Format("Level {0}: {1} triggers, {2} traps in their chains, {3} other traps.", m.Level, chains.Count, chains.SelectMany(c => c.Steps).Count(o => Triggers.IsTrap(o.Item)), lone.Count);
+            Status = string.Format("Level {0}: {1} triggers, {2} traps in their chains, {3} wandering-monster spawners, {4} other traps.", m.Level, chains.Count, chains.SelectMany(c => c.Steps).Count(o => Triggers.IsTrap(o.Item)), spawners.Count, lone.Count);
         }
 
         static string Flat(string s)

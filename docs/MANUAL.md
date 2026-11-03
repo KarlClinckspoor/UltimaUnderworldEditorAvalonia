@@ -341,6 +341,22 @@ afterwards, so the properties panel and the triggers window show its chain.
 - **Object trigger:** picking up, using or looking at an object runs a trap. The object
   must be a single one (not a stack, a creature or an enchanted item) and hold no trigger
   yet; it is made to hold the trigger.
+- **Wandering monsters:** a spawner, as the shipped levels of both games have them (34 in
+  Ultima Underworld, 49 in Underworld II). It is a create-object trap with no trigger,
+  holding its creature, and the game runs it by itself: every 8 game minutes (Ultima
+  Underworld) or 10 (Underworld II), with chance 1 in 4, while the player is more than 8
+  squares away, and whenever he sleeps. Each run makes the creature with the **Chance** set
+  (the trap's quality q gives (63 − q) in 63), unless a creature it made is still within 4
+  squares; spawners within 4 squares of each other hold each other back. Made creatures are
+  temporary: they go when the player sleeps. The square must hold no other create-object
+  trap, since the game takes only the first one on a square. In Underworld II the creature
+  can be the **random monster** (0x07F, the "adventurer"), chosen afresh each run: creature
+  0x40 + row × 16 + column, with rows up to (the level's place in its world × 3 + the
+  castle plot's progress) / 9 and columns up to the player's level + the castle plot's
+  progress + 1, at most 16; a strong creature is kept only with chance 1 in its strength.
+  So deeper levels, the castle plot moving on and a stronger player bring stronger
+  monsters: this is how mages and worse turn up in Britannia's sewers late in the game.
+  Ultima Underworld has no random monster; its spawners copy their creature as it is.
 
 The plate and the object trigger run one of these traps:
 - **Damage** to whoever set it off, or poison (strength 1-15, the player only);
@@ -621,8 +637,10 @@ across all levels, where each lies, whether it is locked, and the keys' descript
 ## Triggers and traps
 
 **Tools ▸ Triggers and traps…** (Ctrl+Shift+T): every trigger of the level, where it
-lies, the square its chain runs on and each trap in the chain, then the traps no trigger
-reaches. A line explains itself; double-click goes to it in the map.
+lies, the square its chain runs on and each trap in the chain, then the wandering-monster
+spawners (create-object traps the game runs by itself; see Trap recipes ▸ Wandering
+monsters) with what each makes and how often, and last the other traps no trigger reaches.
+A line explains itself; double-click goes to it in the map.
 
 ## Fixes
 
