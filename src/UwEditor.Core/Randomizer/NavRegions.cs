@@ -24,6 +24,37 @@ namespace UwEditor.Core.Randomizer
         public bool CutAtLevelChanges = true;
         /// <summary>Groups of regions with one neighbour and no objects (empty pits and ledges) go into that neighbour's zone.</summary>
         public bool FoldEmptyDeadEnds = true;
+
+        // ---- Phase C
+
+        /// <summary>Switches and triggers ("level:index") whose chains count as done once their zone is reached: no pole or levitation for the reach, no conditions along the chain (the facts' kind "free").</summary>
+        public HashSet<string> FreeChains = new HashSet<string>();
+        /// <summary>A door that a move or pick-up trigger closes behind the player (with a lock) is passed freely only towards the trigger; away from it the closed door's requirement holds (<see cref="NavGraph.Closers"/>).</summary>
+        public bool ClosersOneWay;
+
+        public bool IsFree(int level, int index) { return FreeChains != null && FreeChains.Contains(level + ":" + index); }
+
+        public NavOptions Clone()
+        {
+            var o = (NavOptions)MemberwiseClone();
+            o.FreeChains = new HashSet<string>(FreeChains ?? new HashSet<string>());
+            return o;
+        }
+    }
+
+    /// <summary>A door that a trigger the player cannot avoid closes (or toggles), and how the ways through it are treated.</summary>
+    public sealed class NavCloser
+    {
+        public NavMechanism Mechanism;
+        public int Level, Door, DoorRegion, X, Y;
+        /// <summary>The door's requirement once closed: the trap's lock, or the levers that open it (now_region:N: worked again after the closing).</summary>
+        public string After = "free";
+        /// <summary>The regions beside the door, and whether the trigger lies on that side (reachable from it without the door).</summary>
+        public readonly List<KeyValuePair<int, bool>> Sides = new List<KeyValuePair<int, bool>>();
+        /// <summary>one way, both ways closed, no effect.</summary>
+        public string Treatment = "";
+        public int EdgesChanged;
+        public override string ToString() { return string.Format("L{0} door #{1} at ({2}, {3}): {4}; after closing {5}", Level, Door, X, Y, Treatment, After); }
     }
 
     /// <summary>A set of tiles of one level where the player walks anywhere and back, or a door tile, or a lava patch.</summary>
@@ -40,6 +71,8 @@ namespace UwEditor.Core.Randomizer
         public string DoorRequires = "free";
         public string DoorNotes = "";
         public bool Lava;
+        /// <summary>A door that every way out of needs more than it did (a closer, NavGraph.Closers): it stays a zone of its own, not given to a neighbour.</summary>
+        public bool KeepApart;
         public int WaterTiles, LavaTiles, NoMagicTiles;
         public int MinHeight = 99, MaxHeight = -1;
         /// <summary>The automatic zone it ended in (0 until zones are made).</summary>
@@ -86,6 +119,10 @@ namespace UwEditor.Core.Randomizer
         public int Floor, Above;
         public string What = "";
         public bool OutOfReach { get { return Reach.Count == 0; } }
+        /// <summary>The facts make it free (kind "free"): its zone is enough.</summary>
+        public bool Free;
+        /// <summary>"free", or for a switch in a rock square what opens the square (the mechanisms' flags).</summary>
+        public string InRock = "free";
         /// <summary>The requirement for using it: one of its regions reached, with the pole or levitation when the hand does not reach.</summary>
         public string Requires;
         public override string ToString()
@@ -111,6 +148,14 @@ namespace UwEditor.Core.Randomizer
         public string Flag;
         /// <summary>The square the trap acts on, and for a terrain change the rectangle's size.</summary>
         public int X, Y, W = 1, H = 1;
+        /// <summary>A look trigger's height (the Search check, event/TRIGGER.C UseTrigger), or -1 for other triggers.</summary>
+        public int Look = -1;
+        /// <summary>A door trap's quality: 1 opens, 2 closes, 3 toggles (event/TRIGGER.C TRAP_DOOR); 0 for other traps.</summary>
+        public int DoorAction;
+        /// <summary>Set off by walking onto it or picking something up: the player does not choose it.</summary>
+        public bool Unavoidable;
+        /// <summary>A free chain (the facts' kind "free"): its conditions and the reach of its switch were dropped.</summary>
+        public bool Free;
         /// <summary>The regions its squares lie in now.</summary>
         public readonly List<int> Regions = new List<int>();
         public override string ToString() { return string.Format("{0}  L{1} trigger #{2} -> {3} #{4}: {5}{6}", Flag, Level, Trigger, Kind, Trap, What, Conditions.Length > 0 ? " (if " + Conditions + ")" : ""); }
@@ -139,6 +184,8 @@ namespace UwEditor.Core.Randomizer
         public int[][] RegionAt;
         /// <summary>Things worth saying that are not edges (triggers the player cannot set off, conditions met).</summary>
         public readonly List<string> Notes = new List<string>();
+        /// <summary>Doors closed behind the player by a trigger he cannot avoid (with ClosersOneWay).</summary>
+        public readonly List<NavCloser> Closers = new List<NavCloser>();
 
         static readonly int[] Dx = { 0, 1, 0, -1 }, Dy = { 1, 0, -1, 0 };
 
@@ -187,6 +234,7 @@ namespace UwEditor.Core.Randomizer
             foreach (var kv in models) g.BuildEdges(lv[kv.Key]);
             foreach (var kv in models) g.ReadTriggers(s, lv[kv.Key], lv);
             g.ApplyDoorRequirements(lv);
+            if (g.Options.ClosersOneWay) g.OneWayClosers(s, lv);
             g.Merge();
             return g;
         }
@@ -496,11 +544,22 @@ namespace UwEditor.Core.Randomizer
                 string setOff;
                 var fromRegions = new List<int>();
                 string extra = "";
-                if (lever != null)
+                bool free = Options.IsFree(L, t.Index) || (holder != null && Options.IsFree(L, holder.Index));
+                if (lever != null && free)
+                {
+                    // the facts say the switch is no hindrance: any region near it will do
+                    var near = lever.Reach.Concat(lever.PoleReach).ToList();
+                    if (near.Count == 0 && lever.Nearest >= 0) near.Add(lever.Nearest);
+                    fromRegions.AddRange(near.Distinct());
+                    setOff = near.Count == 0 ? "" : ZoneLink.JoinAnd(new[] { Or(near.Select(r => "region:" + r)), lever.InRock });
+                    lever.Requires = setOff.Length == 0 ? lever.Requires : setOff;
+                    lever.Free = true;
+                }
+                else if (lever != null)
                 {
                     setOff = lever.Requires;
                     fromRegions.AddRange(lever.Reach.Count > 0 ? lever.Reach : lever.PoleReach.Count > 0 ? lever.PoleReach : new List<int> { lever.Nearest });
-                    if (lever.Reach.Count == 0) extra = lever.PoleReach.Count > 0 ? "item:pole | spell:levitate" : "spell:levitate";
+                    if (lever.Reach.Count == 0) extra = lever.PoleReach.Count > 0 ? PoleOrLevitate : "spell:levitate";
                 }
                 else
                 {
@@ -514,7 +573,7 @@ namespace UwEditor.Core.Randomizer
                 foreach (var st in Walk(s, m, t))
                 {
                     var trap = st.Trap;
-                    string cond = ZoneLink.JoinAnd(st.Conditions);
+                    string cond = free ? "free" : ZoneLink.JoinAnd(st.Conditions);
                     if (Triggers.IsTeleport(trap.Item))
                     {
                         if (!player) { Notes.Add(string.Format("L{0} trigger #{1} at ({2}, {3}) teleports, but the player cannot set it off (no flag 11).", L, t.Index, t.TileX, t.TileY)); continue; }
@@ -549,6 +608,10 @@ namespace UwEditor.Core.Randomizer
                     if (mech == null) continue;
                     mech.SetOff = setOff;
                     mech.Conditions = cond == "free" ? "" : cond;
+                    mech.Free = free;
+                    mech.Look = ti == 3 ? t.Z : -1;
+                    mech.Unavoidable = !s.IsUw2 && (ti == 0 || ti == 1);
+                    if (trap.Item == 0x188) mech.DoorAction = trap.Quality;
                     if (lever != null) lever.What += (lever.What.Length > 0 ? "; " : "") + mech.Kind + ": " + mech.What;
                     if (mech.Kind == "door" && lever != null) continue;     // a lever's door is on the door's edges
                     var same = Mechanisms.Find(x => x.Level == L && x.Trigger == t.Index && x.Kind == mech.Kind);
@@ -649,6 +712,13 @@ namespace UwEditor.Core.Randomizer
         // line lower than the feet less a step, nor of another terrain class.
         const int HandDist = 0x90, PoleDist = 0x190;
 
+        /// <summary>
+        /// What reaches a switch the hand does not: the pole, Telekinesis (PickDist 0, so no
+        /// distance or height limit: game/PLAYDATA.C player_affected_by, ui/INTERACT.C InPickRange;
+        /// Karl: the same uses as the pole for now), or levitating up to it.
+        /// </summary>
+        public const string PoleOrLevitate = "item:pole | spell:telekinesis | spell:levitate";
+
         NavLever Lever(LevelNav n, ObjectInfo o)
         {
             var m = n.M;
@@ -665,6 +735,8 @@ namespace UwEditor.Core.Randomizer
                     // the nearest point of the tile to the lever
                     int px = Math.Max(tx * 8, Math.Min(tx * 8 + 7, ox)), py = Math.Max(ty * 8, Math.Min(ty * 8 + 7, oy));
                     int d2 = (px - ox) * (px - ox) + (py - oy) * (py - oy);
+                    // the lever is used from its own side of a door: not across a closed door square (Phase C)
+                    if (DoorBetween(n, tx, ty, o.TileX, o.TileY)) continue;
                     if (d2 < nearest) { nearest = d2; lv.Nearest = r; }
                     var h = LevelGeometry.CornerHeights(m.Tiles[tx, ty]);
                     int fmin = h.Min() * 8, fmax = h.Max() * 8;
@@ -682,9 +754,11 @@ namespace UwEditor.Core.Randomizer
                     if (d2 <= PoleDist && Math.Abs(gap) < Math.Abs(bestGap)) { bestGap = gap; lv.Floor = pz / 8; lv.Above = gap; }
                 }
             lv.PoleReach.RemoveAll(r => lv.Reach.Contains(r));
+            lv.InRock = SquareOpenedBy(n.M.Session, m, o.TileX, o.TileY);
             if (lv.Reach.Count > 0) lv.Requires = Or(lv.Reach.Select(r => "region:" + r));
-            else if (lv.PoleReach.Count > 0) lv.Requires = ZoneLink.JoinAnd(new[] { Or(lv.PoleReach.Select(r => "region:" + r)), "item:pole | spell:levitate" });
+            else if (lv.PoleReach.Count > 0) lv.Requires = ZoneLink.JoinAnd(new[] { Or(lv.PoleReach.Select(r => "region:" + r)), PoleOrLevitate });
             else lv.Requires = lv.Nearest >= 0 ? "region:" + lv.Nearest + " & spell:levitate" : "flag:unreachable_lever_L" + L + "_" + o.Index;
+            if (lv.InRock != "free") lv.Requires = ZoneLink.JoinAnd(new[] { lv.Requires, lv.InRock });
             return lv;
         }
 
@@ -692,6 +766,48 @@ namespace UwEditor.Core.Randomizer
         {
             var t = terms.Distinct().ToList();
             return t.Count == 0 ? "free" : string.Join(" | ", t);
+        }
+
+        /// <summary>A closed door square on the straight line from (px, py) to the switch's square (the switch's own square not counted).</summary>
+        static bool DoorBetween(LevelNav n, int px, int py, int lx, int ly)
+        {
+            if (px == lx && py == ly) return false;
+            int xdir = Math.Sign(lx - px), ydir = Math.Sign(ly - py);
+            int x = px, y = py;
+            for (int guard = 0; guard < 16; guard++)
+            {
+                if (x == lx && y == ly) return false;
+                int k = y * 64 + x;
+                if ((x != px || y != py) && n.Door[k] && n.DoorObj[k].Item < 0x148) return true;
+                x += xdir; if ((xdir < 0 && x < lx) || (xdir > 0 && x > lx)) x = lx;
+                y += ydir; if ((ydir < 0 && y < ly) || (ydir > 0 && y > ly)) y = ly;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// A switch lying in a rock square (behind a wall decoration) cannot be seen or used until
+        /// a change-terrain trap opens the square: the flags of the mechanisms that do (event/TRIGGER.C
+        /// TRAP_CHANGE_TERRAIN), or a flag nothing grants. Free for a switch on an open square.
+        /// </summary>
+        static string SquareOpenedBy(GameSession s, LevelModel m, int x, int y)
+        {
+            if (x < 0 || y < 0 || x > 63 || y > 63 || !m.Tiles[x, y].IsSolid) return "free";
+            var flags = new List<string>();
+            foreach (var t in m.Objects)
+            {
+                if (!IsRoot(m, t)) continue;
+                foreach (var st in Walk(s, m, t))
+                {
+                    var trap = st.Trap;
+                    if (trap.Item != 0x185) continue;
+                    int type = trap.Heading * 2 + (trap.Quality & 1);
+                    if (type == 0 || type >= 10) continue;
+                    if (x >= st.RunX && x <= st.RunX + trap.FineX && y >= st.RunY && y <= st.RunY + trap.FineY) flags.Add(string.Format("flag:terrain_L{0}_{1}", m.Level, t.Index));
+                }
+            }
+            flags = flags.Distinct().ToList();
+            return flags.Count == 0 ? string.Format("flag:never_opened_L{0}_{1}_{2}", m.Level, x, y) : string.Join(" | ", flags);
         }
 
         bool HandBlocked(LevelNav n, int px, int py, int lx, int ly, int footZ)
@@ -748,6 +864,107 @@ namespace UwEditor.Core.Randomizer
                 if (!e.Requires.Contains("door:")) continue;
                 var terms = ZoneLink.SplitAnd(e.Requires).Select(t => t.StartsWith("door:") ? reqOf[int.Parse(t.Substring(5))] : t);
                 e.Requires = ZoneLink.JoinAnd(terms);
+            }
+        }
+
+        /// <summary>
+        /// Doors that a trigger the player cannot avoid (walking onto it, picking something up)
+        /// closes or toggles. UW1's door trap first takes the door's lock away and gives it a copy
+        /// of the trap's own lock when the trap links one, then opens, closes or toggles it
+        /// (event/TRIGGER.C TRAP_DOOR). When the closed door then needs more than a hand (a locked
+        /// lock), the ways through it are free only towards the trigger: an edge from the door to a
+        /// side the trigger does not lie on (not reachable from that side without the door) needs
+        /// the closed door's requirement (the lock, or the levers that open it). When the trigger
+        /// lies on both sides, or on neither, every way out of the door needs it. A way that
+        /// another route bypasses is unaffected, since the other route stays.
+        /// </summary>
+        void OneWayClosers(GameSession s, Dictionary<int, LevelNav> lv)
+        {
+            if (s.IsUw2) return;
+            // neighbours: undirected ignoring requirements, and the free edges (directed)
+            var nb = new Dictionary<int, HashSet<int>>();
+            var freeOut = new Dictionary<int, HashSet<int>>();
+            foreach (var e in Edges)
+            {
+                if (e.Kind == "stairs") continue;
+                HashSet<int> h;
+                if (!nb.TryGetValue(e.From, out h)) nb[e.From] = h = new HashSet<int>(); h.Add(e.To);
+                if (!nb.TryGetValue(e.To, out h)) nb[e.To] = h = new HashSet<int>(); h.Add(e.From);
+                if (e.Requires == "free") { if (!freeOut.TryGetValue(e.From, out h)) freeOut[e.From] = h = new HashSet<int>(); h.Add(e.To); }
+            }
+            foreach (var mech in Mechanisms)
+            {
+                if (mech.Kind != "door" || !mech.Unavoidable || mech.SetOff.Length == 0) continue;
+                if (mech.DoorAction != 2 && mech.DoorAction != 3) continue;
+                LevelNav n;
+                if (!lv.TryGetValue(mech.Level, out n)) continue;
+                var m = n.M;
+                if (mech.X < 0 || mech.Y < 0 || mech.X > 63 || mech.Y > 63) continue;
+                int k = mech.Y * 64 + mech.X;
+                var c = new NavCloser { Mechanism = mech, Level = mech.Level, X = mech.X, Y = mech.Y };
+                Closers.Add(c);
+                if (!n.Door[k]) { c.Treatment = "no door on the square: no effect"; continue; }
+                var door = n.DoorObj[k];
+                c.Door = door.Index;
+                int D = RegionAt[mech.Level - 1][k];
+                c.DoorRegion = D;
+                var trap = m.Objects[mech.Trap];
+                // the door once closed: its own lock gone, a copy of the trap's lock in its place
+                ObjectInfo lockObj = !trap.IsQuantity && trap.Link > 0 && trap.Link < m.Objects.Length && m.Objects[trap.Link].Item == 0x10F ? m.Objects[trap.Link] : null;
+                var closed = new ObjectInfo { Index = door.Index, Item = door.Item >= 0x148 ? door.Item - 8 : door.Item, Record = door.Record, TileX = door.TileX, TileY = door.TileY, Name = door.Name };
+                if (lockObj != null) closed.Children.Add(lockObj.Index);
+                string notes;
+                string lockReq = ZoneDoors.Requirement(s, m, closed, out notes);
+                if (lockReq == "free") { c.Treatment = "closes it, but without a locked lock: it opens by hand, no effect"; continue; }
+                // the levers and other triggers that open it (not the closing trigger itself)
+                var openers = new List<string>();
+                List<string> ops;
+                if (n.DoorOpeners.TryGetValue(k, out ops)) openers.AddRange(ops.Where(o => o != ZoneLink.JoinAnd(new[] { mech.SetOff, mech.Conditions })).Distinct());
+                var alts = new List<string>();
+                if (!lockReq.StartsWith("flag:door_")) alts.Add(lockReq);
+                // a lever must be worked again once the door has closed: now_region (now_zone in the zones)
+                alts.AddRange(openers.Select(o => System.Text.RegularExpressions.Regex.Replace(o, @"(?<![a-z_])region:(\d+)", "now_region:$1")));
+                c.After = alts.Count == 0 ? lockReq : string.Join(" | ", alts.Select(a => a.Contains("&") || (a.Contains("|") && alts.Count > 1) ? "(" + a + ")" : a));
+                var targets = new HashSet<int>();
+                foreach (System.Text.RegularExpressions.Match mm in System.Text.RegularExpressions.Regex.Matches(mech.SetOff, @"region:(\d+)")) targets.Add(int.Parse(mm.Groups[1].Value));
+                HashSet<int> beside;
+                if (!nb.TryGetValue(D, out beside)) { c.Treatment = "the door joins nothing: no effect"; continue; }
+                // does the trigger lie on a side: reachable from it without passing the door, by free ways first, else by any way
+                Func<int, Dictionary<int, HashSet<int>>, bool> reaches = (x, adj) =>
+                {
+                    var seen = new HashSet<int> { D, x };
+                    var q = new Queue<int>();
+                    q.Enqueue(x);
+                    if (targets.Contains(x)) return true;
+                    while (q.Count > 0)
+                    {
+                        int r = q.Dequeue();
+                        HashSet<int> h;
+                        if (!adj.TryGetValue(r, out h)) continue;
+                        foreach (int y in h) { if (seen.Add(y)) { if (targets.Contains(y)) return true; q.Enqueue(y); } }
+                    }
+                    return false;
+                };
+                var sides = beside.Where(x => Regions[x].Level == mech.Level).OrderBy(v => v).ToList();
+                var byFree = sides.Where(x => reaches(x, freeOut)).ToList();
+                bool loose = false;
+                if (byFree.Count == 0) { byFree = sides.Where(x => reaches(x, nb)).ToList(); loose = true; }
+                foreach (int x in sides) c.Sides.Add(new KeyValuePair<int, bool>(x, byFree.Contains(x)));
+                int withT = byFree.Count;
+                bool all = withT == 0 || withT == sides.Count;
+                c.Treatment = targets.Contains(D) ? "the trigger is on the door's own square: every way out of the door needs it closed" :
+                    all ? (withT == 0 ? "the trigger lies on neither side: every way out of the door needs it closed" : (loose ? "the trigger lies on every side: every way out of the door needs it closed" : "another free way joins the sides: every way out of the door needs it closed, the other way stays"))
+                    : "one way: free towards the trigger, back only " + c.After;
+                if (all || targets.Contains(D)) Regions[D].KeepApart = true;
+                foreach (var e in Edges)
+                {
+                    if (e.From != D) continue;
+                    bool towards = c.Sides.Any(p => p.Key == e.To && p.Value);
+                    if (!all && !targets.Contains(D) && towards) continue;
+                    e.Requires = ZoneLink.JoinAnd(new[] { e.Requires, c.After });
+                    e.Notes = (e.Notes.Length > 0 ? e.Notes + "; " : "") + string.Format("door #{0} closed behind by trigger #{1}", door.Index, mech.Trigger);
+                    c.EdgesChanged++;
+                }
             }
         }
 

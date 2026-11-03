@@ -297,7 +297,7 @@ namespace UwEditor.Core.Randomizer
 					if (int.TryParse(t.Substring(10), out n) && have < n) res.NoSource.Add(t + " (" + have + " talisman placements known)");
 					continue;
 				}
-				if (t.StartsWith("search:")) continue;
+				if (t.StartsWith("search:") || t.StartsWith("option:") || t.StartsWith("now_zone:")) continue;
 				if (options.AbilitySources && (t.StartsWith("spell:") || t.StartsWith("use:") || t.StartsWith("cast:")))
 				{
 					// an ability: any of its sources counts (Requirement's spell:, use: and cast: terms), whatever the options
