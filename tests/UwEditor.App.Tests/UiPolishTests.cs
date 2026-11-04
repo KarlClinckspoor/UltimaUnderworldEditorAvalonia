@@ -212,6 +212,40 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void A_long_report_shows_in_a_resizable_text_field_that_scrolls_both_ways()
+        {
+            var w = Ui.Open(null);
+            MessageWindow shown = null;
+            Action<MessageWindow> on = m => shown = m;
+            MessageWindow.Opening += on;
+            try
+            {
+                string text = string.Join("\n", Enumerable.Range(0, 300).Select(i => i + ": " + new string('x', 400)));
+                var task = MessageWindow.ShowReport(w, "The logic from the start", text);
+                Ui.Pump();
+                Assert.NotNull(shown);
+                Assert.True(shown.CanResize);
+                Assert.True(shown.Bounds.Width <= 1100 && shown.Bounds.Height <= 760, "the report window is " + shown.Bounds.Size);
+                var box = shown.Report;
+                Assert.Equal(text, box.Text);
+                Assert.True(box.IsReadOnly);
+                Assert.Equal(TextWrapping.NoWrap, box.TextWrapping);
+                var sv = box.GetVisualDescendants().OfType<ScrollViewer>().First();
+                Assert.True(sv.Extent.Height > sv.Viewport.Height + 100, "it scrolls down: " + sv.Extent + " in " + sv.Viewport);
+                Assert.True(sv.Extent.Width > sv.Viewport.Width + 100, "it scrolls across: " + sv.Extent + " in " + sv.Viewport);
+                // the OK button stays in the window
+                var ok = shown.GetVisualDescendants().OfType<Button>().Single(b => (b.Content as string) == "OK");
+                Assert.True(BoundsIn(ok, shown).Bottom <= shown.Bounds.Height);
+                SaveFrame(shown, "report");
+                shown.Close();
+                Ui.Pump();
+                Assert.True(task.IsCompleted);
+            }
+            finally { MessageWindow.Opening -= on; }
+            w.Close();
+        }
+
+        [AvaloniaFact]
         public void The_controls_come_in_two_columns_that_fit_a_1080p_screen()
         {
             var w = Ui.Open(null);

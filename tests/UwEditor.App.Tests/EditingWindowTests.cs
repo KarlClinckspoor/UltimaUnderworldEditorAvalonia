@@ -831,6 +831,38 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void Zone_graph_wheel_zooms_about_the_mouse()
+        {
+            if (Uw1 == null) return;
+            var w = OpenQuiet(Uw1);
+            w.Zoning().LoadExample();
+            var g = w.ShowZoneGraph();
+            g.Width = 1280; g.Height = 820;
+            Ui.Pump();
+            var scroll = g.GetLogicalDescendants().OfType<ScrollViewer>().First(s => s.Content is LayoutTransformControl);
+            g.ScrollOffset = new Vector(300, 200);
+            Ui.Pump();
+            var at = new Point(250, 180);                           // a point of the view
+            var p = scroll.TranslatePoint(at, g).Value;
+            Func<Point> under = () => new Point((g.ScrollOffset.X + at.X) / g.Zoom, (g.ScrollOffset.Y + at.Y) / g.Zoom);
+            var before = under();
+            g.MouseMove(p);
+            g.MouseWheel(p, new Vector(0, 1));
+            Ui.Pump();
+            Assert.Equal(1.15, g.Zoom, 3);
+            Assert.Equal(before.X, under().X, 0);                     // the canvas point under the mouse stays there
+            Assert.Equal(before.Y, under().Y, 0);
+            for (int i = 0; i < 6; i++) g.MouseWheel(p, new Vector(0, -1));
+            Ui.Pump();
+            Assert.True(g.Zoom < 1 && g.Zoom >= 0.3, "zoomed out to " + g.Zoom);
+            for (int i = 0; i < 40; i++) g.MouseWheel(p, new Vector(0, 1));
+            Ui.Pump();
+            Assert.Equal(2, g.Zoom, 3);                               // the slider's top
+            g.Close();
+            w.Close();
+        }
+
+        [AvaloniaFact]
         public void Zone_graph_force_layout_pulls_linked_zones_together_and_outlines_by_level()
         {
             if (Uw1 == null) return;

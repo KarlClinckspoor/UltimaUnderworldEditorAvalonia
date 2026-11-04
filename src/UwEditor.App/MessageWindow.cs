@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -36,6 +37,54 @@ namespace UwEditor.App
             ok.Click += (s, e) => w.Close();
             return w.ShowDialog(owner);
         }
+
+        /// <summary>
+        /// A long monospaced report: a read-only text field that scrolls both ways (lines are not
+        /// wrapped) in a window that can be resized, sized to most of the owner's screen. The text
+        /// can be selected and copied (Ctrl+A, Ctrl+C).
+        /// </summary>
+        public static Task ShowReport(Window owner, string title, string text)
+        {
+            double maxW = 1100, maxH = 760;
+            var screen = owner?.Screens?.ScreenFromWindow(owner);
+            if (screen != null)
+            {
+                double sc = screen.Scaling > 0 ? screen.Scaling : 1;
+                maxW = Math.Min(maxW, screen.WorkingArea.Width / sc * 0.9);
+                maxH = Math.Min(maxH, screen.WorkingArea.Height / sc * 0.85);
+            }
+            var ok = new Button { Content = "OK", HorizontalAlignment = HorizontalAlignment.Right, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center, IsDefault = true, IsCancel = true };
+            var box = new TextBox
+            {
+                Text = text, IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap,
+                FontFamily = Application.Current?.FindResource("Mono") as FontFamily ?? FontFamily.Default, FontSize = 12,
+                VerticalContentAlignment = VerticalAlignment.Top,
+            };
+            ScrollViewer.SetHorizontalScrollBarVisibility(box, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
+            ScrollViewer.SetVerticalScrollBarVisibility(box, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
+            var w = new MessageWindow
+            {
+                Title = title, Width = maxW, Height = maxH, MinWidth = 420, MinHeight = 260, CanResize = true,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Content = new DockPanel
+                {
+                    Margin = new Thickness(20),
+                    Children =
+                    {
+                        new TextBlock { Text = title, FontSize = 16, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 10), [DockPanel.DockProperty] = Dock.Top },
+                        new Border { Child = ok, Margin = new Thickness(0, 12, 0, 0), [DockPanel.DockProperty] = Dock.Bottom },
+                        box,
+                    },
+                },
+            };
+            w.Report = box;
+            ok.Click += (s, e) => w.Close();
+            Opening?.Invoke(w);
+            return owner == null ? Task.CompletedTask : w.ShowDialog(owner);
+        }
+
+        /// <summary>The text field of a report window (ShowReport), or null.</summary>
+        public TextBox Report { get; private set; }
 
         /// <summary>
         /// Makes a tool window that keeps its own unsaved work ask before closing: Save, Discard or

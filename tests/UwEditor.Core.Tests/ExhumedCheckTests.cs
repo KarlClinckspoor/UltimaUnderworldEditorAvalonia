@@ -145,12 +145,16 @@ namespace UwEditor.Core.Tests
         [Fact]
         public void Edits_export_as_a_saved_game_into_a_new_or_save_folder_only()
         {
-            string g = GameData.Game("UW2"); if (g == null) return;
-            var s = GameSession.Open(g);
-            var edits = EditOneTile(s, 1);
             string dir = Temp("export");
             try
             {
+                // UW1 with no saved game cannot make one
+                string g1 = GameData.Game("UW");
+                if (g1 != null && !HasSave(g1)) Assert.Throws<InvalidOperationException>(() => ExhumedCheck.WriteSave(GameSession.Open(g1), null, null, Path.Combine(dir, "x"), null));
+                // the rest takes the player from one of UW2's saved games (SAVEn), used when there is one
+                string g = GameData.Game("UW2"); if (g == null || !HasSave(g)) return;
+                var s = GameSession.Open(g);
+                var edits = EditOneTile(s, 1);
                 string slot = Path.Combine(dir, "SAVE3");
                 ExhumedCheck.WriteSave(s, edits, null, slot, "Editor test");
                 Assert.Equal(edits.ToBytes(), File.ReadAllBytes(Path.Combine(slot, "LEV.ARK")));
@@ -162,11 +166,14 @@ namespace UwEditor.Core.Tests
                 string other = Path.Combine(dir, "other");
                 Directory.CreateDirectory(other); File.WriteAllText(Path.Combine(other, "notes.txt"), "x");
                 Assert.Throws<InvalidOperationException>(() => ExhumedCheck.WriteSave(s, edits, null, other, null));
-                // UW1 with no saved game cannot make one
-                string g1 = GameData.Game("UW");
-                if (g1 != null) Assert.Throws<InvalidOperationException>(() => ExhumedCheck.WriteSave(GameSession.Open(g1), null, null, Path.Combine(dir, "x"), null));
             }
             finally { try { Directory.Delete(dir, true); } catch (Exception) { } }
+        }
+
+        /// <summary>Whether the game folder has a saved game (a SAVEn folder with PLAYER.DAT).</summary>
+        static bool HasSave(string game)
+        {
+            return Directory.GetDirectories(game, "SAVE*").Any(d => File.Exists(Path.Combine(d, "PLAYER.DAT")));
         }
     }
 }

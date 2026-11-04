@@ -1249,8 +1249,9 @@ the key. Lines are the links between zones:
   second check does not set off mechanisms, so it can stop at a create trap's flag
   (`flag:create_l5_648` for key 15, say) or a counted item (`item:gold_20`) where the solve
   over time goes on.
-- **Panning:** drag with the middle mouse button, over the labels and lines too, to move the
-  view.
+- **Panning and zooming:** drag with the middle mouse button, over the labels and lines too,
+  to move the view. The mouse wheel zooms in and out about the pointer (the **Zoom** slider
+  follows, from 0.3 to 2); the scroll bars still scroll.
 - **Force layout** lays the labels out live by forces: every link pulls the two zones it joins
   together, every two zones push each other apart, and a weak pull keeps everything near the
   middle, until it settles. **Attraction** and **Repulsion** set how hard the links pull and

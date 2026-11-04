@@ -5,8 +5,8 @@ using Xunit;
 namespace UwEditor.Core.Tests
 {
     /// <summary>
-    /// The game files: UW_GAMEDATA (a folder holding UW and/or UW2), or else the repository's
-    /// git-ignored gamedata folder. Tests needing a game that is not there pass without checking
+    /// The game files: UW_GAMEDATA (a folder holding UW and/or UW2), or else the git-ignored
+    /// tests/gamedata folder (or gamedata at the top, if only that one is there). Tests needing a game that is not there pass without checking
     /// anything, unless UW_REQUIRE_GAMEDATA=1.
     /// </summary>
     public static class GameData
@@ -19,7 +19,10 @@ namespace UwEditor.Core.Tests
                 if (!string.IsNullOrEmpty(env)) return env;
                 var dir = new DirectoryInfo(AppContext.BaseDirectory);
                 while (dir != null && !File.Exists(Path.Combine(dir.FullName, "UltimaUnderworldEditorAvalonia.sln"))) dir = dir.Parent;
-                return dir == null ? null : Path.Combine(dir.FullName, "gamedata");
+                if (dir == null) return null;
+                // tests/gamedata; the repository's own gamedata folder was the place before
+                string tests = Path.Combine(dir.FullName, "tests", "gamedata"), old = Path.Combine(dir.FullName, "gamedata");
+                return !Directory.Exists(tests) && Directory.Exists(old) ? old : tests;
             }
         }
 

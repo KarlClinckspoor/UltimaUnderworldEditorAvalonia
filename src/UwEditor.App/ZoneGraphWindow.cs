@@ -95,6 +95,13 @@ namespace UwEditor.App
             scroller.AddHandler(PointerMovedEvent, OnPanMoved, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
             scroller.AddHandler(PointerReleasedEvent, OnPanReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
             scroller.PointerCaptureLost += (s, e) => EndPan();
+            // the wheel zooms about the mouse instead of scrolling
+            scroller.AddHandler(PointerWheelChangedEvent, (s, e) =>
+            {
+                if (e.Delta.Y == 0) return;
+                ZoomAt(zoom.Value * Math.Pow(1.15, e.Delta.Y), e.GetPosition(scroller));
+                e.Handled = true;
+            }, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
             zoom.ValueChanged += (s, e) => { scale.ScaleX = scale.ScaleY = zoom.Value; };
             foreach (var t in new[] { moveMode, oneWayMode, twoWayMode })
             {
@@ -146,7 +153,7 @@ namespace UwEditor.App
                 else if (e.Key == Key.Escape) { connectFrom = -1; SelectZone(-1); e.Handled = true; }
             }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             BuildLabels();
-            Status("Drag the labels; click a label or a line to edit it. Connect modes: click the start zone, then the end zone. Drag with the middle button to pan.");
+            Status("Drag the labels; click a label or a line to edit it. Connect modes: click the start zone, then the end zone. The wheel zooms; drag with the middle button to pan.");
             ShowSide();
         }
 
@@ -293,6 +300,20 @@ namespace UwEditor.App
         {
             double mx = Math.Max(0, scroll.Extent.Width - scroll.Viewport.Width), my = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
             return new Vector(Math.Max(0, Math.Min(mx, v.X)), Math.Max(0, Math.Min(my, v.Y)));
+        }
+
+        /// <summary>
+        /// Zooms to a scale (kept within the Zoom slider's range) so that the point of the canvas
+        /// under at (a point of the view) stays under it.
+        /// </summary>
+        public void ZoomAt(double value, Point at)
+        {
+            double old = zoom.Value, now = Math.Max(zoom.Minimum, Math.Min(zoom.Maximum, value));
+            if (Math.Abs(now - old) < 1e-9) return;
+            var c = new Point((scroll.Offset.X + at.X) / old, (scroll.Offset.Y + at.Y) / old);
+            zoom.Value = now;                 // sets the scale
+            scroll.UpdateLayout();            // the new extent, before scrolling to keep the point in place
+            scroll.Offset = ClampOffset(new Vector(c.X * now - at.X, c.Y * now - at.Y));
         }
 
         void OnPanPressed(object sender, PointerPressedEventArgs e)
@@ -755,7 +776,7 @@ namespace UwEditor.App
             catch (Exception ex) { Status("The solver stopped: " + ex.Message); return; }
             var sv = LastCheck?.Solve;
             Status(sv == null ? "The solve over time failed." : sv.GoalReached ? "Logic check: goal reached." : "Logic check: goal NOT reached.");
-            await MessageWindow.Show(this, "The logic from the start", text, true);
+            await MessageWindow.ShowReport(this, "The logic from the start", text);
         }
     }
 }

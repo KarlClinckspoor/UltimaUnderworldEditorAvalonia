@@ -320,7 +320,7 @@ controls and borders in place of white space, in either colour scheme; font size
     view, and lists each zone's key items.
   - **Zone graph** has movable zone labels, one-way and two-way links, and a list of
     requirements per link, filled from the locks of the doors between the zones. The middle
-    mouse button pans the view. **Check the logic** runs the same solve over time as
+    mouse button pans the view and the wheel zooms. **Check the logic** runs the same solve over time as
     Automatic zones.
   - Both read and write the Unity editor's `uw1-zones.json`. The UW1 example zoning is in
     `docs/examples`.
@@ -408,7 +408,10 @@ There are three test projects:
 
 The game files come from `UW_GAMEDATA`, a folder holding `UW` and/or `UW2`, each with its
 `DATA` folder and executable (UW2's `SAVE1`/`SAVE2` are used if present). Failing that, they
-come from the repository's `gamedata/` folder, which git ignores. Tests whose game is missing
+come from `tests/gamedata/` (`tests/gamedata/UW`, `tests/gamedata/UW2`), which git ignores; a
+`gamedata/` folder at the top is still read when `tests/gamedata/` is missing. Use an unchanged
+install there: tests that compare against a clean game fail on one with saved games or edited
+levels. Tests whose game is missing
 pass without checking anything. Set `UW_REQUIRE_GAMEDATA=1` to make them fail instead.
 
 **Picture baselines.** The first run of a picture test records its baseline under
