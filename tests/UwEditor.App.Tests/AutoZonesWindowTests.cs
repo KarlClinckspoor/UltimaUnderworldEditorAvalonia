@@ -59,7 +59,7 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
-        public void Zone_graph_logic_check_is_the_solve_over_time_and_agrees_with_the_automatic_zones()
+        public void Zone_graph_logic_check_solves_the_zoning_shown_over_time()
         {
             if (Uw1 == null) return;
             var w = Ui.Open(Uw1);
@@ -73,23 +73,29 @@ namespace UwEditor.App.Tests
             Ui.Pump();
             var g = w.ShowZoneGraph();
             Ui.Pump();
-            Assert.True(g.IsAutomaticZoning);
-            // the automatic zones in the graph: the same solve as the window's report, so the same outcome
+            // the automatic zones in the graph: solved as they are, so the same outcome as the window's report
             string text = g.CheckLogic();
-            Assert.Contains("AUTOMATIC ZONES, PHASE C", text);
-            Assert.DoesNotContain("WITHOUT WORLD CHANGES", text);
+            Assert.Contains("on this zoning", text);
+            Assert.NotNull(g.LastCheck.Abilities.Auto.Given);
             Assert.True(g.LastCheck.Solve.GoalReached);
-            Assert.Equal(aw.Timeline.Solve.ZoneSphere.Count, g.LastCheck.Solve.ZoneSphere.Count);
+            Assert.Equal(aw.Timeline.Solve.ZoneSphere.Keys.OrderBy(x => x), g.LastCheck.Solve.ZoneSphere.Keys.OrderBy(x => x));
             Assert.Equal(aw.Timeline.Solve.Applied.Count, g.LastCheck.Solve.Applied.Count);
             aw.Close();
             Ui.Pump();
-            // a painted zoning: the solve over time still decides, and the drawn links are checked after it
+            // a painted zoning: its own zones, solved over time
             w.Zoning().LoadExample();
             Ui.Pump();
-            Assert.False(g.IsAutomaticZoning);
             text = g.CheckLogic();
+            Assert.Contains("Zones: the zoning given", text);
+            Assert.Contains("no free way between them", text);
             Assert.True(g.LastCheck.Solve.GoalReached);
-            Assert.True(text.IndexOf("AUTOMATIC ZONES, PHASE C", StringComparison.Ordinal) < text.IndexOf("WITHOUT WORLD CHANGES", StringComparison.Ordinal));
+            Assert.Equal(w.Zoning().Set.GetZone(53).Name, g.LastCheck.Set.GetZone(g.LastCheck.Set.StartZone).Name);
+            // an empty zoning: automatic zones
+            w.Zoning().NewFile();
+            Ui.Pump();
+            text = g.CheckLogic();
+            Assert.Contains("no zones yet", text);
+            Assert.Null(g.LastCheck.Abilities.Auto.Given);
             g.Close();
             w.Close();
         }

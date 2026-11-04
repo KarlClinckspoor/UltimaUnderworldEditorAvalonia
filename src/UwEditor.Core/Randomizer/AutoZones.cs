@@ -21,6 +21,13 @@ namespace UwEditor.Core.Randomizer
         public int Folded;
         /// <summary>A second solve that assumes hazard:lava (Phase B's lava boots), to show what blocks next.</summary>
         public SolveResult SolveWithLava;
+        /// <summary>The zoning the zones were taken from (a painted one, or one made earlier), or null: the zones were made from the regions.</summary>
+        public ZoneSet Given;
+        /// <summary>With a given zoning: each of its zones (with tiles) -> the zone that took it (itself, or the one it was merged into).</summary>
+        public Dictionary<int, int> GivenMap = new Dictionary<int, int>();
+        /// <summary>With a given zoning: zones made for open areas it leaves out, and for doorways kept apart.</summary>
+        public int FreshZones;
+        public int GivenInto(int id) { int z; return GivenMap.TryGetValue(id, out z) ? z : 0; }
     }
 
     /// <summary>
@@ -41,9 +48,11 @@ namespace UwEditor.Core.Randomizer
             return FromGraph(s, level, g, painted);
         }
 
-        public static AutoZoneResult FromGraph(GameSession s, Func<int, LevelModel> level, NavGraph g, ZoneSet painted)
+        /// <param name="given">A zoning to use instead of making zones (see <see cref="AssignGiven"/>); painted is then this zoning too.</param>
+        public static AutoZoneResult FromGraph(GameSession s, Func<int, LevelModel> level, NavGraph g, ZoneSet painted, ZoneSet given = null)
         {
-            var res = new AutoZoneResult { Graph = g };
+            var res = new AutoZoneResult { Graph = g, Given = given };
+            if (given != null) painted = given;
             var o = g.Options;
             int n = g.Regions.Count;
             // the free edges that merge
@@ -78,28 +87,37 @@ namespace UwEditor.Core.Randomizer
                 SortedSet<int> set;
                 if (neighbours.TryGetValue(i, out set) && set.Count > 0) comp[i] = comp[set.Min];
             }
-            if (o.FoldEmptyDeadEnds) res.Folded = FoldDeadEnds(s, level, g, comp);
-            // zone ids: the biggest groups first, so that running out of ids only loses small pockets
-            var groups = new Dictionary<int, List<int>>();
-            for (int i = 0; i < n; i++) { List<int> l; if (!groups.TryGetValue(comp[i], out l)) groups[comp[i]] = l = new List<int>(); l.Add(i); }
-            var ordered = groups.Values.OrderBy(l => g.Regions[l[0]].Level).ThenByDescending(l => l.Sum(r => g.Regions[r].Tiles.Count)).ThenBy(l => l.Min()).ToList();
-            // keep each level's order, but hand out ids by size when there are too many
-            var bySize = groups.Values.OrderByDescending(l => l.Sum(r => g.Regions[r].Tiles.Count)).ThenBy(l => l.Min()).ToList();
-            var keep = new HashSet<List<int>>(bySize.Take(ZoneSet.MaxZone - 1));
-            var zs = new ZoneSet(s.Profile.LevelSlots) { Game = s.IsUw2 ? "UW2" : "UW1", Source = "automatic zones (Underworld Editor), Phase A" };
+            var zs = new ZoneSet(s.Profile.LevelSlots) { Game = s.IsUw2 ? "UW2" : "UW1", Source = given != null ? "the zoning given (Underworld Editor)" : "automatic zones (Underworld Editor), Phase A" };
             for (int l = 1; l <= zs.Levels; l++)
                 if (g.RegionAt[l - 1] != null) { var m = level(l); zs.InitLevel(l, (x, y) => !m.Tiles[x, y].IsSolid); }
-            int next = 2;
-            foreach (var grp in ordered)
+            if (given != null)
             {
-                if (!keep.Contains(grp)) { res.Unzoned += grp.Count; continue; }
-                int id = next++;
-                foreach (int r in grp)
+                AssignGiven(g, comp, given, zs, res);
+                // the objects marked as key items (or not) in the zoning count here too
+                foreach (var kv in given.Importance) zs.Importance[kv.Key] = kv.Value;
+            }
+            else
+            {
+                if (o.FoldEmptyDeadEnds) res.Folded = FoldDeadEnds(s, level, g, comp);
+                // zone ids: the biggest groups first, so that running out of ids only loses small pockets
+                var groups = new Dictionary<int, List<int>>();
+                for (int i = 0; i < n; i++) { List<int> l; if (!groups.TryGetValue(comp[i], out l)) groups[comp[i]] = l = new List<int>(); l.Add(i); }
+                var ordered = groups.Values.OrderBy(l => g.Regions[l[0]].Level).ThenByDescending(l => l.Sum(r => g.Regions[r].Tiles.Count)).ThenBy(l => l.Min()).ToList();
+                // keep each level's order, but hand out ids by size when there are too many
+                var bySize = groups.Values.OrderByDescending(l => l.Sum(r => g.Regions[r].Tiles.Count)).ThenBy(l => l.Min()).ToList();
+                var keep = new HashSet<List<int>>(bySize.Take(ZoneSet.MaxZone - 1));
+                int next = 2;
+                foreach (var grp in ordered)
                 {
-                    g.Regions[r].Zone = id;
-                    foreach (int t in g.Regions[r].Tiles) zs.SetZone(g.Regions[r].Level, t % 64, t / 64, (byte)id);
+                    if (!keep.Contains(grp)) { res.Unzoned += grp.Count; continue; }
+                    int id = next++;
+                    foreach (int r in grp)
+                    {
+                        g.Regions[r].Zone = id;
+                        foreach (int t in g.Regions[r].Tiles) zs.SetZone(g.Regions[r].Level, t % 64, t / 64, (byte)id);
+                    }
+                    zs.EnsureZone(id);
                 }
-                zs.EnsureZone(id);
             }
             if (res.Unzoned > 0) res.Warnings.Add(string.Format("More zones than ids (254): {0} small regions are left unassigned.", res.Unzoned));
             // links between zones
@@ -152,6 +170,23 @@ namespace UwEditor.Core.Randomizer
             }
             int lid = 1;
             foreach (var k in links) { k.Id = lid++; zs.Links.Add(k); }
+            // a given zoning's own links (drawn by hand): on top of those the levels give, between the zones that took their ends
+            if (given != null)
+            {
+                int hand = 0;
+                Func<int, int, string, string, bool> levelsGive = (a, b, kind, req) => zs.Links.Any(l => !l.Hand && l.Kind == kind && l.Requires == req && ((l.From == a && l.To == b) || (l.TwoWay && l.From == b && l.To == a)));
+                foreach (var k in given.Links)
+                {
+                    int a = res.GivenInto(k.From), b = res.GivenInto(k.To);
+                    if (a <= ZoneSet.Unassigned || b <= ZoneSet.Unassigned || a == b) continue;
+                    // one the levels give already (an automatic zoning's own links, or a hand link that matches a passage): not again
+                    string req0 = string.IsNullOrWhiteSpace(k.Requires) ? "free" : Normalize(k.Requires);
+                    if (levelsGive(a, b, k.Kind, req0) && (!k.TwoWay || levelsGive(b, a, k.Kind, req0))) continue;
+                    zs.Links.Add(new ZoneLink { Id = lid++, From = a, To = b, Kind = k.Kind, Requires = string.IsNullOrWhiteSpace(k.Requires) ? "free" : k.Requires, TwoWay = k.TwoWay, Notes = "drawn by hand" + (string.IsNullOrEmpty(k.Notes) ? "" : ": " + k.Notes), Confidence = k.Confidence, Level = k.Level, X = k.X, Y = k.Y, Hand = true });
+                    hand++;
+                }
+                if (hand > 0) res.Warnings.Add(string.Format("{0} link(s) drawn by hand added to those the levels give.", hand));
+            }
             // placements
             var items = KeyItems.Find(s, level, zs);
             zs.Placements.AddRange(KeyItems.SuggestPlacements(zs, items));
@@ -166,6 +201,17 @@ namespace UwEditor.Core.Randomizer
             res.Set = zs;
             if (painted != null) res.Overlap = Overlaps(zs, painted);
             Name(res, s, painted, items);
+            if (given != null)
+            {
+                // the given zones keep what they were called, their colours, notes and places in the graph
+                foreach (var z in zs.Zones)
+                {
+                    var gz = given.GetZone(z.Id);
+                    if (gz == null || z.Id <= ZoneSet.Unassigned) continue;
+                    z.Name = gz.Name; z.Color = gz.Color; z.Notes = gz.Notes; z.GraphX = gz.GraphX; z.GraphY = gz.GraphY;
+                    if (!string.IsNullOrEmpty(gz.Status)) z.Status = gz.Status;
+                }
+            }
             try { res.Solve = new ZoneSolver(zs, new SolverOptions()).Solve(zs.StartZone, zs.GoalZone); }
             catch (Exception ex) { res.Warnings.Add("The solver failed: " + ex.Message); }
             try
@@ -177,6 +223,125 @@ namespace UwEditor.Core.Randomizer
             catch (Exception) { }
             return res;
         }
+
+        /// <summary>Whether a zoning was made by the automatic zones (its zones are the regions' own groups), rather than painted.</summary>
+        public static bool IsAutomatic(ZoneSet zs) { return zs != null && (zs.Source ?? "").StartsWith("automatic zones", StringComparison.OrdinalIgnoreCase); }
+
+        /// <summary>The value most of the items have (values 0 and 1, rock and unassigned, left out; ties to the lower), or 0.</summary>
+        internal static int Majority(IEnumerable<int> values)
+        {
+            var c = new Dictionary<int, int>();
+            foreach (int v in values) { if (v <= ZoneSet.Unassigned) continue; int k; c.TryGetValue(v, out k); c[v] = k + 1; }
+            return c.Count == 0 ? 0 : c.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key).First().Key;
+        }
+
+        /// <summary>
+        /// The zones of a given zoning (painted, or made earlier) on the regions: each region takes
+        /// the zone that holds most of its tiles. A region with none (a door square, which a fill
+        /// leaves out) takes the zone most of its free-walking group has; an open area outside every
+        /// zone gets a zone of its own. A doorway kept apart (a door closed behind the player) keeps
+        /// a zone of its own, as the solver needs it apart. A region is the finest part there is
+        /// (the player walks all of it and back), so two zones painted on one region become one.
+        /// Warns about those merges and about zones whose parts have no free way between them,
+        /// where the solver, taking a zone as reached all at once, is too kind.
+        /// </summary>
+        internal static void AssignGiven(NavGraph g, int[] comp, ZoneSet given, ZoneSet zs, AutoZoneResult res)
+        {
+            int n = g.Regions.Count;
+            Func<NavRegion, IEnumerable<int>> givenOf = r => r.Tiles.Select(t => (int)given.ZoneAt(r.Level, t % 64, t / 64));
+            var zone = new int[n];
+            for (int i = 0; i < n; i++) if (!g.Regions[i].KeepApart) zone[i] = Majority(givenOf(g.Regions[i]));
+            var members = new Dictionary<int, List<int>>();
+            for (int i = 0; i < n; i++) { List<int> l; if (!members.TryGetValue(comp[i], out l)) members[comp[i]] = l = new List<int>(); l.Add(i); }
+            var groupZone = new Dictionary<int, int>();
+            for (int i = 0; i < n; i++)
+            {
+                if (zone[i] > ZoneSet.Unassigned || g.Regions[i].KeepApart) continue;
+                int z;
+                if (!groupZone.TryGetValue(comp[i], out z)) groupZone[comp[i]] = z = Majority(members[comp[i]].SelectMany(j => givenOf(g.Regions[j])));
+                zone[i] = z;
+            }
+            // ids for the zones made here: never one the zoning has
+            var taken = new HashSet<int>(given.Zones.Select(z => z.Id));
+            foreach (var t in given.Tiles) if (t != null) foreach (byte b in t) taken.Add(b);
+            int nextId = 2;
+            Func<int> fresh = () =>
+            {
+                while (nextId <= ZoneSet.MaxZone && taken.Contains(nextId)) nextId++;
+                if (nextId > ZoneSet.MaxZone) return 0;
+                taken.Add(nextId);
+                res.FreshZones++;
+                return nextId;
+            };
+            var normal = new HashSet<int>(zone.Where(z => z > ZoneSet.Unassigned));
+            var doorway = new HashSet<int>();
+            for (int i = 0; i < n; i++)
+            {
+                if (!g.Regions[i].KeepApart) continue;
+                int m = Majority(givenOf(g.Regions[i]));
+                if (m > ZoneSet.Unassigned && !normal.Contains(m) && doorway.Add(m)) zone[i] = m;
+                else zone[i] = fresh();
+            }
+            var freshOfGroup = new Dictionary<int, int>();
+            for (int i = 0; i < n; i++)
+            {
+                if (zone[i] > ZoneSet.Unassigned) continue;
+                int z;
+                if (!freshOfGroup.TryGetValue(comp[i], out z)) freshOfGroup[comp[i]] = z = fresh();
+                zone[i] = z;
+            }
+            var made = new HashSet<int>();
+            for (int i = 0; i < n; i++)
+            {
+                var r = g.Regions[i];
+                r.Zone = zone[i];
+                if (zone[i] <= ZoneSet.Unassigned) { res.Unzoned++; continue; }
+                foreach (int t in r.Tiles) zs.SetZone(r.Level, t % 64, t / 64, (byte)zone[i]);
+                zs.EnsureZone(zone[i]);
+                if (!given.Zones.Any(z => z.Id == zone[i])) made.Add(zone[i]);
+            }
+            // each zone of the zoning -> the zone that took it
+            var into = new Dictionary<int, Dictionary<int, int>>();
+            for (int i = 0; i < n; i++)
+                foreach (int v in givenOf(g.Regions[i]))
+                {
+                    if (v <= ZoneSet.Unassigned || zone[i] <= ZoneSet.Unassigned) continue;
+                    Dictionary<int, int> c;
+                    if (!into.TryGetValue(v, out c)) into[v] = c = new Dictionary<int, int>();
+                    int k; c.TryGetValue(zone[i], out k); c[zone[i]] = k + 1;
+                }
+            var assigned = new HashSet<int>(zone.Where(z => z > ZoneSet.Unassigned));
+            var merged = new List<string>();
+            foreach (var kv in into.OrderBy(k => k.Key))
+            {
+                int to = assigned.Contains(kv.Key) ? kv.Key : kv.Value.OrderByDescending(x => x.Value).ThenBy(x => x.Key).First().Key;
+                res.GivenMap[kv.Key] = to;
+                if (to != kv.Key) merged.Add(string.Format("{0} into {1}", Label(given, kv.Key), Label(given, to)));
+            }
+            if (merged.Count > 0)
+                res.Warnings.Add(string.Format("{0} zone(s) of the zoning share their walkable area with another (no wall, door or step between them), so they are one: {1}.", merged.Count, Cap(merged)));
+            if (made.Count > 0)
+                res.Warnings.Add(string.Format("{0} zone(s) made for open areas outside the zoning's zones and for doorways closed behind the player: {1}.", made.Count, Cap(made.OrderBy(x => x).Select(x => x.ToString()).ToList())));
+            // zones whose parts have no free way between them, either way (door squares left out; an automatic zoning made them by its own rules)
+            if (IsAutomatic(given)) return;
+            var parent = Enumerable.Range(0, n).ToArray();
+            Func<int, int> find = null;
+            find = x => parent[x] == x ? x : (parent[x] = find(parent[x]));
+            foreach (var e in g.Edges)
+                if (e.Requires == "free" && e.From != e.To && zone[e.From] == zone[e.To] && zone[e.From] > ZoneSet.Unassigned) parent[find(e.From)] = find(e.To);
+            var split = new List<string>();
+            foreach (var grp in Enumerable.Range(0, n).Where(i => zone[i] > ZoneSet.Unassigned && !g.Regions[i].IsDoor && given.GetZone(zone[i]) != null).GroupBy(i => zone[i]).OrderBy(x => x.Key))
+            {
+                int parts = grp.Select(find).Distinct().Count();
+                if (parts > 1) split.Add(string.Format("{0} ({1} parts)", Label(given, grp.Key), parts));
+            }
+            if (split.Count > 0)
+                res.Warnings.Add(string.Format("{0} zone(s) of the zoning hold parts with no free way between them (a locked door, a climb or a jump inside the zone); the solver takes such a zone as reached all at once, so it may be too kind: {1}.", split.Count, Cap(split)));
+        }
+
+        static string Label(ZoneSet zs, int id) { var z = zs.GetZone(id); return z == null || string.IsNullOrEmpty(z.Name) ? id.ToString() : id + " " + z.Name; }
+
+        static string Cap(List<string> items, int most = 15) { return string.Join("; ", items.Take(most)) + (items.Count > most ? string.Format("; and {0} more", items.Count - most) : ""); }
 
         /// <summary>
         /// Folds into its only neighbour every group of regions that touches just one other group

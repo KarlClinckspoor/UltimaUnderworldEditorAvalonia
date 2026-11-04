@@ -36,6 +36,8 @@ namespace UwEditor.Core.Randomizer
         public string Confidence = "certain";   // certain, todo
         public int Level = 0;           // optional anchor: level and tile of the passage, 0 = none
         public int X = -1, Y = -1;
+        /// <summary>A link drawn by hand in a zoning the solver was given (not saved): it holds in every state of the world.</summary>
+        public bool Hand;
 
         public static readonly string[] Kinds = { "walk", "door", "portcullis", "secret", "doorman", "drop", "climb", "teleport", "lever", "stairs", "jump", "other" };
 
@@ -210,6 +212,51 @@ namespace UwEditor.Core.Randomizer
         }
 
         /// <summary>Levels (1-based) a zone has tiles on.</summary>
+        /// <summary>
+        /// A copy with every zone that lies on several levels split into one zone a level: its
+        /// first level keeps the id, each further level gets a free id (the name with " (Ln)" added,
+        /// the same colour and notes), and the parts are joined in level order by free two-way
+        /// links of kind "stairs" (a hand-made zoning takes the way between levels as given).
+        /// note says how many zones were split, and any left whole for want of ids.
+        /// </summary>
+        public ZoneSet SplitByLevel(out string note)
+        {
+            var c = FromJson(ToJson(), Levels);
+            var taken = new HashSet<int>(c.Zones.Select(z => z.Id));
+            foreach (var t in c.Tiles) if (t != null) foreach (byte b in t) taken.Add(b);
+            int next = 2, split = 0, made = 0, whole = 0;
+            foreach (var z in c.Zones.Where(z => z.Id > Unassigned).ToList())
+            {
+                var lv = c.LevelsOf(z.Id);
+                if (lv.Count < 2) continue;
+                string baseName = z.Name, color = ColorString(c.ColorOf(z.Id));
+                z.Color = color;
+                z.Name = baseName + " (L" + lv[0] + ")";
+                int prev = z.Id;
+                bool all = true;
+                for (int i = 1; i < lv.Count; i++)
+                {
+                    while (next <= MaxZone && taken.Contains(next)) next++;
+                    if (next > MaxZone) { all = false; break; }
+                    int id = next;
+                    taken.Add(id);
+                    var t = c.Tiles[lv[i] - 1];
+                    for (int k = 0; k < t.Length; k++) if (t[k] == z.Id) t[k] = (byte)id;
+                    c.Zones.Add(new Zone { Id = id, Name = baseName + " (L" + lv[i] + ")", Color = color, Notes = z.Notes, Status = z.Status, Levels = "L" + lv[i] });
+                    c.Links.Add(new ZoneLink { Id = c.NextLinkId(), From = prev, To = id, Kind = "stairs", Requires = "free", TwoWay = true, Level = lv[i], Notes = "the zone's own way between levels (split by level)" });
+                    prev = id;
+                    made++;
+                }
+                z.Levels = "L" + lv[0];
+                split++;
+                if (!all) whole++;
+            }
+            c.Zones.Sort((a, b) => a.Id.CompareTo(b.Id));
+            note = split == 0 ? "no zone lies on several levels" : string.Format("{0} zone(s) on several levels split into {1} more, one a level, joined by free two-way links", split, made)
+                + (whole > 0 ? string.Format("; {0} kept partly whole (no ids left)", whole) : "");
+            return c;
+        }
+
         public List<int> LevelsOf(int zone)
         {
             var r = new List<int>();

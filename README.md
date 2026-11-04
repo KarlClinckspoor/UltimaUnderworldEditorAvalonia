@@ -320,8 +320,8 @@ controls and borders in place of white space, in either colour scheme; font size
     view, and lists each zone's key items.
   - **Zone graph** has movable zone labels, one-way and two-way links, and a list of
     requirements per link, filled from the locks of the doors between the zones. The middle
-    mouse button pans the view and the wheel zooms. **Check the logic** runs the same solve over time as
-    Automatic zones.
+    mouse button pans the view and the wheel zooms. **Check the logic** solves the zoning shown
+    over time, as Apply uses it.
   - Both read and write the Unity editor's `uw1-zones.json`. The UW1 example zoning is in
     `docs/examples`.
 - **Randomizer ▸ Scatter ▸ Automatic zones** (UW1): builds the randomizer's zones from the levels
@@ -354,7 +354,8 @@ controls and borders in place of white space, in either colour scheme; font size
 - **Uniform progression** in the item and monster swaps: things are sorted by strength and handed
   out level by level in the game's order, the weakest first; each level keeps its count.
 - **Randomizer ▸ Scatter ▸ Apply** (UW1, the key item shuffle): moves keys, runes, ability and plot items so the game stays
-  beatable under the chosen logic (checked by the time-aware solver), with a spoiler log and undo.
+  beatable under the chosen logic (checked by the time-aware solver), with a spoiler log and undo. It uses the Zones window's
+  zoning (painted or automatic) for its zones; **Quick autozone** makes one when there is none.
 - **Randomizer ▸ Named challenges**: 21 whole-game rules (Monk, Lockdown, Hoarding, Ghost town,
   Bones rise…) with a preview, one undo step per level and an exact Undo; quest items and
   conversations stay.

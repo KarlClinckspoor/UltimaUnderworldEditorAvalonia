@@ -1220,6 +1220,12 @@ notes: 91 zones, 139 links and 50 grants.
 - **Import pictures… / Export pictures…** read and write one 64×64 indexed PNG or BMP per
   level, in which the pixel's index is the zone id, with north up. `map0` is level 1, as in
   the Gimp maps.
+- **Split multi-level zones by level for the solver** (remembered): Apply and Check the logic
+  get each zone painted on several levels as one zone a level, joined by free two-way links.
+  The line under it lists the zones on several levels. See **How the randomizer's logic
+  works**, Zones from a zoning.
+
+Apply and the zone graph's **Check the logic** use this zoning, unsaved changes included.
 
 **Randomizer ▸ Scatter ▸ Zone graph…** shows a label for each zone, placed in a column for the
 level it first appears on. Drag the labels to arrange them; the positions are saved in the
@@ -1238,17 +1244,17 @@ the key. Lines are the links between zones:
 - **A selected path** has its zones, direction, kind, sureness, notes, and its list of
   requirements. All of them must hold, and a line with `|` holds when any part does. **From
   the doors** fills the list again. Delete removes the path.
-- **Check the logic…** runs the same solve over time as **Automatic zones ▸ Report**, so the
-  two agree: the zones are built from the levels again (with their unsaved edits), mechanisms
-  are set off and applied when reached, create traps and counts are followed, and the report
-  shows the spheres, the changes and the goal. It takes the movement and logic options and
-  the zoning to compare with from the Automatic zones window when that is open, and the
-  defaults when it is not. Link edits made in the graph are not part of this solve, since it
-  builds its own zones. For a zoning painted by hand, that zoning gives the goal and the
-  names, and its drawn links are then checked on their own, **without world changes**. That
-  second check does not set off mechanisms, so it can stop at a create trap's flag
-  (`flag:create_l5_648` for key 15, say) or a counted item (`item:gold_20`) where the solve
-  over time goes on.
+- **Check the logic…** runs the solve over time on the zoning shown (with its unsaved
+  changes), as **Apply** uses it, on the levels with their unsaved edits.
+  - The zones are those of the zoning, laid on the levels' regions (see **How the
+    randomizer's logic works**, Zones from a zoning).
+  - Mechanisms are set off and applied when reached, and create traps and counts are
+    followed.
+  - The report shows the steps, the changes, the goal, and the zoning's warnings: zones
+    merged, zones made for areas the zoning leaves out, and zones whose parts have no free
+    way between them.
+  - The options are the Apply window's when it is open, else the Automatic zones window's,
+    else the defaults. A zoning with nothing painted yet is solved on automatic zones.
 - **Panning and zooming:** drag with the middle mouse button, over the labels and lines too,
   to move the view. The mouse wheel zooms in and out about the pointer (the **Zoom** slider
   follows, from 0.3 to 2); the scroll bars still scroll.
@@ -1306,6 +1312,38 @@ solver and the shuffle work with. **Cut at level changes** keeps each level's zo
 even where free stairs join them; **Fold empty dead ends** merges pits and ledges that hold
 nothing into their only neighbour. Each zone gets the items lying in it as **placements**:
 what holding them grants.
+
+**Zones from a zoning.** When the Zones window holds a zoning (painted by hand, or made by
+the automatic zones and changed there), the solver uses its zones instead of making them:
+
+- **Regions:** each region takes the zone that holds most of its tiles. A region is the
+  finest part there is, since the player walks all of it and back, so two zones painted on
+  one region become one. The report says which.
+- **Door squares** (which a fill leaves out) take the zone of the area around them.
+- **Open areas the zoning leaves out** get zones of their own.
+- **Doorways closed behind the player** keep a zone of their own, so the door stays one way.
+- **Links:** the links between zones still come from the levels (doors, drops, climbs,
+  levers…). The zoning's own links are added where the levels do not give them; they hold
+  in every state of the world.
+- **After a change** to a level, its rebuilt regions take the zones the same way, so a
+  painted zone stays one zone. An automatic zoning is regrouped as the automatic zones are.
+
+A zone counts as reached all at once. A painted zone whose parts have no free way between
+them (a locked door, a climb or a jump inside it) therefore makes the solver too kind: it
+counts the whole zone reached as soon as any part is. The report lists such zones with
+their number of parts. Splitting them in the Zones window makes the logic strict again.
+
+**Split multi-level zones by level** (an option in the Zones window, remembered) gives the
+solver a copy of the zoning in which each zone painted on several levels becomes one zone a
+level.
+- **Ids and names:** the first level keeps the zone's id; the others get free ids, the name
+  with "(L3)" and so on added, and the same colour.
+- **Links:** the parts are joined in level order by free two-way links. A hand-made zoning
+  takes the way between levels as given, and so does the solver.
+- **What changes:** the report's "no free way between them" list then shows only gaps within
+  a level.
+- **What does not:** the zoning in the Zones window stays as it is; Apply and Check the logic
+  use the split copy.
 
 #### 2. Requirements
 
@@ -2029,6 +2067,14 @@ by an NPC with a conversation, a create trap's template, objects a trap or trigg
 objects that hold other objects or a trigger, the orbs, the moonstone (Gate Travel goes to
 it), and the coins and food beside Shak and Zak.
 
+**Zones.** Apply uses the Zones window's zoning, with its unsaved changes; the row at the top
+says which file and how many zones. The zones come from it as described in **How the
+randomizer's logic works** (Zones from a zoning). With no zoning yet (nothing painted), Apply
+makes automatic zones from the movement options, as before. **Quick autozone** makes those
+automatic zones at once and puts them in the Zones window, to look at, change and save there
+(saving asks for a name; `uw1-zones-auto.json` is suggested). It is only available while
+there is no zoning, and goes faint once clicked. **Zones window…** opens that window.
+
 **The logic** rows are the same as in the Automatic zones window, with one more:
 **Require breaking the orb (level 7)**. With it on, finishing also needs Tyball's orb broken
 with an orb rock. The goal is reaching level 9, through the ritual in the Slasher's chamber.
@@ -2056,8 +2102,9 @@ lies behind such a door, the door is unlocked as part of the shuffle, and the lo
 **The spoiler log** gives the seed and options, what moves and what stays, the doors
 unlocked, the route (spheres, when each talisman and key comes) and, sphere by sphere, where
 each key item went: level, square, the container or creature holding it, the name of the
-hand-made zone it lies in (the zone file in `DATA`, or else Karl's painted UW1 map), where it
-was, and what the place held before.
+hand-made zone it lies in, where it was, and what the place held before. A painted zoning in
+the Zones window names the places itself; otherwise the names come from the zone file in
+`DATA`, or else Karl's painted UW1 map. The log's first lines say which zones were used.
 
 ## Mods
 

@@ -50,7 +50,20 @@ namespace UwEditor.App
         readonly ListBox itemList = new ListBox();
         readonly TextBlock grantsText = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.85 };
         readonly ObservableCollection<ZoneRow> rows = new ObservableCollection<ZoneRow>();
+        readonly CheckBox splitBox = new CheckBox { Content = "Split multi-level zones by level for the solver (each level its own zone, joined by free two-way links)" };
+        readonly TextBlock splitText = new TextBlock { FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
         bool filling;
+
+        public CheckBox SplitByLevelBox { get { return splitBox; } }
+
+        /// <summary>Says which zones lie on several levels (what the split option splits).</summary>
+        void RefreshSplit()
+        {
+            var multi = z.Set.Zones.Where(x => x.Id > ZoneSet.Unassigned).Select(x => new { x.Id, Levels = z.Set.LevelsOf(x.Id) }).Where(x => x.Levels.Count > 1).ToList();
+            splitText.Text = multi.Count == 0 ? "No zone lies on several levels." :
+                string.Format("{0} zone(s) on several levels{1}: {2}.", multi.Count, splitBox.IsChecked == true ? ", split for the solver" : "",
+                    string.Join("; ", multi.Take(8).Select(x => x.Id + " (L" + string.Join(", L", x.Levels) + ")")) + (multi.Count > 8 ? " …" : ""));
+        }
 
         public ZoningState Zoning { get { return z; } }
 
@@ -96,6 +109,11 @@ namespace UwEditor.App
                 B("Zone graph…", () => main.ShowZoneGraph()));
             head.Children.Add(files);
             head.Children.Add(fileText);
+            splitBox.IsChecked = z.SplitByLevel;
+            splitBox.IsCheckedChanged += (s, e) => { main.ZoneSplitByLevel = splitBox.IsChecked == true; RefreshSplit(); };
+            ToolTip.SetTip(splitBox, "For the solver only (Apply, Check the logic): each zone painted on several levels becomes one zone a level, the parts joined in level order by free two-way links, as a hand zoning takes the way between levels as given. The zoning here is not changed.");
+            head.Children.Add(splitBox);
+            head.Children.Add(splitText);
             DockPanel.SetDock(head, Dock.Top);
             dock.Children.Add(head);
             DockPanel.SetDock(status, Dock.Bottom);
@@ -244,6 +262,7 @@ namespace UwEditor.App
                     : string.Format("Level {0}: {1} open tile{2} not in a zone (magenta).", lv.Level, un, un == 1 ? "" : "s");
             }
             RefreshItems();
+            RefreshSplit();
         }
 
         void RefreshItems()

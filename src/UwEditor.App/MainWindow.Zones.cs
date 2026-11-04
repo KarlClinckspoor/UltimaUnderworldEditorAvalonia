@@ -24,6 +24,7 @@ namespace UwEditor.App
             {
                 zoning = new ZoningState(vm.Session, l => vm.Edits != null ? vm.Edits.Model(l) : vm.Session.LoadLevel(l));
                 zoning.MaxClimb = settings.ZoneClimb;
+                zoning.SplitByLevel = settings.ZoneSplitByLevel;
                 zoning.Changed += ZonesChanged;
                 if (vm.Edits != null) vm.Edits.Changed += e => zoning?.LevelsChanged();
             }

@@ -725,45 +725,36 @@ namespace UwEditor.App
         /// <summary>The last logic check's solve over time, or null.</summary>
         public TimelineResult LastCheck { get; private set; }
 
-        /// <summary>Whether the zoning shown was made by the automatic zones (rather than painted by hand).</summary>
-        public bool IsAutomaticZoning { get { return (z.Set.Source ?? "").StartsWith("automatic zones", StringComparison.OrdinalIgnoreCase); } }
-
         /// <summary>
-        /// The logic check: the same solve over time as Automatic zones ▸ Report (Phase C), on the
-        /// levels with their unsaved edits, so that mechanisms set off, create traps and counts are
-        /// followed. The options and the zoning compared with are the Automatic zones window's when
-        /// it is open. A zoning painted by hand is that comparison, and its own drawn links are
-        /// checked after it without world changes.
+        /// The logic check: the solve over time (Phase C) on the zoning shown, as Apply uses it, on
+        /// the levels with their unsaved edits: each region takes the zone that holds most of its
+        /// tiles, mechanisms are set off and applied when reached, create traps and counts are
+        /// followed, and the zoning's own links are added to those the levels give. The movement
+        /// and logic options are the Apply window's when it is open, else the Automatic zones
+        /// window's, else the defaults. A zoning with no zones yet: automatic zones.
         /// </summary>
         public string CheckLogic()
         {
             var s = z.Session;
+            var apply = main.OpenKeyShuffle;
             var auto = main.OpenAutoZones;
             NavOptions nav;
-            if (auto != null) nav = auto.MovementOptions.Clone();
-            else { nav = new NavOptions { MaxClimb = main.ZoneClimb }; nav.JumpSpellClimb = 2 * nav.MaxClimb; }
-            var abil = auto != null ? auto.LogicOptions.Clone() : new AbilityOptions();
-            bool hand = !IsAutomaticZoning;
-            var painted = hand ? z.Set : auto != null ? auto.ChosenComparison : AutoZonesWindow.DefaultPainted(s);
+            AbilityOptions abil;
+            string from;
+            if (apply != null) { nav = apply.Options.Nav.Clone(); abil = apply.Options.Logic.Clone(); from = "the Apply window's options"; }
+            else if (auto != null) { nav = auto.MovementOptions.Clone(); abil = auto.LogicOptions.Clone(); from = "the Automatic zones window's options"; }
+            else { nav = new NavOptions { MaxClimb = main.ZoneClimb }; nav.JumpSpellClimb = 2 * nav.MaxClimb; abil = new AbilityOptions(); from = "the default options"; }
             var edits = main.ViewModel.Edits;
             Func<int, LevelModel> level = l => edits != null ? edits.Model(l) : s.LoadLevel(l);
-            LastCheck = Timeline.Build(s, level, nav, abil, painted);
+            string split = "";
+            var zoning = z.HasZones ? z.ForSolver(out split) : null;
+            LastCheck = Timeline.Build(s, level, nav, abil, null, null, true, zoning);
             var report = new System.Text.StringBuilder();
-            report.AppendLine(hand
-                ? "The solve over time, as Automatic zones ▸ Report: the zones are built from the levels again; the zoning drawn here gives the goal and the names."
-                : "The solve over time, as Automatic zones ▸ Report: the zones are built from the levels again with " + (auto != null ? "that window's options" : "the default options") + ", so link edits made here are not part of it.");
+            report.AppendLine(zoning != null
+                ? "The solve over time on this zoning (unsaved changes included), as Apply uses it, with " + from + "." + (z.SplitByLevel ? " Split by level: " + split + "." : "")
+                : "This zoning has no zones yet: the solve over time on automatic zones, with " + from + ".");
             report.AppendLine();
             report.Append(Timeline.Report(LastCheck));
-            if (hand)
-            {
-                var drawn = new ZoneSolver(z.Set, new SolverOptions()).Solve(z.Set.StartZone, z.Set.GoalZone);
-                report.AppendLine();
-                report.AppendLine();
-                report.AppendLine("THE LINKS DRAWN HERE, WITHOUT WORLD CHANGES");
-                report.AppendLine("This check follows only the links and placements of this zoning: it does not set off mechanisms, create traps or counts, so it may stop where the solve over time goes on.");
-                report.AppendLine();
-                report.Append(drawn.Report(z.Set));
-            }
             return report.ToString();
         }
 

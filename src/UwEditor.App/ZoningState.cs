@@ -68,6 +68,35 @@ namespace UwEditor.App
 
         public bool FileExists { get { return File.Exists(Path); } }
 
+        /// <summary>Whether any tile is in a zone (a zoning to use), rather than a new, unpainted one.</summary>
+        public bool HasZones { get { return Set.Tiles.Any(t => t != null && t.Any(b => b > ZoneSet.Unassigned)); } }
+
+        /// <summary>The zone ids with tiles.</summary>
+        public int ZoneCount { get { var seen = new HashSet<int>(); foreach (var t in Set.Tiles) if (t != null) foreach (var b in t) if (b > ZoneSet.Unassigned) seen.Add(b); return seen.Count; } }
+
+        /// <summary>A copy of the zoning as it is now (unsaved changes included).</summary>
+        public ZoneSet CopyOfSet() { return ZoneSet.FromJson(Set.ToJson(), Session.Profile.LevelSlots); }
+
+        bool splitByLevel;
+        /// <summary>
+        /// The solver gets the zoning with each zone that lies on several levels split into one zone a
+        /// level, joined by free two-way links (ZoneSet.SplitByLevel); the zoning itself is not changed.
+        /// </summary>
+        public bool SplitByLevel
+        {
+            get { return splitByLevel; }
+            set { if (splitByLevel == value) return; splitByLevel = value; Raise("split", false); }
+        }
+
+        /// <summary>The zoning as the solver gets it (Apply, the logic check): a copy, split by level when that option is on.</summary>
+        public ZoneSet ForSolver(out string note)
+        {
+            note = "";
+            return splitByLevel ? Set.SplitByLevel(out note) : CopyOfSet();
+        }
+
+        public ZoneSet ForSolver() { string note; return ForSolver(out note); }
+
         void Raise(string what, bool dirty = true)
         {
             if (dirty) Dirty = true;

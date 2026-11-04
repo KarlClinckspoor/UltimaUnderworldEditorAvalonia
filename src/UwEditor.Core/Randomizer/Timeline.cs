@@ -116,14 +116,18 @@ namespace UwEditor.Core.Randomizer
     /// </summary>
     public static class Timeline
     {
-        /// <summary>Builds Phase B's zones with the closers made one way, adds the facts' links, warps and goal, classifies the changes and solves.</summary>
-        public static TimelineResult Build(GameSession s, Func<int, LevelModel> level, NavOptions nav = null, AbilityOptions opt = null, ZoneSet painted = null, FactSet facts = null, bool variants = true)
+        /// <summary>
+        /// Builds Phase B's zones with the closers made one way, adds the facts' links, warps and goal, classifies the changes and solves.
+        /// With a zoning, its zones are used instead of automatic ones (a region takes the zone that holds most of its tiles,
+        /// also after a change), and its own links are added to those the levels give.
+        /// </summary>
+        public static TimelineResult Build(GameSession s, Func<int, LevelModel> level, NavOptions nav = null, AbilityOptions opt = null, ZoneSet painted = null, FactSet facts = null, bool variants = true, ZoneSet zoning = null)
         {
             nav = (nav ?? new NavOptions()).Clone();
             nav.ClosersOneWay = true;
             opt = opt ?? new AbilityOptions();
-            var b = AbilityZones.Build(s, level, nav, opt, painted, facts);
-            b.Set.Source = "automatic zones (Underworld Editor), Phase C";
+            var b = AbilityZones.Build(s, level, nav, opt, painted, facts, zoning);
+            b.Set.Source = zoning != null ? "the zoning given, solved over time (Underworld Editor)" : "automatic zones (Underworld Editor), Phase C";
             var res = new TimelineResult { Abilities = b };
             res.Engine = new Engine(s, level, b, res);
             res.Engine.Prepare();
@@ -131,6 +135,19 @@ namespace UwEditor.Core.Randomizer
             res.Solve = Solve(res, opt, "with these options");
             if (variants) RunVariants(res);
             return res;
+        }
+
+        /// <summary>
+        /// The automatic zones the solve over time makes with these options (doors closed behind
+        /// the player kept apart), as a zoning of its own for the Zones window; the solve is not run.
+        /// </summary>
+        public static ZoneSet AutoZoning(GameSession s, Func<int, LevelModel> level, NavOptions nav = null, AbilityOptions opt = null, FactSet facts = null)
+        {
+            nav = (nav ?? new NavOptions()).Clone();
+            nav.ClosersOneWay = true;
+            var b = AbilityZones.Build(s, level, nav, opt ?? new AbilityOptions(), null, facts);
+            b.Set.Source = "automatic zones (Underworld Editor), Phase C";
+            return ZoneSet.FromJson(b.Set.ToJson(), s.Profile.LevelSlots);
         }
 
         /// <summary>The option tokens of the movement options (option:cut_levels ...).</summary>
@@ -381,7 +398,7 @@ namespace UwEditor.Core.Randomizer
                     baseMechs[grp.Key] = grp.Select(m => new KeyValuePair<NavMechanism, Requirement>(m, Req(When(m, r => g.Regions[r].Zone)))).ToList();
                 foreach (var k in zs.Links)
                 {
-                    if (k.Kind == "stairs") { globalLinks.Add(k); continue; }
+                    if (k.Kind == "stairs" || k.Hand) { globalLinks.Add(k); continue; }
                     List<ZoneLink> l;
                     if (!baseLinks.TryGetValue(k.Level, out l)) baseLinks[k.Level] = l = new List<ZoneLink>();
                     l.Add(k);
@@ -635,6 +652,8 @@ namespace UwEditor.Core.Randomizer
                     SortedSet<int> set;
                     if (nb.TryGetValue(i, out set) && set.Count > 0) comp[i] = comp[set.Min];
                 }
+                // a painted zoning keeps its zones after a change; an automatic one is regrouped as the automatic zones are (its zones are those groups)
+                if (b.Auto.Given != null && !AutoZones.IsAutomatic(b.Auto.Given)) { GroupGiven(st, comp); return; }
                 if (g.Options.FoldEmptyDeadEnds)
                 {
                     // the stairs of this level (not in a one-level graph) keep their regions from folding, as in the full graph
@@ -701,6 +720,63 @@ namespace UwEditor.Core.Randomizer
                     st.Absorbed[z] = idOf[best.Value];
                     st.Links.Add(new ZoneLink { From = z, To = idOf[best.Value], Kind = "walk", Requires = "free", TwoWay = true, Level = st.Level, Notes = "merged by the change" });
                 }
+                Finish(st);
+            }
+
+            /// <summary>
+            /// With a given zoning: each rebuilt region takes the base zone that holds most of its
+            /// tiles (as the zoning was laid on the regions at first), so the zones stay those of the
+            /// zoning. A region on tiles no zone holds (opened by the change) takes its group's zone,
+            /// else a new zone. A base zone of this level that no region takes any more is joined by a
+            /// free link to the zone that took most of its tiles.
+            /// </summary>
+            void GroupGiven(LevelState st, int[] comp)
+            {
+                var g = st.Graph;
+                int n = g.Regions.Count;
+                Func<int, IEnumerable<int>> baseOf = i => g.Regions[i].Tiles.Select(t => (int)zs.ZoneAt(st.Level, t % 64, t / 64));
+                st.Zone = new int[n];
+                for (int i = 0; i < n; i++) st.Zone[i] = AutoZones.Majority(baseOf(i));
+                var members = Enumerable.Range(0, n).GroupBy(i => comp[i]).ToDictionary(x => x.Key, x => x.ToList());
+                foreach (var grp in members)
+                {
+                    var open = grp.Value.Where(i => st.Zone[i] <= ZoneSet.Unassigned).ToList();
+                    if (open.Count == 0) continue;
+                    int z = AutoZones.Majority(grp.Value.SelectMany(baseOf));
+                    if (z <= ZoneSet.Unassigned)
+                    {
+                        // the same new area gets the same id in every state: keyed by the level and its first tile
+                        int first = open.SelectMany(i => g.Regions[i].Tiles).DefaultIfEmpty(-1).Min();
+                        string fk = st.Level + "|0|" + first;
+                        if (!freshIds.TryGetValue(fk, out z)) freshIds[fk] = z = nextFresh++;
+                        st.NewNames[z] = string.Format("L{0} new area at ({1}, {2})", st.Level, first % 64, first / 64);
+                    }
+                    foreach (int i in open) st.Zone[i] = z;
+                }
+                var taken = new HashSet<int>(st.Zone);
+                var into = new Dictionary<int, Dictionary<int, int>>();
+                for (int i = 0; i < n; i++)
+                    foreach (int v in baseOf(i))
+                    {
+                        if (v <= ZoneSet.Unassigned || taken.Contains(v)) continue;
+                        Dictionary<int, int> c;
+                        if (!into.TryGetValue(v, out c)) into[v] = c = new Dictionary<int, int>();
+                        int k; c.TryGetValue(st.Zone[i], out k); c[st.Zone[i]] = k + 1;
+                    }
+                foreach (var kv in into)
+                {
+                    int to = kv.Value.OrderByDescending(x => x.Value).ThenBy(x => x.Key).First().Key;
+                    st.Absorbed[kv.Key] = to;
+                    st.Links.Add(new ZoneLink { From = kv.Key, To = to, Kind = "walk", Requires = "free", TwoWay = true, Level = st.Level, Notes = "merged by the change" });
+                }
+                Finish(st);
+            }
+
+            /// <summary>A rebuilt level's links, mechanisms, doorways and placements, from its regions' zones.</summary>
+            void Finish(LevelState st)
+            {
+                var g = st.Graph;
+                int n = g.Regions.Count;
                 // the links
                 var seenLinks = new HashSet<string>();
                 Func<int, int> zoneOf = r => r >= 0 && r < n ? st.Zone[r] : 0;
@@ -1041,7 +1117,14 @@ namespace UwEditor.Core.Randomizer
             sb.AppendLine("Options: " + res.Options + ".");
             sb.AppendLine("Facts read: " + string.Join(", ", res.Facts.Files) + " (" + res.Facts.Facts.Count + " facts; " + string.Join(", ", res.Facts.Facts.GroupBy(f => f.Kind).Select(g => g.Key + " " + g.Count())) + ").");
             sb.AppendLine("Rules: glitchless. Bashing is always allowed (fists). item:pole means the pole or Telekinesis.");
-            sb.AppendLine("Zones are those of the base state. After a change, its level alone is rebuilt; each group of regions takes the base zone that has the most tiles in it; a part split off gets a new zone (ids from 1000); a base zone left without a group is joined by a free link to the one that took its tiles.");
+            var given = res.Abilities.Auto.Given;
+            if (given != null && !AutoZones.IsAutomatic(given))
+            {
+                sb.AppendLine(string.Format("Zones: the zoning given ({0} zones), laid on the levels' regions: each region takes the zone that holds most of its tiles, before and after a change; the links come from the levels, plus the zoning's own links that the levels do not give.", given.Zones.Count(z => z.Id > ZoneSet.Unassigned)));
+                foreach (var w in res.Abilities.Auto.Warnings.Where(w => w.Contains("zoning") || w.Contains("by hand"))) sb.AppendLine("Zoning: " + w);
+            }
+            else
+                sb.AppendLine("Zones are those of the base state" + (given != null ? " (the automatic zoning given)" : "") + ". After a change, its level alone is rebuilt; each group of regions takes the base zone that has the most tiles in it; a part split off gets a new zone (ids from 1000); a base zone left without a group is joined by a free link to the one that took its tiles.");
             sb.AppendLine();
             if (sv != null)
             {

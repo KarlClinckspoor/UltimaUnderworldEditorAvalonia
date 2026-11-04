@@ -36,6 +36,11 @@ namespace UwEditor.App
         readonly Button exportButton = new Button { Content = "Export spoiler log…", IsEnabled = false };
         readonly List<KeyShuffleResult> applied = new List<KeyShuffleResult>();
         bool busy;
+        // the zoning the solver uses: the Zones window's
+        readonly ZoningState zoning;
+        readonly TextBlock zoningText = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 560 };
+        readonly Button quickButton = new Button { Content = "Quick autozone" };
+        bool quickRunning, namesFromZoning;
 
         /// <summary>The last preview or shuffle, or null.</summary>
         public KeyShuffleResult Result { get; private set; }
@@ -59,11 +64,24 @@ namespace UwEditor.App
             top.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
-                Text = "Moves the key items to new places so that the game stays beatable with the logic chosen below. The automatic zones and their time-aware solver decide what is reachable: " +
+                Text = "Moves the key items to new places so that the game stays beatable with the logic chosen below. The zones (the Zones window's zoning, or automatic ones when there is none) and the time-aware solver decide what is reachable: " +
                        "the key items are placed one by one, each where the solver reaches while the ones not placed yet are counted as held (assumed fill), and the other items fill the rest. " +
                        "A fresh solve of the shuffled levels must reach level 9 with no one-way trap; otherwise the next seed is tried. Items trade places whole (keys keep their lock numbers). " +
                        "Nothing is written until Apply, one undoable step a level, saved with the levels." + (s.IsUw2 ? " Ultima Underworld 1 only: its facts and solver." : ""),
             });
+            // the zoning: the Zones window's, or Quick autozone when there is none
+            zoning = main.Zoning();
+            quickButton.Click += async (o, e) => await QuickAutozoneAsync();
+            ToolTip.SetTip(quickButton, "Makes automatic zones with the movement options below and puts them in the Zones window (to look at and change there); Apply then uses them. Only when there is no zoning yet.");
+            var zonesButton = new Button { Content = "Zones window…" };
+            zonesButton.Click += (o, e) => main.ShowZones();
+            top.Children.Add(LogicOptionsPanel.Row(LogicOptionsPanel.Label("Zones"), zoningText, quickButton, zonesButton));
+            if (zoning != null)
+            {
+                zoning.Changed += OnZoningChanged;
+                Closed += (o, e) => zoning.Changed -= OnZoningChanged;
+            }
+            RefreshZoning();
             seed.Value = opt.Seed;
             seed.ValueChanged += (o, e) => { opt.Seed = (int)(seed.Value ?? 1); };
             var newSeed = new Button { Content = "New seed" };
@@ -120,8 +138,67 @@ namespace UwEditor.App
 
         KeyShuffleResult Compute()
         {
-            if (opt.Names == null) LoadNames();
+            PrepareZoning();
             return KeyShuffle.Run(session, main.ViewModel.Edits, opt);
+        }
+
+        // ---- the zoning
+
+        /// <summary>Whether the next run uses the Zones window's zoning (it has zones), rather than automatic zones.</summary>
+        public bool UsesZoning { get { return zoning != null && zoning.HasZones; } }
+
+        public Button QuickAutozoneButton { get { return quickButton; } }
+
+        void OnZoningChanged(string what) { if (what != "notes") RefreshZoning(); }
+
+        void RefreshZoning()
+        {
+            if (UsesZoning)
+            {
+                zoningText.Text = string.Format("The Zones window's zoning: {0}{1}, {2} zones{3}.", Path.GetFileName(zoning.Path), zoning.Dirty ? " (its unsaved changes included)" : "", zoning.ZoneCount,
+                    (AutoZones.IsAutomatic(zoning.Set) ? ", made by the automatic zones" : "") + (zoning.SplitByLevel ? "; multi-level zones split by level (the Zones window's option)" : ""));
+                quickButton.IsEnabled = false;
+            }
+            else
+            {
+                zoningText.Text = "No zoning yet: Apply makes automatic zones from the movement options below. Quick autozone makes them now and puts them in the Zones window.";
+                quickButton.IsEnabled = !quickRunning && !session.IsUw2 && zoning != null;
+            }
+        }
+
+        /// <summary>Sets the options' zoning (a copy of the Zones window's, or none) and the names of the places in the log.</summary>
+        void PrepareZoning()
+        {
+            if (UsesZoning)
+            {
+                opt.Zoning = zoning.ForSolver();
+                opt.ZoningFrom = Path.GetFileName(zoning.Path) + (zoning.Dirty ? " with its unsaved changes" : "") + (zoning.SplitByLevel ? ", multi-level zones split by level" : "");
+                // a painted zoning names the places itself; an automatic one by the hand-made zones, as before
+                if (!AutoZones.IsAutomatic(opt.Zoning)) { opt.Names = opt.Zoning; opt.NamesFrom = "the zoning (" + opt.ZoningFrom + ")"; namesFromZoning = true; return; }
+            }
+            else { opt.Zoning = null; opt.ZoningFrom = ""; }
+            if (opt.Names == null || namesFromZoning) { namesFromZoning = false; LoadNames(); }
+        }
+
+        /// <summary>Quick autozone: the automatic zones with the movement options here, put in the Zones window (only when it has no zoning).</summary>
+        public async Task<bool> QuickAutozoneAsync()
+        {
+            if (quickRunning || zoning == null || UsesZoning || session.IsUw2) return false;
+            quickRunning = true;
+            quickButton.IsEnabled = false;
+            summary.Text = "Making the automatic zones…";
+            ZoneSet made = null;
+            string error = null;
+            var snap = KeyShuffle.Snapshot(session, main.ViewModel.Edits);
+            var nav = opt.Nav.Clone();
+            var logic = opt.Logic.Clone();
+            await Task.Run(() => { try { made = Timeline.AutoZoning(session, snap.Level, nav, logic); } catch (Exception ex) { error = ex.Message; } });
+            quickRunning = false;
+            if (error != null) { summary.Text = "Could not make the zones: " + error; RefreshZoning(); return false; }
+            zoning.Adopt(made, Path.Combine(session.DataFolder, AutoZones.DefaultFileName(session.IsUw2)));
+            summary.Text = string.Format("{0} automatic zones made and put in the Zones window (not saved; saving there asks for a name). Apply uses them now.", zoning.ZoneCount);
+            RefreshZoning();
+            return true;
         }
 
         /// <summary>The hand-made zones whose names label the spoiler log: the zone file in DATA, else Karl's painted UW1 map shipped with the editor.</summary>
@@ -151,6 +228,8 @@ namespace UwEditor.App
             if (o.Logic.ToString() != opt.Logic.ToString() || o.Nav.MaxClimb != opt.Nav.MaxClimb || o.Nav.JumpSpellClimb != opt.Nav.JumpSpellClimb || o.Nav.GapJumps != opt.Nav.GapJumps
                 || o.Nav.GapTiles != opt.Nav.GapTiles || o.Nav.JumpSpellGapTiles != opt.Nav.JumpSpellGapTiles || o.Nav.DiagonalJumps != opt.Nav.DiagonalJumps
                 || o.Nav.CutAtLevelChanges != opt.Nav.CutAtLevelChanges || o.Nav.FoldEmptyDeadEnds != opt.Nav.FoldEmptyDeadEnds) return false;
+            // the zoning as it is now
+            if ((o.Zoning != null) != UsesZoning || (o.Zoning != null && o.Zoning.ToJson() != zoning.ForSolver().ToJson())) return false;
             var edits = main.ViewModel.Edits;
             foreach (var kv in r.Before)
             {
@@ -214,6 +293,7 @@ namespace UwEditor.App
                 KeyShuffleResult r = null;
                 string error = null;
                 var snap = KeyShuffle.Snapshot(session, main.ViewModel.Edits);
+                PrepareZoning();
                 var o = opt.Clone();
                 await Task.Run(() => { try { r = KeyShuffle.RunOn(session, snap, o); } catch (Exception ex) { error = ex.Message; } });
                 if (error != null) { summary.Text = "Could not apply: " + error; return; }

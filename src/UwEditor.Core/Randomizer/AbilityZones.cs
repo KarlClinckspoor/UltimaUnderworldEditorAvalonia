@@ -151,7 +151,8 @@ namespace UwEditor.Core.Randomizer
     /// </summary>
     public static class AbilityZones
     {
-        public static AbilityZoneResult Build(GameSession s, Func<int, LevelModel> level, NavOptions nav = null, AbilityOptions opt = null, ZoneSet painted = null, FactSet facts = null)
+        /// <param name="zoning">A zoning whose zones are used instead of making them (AutoZones.AssignGiven), or null.</param>
+        public static AbilityZoneResult Build(GameSession s, Func<int, LevelModel> level, NavOptions nav = null, AbilityOptions opt = null, ZoneSet painted = null, FactSet facts = null, ZoneSet zoning = null)
         {
             opt = opt ?? new AbilityOptions();
             facts = facts ?? FactSet.Shipped(s.IsUw2);
@@ -209,10 +210,10 @@ namespace UwEditor.Core.Randomizer
             var g = Graph(s, wl, nav, facts, res, painted, null);
 
             // ---- zones, then the Phase B placements
-            var auto = AutoZones.FromGraph(s, wl, g, painted);
+            var auto = AutoZones.FromGraph(s, wl, g, painted, zoning);
             res.Auto = auto;
             var zs = auto.Set;
-            zs.Source = "automatic zones (Underworld Editor), Phase B";
+            if (zoning == null) zs.Source = "automatic zones (Underworld Editor), Phase B";
             zs.OpenSources.Remove("hazard:lava");
             // one placement per object, not per zone and token (Phase D: the key item shuffle moves objects one by one)
             zs.Placements.RemoveAll(p => p.Source == "levels");

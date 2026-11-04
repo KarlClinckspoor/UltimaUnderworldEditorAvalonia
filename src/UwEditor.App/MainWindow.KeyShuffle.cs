@@ -9,6 +9,9 @@ namespace UwEditor.App
 
         void OnKeyShuffle(object sender, RoutedEventArgs e) { ShowKeyShuffle(); }
 
+        /// <summary>The Apply window if it is open (the zone graph's logic check takes its options), or null.</summary>
+        public KeyShuffleWindow OpenKeyShuffle { get { return keyShuffleWindow; } }
+
         /// <summary>Opens the key item shuffle window (one at a time).</summary>
         public KeyShuffleWindow ShowKeyShuffle()
         {

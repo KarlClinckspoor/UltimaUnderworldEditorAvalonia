@@ -26,6 +26,13 @@ namespace UwEditor.App
             set { settings.ZoneClimb = Math.Max(0, Math.Min(15, value)); settings.Save(); if (zoning != null) zoning.MaxClimb = settings.ZoneClimb; }
         }
 
+        /// <summary>The solver splits the zoning's multi-level zones by level (the Zones window's option), remembered.</summary>
+        public bool ZoneSplitByLevel
+        {
+            get { return settings.ZoneSplitByLevel; }
+            set { settings.ZoneSplitByLevel = value; settings.Save(); if (zoning != null) zoning.SplitByLevel = value; }
+        }
+
         public int CheckpointMinutes
         {
             get { return settings.CheckpointMinutes; }

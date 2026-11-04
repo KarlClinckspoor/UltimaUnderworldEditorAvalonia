@@ -31,6 +31,8 @@ namespace UwEditor.App
         public int CheckpointCopies { get; set; } = 20;
         /// <summary>The zone fill's highest climb, in floor steps.</summary>
         public int ZoneClimb { get; set; } = UwEditor.Core.Randomizer.ZoneFlood.DefaultMaxClimb;
+        /// <summary>The solver gets the zoning with its multi-level zones split by level (joined by free two-way links).</summary>
+        public bool ZoneSplitByLevel { get; set; }
         /// <summary>The DOSBox program the play test runs (found or chosen once).</summary>
         public string DosBoxPath { get; set; } = "";
         /// <summary>More DOSBox arguments for the play test (a -conf file, say).</summary>

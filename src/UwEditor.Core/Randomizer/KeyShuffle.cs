@@ -21,6 +21,10 @@ namespace UwEditor.Core.Randomizer
         /// <summary>Where Names came from, said in the log.</summary>
         public string NamesFrom = "";
         public NavOptions Nav = new NavOptions();
+        /// <summary>The zoning the solver uses (the Zones window's), or null: automatic zones made from the movement options.</summary>
+        public ZoneSet Zoning;
+        /// <summary>Where Zoning came from, said in the log.</summary>
+        public string ZoningFrom = "";
         /// <summary>The categories that move (<see cref="KeyShuffle.Categories"/>).</summary>
         public HashSet<string> Move = new HashSet<string>(KeyShuffle.Categories);
         /// <summary>Items carried by creatures without a conversation take part, and their inventories are places.</summary>
@@ -71,6 +75,8 @@ namespace UwEditor.Core.Randomizer
     public sealed class LevelSnapshot
     {
         internal KeyShuffle.World W;
+        /// <summary>A level of the snapshot (to build zones from another thread).</summary>
+        public LevelModel Level(int level) { return W.Model(level); }
     }
 
     /// <summary>One item put in a place.</summary>
@@ -487,7 +493,7 @@ namespace UwEditor.Core.Randomizer
             var w0 = levels.W.Copy();
             foreach (int l in w0.Levels) { r.Before[l] = (byte[])w0.Data[l].Clone(); r.Textures[l] = w0.Tex[l]; }
             var w = w0.Copy();
-            var t = Timeline.Build(s, w.Model, opt.Nav, opt.Logic, null, facts, false);
+            var t = Timeline.Build(s, w.Model, opt.Nav, opt.Logic, null, facts, false, opt.Zoning);
             var so0 = Timeline.SolverFor(t, opt.Logic, null);
             var needed = Needed(t, so0);
             var objs = Survey(s, w, t, opt, needed);
@@ -552,7 +558,7 @@ namespace UwEditor.Core.Randomizer
                     Write(wv.Data[kv.Value.Level], rec);
                 }
                 TimelineResult tv;
-                try { tv = Timeline.Build(s, wv.Model, opt.Nav, opt.Logic, null, facts, false); }
+                try { tv = Timeline.Build(s, wv.Model, opt.Nav, opt.Logic, null, facts, false, opt.Zoning); }
                 catch (Exception ex) { r.Failures.Add("seed " + seed + ": the check failed: " + ex.Message); continue; }
                 var check = tv.Solve;
                 var strands = check.Traps.Where(x => x.Strands.Count > 0).ToList();
@@ -638,7 +644,7 @@ namespace UwEditor.Core.Randomizer
                 w.Data[best.Level][at + 1] &= 0xFD;      // flag 9: locked
                 w.Changed(best.Level);
                 r.Unlocked.Add(best);
-                t = Timeline.Build(s, w.Model, opt.Nav, opt.Logic, null, facts, false);
+                t = Timeline.Build(s, w.Model, opt.Nav, opt.Logic, null, facts, false, opt.Zoning);
             }
         }
 
@@ -713,7 +719,11 @@ namespace UwEditor.Core.Randomizer
             b.AppendLine("Moving: " + string.Join(", ", Categories.Where(opt.Move.Contains).Select(CategoryName)) + (opt.Filler ? ", and everything else as filler" : "") + "; creature inventories " + (opt.CreatureInventories ? "in (creatures without a conversation)" : "out") + ".");
             b.AppendLine("Method: assumed fill on the time-aware solver; a fresh solve of the shuffled levels (with the return check) must reach the goal.");
             var names = opt.Names;
-            b.AppendLine(names != null ? "Places are named by " + (opt.NamesFrom.Length > 0 ? opt.NamesFrom : "the hand-made zones") + "; \"zone N\" is the automatic zone." : "Places are given by level and square; \"zone N\" is the automatic zone.");
+            if (opt.Zoning != null)
+                b.AppendLine("Zones: " + (opt.ZoningFrom.Length > 0 ? opt.ZoningFrom : "the zoning given") + " (the Zones window's), laid on the levels' regions; \"zone N\" is its zone N.");
+            else
+                b.AppendLine("Zones: automatic, made from the movement options.");
+            b.AppendLine(names != null ? "Places are named by " + (opt.NamesFrom.Length > 0 ? opt.NamesFrom : "the hand-made zones") + (opt.Zoning != null ? "." : "; \"zone N\" is the automatic zone.") : "Places are given by level and square" + (opt.Zoning != null ? "." : "; \"zone N\" is the automatic zone."));
             foreach (var f in r.Failures) b.AppendLine("  Failed: " + f);
             b.AppendLine();
             var moving = r.Moving.ToList();
