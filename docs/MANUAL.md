@@ -1200,6 +1200,17 @@ notes: 91 zones, 139 links and 50 grants.
 - **Current zone:** the zone painted and listed. **Add zone**, **Rename**, **Remove zone**
   (its tiles become unassigned; its links and grants go), and a colour. Colours default to a
   Glasbey palette: each colour is as far as possible, in CIELAB, from all the ones before it.
+- **Mark as start** and **Mark as goal** use the square selected in the view. The line under
+  them says where the game starts and ends now, and the zone list marks those zones
+  ("start", "ends the game").
+  - **Mark as start** moves the new-game start there, as the editor's start tool does. A new
+    game always starts on level 1, so only a level 1 square will do. The square is saved in
+    `UW.EXE` at once, the original kept as `UW.EXE.ORIG`, and the zoning's start zone follows.
+  - **Mark as goal** puts a square that ends the game there: a move trigger running a hack
+    trap of quality 0x3F, like level 9's at (52, 51), which stays. That trap sets the game's
+    end mode, and the ending then plays on any level (event/TRIGGER.C `do_trap_hack`,
+    game/SKILLS.C `check_victory`). It is one undo step (Edit ▸ Undo) and is saved with the
+    level. Ultima Underworld 1 only.
 - **Painting:** with **Paint in the view** on, the Paint tool paints the current zone. Drag
   over tiles, or tick *A click fills the area* to fill from the tile under the mouse.
   **Fill the area under the selected tile as zone N** does the same from the selected tile.
@@ -1217,9 +1228,20 @@ notes: 91 zones, 139 links and 50 grants.
   object can be marked as a key item, or left out, by hand; the zone file remembers it. **Add
   them to the zone's grants** turns them into what the zone gives (`key:5`, `talisman:cup`,
   `npc:corby`…).
-- **Import pictures… / Export pictures…** read and write one 64×64 indexed PNG or BMP per
-  level, in which the pixel's index is the zone id, with north up. `map0` is level 1, as in
-  the Gimp maps.
+- **Links of zone N** (the right-hand column) lists the ways from and to the current zone,
+  with what each needs.
+  - **New link to** a zone, one-way or two-way, takes its requirement from the doors between
+    the two zones when there are any.
+  - Click a link to edit it below the list: its zones and direction, kind, sureness, the
+    requirements (all must hold; `|` within a line for "or"), **From the doors**, notes, a
+    go-to for its square, and **Delete the link**.
+  - The zone graph shows the links as they change, so the two windows can sit side by side.
+- **Check if solvable…** runs the solve over time on this zoning, as Apply uses it (unsaved
+  changes and the split option included).
+  - The options are the Apply window's when it is open, else the Automatic zones window's,
+    else the defaults.
+  - The line beside the button says whether the goal is reached and by what, and how many of
+    the main option sets reach it. The report opens in a window of its own.
 - **Split multi-level zones by level for the solver** (remembered): Apply and Check the logic
   get each zone painted on several levels as one zone a level, joined by free two-way links.
   The line under it lists the zones on several levels. See **How the randomizer's logic
@@ -1412,7 +1434,9 @@ between two places, a **warp** (Gate Travel to the moonstone; the silver sapling
 - **The goal**: reaching level 9. It needs the Slasher's chamber opened with the Key of
   Infinity, Garamon's bones buried on his grave, and the eight talismans thrown into the
   chamber's lava; the moongate then takes the player to level 9. **Require breaking the orb**
-  adds Tyball's orb.
+  adds Tyball's orb. Reaching a square that ends the game counts as well: level 9's at
+  (52, 51), and any put elsewhere with the Zones window's **Mark as goal**. The solver finds
+  them in the levels: every trigger whose chain reaches hack trap 0x3F.
 - **The talismans**: the sword (blade and hilt reforged by Shak for **20 coins**), the shield
   (the golem yields it), the ring (the level 5 lever code), the taper (Zak gives it for
   **food**), the cup (Eyesnack's tune played on a flute at its place), the wine and the book
@@ -2089,7 +2113,8 @@ there is no zoning, and goes faint once clicked. **Zones window…** opens that 
 
 **The logic** rows are the same as in the Automatic zones window, with one more:
 **Require breaking the orb (level 7)**. With it on, finishing also needs Tyball's orb broken
-with an orb rock. The goal is reaching level 9, through the ritual in the Slasher's chamber.
+with an orb rock. The goal is reaching level 9, through the ritual in the Slasher's chamber,
+or a square that ends the game (see the Zones window's **Mark as goal**).
 
 **How it works.** The key items, in a random order, are placed one by one. For each, the
 solver of the automatic zones (with the world changing over time) finds the places it can

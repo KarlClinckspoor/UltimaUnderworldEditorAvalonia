@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using Avalonia.Interactivity;
 using UwEditor.Core;
@@ -10,6 +11,48 @@ namespace UwEditor.App
     /// <summary>The main window's side of the randomizer's zoning: the shared state, its windows, painting and the overlay.</summary>
     public partial class MainWindow
     {
+        /// <summary>
+        /// The solve over time on a zoning (Check the logic, Check if solvable), as Apply uses it:
+        /// its copy for the solver (split by level when that option is on), on the levels with
+        /// their unsaved edits, with the main option sets too. The options are the Apply window's
+        /// when it is open, else the Automatic zones window's, else the defaults. A zoning with
+        /// nothing painted is solved on automatic zones. Returns the report.
+        /// </summary>
+        public string SolveZoning(ZoningState z, out TimelineResult result)
+        {
+            var s = z.Session;
+            var apply = OpenKeyShuffle;
+            var auto = OpenAutoZones;
+            NavOptions nav;
+            AbilityOptions abil;
+            string from;
+            if (apply != null) { nav = apply.Options.Nav.Clone(); abil = apply.Options.Logic.Clone(); from = "the Apply window's options"; }
+            else if (auto != null) { nav = auto.MovementOptions.Clone(); abil = auto.LogicOptions.Clone(); from = "the Automatic zones window's options"; }
+            else { nav = new NavOptions { MaxClimb = ZoneClimb }; nav.JumpSpellClimb = 2 * nav.MaxClimb; abil = new AbilityOptions(); from = "the default options"; }
+            var edits = vm.Edits;
+            Func<int, LevelModel> level = l => edits != null ? edits.Model(l) : s.LoadLevel(l);
+            string split = "";
+            var zoning = z.HasZones ? z.ForSolver(out split) : null;
+            result = Timeline.Build(s, level, nav, abil, null, null, true, zoning);
+            var report = new System.Text.StringBuilder();
+            report.AppendLine(zoning != null
+                ? "The solve over time on this zoning (unsaved changes included), as Apply uses it, with " + from + "." + (z.SplitByLevel ? " Split by level: " + split + "." : "")
+                : "This zoning has no zones yet: the solve over time on automatic zones, with " + from + ".");
+            report.AppendLine();
+            report.Append(Timeline.Report(result));
+            return report.ToString();
+        }
+
+        /// <summary>One line on a solve: solvable or not with its options, by what, and how many of the main option sets reach the goal.</summary>
+        public static string Verdict(TimelineResult r)
+        {
+            var sv = r.Solve;
+            string main = sv == null ? "The solve failed." : sv.GoalReached ? "Solvable with these options (the goal reached by " + sv.GoalBy + ")." : "NOT solvable with these options: missing " + string.Join(", ", sv.GoalMissing.Distinct().Take(6)) + ".";
+            if (r.Variants.Count == 0) return main;
+            var fail = r.Variants.Where(v => v.Value == null || !v.Value.GoalReached).Select(v => v.Key).ToList();
+            return main + string.Format(" Of the {0} main option sets, {1} reach the goal{2}.", r.Variants.Count, r.Variants.Count - fail.Count, fail.Count > 0 ? " (not: " + string.Join("; ", fail) + ")" : "");
+        }
+
         ZoningState zoning;
         ZonesWindow zonesWindow;
         ZoneGraphWindow zoneGraphWindow;

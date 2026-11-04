@@ -11,6 +11,8 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using UwEditor.Core;
+using UwEditor.Core.Editing;
 using UwEditor.Core.Randomizer;
 
 namespace UwEditor.App
@@ -56,6 +58,194 @@ namespace UwEditor.App
 
         public CheckBox SplitByLevelBox { get { return splitBox; } }
 
+        // ---- start and goal
+        readonly TextBlock startGoalText = new TextBlock { FontSize = 11, Opacity = 0.8, TextWrapping = TextWrapping.Wrap };
+        // ---- links
+        readonly TextBlock linksTitle = new TextBlock { FontWeight = FontWeight.SemiBold };
+        readonly ListBox linkList = new ListBox { MaxHeight = 200 };
+        readonly ComboBox linkTo = new ComboBox { Width = 210, MaxDropDownHeight = 420 };
+        readonly CheckBox linkTwoWay = new CheckBox { Content = "Two-way", IsChecked = true };
+        readonly ContentControl linkHost = new ContentControl();
+        List<ZoneLink> shownLinks = new List<ZoneLink>();
+        List<int> toIds = new List<int>();
+        ZoneLink selectedLink;
+        bool fillingLinks;
+        // ---- the solve
+        readonly TextBlock solveText = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 1000 };
+
+        public IReadOnlyList<ZoneRow> Rows { get { return rows; } }
+        public string StartGoalText { get { return startGoalText.Text; } }
+
+        /// <summary>The last Check if solvable, or null.</summary>
+        public TimelineResult LastCheck { get; private set; }
+        public ZoneLink SelectedLink { get { return selectedLink; } }
+
+        Func<int, LevelModel> Levels { get { var edits = main.ViewModel.Edits; return l => edits != null ? edits.Model(l) : z.Session.LoadLevel(l); } }
+
+        /// <summary>The zone of the new-game start square (UW.EXE, as the editor's start tool sets it), else the zoning's start zone.</summary>
+        int StartZone()
+        {
+            var st = z.Session.NewGameStart;
+            if (st != null) { int v = z.Set.ZoneAt(st.Level, (int)st.X, (int)st.Y); if (v > ZoneSet.Unassigned) return v; }
+            return z.Set.StartZone;
+        }
+
+        List<EndTrigger> Ends()
+        {
+            try { return EndGame.Find(z.Session, Levels); }
+            catch (Exception) { return new List<EndTrigger>(); }
+        }
+
+        void RefreshStartGoal()
+        {
+            var st = z.Session.NewGameStart;
+            string start = st == null ? "Start: unknown." : string.Format("Start: level {0} ({1}, {2}), {3}.", st.Level, (int)st.X, (int)st.Y, ZoneText(z.Set.ZoneAt(st.Level, (int)st.X, (int)st.Y)));
+            var ends = Ends();
+            string goal = z.Session.IsUw2 ? "Goal: not known for UW2." :
+                "Goal: reaching level 9, or a square that ends the game: " + (ends.Count == 0 ? "none." : string.Join("; ", ends.Select(e => e + " " + ZoneText(z.Set.ZoneAt(e.Level, e.X, e.Y)))) + ".");
+            startGoalText.Text = start + " " + goal + " Mark as start and Mark as goal use the square selected in the view.";
+        }
+
+        string ZoneText(int id) { return id > ZoneSet.Unassigned ? "zone " + z.Label(id) : "in no zone yet"; }
+
+        /// <summary>Mark as start: the new-game start to the selected square (level 1), saved in the executable, and the zoning's start zone with it.</summary>
+        public bool MarkStart()
+        {
+            var vm = main.ViewModel;
+            if (vm.Level == null || vm.SelectedTileX < 0) { status.Text = "Select a square in the view first (on level 1)."; return false; }
+            int level = vm.Level.Level, x = vm.SelectedTileX, y = vm.SelectedTileY;
+            bool ok = main.MoveMarker("start", level, x, y);
+            status.Text = vm.EditStatus;
+            if (!ok) return false;
+            int zone = z.Set.ZoneAt(1, x, y);
+            if (zone > ZoneSet.Unassigned && z.Set.StartZone != zone) { z.Set.StartZone = zone; z.LinkChanged(); }
+            Refresh();
+            return true;
+        }
+
+        /// <summary>Mark as goal: a square that ends the game (move trigger and hack trap 0x3F) on the selected square; level 9's stays.</summary>
+        public bool MarkGoal()
+        {
+            var vm = main.ViewModel;
+            if (vm.Level == null || vm.SelectedTileX < 0 || vm.Edits == null) { status.Text = "Select a square in the view first."; return false; }
+            try
+            {
+                var r = TrapRecipes.EndOfGame(vm.Edits.For(vm.Level.Level), vm.SelectedTileX, vm.SelectedTileY);
+                vm.EditStatus = r.Summary;
+                main.SelectMade(r.Level, r.Trigger);
+                status.Text = r.Summary + " Edit ▸ Undo takes it away; save the level to keep it.";
+                Refresh();
+                return true;
+            }
+            catch (Exception ex) { status.Text = ex.Message; return false; }
+        }
+
+        // ---- links
+
+        Control LinksColumn()
+        {
+            var col = new StackPanel { Spacing = 6, Margin = new Thickness(16, 10, 0, 0) };
+            col.Children.Add(linksTitle);
+            col.Children.Add(new TextBlock { FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap, Text = "The ways from and to this zone, and what each needs. Click one to edit it; the zone graph shows them as you go. A new link takes its requirement from the doors between the zones when there are any." });
+            linkList.Bind(ListBox.BackgroundProperty, linkList.GetResourceObservable("Panel"));
+            linkList.SelectionChanged += (s, e) =>
+            {
+                if (fillingLinks || linkList.SelectedIndex < 0 || linkList.SelectedIndex >= shownLinks.Count) return;
+                selectedLink = shownLinks[linkList.SelectedIndex];
+                ShowLinkEditor();
+            };
+            col.Children.Add(linkList);
+            col.Children.Add(Row(new TextBlock { Text = "New link to", VerticalAlignment = VerticalAlignment.Center }, linkTo, linkTwoWay, B("Add link", () => AddLink())));
+            col.Children.Add(H("THE LINK"));
+            col.Children.Add(linkHost);
+            return new ScrollViewer { Content = col, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        }
+
+        string LinkText(ZoneLink k) { return string.Format("{0} {1} {2}: {3}", z.Label(k.From), k.TwoWay ? "↔" : "→", z.Label(k.To), k.Requires); }
+
+        /// <summary>The links of the current zone; with rebuild, the zones to link to and the editor of the selected link too.</summary>
+        void RefreshLinks(bool rebuild)
+        {
+            int cur = z.CurrentZone;
+            if (selectedLink != null && !z.Set.Links.Contains(selectedLink)) { selectedLink = null; rebuild = true; }
+            shownLinks = z.Set.Links.Where(k => k.From == cur || k.To == cur).ToList();
+            linksTitle.Text = string.Format("Links of zone {0} ({1})", cur, shownLinks.Count);
+            fillingLinks = true;
+            linkList.ItemsSource = shownLinks.Select(LinkText).ToList();
+            linkList.SelectedIndex = selectedLink != null ? shownLinks.IndexOf(selectedLink) : -1;
+            if (rebuild)
+            {
+                toIds = z.Set.Zones.Where(x => x.Id > ZoneSet.Unassigned && x.Id != cur).Select(x => x.Id).ToList();
+                int keep = linkTo.SelectedIndex >= 0 && linkTo.SelectedIndex < toIds.Count ? toIds[linkTo.SelectedIndex] : -1;
+                linkTo.ItemsSource = toIds.Select(id => z.Label(id)).ToList();
+                linkTo.SelectedIndex = toIds.IndexOf(keep);
+            }
+            fillingLinks = false;
+            if (rebuild)
+            {
+                if (selectedLink != null && selectedLink.From != cur && selectedLink.To != cur) selectedLink = null;
+                ShowLinkEditor();
+            }
+        }
+
+        void ShowLinkEditor()
+        {
+            linkHost.Content = selectedLink == null
+                ? (Control)new TextBlock { FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap, Text = "No link chosen." }
+                : new LinkEditorPanel(main, z, selectedLink, t => status.Text = t, () => RefreshLinks(true), DeleteSelectedLink);
+        }
+
+        /// <summary>Adds a link from the current zone to the zone chosen (two-way when ticked), its requirement from the doors between them.</summary>
+        public ZoneLink AddLink(int to = -1)
+        {
+            if (to < 0) to = linkTo.SelectedIndex >= 0 && linkTo.SelectedIndex < toIds.Count ? toIds[linkTo.SelectedIndex] : -1;
+            if (to < 0) { status.Text = "Choose the zone the link goes to."; return null; }
+            try
+            {
+                var k = z.Connect(z.CurrentZone, to, linkTwoWay.IsChecked == true);
+                selectedLink = k;
+                RefreshLinks(true);
+                status.Text = string.Format("Linked {0} {1} {2}: requires {3}.", z.Label(k.From), k.TwoWay ? "<->" : "->", z.Label(k.To), k.Requires);
+                return k;
+            }
+            catch (Exception ex) { status.Text = ex.Message; return null; }
+        }
+
+        void DeleteSelectedLink()
+        {
+            if (selectedLink == null) return;
+            var k = selectedLink;
+            selectedLink = null;
+            z.RemoveLink(k);
+            RefreshLinks(true);
+            status.Text = "Link removed.";
+        }
+
+        public void SelectLink(ZoneLink k) { selectedLink = k; RefreshLinks(true); }
+
+        // ---- the solve
+
+        /// <summary>Check if solvable: the solve over time on this zoning, as Apply uses it, with the main option sets. Returns the report.</summary>
+        public string CheckSolvable()
+        {
+            TimelineResult r;
+            string text = main.SolveZoning(z, out r);
+            LastCheck = r;
+            string verdict = MainWindow.Verdict(r);
+            solveText.Text = verdict;
+            return verdict + Environment.NewLine + Environment.NewLine + text;
+        }
+
+        async System.Threading.Tasks.Task CheckSolvableAsync()
+        {
+            solveText.Text = "Checking (the solve over time, with the main option sets)…";
+            await System.Threading.Tasks.Task.Delay(30);   // let the line show before the solve holds the window
+            string text;
+            try { text = CheckSolvable(); }
+            catch (Exception ex) { solveText.Text = "The solver stopped: " + ex.Message; return; }
+            await MessageWindow.ShowReport(this, "Is the zoning solvable?", text);
+        }
+
         /// <summary>Says which zones lie on several levels (what the split option splits).</summary>
         void RefreshSplit()
         {
@@ -72,7 +262,7 @@ namespace UwEditor.App
             this.main = main;
             z = zoning;
             Title = "Zones (randomizer, work in progress) — " + zoning.Session.Title;
-            Width = 1000; Height = 720; MinWidth = 760; MinHeight = 500;
+            Width = 1400; Height = 760; MinWidth = 1000; MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
             zoneBox.ItemsSource = rows;
@@ -102,10 +292,11 @@ namespace UwEditor.App
             head.Children.Add(new TextBlock
             {
                 FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap,
-                Text = "Work in progress. A zone is a part of the world that can be walked without meeting a requirement. Every tile has a zone id: 0 rock, 1 open but not in a zone yet (magenta), 2-255 the zones. The links between zones and what they need are drawn in the zone graph.",
+                Text = "Work in progress. A zone is a part of the world that can be walked without meeting a requirement. Every tile has a zone id: 0 rock, 1 open but not in a zone yet (magenta), 2-255 the zones. The links between zones and what they need are made on the right; the zone graph shows them.",
             });
             var files = Row(B("New", () => Confirm(() => z.NewFile())), B("Open…", OpenFile), B("Save", () => SaveFile(false)), B("Save as…", () => SaveFile(true)),
-                z.Session.IsUw2 ? null : B("Load the UW1 example", () => Confirm(() => z.LoadExample())), B("Import pictures…", ImportPictures), B("Export pictures…", ExportPictures),
+                // Import pictures… / Export pictures… (ImportPictures, ExportPictures) are kept in the code but no longer offered
+                z.Session.IsUw2 ? null : B("Load the UW1 example", () => Confirm(() => z.LoadExample())),
                 B("Zone graph…", () => main.ShowZoneGraph()), AutozoneButton());
             head.Children.Add(files);
             head.Children.Add(fileText);
@@ -114,6 +305,9 @@ namespace UwEditor.App
             ToolTip.SetTip(splitBox, "For the solver only (Apply, Check the logic): each zone painted on several levels becomes one zone a level, the parts joined in level order by free two-way links, as a hand zoning takes the way between levels as given. The zoning here is not changed.");
             head.Children.Add(splitBox);
             head.Children.Add(splitText);
+            var solveButton = B("Check if solvable…", async () => await CheckSolvableAsync());
+            ToolTip.SetTip(solveButton, "The solve over time on this zoning, as Apply uses it (unsaved changes and the split option included), with the Apply window's options when it is open (else the Automatic zones window's, else the defaults), and with the main option sets.");
+            head.Children.Add(Row(solveButton, solveText));
             DockPanel.SetDock(head, Dock.Top);
             dock.Children.Add(head);
             DockPanel.SetDock(status, Dock.Bottom);
@@ -133,6 +327,12 @@ namespace UwEditor.App
             nameRow.Children.Add(nameBox);
             left.Children.Add(nameRow);
             left.Children.Add(Row(swatch, colorBox, B("Set colour", () => Try(() => z.SetColor(z.CurrentZone, colorBox.Text))), B("Glasbey default", () => z.SetColor(z.CurrentZone, ""))));
+            var markStart = B("Mark as start", () => MarkStart());
+            ToolTip.SetTip(markStart, "Moves the new-game start to the square selected in the view (level 1 only), as the editor's start tool does: saved in UW.EXE at once, the original kept as UW.EXE.ORIG.");
+            var markGoal = B("Mark as goal", () => MarkGoal());
+            ToolTip.SetTip(markGoal, "Puts a square that ends the game on the square selected in the view: a move trigger and hack trap 0x3F, as on level 9 (52, 51), which stays. One undo step (Edit ▸ Undo).");
+            left.Children.Add(Row(markStart, markGoal));
+            left.Children.Add(startGoalText);
             left.Children.Add(H("PAINTING"));
             left.Children.Add(Row(paintButton, fillBox));
             left.Children.Add(Row(B("Fill the area under the selected tile as zone", FillSelected), fillZone));
@@ -165,10 +365,13 @@ namespace UwEditor.App
             right.Children.Add(rfoot);
             right.Children.Add(itemList);
 
-            var cols = new Grid { ColumnDefinitions = new ColumnDefinitions("420,*") };
+            var cols = new Grid { ColumnDefinitions = new ColumnDefinitions("400,*,400") };
             cols.Children.Add(leftScroll);
             Grid.SetColumn(right, 1);
             cols.Children.Add(right);
+            var links = LinksColumn();
+            Grid.SetColumn(links, 2);
+            cols.Children.Add(links);
             dock.Children.Add(cols);
             Content = dock;
 
@@ -229,6 +432,8 @@ namespace UwEditor.App
         void OnChanged(string what)
         {
             if (what == "notes") return;
+            // a link edited: the list's lines only, so the link being edited keeps its controls
+            if (what == "links") { RefreshLinks(false); RefreshStartGoal(); return; }
             Refresh();
         }
 
@@ -245,11 +450,13 @@ namespace UwEditor.App
             var counts = new Dictionary<int, int>();
             foreach (var t in z.Set.Tiles) if (t != null) foreach (var b in t) { int c; counts.TryGetValue(b, out c); counts[b] = c + 1; }
             rows.Clear();
+            int startZone = StartZone();
+            var goalZones = new HashSet<int>(Ends().Select(e => (int)z.Set.ZoneAt(e.Level, e.X, e.Y)).Where(v => v > ZoneSet.Unassigned));
             foreach (var zone in z.Set.Zones.Where(x => x.Id > ZoneSet.Unassigned))
             {
                 int n;
                 counts.TryGetValue(zone.Id, out n);
-                rows.Add(new ZoneRow { Id = zone.Id, Label = string.Format("{0}  {1}  ({2} tiles{3})", zone.Id, zone.Name, n, zone.Id == z.Set.StartZone ? ", start" : zone.Id == z.Set.GoalZone ? ", goal" : ""), Swatch = Brush(zone.Id) });
+                rows.Add(new ZoneRow { Id = zone.Id, Label = string.Format("{0}  {1}  ({2} tiles{3}{4})", zone.Id, zone.Name, n, zone.Id == startZone ? ", start" : "", goalZones.Contains(zone.Id) ? ", ends the game" : ""), Swatch = Brush(zone.Id) });
             }
             zoneBox.SelectedItem = rows.FirstOrDefault(r => r.Id == z.CurrentZone);
             filling = false;
@@ -270,6 +477,8 @@ namespace UwEditor.App
             }
             RefreshItems();
             RefreshSplit();
+            RefreshLinks(true);
+            RefreshStartGoal();
         }
 
         void RefreshItems()

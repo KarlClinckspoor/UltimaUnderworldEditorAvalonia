@@ -61,6 +61,8 @@ namespace UwEditor.Core.Randomizer
         public readonly Dictionary<int, ZoneLink> FirstLink = new Dictionary<int, ZoneLink>();
         public readonly List<string> Fired = new List<string>(), Applied = new List<string>();
         public bool GoalZoneReached, GoalReached;
+        /// <summary>What the goal was reached by: "the goal zone", or an end-of-game trigger ("the end of the game at L9 (52, 51)").</summary>
+        public string GoalBy = "";
         public readonly List<string> GoalMissing = new List<string>();
         public readonly List<BlockedLink> Blocked = new List<BlockedLink>();
         public readonly List<OneWayTrap> Traps = new List<OneWayTrap>();
@@ -87,6 +89,8 @@ namespace UwEditor.Core.Randomizer
         public readonly List<ZoneLink> FactLinks = new List<ZoneLink>();
         public readonly List<Fact> Warps = new List<Fact>();
         public int GoalZone;
+        /// <summary>The squares that end the game (EndGame.Find) and their zones: reaching one is the goal too, as reaching the goal zone (level 9) is.</summary>
+        public readonly List<KeyValuePair<EndTrigger, int>> Ends = new List<KeyValuePair<EndTrigger, int>>();
         public string GoalRequires = "free";
         public Fact GoalFact;
         /// <summary>Goal facts with an option (Phase D: goal_orb, option:require_orb): their requirement joins the goal's when the option is on.</summary>
@@ -178,6 +182,7 @@ namespace UwEditor.Core.Randomizer
                 // again, taking nothing from inside a trap (unless the goal is there)
                 var banned = new HashSet<int>(sv.Traps.SelectMany(t => t.Inside.Concat(new[] { t.Zone })));
                 banned.Remove(res.GoalZone);
+                foreach (var e in res.Ends) banned.Remove(e.Value);
                 var safe = res.Engine.Run(so, opt, label + " (safe)", banned);
                 sv.SafeZones = safe.ZoneSphere.Count(kv => kv.Key < 1000);
                 sv.SafeGoal = safe.GoalReached;
@@ -484,6 +489,20 @@ namespace UwEditor.Core.Randomizer
                     else res.Warnings.Add("Facts: " + f.Id + ": no zone at " + f.To + ".");
                     if (goals.Count > 1) res.Warnings.Add("Facts: " + goals.Count + " goal facts; the first (" + f.Id + ") is used.");
                 }
+                // the squares that end the game (level 9's, and any put elsewhere): reaching one wins too
+                foreach (var et in EndGame.Find(s, orig))
+                {
+                    int z = ZoneAt(new[] { et.Level, et.X, et.Y });
+                    if (z > ZoneSet.Unassigned) res.Ends.Add(new KeyValuePair<EndTrigger, int>(et, z));
+                    else res.Warnings.Add("The end of the game at " + et + " lies in no zone.");
+                }
+            }
+
+            /// <summary>The zone an end of the game lies in, in the world as it stands.</summary>
+            int EndZoneNow(KeyValuePair<EndTrigger, int> e, Dictionary<int, LevelState> cur)
+            {
+                LevelState st;
+                return cur.TryGetValue(e.Key.Level, out st) ? ZoneOfTile(st, new[] { e.Key.Level, e.Key.X, e.Key.Y }, e.Value) : e.Value;
             }
 
             /// <summary>What sets a mechanism off, in zone terms: where (its trigger's regions), its conditions, a look's Search check.</summary>
@@ -987,11 +1006,17 @@ namespace UwEditor.Core.Randomizer
                     if (round > 0 && !any && sphere.Tokens.Count == 0 && sphere.SetOff.Count == 0) break;
                     sv.Spheres.Add(sphere);
                 }
-                // the goal
+                // the goal: the goal zone (level 9), or a square that ends the game
                 sv.GoalZoneReached = ctx.Reach.Contains(res.GoalZone);
+                if (sv.GoalZoneReached) sv.GoalBy = "the goal zone";
+                else
+                {
+                    var end = res.Ends.FirstOrDefault(e => ctx.Reach.Contains(EndZoneNow(e, cur)));
+                    if (end.Key != null) { sv.GoalZoneReached = true; sv.GoalBy = "the end of the game at " + end.Key; }
+                }
                 var greq = Req(res.GoalFor(so));
                 sv.GoalReached = sv.GoalZoneReached && greq.Eval(ctx);
-                if (!sv.GoalZoneReached) sv.GoalMissing.Add("the goal zone " + ZoneName(res.GoalZone));
+                if (!sv.GoalZoneReached) sv.GoalMissing.Add("the goal zone " + ZoneName(res.GoalZone) + (res.Ends.Count > 0 ? " or an end of the game (" + string.Join(", ", res.Ends.Select(e => e.Key.ToString())) + ")" : ""));
                 greq.Missing(ctx, sv.GoalMissing);
                 // blocked links out of the reached part
                 foreach (var k in links)
@@ -1133,6 +1158,8 @@ namespace UwEditor.Core.Randomizer
                 sb.AppendLine(string.Format("SOLVE ({0}): {1}; {2} spheres, {3} of {4} zones reached, {5} changes set off, {6} applied.", sv.Label, sv.GoalReached ? "goal reached" : "goal NOT reached",
                     sv.Spheres.Count, sv.ZoneSphere.Count(kv => kv.Key < 1000), zs.Zones.Count(z => z.Id > ZoneSet.Unassigned), sv.Fired.Count, sv.Applied.Count));
                 sb.AppendLine("  Goal: " + Z(res, sv, res.GoalZone) + (res.GoalFact != null ? " (facts: " + res.GoalFact.Id + "), needs " + res.GoalRequires : " (no goal fact: the largest zone of the last level)") + (sv.GoalMissing.Count > 0 ? "; missing: " + string.Join(", ", sv.GoalMissing.Distinct().Take(20)) : ""));
+                if (res.Ends.Count > 0)
+                    sb.AppendLine("  Or the end of the game: " + string.Join("; ", res.Ends.Select(e => e.Key + " (trigger #" + e.Key.Trigger + "), " + Z(res, sv, e.Value))) + (sv.GoalReached && sv.GoalBy.Length > 0 ? ". Reached by " + sv.GoalBy + "." : "."));
                 var missing = sv.Blocked.SelectMany(x => x.Missing).GroupBy(t => t).OrderByDescending(x => x.Count()).Take(15).ToList();
                 if (missing.Count > 0) sb.AppendLine("  What blocks the links out of the reached part (token: links): " + string.Join(", ", missing.Select(x => x.Key + " " + x.Count())));
                 if (sv.SafeZones >= 0) sb.AppendLine(string.Format("  Taking nothing from inside the one-way traps: {0} zones{1}.", sv.SafeZones, sv.SafeGoal ? ", goal reached" : ""));

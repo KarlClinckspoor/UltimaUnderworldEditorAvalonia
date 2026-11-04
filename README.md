@@ -317,7 +317,9 @@ controls and borders in place of white space, in either colour scheme; font size
   checked against the game's limits. The editor does not play the music.
 - **Randomizer ▸ Scatter** (work in progress):
   - **Zones** paints a zone id on every tile, with Glasbey colours and an overlay in the
-    view, and lists each zone's key items.
+    view, and lists each zone's key items and links (made and edited there). **Mark as start**
+    moves the new-game start (in `UW.EXE`); **Mark as goal** adds a square that ends the game
+    (the game counts as won on level 9 or there); **Check if solvable** runs the solve over time.
   - **Zone graph** has movable zone labels, one-way and two-way links, and a list of
     requirements per link, filled from the locks of the doors between the zones. The middle
     mouse button pans the view and the wheel zooms. **Check the logic** solves the zoning shown

@@ -639,6 +639,36 @@ namespace UwEditor.Core.Editing
             return r;
         }
 
+        /// <summary>UW1's hack trap (trap type 3) and the quality that ends the game.</summary>
+        public const int HackTrap = 0x183, EndOfGameQuality = 0x3F;
+
+        /// <summary>
+        /// UW1: a square that ends the game: a move trigger running a hack trap of quality 0x3F,
+        /// as level 9's (#1022 at (52, 51) and #1021). The trap sets EndGameMode (event/TRIGGER.C
+        /// do_trap_hack), and check_victory (game/SKILLS.C), run every frame on any level, then
+        /// plays the ending. One undo step.
+        /// </summary>
+        public static RecipeResult EndOfGame(LevelEditor e, int x, int y)
+        {
+            var s = e.Session;
+            Need(!s.IsUw2, "Only Ultima Underworld 1's end of the game is known (hack trap 0x3F).");
+            Square(e.Model, x, y, "The end of the game");
+            var r = new RecipeResult { Level = e.Level };
+            e.Batch("End of the game here", () =>
+            {
+                var t = TrapSpec(HackTrap, e.FloorZ(x, y));
+                t.Quality = EndOfGameQuality; t.Owner = 0;
+                int trap = Add(e, r, t, x, y);
+                int trig = Add(e, r, TriggerSpec(MoveTrigger, x, y, new TriggerOptions { Reusable = true }, null), x, y);
+                SetLink(e, trig, trap);
+                CountTriggers(e, trap);
+                Checked(e);
+                r.Trigger = trig; r.Trap = trap;
+            });
+            r.Summary = string.Format("Stepping on ({0}, {1}) of level {2} ends the game: move trigger #{3}, hack trap #{4} (0x3F).", x, y, e.Level, r.Trigger, r.Trap);
+            return r;
+        }
+
         static void AddString(TrapAction a, StringsEditor strings, int str)
         {
             if (a.Kind != RecipeTrap.Message || a.TextIndex >= 0) return;
