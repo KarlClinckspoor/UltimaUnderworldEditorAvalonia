@@ -590,24 +590,20 @@ namespace UwEditor.App
         void OnUndo(object sender, RoutedEventArgs e) { Undo(); }
         void OnRedo(object sender, RoutedEventArgs e) { Redo(); }
 
-        public void Undo()
-        {
-            var ed = vm.Level == null ? null : vm.Edits?.Existing(vm.Level.Level);
-            if (ed == null || !ed.CanUndo) return;
-            string l = ed.UndoLabel;
-            ed.Undo();
-            vm.FlushRefresh();
-            vm.EditStatus = "Undone: " + l + ".";
-        }
+        /// <summary>Undoes the shown level's last step; a step made on several levels at once (a randomizer's apply) is undone on all of them.</summary>
+        public void Undo() { UndoOrRedo(true); }
 
-        public void Redo()
+        public void Redo() { UndoOrRedo(false); }
+
+        void UndoOrRedo(bool undo)
         {
             var ed = vm.Level == null ? null : vm.Edits?.Existing(vm.Level.Level);
-            if (ed == null || !ed.CanRedo) return;
-            string l = ed.RedoLabel;
-            ed.Redo();
+            if (ed == null || (undo ? !ed.CanUndo : !ed.CanRedo)) return;
+            string l = undo ? ed.UndoLabel : ed.RedoLabel, refused;
+            var levels = undo ? vm.Edits.Undo(ed.Level, out refused) : vm.Edits.Redo(ed.Level, out refused);
+            if (levels.Count == 0) { vm.EditStatus = (refused ?? "Nothing to " + (undo ? "undo." : "redo.")); return; }
             vm.FlushRefresh();
-            vm.EditStatus = "Redone: " + l + ".";
+            vm.EditStatus = (undo ? "Undone: " : "Redone: ") + l + (levels.Count > 1 ? " (on levels " + string.Join(", ", levels) + ", made together)" : "") + ".";
         }
 
         void OnSaveLevels(object sender, RoutedEventArgs e) { SaveAll(); }

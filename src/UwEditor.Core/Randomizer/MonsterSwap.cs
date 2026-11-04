@@ -481,12 +481,15 @@ namespace UwEditor.Core.Randomizer
 
         public static void Apply(MonsterSwapResult r, LevelEdits edits, int seed)
         {
-            foreach (var kv in r.ByLevel)
+            edits.Together(() =>
             {
-                var e = edits.For(kv.Key);
-                e.RewriteRecords(kv.Value, "Swap monsters (seed " + seed + ")");
-                r.After[kv.Key] = (byte[])e.Data.Clone();
-            }
+                foreach (var kv in r.ByLevel)
+                {
+                    var e = edits.For(kv.Key);
+                    e.RewriteRecords(kv.Value, "Swap monsters (seed " + seed + ")");
+                    r.After[kv.Key] = (byte[])e.Data.Clone();
+                }
+            });
         }
 
         /// <summary>
@@ -496,13 +499,16 @@ namespace UwEditor.Core.Randomizer
         public static List<int> Revert(MonsterSwapResult r, LevelEdits edits)
         {
             var skipped = new List<int>();
-            foreach (var kv in r.Original)
+            edits.Together(() =>
             {
-                var e = edits.For(kv.Key);
-                byte[] after;
-                if (r.After.TryGetValue(kv.Key, out after) && !e.Data.AsSpan().SequenceEqual(after)) { skipped.Add(kv.Key); continue; }
-                e.RewriteRecords(kv.Value, "Undo monster swap");
-            }
+                foreach (var kv in r.Original)
+                {
+                    var e = edits.For(kv.Key);
+                    byte[] after;
+                    if (r.After.TryGetValue(kv.Key, out after) && !e.Data.AsSpan().SequenceEqual(after)) { skipped.Add(kv.Key); continue; }
+                    e.RewriteRecords(kv.Value, "Undo monster swap");
+                }
+            });
             return skipped;
         }
 

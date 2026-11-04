@@ -22,6 +22,10 @@ namespace UwEditor.Core.Editing
         LevelModel model;
         readonly List<Tuple<string, byte[], byte[], byte[]>> undo = new List<Tuple<string, byte[], byte[], byte[]>>(), redo = new List<Tuple<string, byte[], byte[], byte[]>>();
         public const int UndoDepth = 200;
+        // undo steps made together with other levels (LevelEdits.Together) carry the same group number; 0 for none
+        readonly Dictionary<object, int> groups = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+        /// <summary>The group the steps made now belong to (set by LevelEdits.Together), or 0.</summary>
+        internal Func<int> GroupNow;
         public bool Dirty { get; private set; }
         /// <summary>Raised after every change, undo and redo.</summary>
         public event Action Changed;
@@ -81,6 +85,15 @@ namespace UwEditor.Core.Editing
         public string UndoLabel { get { return undo.Count > 0 ? undo[undo.Count - 1].Item1 : null; } }
         public string RedoLabel { get { return redo.Count > 0 ? redo[redo.Count - 1].Item1 : null; } }
 
+        int GroupOf(object step) { int g; return step != null && groups.TryGetValue(step, out g) ? g : 0; }
+        /// <summary>The group of the next undo step (made together with other levels), or 0.</summary>
+        public int UndoGroup { get { return undo.Count > 0 ? GroupOf(undo[undo.Count - 1]) : 0; } }
+        public int RedoGroup { get { return redo.Count > 0 ? GroupOf(redo[redo.Count - 1]) : 0; } }
+        public bool UndoHasGroup(int g) { return g != 0 && undo.Any(u => GroupOf(u) == g); }
+        public bool RedoHasGroup(int g) { return g != 0 && redo.Any(r => GroupOf(r) == g); }
+
+        void Drop(List<Tuple<string, byte[], byte[], byte[]>> list, int i) { groups.Remove(list[i]); list.RemoveAt(i); }
+
         /// <summary>Starts a group of changes that undo as one (a painting stroke).</summary>
         public void BeginBatch(string label)
         {
@@ -90,7 +103,7 @@ namespace UwEditor.Core.Editing
         public void EndBatch()
         {
             if (batchDepth == 0) return;
-            if (--batchDepth == 0 && !batchChanged && undo.Count > 0) undo.RemoveAt(undo.Count - 1);
+            if (--batchDepth == 0 && !batchChanged && undo.Count > 0) Drop(undo, undo.Count - 1);
         }
 
         /// <summary>
@@ -110,13 +123,13 @@ namespace UwEditor.Core.Editing
                 if (batchChanged && undo.Count > 0)
                 {
                     var u = undo[undo.Count - 1];
-                    undo.RemoveAt(undo.Count - 1);
+                    Drop(undo, undo.Count - 1);
                     data = u.Item2; tex = u.Item3;
                     Dirty = wasDirty;
                     model = null;
                     Changed?.Invoke();
                 }
-                else if (undo.Count > 0) undo.RemoveAt(undo.Count - 1);
+                else if (undo.Count > 0) Drop(undo, undo.Count - 1);
                 throw;
             }
             EndBatch();
@@ -124,8 +137,11 @@ namespace UwEditor.Core.Editing
 
         void Snapshot(string label)
         {
-            undo.Add(Tuple.Create(label, (byte[])data.Clone(), tex == null ? null : (byte[])tex.Clone(), anim == null ? null : (byte[])anim.Clone()));
-            if (undo.Count > UndoDepth) undo.RemoveAt(0);
+            var step = Tuple.Create(label, (byte[])data.Clone(), tex == null ? null : (byte[])tex.Clone(), anim == null ? null : (byte[])anim.Clone());
+            undo.Add(step);
+            int g = GroupNow?.Invoke() ?? 0;
+            if (g != 0) groups[step] = g;
+            if (undo.Count > UndoDepth) Drop(undo, 0);
         }
 
         /// <summary>An undo or redo while a stroke is open closes the stroke first (an empty one leaves no step).</summary>
@@ -133,7 +149,7 @@ namespace UwEditor.Core.Editing
         {
             if (batchDepth == 0) return;
             batchDepth = 0;
-            if (!batchChanged && undo.Count > 0) undo.RemoveAt(undo.Count - 1);
+            if (!batchChanged && undo.Count > 0) Drop(undo, undo.Count - 1);
         }
 
         /// <summary>Runs one change: a snapshot first (unless in a batch), then the change, then Changed.</summary>
@@ -144,12 +160,13 @@ namespace UwEditor.Core.Editing
             try { a(); }
             catch
             {
-                if (batchDepth == 0) { var u = undo[undo.Count - 1]; data = u.Item2; tex = u.Item3; anim = u.Item4; undo.RemoveAt(undo.Count - 1); }
+                if (batchDepth == 0) { var u = undo[undo.Count - 1]; data = u.Item2; tex = u.Item3; anim = u.Item4; Drop(undo, undo.Count - 1); }
                 else if (before != null) { data = before; if (animBefore != null) anim = animBefore; }
                 model = null;
                 throw;
             }
             if (batchDepth > 0) batchChanged = true;
+            foreach (var r in redo) groups.Remove(r);
             redo.Clear();                                       // only a change that happened drops the redo steps
             Done();
         }
@@ -183,8 +200,11 @@ namespace UwEditor.Core.Editing
             CloseBatch();
             if (undo.Count == 0) return;
             var u = undo[undo.Count - 1];
-            undo.RemoveAt(undo.Count - 1);
-            redo.Add(Tuple.Create(u.Item1, data, tex, anim));
+            int g = GroupOf(u);
+            Drop(undo, undo.Count - 1);
+            var back = Tuple.Create(u.Item1, data, tex, anim);
+            redo.Add(back);
+            if (g != 0) groups[back] = g;
             data = u.Item2; tex = u.Item3; anim = u.Item4;
             Done();
         }
@@ -194,8 +214,11 @@ namespace UwEditor.Core.Editing
             CloseBatch();
             if (redo.Count == 0) return;
             var r = redo[redo.Count - 1];
-            redo.RemoveAt(redo.Count - 1);
-            undo.Add(Tuple.Create(r.Item1, data, tex, anim));
+            int g = GroupOf(r);
+            Drop(redo, redo.Count - 1);
+            var again = Tuple.Create(r.Item1, data, tex, anim);
+            undo.Add(again);
+            if (g != 0) groups[again] = g;
             data = r.Item2; tex = r.Item3; anim = r.Item4;
             Done();
         }
@@ -742,6 +765,73 @@ namespace UwEditor.Core.Editing
 
         public LevelEdits(GameSession s) { Session = s; }
 
+        int groupNow, lastGroup;
+
+        /// <summary>
+        /// Runs a change made on several levels at once (a randomizer's apply, its undo) so that it
+        /// undoes and redoes as one: every undo step taken meanwhile, on any level, gets the same
+        /// group, and Undo / Redo below take them all together. Inside another Together it is part
+        /// of that one.
+        /// </summary>
+        public void Together(Action changes)
+        {
+            if (groupNow != 0) { changes(); return; }
+            groupNow = ++lastGroup;
+            try { changes(); }
+            finally { groupNow = 0; }
+        }
+
+        /// <summary>
+        /// Undoes the last step of a level. A step made together with other levels is undone on
+        /// all of them; if one of those levels was changed after it, nothing is undone and why
+        /// is said in refused. Returns the levels undone.
+        /// </summary>
+        public List<int> Undo(int level, out string refused) { return UndoOrRedo(level, true, out refused); }
+
+        /// <summary>Redoes the next step of a level, together with the other levels of its group (as Undo).</summary>
+        public List<int> Redo(int level, out string refused) { return UndoOrRedo(level, false, out refused); }
+
+        List<int> UndoOrRedo(int level, bool undo, out string refused)
+        {
+            refused = null;
+            var done = new List<int>();
+            var e = Existing(level);
+            if (e == null || (undo ? !e.CanUndo : !e.CanRedo)) return done;
+            int g = undo ? e.UndoGroup : e.RedoGroup;
+            if (g == 0) { if (undo) e.Undo(); else e.Redo(); done.Add(level); return done; }
+            var with = editors.Values.Where(x => undo ? x.UndoHasGroup(g) : x.RedoHasGroup(g)).OrderBy(x => x.Level).ToList();
+            var later = with.Where(x => (undo ? x.UndoGroup : x.RedoGroup) != g).Select(x => x.Level).ToList();
+            if (later.Count > 0)
+            {
+                string where = (later.Count == 1 ? "level " : "levels ") + string.Join(", ", later);
+                refused = undo
+                    ? string.Format("\"{0}\" changed levels {1} together, and {2} changed again after it: undo that first, there.", e.UndoLabel, string.Join(", ", with.Select(x => x.Level)), where)
+                    : string.Format("\"{0}\" changed levels {1} together, and {2} has another step to redo first: redo that first, there.", e.RedoLabel, string.Join(", ", with.Select(x => x.Level)), where);
+                return done;
+            }
+            foreach (var x in with)
+            {
+                // a level may hold several steps of the group: all of them go
+                while (undo ? x.UndoGroup == g : x.RedoGroup == g) { if (undo) x.Undo(); else x.Redo(); }
+                done.Add(x.Level);
+            }
+            return done;
+        }
+
+        /// <summary>Goes back (steps &gt; 0) or forward (steps &lt; 0) through a level's history, keeping steps made together with other levels whole; stops where one is refused.</summary>
+        public int Step(int level, int steps, out string refused)
+        {
+            refused = null;
+            int n = 0;
+            for (; steps != 0; steps += steps > 0 ? -1 : 1)
+            {
+                var done = UndoOrRedo(level, steps > 0, out refused);
+                if (done.Count == 0) break;
+                n++;
+            }
+            return n;
+        }
+
         readonly Dictionary<int, Automap> automaps = new Dictionary<int, Automap>();
         /// <summary>A level's map or notes changed.</summary>
         public event Action<Automap> AutomapChanged;
@@ -763,6 +853,7 @@ namespace UwEditor.Core.Editing
             if (!editors.TryGetValue(level, out e))
             {
                 editors[level] = e = new LevelEditor(Session, level);
+                e.GroupNow = () => groupNow;
                 e.Changed += () => Changed?.Invoke(e);
             }
             return e;

@@ -1140,12 +1140,15 @@ namespace UwEditor.Core.Randomizer
         /// <summary>Applies a result to the level editors, one undoable change per level.</summary>
         public static void Apply(ShuffleResult r, LevelEdits edits, int seed)
         {
-            foreach (var kv in r.ByLevel)
+            edits.Together(() =>
             {
-                var e = edits.For(kv.Key);
-                e.RewriteItems(kv.Value, "Shuffle item properties (seed " + seed + ")");
-                r.After[kv.Key] = (byte[])e.Data.Clone();
-            }
+                foreach (var kv in r.ByLevel)
+                {
+                    var e = edits.For(kv.Key);
+                    e.RewriteItems(kv.Value, "Shuffle item properties (seed " + seed + ")");
+                    r.After[kv.Key] = (byte[])e.Data.Clone();
+                }
+            });
         }
 
         /// <summary>
@@ -1156,13 +1159,16 @@ namespace UwEditor.Core.Randomizer
         public static List<int> Revert(ShuffleResult r, LevelEdits edits)
         {
             var skipped = new List<int>();
-            foreach (var kv in r.Original)
+            edits.Together(() =>
             {
-                var e = edits.For(kv.Key);
-                byte[] after;
-                if (r.After.TryGetValue(kv.Key, out after) && !e.Data.AsSpan().SequenceEqual(after)) { skipped.Add(kv.Key); continue; }
-                e.RewriteItems(kv.Value, "Undo item shuffle");
-            }
+                foreach (var kv in r.Original)
+                {
+                    var e = edits.For(kv.Key);
+                    byte[] after;
+                    if (r.After.TryGetValue(kv.Key, out after) && !e.Data.AsSpan().SequenceEqual(after)) { skipped.Add(kv.Key); continue; }
+                    e.RewriteItems(kv.Value, "Undo item shuffle");
+                }
+            });
             return skipped;
         }
     }

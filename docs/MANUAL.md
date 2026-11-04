@@ -117,7 +117,12 @@ changed: the list keeps the lines you opened and its place.
 
 ## Editing levels
 
-Each level keeps its own undo history (Ctrl+Z, Ctrl+Y). **Save levels** (Ctrl+S) writes
+Each level keeps its own undo history (Ctrl+Z, Ctrl+Y). A change made on several levels at
+once (the key item scatter's Apply, the swaps, the item property shuffle, the named
+challenges, and their own undo buttons) is undone and redone on all of them together, from
+any of its levels. That way no level keeps items moved to or from another. If one of those
+levels was changed again after it, the undo is refused and the status line says which level:
+undo that change there first. **Save levels** (Ctrl+S) writes
 LEV.ARK and keeps `LEV.ARK.BKP`, plus `LEV.ARK.ORIG` the first time. The toolbar above the
 view chooses the tool:
 - **Select:** a click picks an object or tile; a double click also moves the view to it
@@ -221,7 +226,9 @@ objects (creatures red, traps and triggers purple, doors brown, the rest yellow)
 
 **Edit ▸ Undo history…** (Ctrl+H) lists the current level's steps, the newest on top (●
 marks where the level is now) and the steps that can be redone above it (↷). Click a step to
-go to the level as it was after it. Each level keeps its own history, up to 200 steps.
+go to the level as it was after it. Each level keeps its own history, up to 200 steps. A
+step made on several levels at once goes back and forward on all of them together, as
+Edit ▸ Undo does.
 
 ### World check
 
@@ -1232,6 +1239,8 @@ notes: 91 zones, 139 links and 50 grants.
   object can be marked as a key item, or left out, by hand; the zone file remembers it. **Add
   them to the zone's grants** turns them into what the zone gives (`key:5`, `talisman:cup`,
   `npc:corby`…).
+- **Columns:** the three columns (the current zone, its key items, its links) can be made
+  wider or narrower by dragging the gaps between them.
 - **Links of zone N** (the right-hand column) lists the ways from and to the current zone,
   with what each needs.
   - **New link to** a zone, one-way or two-way, takes its requirement from the doors between

@@ -132,6 +132,35 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void Edit_undo_on_one_level_takes_the_whole_scatter_back_so_it_applies_again()
+        {
+            if (Uw1 == null) return;
+            var w = Ui.Open(Uw1);
+            w.AskBeforeDiscarding = false;
+            var vm = w.ViewModel;
+            var before = vm.Session.LevelSlots().Where(x => x.Present).ToDictionary(x => x.Level, x => (byte[])vm.Edits.Model(x.Level).Block.Data.Clone());
+            var kw = w.ShowKeyShuffle();
+            Ui.Pump();
+            Assert.True(kw.ShuffleNow());
+            Ui.Pump();
+            var changed = vm.Edits.DirtyLevels.ToList();
+            Assert.True(changed.Count > 3);
+            // Edit > Undo with one of them shown: all of them go back
+            vm.LoadLevel(changed[1]);
+            Ui.Pump();
+            w.Undo();
+            Ui.Pump();
+            Assert.Contains("made together", vm.EditStatus);
+            foreach (var kv in before) Assert.True(vm.Edits.Model(kv.Key).Block.Data.AsSpan().SequenceEqual(kv.Value), "level " + kv.Key);
+            // and the scatter applies again, as the first time
+            var r = kw.PreviewNow();
+            Assert.True(r.Success, string.Join("; ", r.Failures));
+            Assert.Equal(1, r.Attempts);
+            kw.Close();
+            w.Close();
+        }
+
+        [AvaloniaFact]
         public void The_zones_windows_split_by_level_option_reaches_apply_and_the_logic_check()
         {
             if (Uw1 == null) return;

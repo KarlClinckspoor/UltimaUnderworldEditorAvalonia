@@ -40,9 +40,11 @@ namespace UwEditor.App
                 if (filling || !(list.SelectedItem is Row r) || r.Back == 0) return;
                 var ed = Editor;
                 if (ed == null) return;
-                ed.Step(r.Back);
+                // steps made on several levels at once go back and forward together (LevelEdits.Step)
+                string refused;
+                int n = main.ViewModel.Edits.Step(ed.Level, r.Back, out refused);
                 main.ViewModel.FlushRefresh();
-                main.ViewModel.EditStatus = r.Back > 0 ? "Went back " + r.Back + " step(s)." : "Went forward " + (-r.Back) + " step(s).";
+                main.ViewModel.EditStatus = (r.Back > 0 ? "Went back " + n + " step(s)." : "Went forward " + n + " step(s).") + (refused != null ? " " + refused : "");
                 Fill();
             };
             var dock = new DockPanel { Margin = new Thickness(14) };

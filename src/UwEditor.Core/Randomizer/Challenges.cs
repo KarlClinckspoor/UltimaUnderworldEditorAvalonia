@@ -461,15 +461,18 @@ namespace UwEditor.Core.Randomizer
             if (r.Refused != null) throw new InvalidOperationException(r.Refused);
             var a = new ChallengeApplied { Label = label };
             var w = r.World;
-            foreach (int level in r.ChangedLevels())
+            edits.Together(() =>
             {
-                var se = w.Opened(level);
-                var e = edits.For(level);
-                if (e.Data.AsSpan().SequenceEqual(se.Data) && (e.TextureBytes == null || se.TextureBytes == null || e.TextureBytes.AsSpan().SequenceEqual(se.TextureBytes))) continue;
-                a.Before[level] = Tuple.Create((byte[])e.Data.Clone(), e.TextureBytes == null ? null : (byte[])e.TextureBytes.Clone());
-                e.Replace(se.Data, se.TextureBytes, label);
-                a.After[level] = (byte[])e.Data.Clone();
-            }
+                foreach (int level in r.ChangedLevels())
+                {
+                    var se = w.Opened(level);
+                    var e = edits.For(level);
+                    if (e.Data.AsSpan().SequenceEqual(se.Data) && (e.TextureBytes == null || se.TextureBytes == null || e.TextureBytes.AsSpan().SequenceEqual(se.TextureBytes))) continue;
+                    a.Before[level] = Tuple.Create((byte[])e.Data.Clone(), e.TextureBytes == null ? null : (byte[])e.TextureBytes.Clone());
+                    e.Replace(se.Data, se.TextureBytes, label);
+                    a.After[level] = (byte[])e.Data.Clone();
+                }
+            });
             foreach (int level in w.OpenedMaps)
             {
                 var sa = w.OpenedMap(level);
@@ -508,12 +511,15 @@ namespace UwEditor.Core.Randomizer
         {
             var skipped = new List<int>();
             string label = "Undo " + (a.Label ?? "named challenges");
-            foreach (var kv in a.Before)
+            edits.Together(() =>
             {
-                var e = edits.For(kv.Key);
-                if (!e.Data.AsSpan().SequenceEqual(a.After[kv.Key])) { skipped.Add(kv.Key); continue; }
-                e.Replace(kv.Value.Item1, kv.Value.Item2, label);
-            }
+                foreach (var kv in a.Before)
+                {
+                    var e = edits.For(kv.Key);
+                    if (!e.Data.AsSpan().SequenceEqual(a.After[kv.Key])) { skipped.Add(kv.Key); continue; }
+                    e.Replace(kv.Value.Item1, kv.Value.Item2, label);
+                }
+            });
             foreach (var kv in a.MapBefore)
             {
                 var m = edits.AutomapFor(kv.Key);

@@ -23,6 +23,7 @@ namespace UwEditor.App
         public int Id { get; set; }
         public string Label { get; set; }
         public IBrush Swatch { get; set; }
+        public uint Color { get; set; }
         public override string ToString() { return Label; }
     }
 
@@ -74,6 +75,10 @@ namespace UwEditor.App
         readonly TextBlock solveText = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 1000 };
 
         public IReadOnlyList<ZoneRow> Rows { get { return rows; } }
+        /// <summary>The three columns and the splitters between them (for the tests).</summary>
+        public Grid Splitters { get; private set; }
+        public ComboBox ZoneBox { get { return zoneBox; } }
+        public string NameText { get { return nameBox.Text; } }
         public string StartGoalText { get { return startGoalText.Text; } }
 
         /// <summary>The last Check if solvable, or null.</summary>
@@ -144,7 +149,7 @@ namespace UwEditor.App
 
         Control LinksColumn()
         {
-            var col = new StackPanel { Spacing = 6, Margin = new Thickness(16, 10, 0, 0) };
+            var col = new StackPanel { Spacing = 6, Margin = new Thickness(8, 10, 0, 0) };
             col.Children.Add(linksTitle);
             col.Children.Add(new TextBlock { FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap, Text = "The ways from and to this zone, and what each needs. Click one to edit it; the zone graph shows them as you go. A new link takes its requirement from the doors between the zones when there are any." });
             linkList.Bind(ListBox.BackgroundProperty, linkList.GetResourceObservable("Panel"));
@@ -315,7 +320,7 @@ namespace UwEditor.App
             dock.Children.Add(status);
 
             // left: the zone
-            var left = new StackPanel { Spacing = 8, Margin = new Thickness(0, 10, 16, 0) };
+            var left = new StackPanel { Spacing = 8, Margin = new Thickness(0, 10, 8, 0) };
             left.Children.Add(H("CURRENT ZONE"));
             left.Children.Add(zoneBox);
             left.Children.Add(Row(B("Add zone", AddZone), B("Remove zone", RemoveZone)));
@@ -365,13 +370,27 @@ namespace UwEditor.App
             right.Children.Add(rfoot);
             right.Children.Add(itemList);
 
-            var cols = new Grid { ColumnDefinitions = new ColumnDefinitions("400,*,400") };
+            // three columns, each resizable by dragging the splitters between them
+            var cols = new Grid();
+            cols.ColumnDefinitions.Add(new ColumnDefinition(380, GridUnitType.Pixel) { MinWidth = 260 });
+            cols.ColumnDefinitions.Add(new ColumnDefinition(8, GridUnitType.Pixel));
+            cols.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star) { MinWidth = 220 });
+            cols.ColumnDefinitions.Add(new ColumnDefinition(8, GridUnitType.Pixel));
+            cols.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star) { MinWidth = 300 });
             cols.Children.Add(leftScroll);
-            Grid.SetColumn(right, 1);
+            Grid.SetColumn(right, 2);
             cols.Children.Add(right);
             var links = LinksColumn();
-            Grid.SetColumn(links, 2);
+            Grid.SetColumn(links, 4);
             cols.Children.Add(links);
+            foreach (int c in new[] { 1, 3 })
+            {
+                var split = new GridSplitter { ResizeDirection = GridResizeDirection.Columns, Background = Brushes.Transparent, Width = 8 };
+                ToolTip.SetTip(split, "Drag to widen or narrow the columns.");
+                Grid.SetColumn(split, c);
+                cols.Children.Add(split);
+            }
+            Splitters = cols;
             dock.Children.Add(cols);
             Content = dock;
 
@@ -449,16 +468,20 @@ namespace UwEditor.App
             filling = true;
             var counts = new Dictionary<int, int>();
             foreach (var t in z.Set.Tiles) if (t != null) foreach (var b in t) { int c; counts.TryGetValue(b, out c); counts[b] = c + 1; }
-            rows.Clear();
             int startZone = StartZone();
             var goalZones = new HashSet<int>(Ends().Select(e => (int)z.Set.ZoneAt(e.Level, e.X, e.Y)).Where(v => v > ZoneSet.Unassigned));
+            var fresh = new List<ZoneRow>();
             foreach (var zone in z.Set.Zones.Where(x => x.Id > ZoneSet.Unassigned))
             {
                 int n;
                 counts.TryGetValue(zone.Id, out n);
-                rows.Add(new ZoneRow { Id = zone.Id, Label = string.Format("{0}  {1}  ({2} tiles{3}{4})", zone.Id, zone.Name, n, zone.Id == startZone ? ", start" : "", goalZones.Contains(zone.Id) ? ", ends the game" : ""), Swatch = Brush(zone.Id) });
+                fresh.Add(new ZoneRow { Id = zone.Id, Label = string.Format("{0}  {1}  ({2} tiles{3}{4})", zone.Id, zone.Name, n, zone.Id == startZone ? ", start" : "", goalZones.Contains(zone.Id) ? ", ends the game" : ""), Color = z.Set.ColorOf(zone.Id), Swatch = Brush(zone.Id) });
             }
-            zoneBox.SelectedItem = rows.FirstOrDefault(r => r.Id == z.CurrentZone);
+            // the list is rebuilt only when it changed: rebuilding it while a zone is being picked from it leaves the box empty
+            bool same = rows.Count == fresh.Count && rows.Zip(fresh, (a, b) => a.Id == b.Id && a.Label == b.Label && a.Color == b.Color).All(x => x);
+            if (!same) { rows.Clear(); foreach (var r in fresh) rows.Add(r); }
+            var want = rows.FirstOrDefault(r => r.Id == z.CurrentZone);
+            if (!ReferenceEquals(zoneBox.SelectedItem, want)) zoneBox.SelectedItem = want;
             filling = false;
             var cur = z.Set.GetZone(z.CurrentZone);
             nameBox.Text = cur?.Name ?? "";

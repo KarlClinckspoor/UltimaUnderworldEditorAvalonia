@@ -109,6 +109,56 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void Picking_a_zone_shows_it_and_its_name_and_the_columns_can_be_resized()
+        {
+            if (Uw1 == null) return;
+            var w = Ui.Open(Uw1);
+            w.AskBeforeDiscarding = false;
+            var z = w.Zoning();
+            z.LoadExample();
+            var zw = w.ShowZones();
+            Ui.Pump();
+            var rows = zw.Rows.ToList();
+            int k = rows.FindIndex(r => r.Id == 9);
+            zw.ZoneBox.SelectedIndex = k;
+            Ui.Pump();
+            Assert.Equal(9, z.CurrentZone);
+            Assert.NotNull(zw.ZoneBox.SelectedItem);
+            Assert.Equal(9, ((ZoneRow)zw.ZoneBox.SelectedItem).Id);
+            Assert.Equal(z.Set.GetZone(9).Name, zw.NameText);
+            // the closed box shows the zone picked (it went blank when the list was built again under the pick)
+            Assert.Same(zw.ZoneBox.SelectedItem, zw.ZoneBox.SelectionBoxItem);
+            Assert.Same(rows[k], zw.ZoneBox.SelectedItem);            // the list was kept, not built again under the pick
+            // three columns with two splitters between them
+            Assert.Equal(2, zw.Splitters.Children.OfType<GridSplitter>().Count());
+            Assert.Equal(5, zw.Splitters.ColumnDefinitions.Count);
+            zw.Close();
+            w.Close();
+        }
+
+        [AvaloniaFact]
+        public void Every_item_shuffle_tab_starts_with_its_shuffle_box()
+        {
+            if (Uw1 == null) return;
+            var w = Ui.Open(Uw1);
+            var sh = w.ShowItemShuffle();
+            Ui.Pump();
+            var tabs = sh.GetLogicalDescendants().OfType<TabControl>().First();
+            int checkedTabs = 0;
+            foreach (var t in tabs.Items.OfType<TabItem>())
+            {
+                if (!(t.Content is ScrollViewer sv) || !(sv.Content is StackPanel p) || p.Children.Count == 0) continue;
+                var first = p.Children[0] as CheckBox;
+                if (!p.Children.OfType<CheckBox>().Any(c => (c.Content as string ?? "").StartsWith("Shuffle "))) continue;
+                Assert.True(first != null && (first.Content as string ?? "").StartsWith("Shuffle "), t.Header + " starts with " + p.Children[0]);
+                checkedTabs++;
+            }
+            Assert.True(checkedTabs >= 7, checkedTabs + " tabs");
+            sh.Close();
+            w.Close();
+        }
+
+        [AvaloniaFact]
         public void The_zone_graph_is_a_view_that_follows_the_zones_window_and_shows_the_logic_check()
         {
             if (Uw1 == null) return;

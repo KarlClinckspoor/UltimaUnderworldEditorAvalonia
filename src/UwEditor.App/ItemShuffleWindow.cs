@@ -494,8 +494,9 @@ namespace UwEditor.App
         Control FoodTab()
         {
             var p = new StackPanel();
-            p.Children.Add(FromGame("food", "food and light"));
+            // the tab's Shuffle box always comes first, then From the game
             p.Children.Add(Check("Shuffle food", opt.ShuffleFood, x => opt.ShuffleFood = x));
+            p.Children.Add(FromGame("food", "food and light"));
             p.Children.Add(Heading("Food (relative weights)"));
             foreach (var k in opt.FoodWeights.Keys.OrderBy(k => k).ToList())
                 p.Children.Add(Line(session.Names.Get(k), Bar(0, 100, opt.FoodWeights[k], 1, x => opt.FoodWeights[k] = x)));
@@ -557,8 +558,8 @@ namespace UwEditor.App
         Control ScrollsTab()
         {
             var p = new StackPanel();
-            p.Children.Add(FromGame("scrolls", "scroll and potion"));
             p.Children.Add(Check("Shuffle spell scrolls", opt.ShuffleScrolls, x => opt.ShuffleScrolls = x));
+            p.Children.Add(FromGame("scrolls", "scroll and potion"));
             p.Children.Add(Small("Scrolls enchanted with a spell (read to cast it once). Readable scrolls, books and maps are kept."));
             p.Children.Add(Heading("Scroll spell circle (relative weights)"));
             p.Children.Add(new BarsEditor(opt.ScrollCircles, CircleLabels()) { Caption = "weight by circle", Height = 130 });

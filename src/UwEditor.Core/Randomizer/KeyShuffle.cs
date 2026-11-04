@@ -659,24 +659,30 @@ namespace UwEditor.Core.Randomizer
                 var e = edits.For(kv.Key);
                 if (!e.Data.AsSpan().SequenceEqual(r.Before[kv.Key])) throw new InvalidOperationException("Level " + kv.Key + " changed since the shuffle was computed: preview again.");
             }
-            foreach (var kv in r.After.OrderBy(k => k.Key))
+            edits.Together(() =>
             {
-                var e = edits.For(kv.Key);
-                e.Replace(kv.Value, null, "Key item scatter: apply (seed " + r.UsedSeed + ")");
-                r.Applied[kv.Key] = (byte[])e.Data.Clone();
-            }
+                foreach (var kv in r.After.OrderBy(k => k.Key))
+                {
+                    var e = edits.For(kv.Key);
+                    e.Replace(kv.Value, null, "Key item scatter: apply (seed " + r.UsedSeed + ")");
+                    r.Applied[kv.Key] = (byte[])e.Data.Clone();
+                }
+            });
         }
 
         /// <summary>Puts every level back as it was before Apply, byte for byte (one undoable step a level); a level edited since is left alone and returned.</summary>
         public static List<int> Undo(KeyShuffleResult r, LevelEdits edits)
         {
             var skipped = new List<int>();
-            foreach (var kv in r.Applied.OrderBy(k => k.Key))
+            edits.Together(() =>
             {
-                var e = edits.For(kv.Key);
-                if (!e.Data.AsSpan().SequenceEqual(kv.Value)) { skipped.Add(kv.Key); continue; }
-                e.Replace(r.Before[kv.Key], null, "Undo key item shuffle");
-            }
+                foreach (var kv in r.Applied.OrderBy(k => k.Key))
+                {
+                    var e = edits.For(kv.Key);
+                    if (!e.Data.AsSpan().SequenceEqual(kv.Value)) { skipped.Add(kv.Key); continue; }
+                    e.Replace(r.Before[kv.Key], null, "Undo key item shuffle");
+                }
+            });
             r.Applied.Clear();
             return skipped;
         }
