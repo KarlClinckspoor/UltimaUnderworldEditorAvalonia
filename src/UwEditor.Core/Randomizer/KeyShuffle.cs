@@ -656,7 +656,7 @@ namespace UwEditor.Core.Randomizer
             foreach (var kv in r.After.OrderBy(k => k.Key))
             {
                 var e = edits.For(kv.Key);
-                e.Replace(kv.Value, null, "Key item shuffle (seed " + r.UsedSeed + ")");
+                e.Replace(kv.Value, null, "Scatter: apply (seed " + r.UsedSeed + ")");
                 r.Applied[kv.Key] = (byte[])e.Data.Clone();
             }
         }

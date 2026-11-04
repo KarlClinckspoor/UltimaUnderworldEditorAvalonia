@@ -782,7 +782,45 @@ namespace UwEditor.App.Tests
             Assert.Equal("todo", k2.Confidence);
             z.RemoveLink(k2);
             Assert.DoesNotContain(k2, z.Set.Links);
-            Assert.Throws<InvalidOperationException>(() => z.Connect(5, 5, true));
+                        Assert.Throws<InvalidOperationException>(() => z.Connect(5, 5, true));
+            g.Close();
+            w.Close();
+        }
+
+        [AvaloniaFact]
+        public void Zone_graph_force_layout_pulls_linked_zones_together_and_outlines_by_level()
+        {
+            if (Uw1 == null) return;
+            var w = OpenQuiet(Uw1);
+            var z = w.Zoning();
+            z.LoadExample();
+            var g = w.ShowZoneGraph();
+            Ui.Pump();
+            // the outline is the zone's first level
+            Assert.Equal(z.Set.LevelsOf(2)[0], g.LevelOf(2));
+            Func<double> meanLink = () => z.Set.Links.Where(k => k.From != k.To && z.Set.GetZone(k.From) != null && z.Set.GetZone(k.To) != null).Average(k =>
+            {
+                var a = z.Set.GetZone(k.From); var b = z.Set.GetZone(k.To);
+                return Math.Sqrt(Math.Pow(a.GraphX.Value - b.GraphX.Value, 2) + Math.Pow(a.GraphY.Value - b.GraphY.Value, 2));
+            });
+            g.AutoLayout();
+            Ui.Pump();
+            double columns = meanLink();
+            g.StartForces();
+            Assert.True(g.ForcesRunning);
+            for (int i = 0; i < 250; i++) g.ForceTick();
+            g.StopForces();
+            Assert.False(g.ForcesRunning);
+            double forced = meanLink();
+            Assert.True(forced < columns, forced + " vs " + columns);
+            Assert.True(z.Dirty);
+            Assert.All(z.Set.Zones.Where(x => x.Id > 1), x => Assert.True(x.GraphX >= 0 && x.GraphY >= 0));
+            // more repulsion spreads the zones
+            g.Repulsion = 3;
+            g.StartForces();
+            for (int i = 0; i < 250; i++) g.ForceTick();
+            g.StopForces();
+            Assert.True(meanLink() > forced);
             g.Close();
             w.Close();
         }

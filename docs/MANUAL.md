@@ -1184,10 +1184,10 @@ between runs.
 
 ## Randomizer (work in progress)
 
-All of it is in the **Randomizer** menu: **Scatter** (the hand-made zones, the zone graph and
-the **Automatic zones** the logic is built from), **Item property shuffle**, **Item swap**,
-**Monster swap**, **Named challenges** and the **Key item shuffle**, the randomizer that moves
-the key items so the game stays beatable. How its logic works is explained in **How the
+All of it is in the **Randomizer** menu: **Scatter** (the hand-made zones, the zone graph,
+the **Automatic zones** the logic is built from, and **Apply**, the randomizer that moves the
+key items so the game stays beatable), **Item property shuffle**, **Item swap**, **Monster
+swap** and **Named challenges**. How its logic works is explained in **How the
 randomizer's logic works** below.
 
 **Randomizer ▸ Scatter ▸ Zones…** opens the zoning of the game. A zone is a part of the world
@@ -1223,7 +1223,9 @@ notes: 91 zones, 139 links and 50 grants.
 
 **Randomizer ▸ Scatter ▸ Zone graph…** shows a label for each zone, placed in a column for the
 level it first appears on. Drag the labels to arrange them; the positions are saved in the
-zone file. Lines are the links between zones:
+zone file. Each label's inside is the zone's colour in the zoning, and its outline the colour
+of the level it is on (its first level, for a zone on several); the row under the buttons is
+the key. Lines are the links between zones:
 - one arrowhead means one-way, two mean two-way;
 - dashed means still to check;
 - the colour is the kind (door, portcullis, secret, drop, lever and so on).
@@ -1238,13 +1240,19 @@ zone file. Lines are the links between zones:
   the doors** fills the list again. Delete removes the path.
 - **Check the logic…** runs the solver from the start zone: the spheres, the route to the
   goal, and what blocks each path.
+- **Force layout** lays the labels out live by forces: every link pulls the two zones it joins
+  together, every two zones push each other apart, and a weak pull keeps everything near the
+  middle, until it settles. **Attraction** and **Repulsion** set how hard the links pull and
+  the zones push (1 is the usual; change them while it runs). Drag a label meanwhile to hold
+  it in place. Press **Force layout** again to stop; the new places are kept in the zoning
+  (save it to keep them). **Arrange by level** puts them back in columns.
 
 ### How the randomizer's logic works
 
 This section explains, in one place, how the editor decides what the player can reach and
-how the **Key item shuffle** uses that to move items without making the game unbeatable. It
+how **Scatter ▸ Apply** uses that to move items without making the game unbeatable. It
 covers Ultima Underworld 1, the only game with facts so far. The windows are described in
-**Automatic zones** and **Key item shuffle** below. The findings behind the rules, with their
+**Automatic zones** and **Apply** below. The findings behind the rules, with their
 sources in the game's code, are in `docs/autozones-uw1.md` and `docs/facts/uw1-quests.md`.
 
 The rules are glitchless: no trick, clip or sequence break counts, only plain play.
@@ -1403,7 +1411,7 @@ game, with the default options, the goal is reached in 26 spheres.
 
 #### 7. The shuffle
 
-The **Key item shuffle** uses **assumed fill**, the usual method of game randomizers:
+**Apply** uses **assumed fill**, the usual method of game randomizers:
 
 1. The levels are read as they are, and the solver's world is built.
 2. With lock picking off, a door only picking opens that blocks something needed and
@@ -1503,11 +1511,11 @@ It works in steps:
 the zone file in `DATA`, or nothing.
 
 - **Build** builds the zones and shows the report.
-- **Report** shows it again. It has the counts, the solver's result with the chosen options
-  and a table of the main option sets, the comparison, the levers out of reach,
-  the biggest drops and the mechanisms.
-- **Static solver report** shows the solver without world changes: spheres, route and
-  blocked links.
+- **Report** shows it again: the solve over time (the last phase, which the others lead up
+  to). It has the options, the solver's result and a table of the main option sets, the
+  timeline sphere by sphere with the changes set off and applied, the changes that close
+  things and how each is treated, the one-way traps and the return check. The shuffle itself
+  (Phase D) is **Apply**, which has its own spoiler log.
 - **Open in the Zones window** loads the automatic zones into the Zones window to look at
   them in the view and edit them. Saving there asks for a file name and suggests
   `uw1-zones-auto.json`. The painted `uw1-zones.json` is never written unless you choose it.
@@ -1979,9 +1987,9 @@ Limits:
 - A pole and strong thread still make a fishing pole.
 - Loot made when a creature dies keeps the game's own quality.
 
-### Key item shuffle
+### Apply
 
-**Randomizer ▸ Key item shuffle…** moves the key items to new places so that the game can
+**Randomizer ▸ Scatter ▸ Apply…** (the key item shuffle) moves the key items to new places so that the game can
 still be finished with the logic you choose. It works on Ultima Underworld 1 only, because
 the facts and the solver it uses are UW1's. It reads the levels as they are in the editor,
 with unsaved edits and with any Named challenges or swaps already applied.
@@ -2026,10 +2034,10 @@ behind a door that only picking opens. If something the logic needs and that doe
 lies behind such a door, the door is unlocked as part of the shuffle, and the log says so.
 
 - **Preview** computes a shuffle and shows its spoiler log. Nothing changes.
-- **Shuffle** writes the shuffle on show into the levels (or computes one first). Items trade
+- **Apply** writes the shuffle on show into the levels (or computes one first). Items trade
   places whole: item, quality, flags, quantity or link, owner and enchantment. Each level is
   one undoable step, saved with the levels.
-- **Undo shuffle** puts the levels back as they were, byte for byte. A level edited since is
+- **Undo apply** puts the levels back as they were, byte for byte. A level edited since is
   left alone; Edit ▸ Undo still steps back there.
 - **Export spoiler log…** saves the log as a text file.
 

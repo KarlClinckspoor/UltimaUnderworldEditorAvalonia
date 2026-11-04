@@ -2,7 +2,7 @@ using Avalonia.Interactivity;
 
 namespace UwEditor.App
 {
-    /// <summary>The main window's side of Randomizer ▸ Key item shuffle…</summary>
+    /// <summary>The main window's side of Randomizer ▸ Scatter ▸ Apply…</summary>
     public partial class MainWindow
     {
         KeyShuffleWindow keyShuffleWindow;

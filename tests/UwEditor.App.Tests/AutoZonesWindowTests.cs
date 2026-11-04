@@ -38,8 +38,11 @@ namespace UwEditor.App.Tests
             Assert.NotNull(aw.Result);
             Assert.NotNull(aw.Painted);          // Karl's shipped map is the default comparison
             var text = aw.GetLogicalDescendants().OfType<TextBox>().First(t => t.IsReadOnly).Text;
-            Assert.Contains("COMPARISON WITH THE PAINTED MAP", text);
-            Assert.Contains("MECHANISMS", text);
+            // the report is the last phase's only: the solve over time
+            Assert.StartsWith("AUTOMATIC ZONES, PHASE C", text);
+            Assert.DoesNotContain("PHASE B", text);
+            Assert.DoesNotContain("(Phase A)", text);
+            Assert.DoesNotContain(aw.GetLogicalDescendants().OfType<Button>(), b => (b.Content as string ?? "").Contains("Static"));
             Shot(aw, "autozones");
             var open = aw.GetLogicalDescendants().OfType<Button>().First(b => (b.Content as string) == "Open in the Zones window");
             Assert.True(open.IsEnabled);

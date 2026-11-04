@@ -14,7 +14,7 @@ using UwEditor.Core.Randomizer;
 namespace UwEditor.App
 {
     /// <summary>
-    /// Randomizer ▸ Key item shuffle: the key items (keys, the Key of Infinity's parts, the
+    /// Randomizer ▸ Scatter ▸ Apply (the key item shuffle): the key items (keys, the Key of Infinity's parts, the
     /// talismans lying as objects, runestones, ability items, the boots' ingredients, plot items)
     /// move to new places so that the game stays beatable under the chosen logic (assumed fill on
     /// the automatic zones' time-aware solver), written into the levels as whole records, one
@@ -31,8 +31,8 @@ namespace UwEditor.App
         readonly NumericUpDown seed = new NumericUpDown { Minimum = 0, Maximum = int.MaxValue, Increment = 1, FormatString = "0", Width = 150 };
         readonly NumericUpDown retries = new NumericUpDown { Minimum = 0, Maximum = 200, Increment = 1, FormatString = "0", Width = 110 };
         readonly Button previewButton = new Button { Content = "Preview" };
-        readonly Button shuffleButton = new Button { Content = "Shuffle", FontWeight = FontWeight.SemiBold };
-        readonly Button undoButton = new Button { Content = "Undo shuffle", IsEnabled = false };
+        readonly Button shuffleButton = new Button { Content = "Apply", FontWeight = FontWeight.SemiBold };
+        readonly Button undoButton = new Button { Content = "Undo apply", IsEnabled = false };
         readonly Button exportButton = new Button { Content = "Export spoiler log…", IsEnabled = false };
         readonly List<KeyShuffleResult> applied = new List<KeyShuffleResult>();
         bool busy;
@@ -48,21 +48,21 @@ namespace UwEditor.App
         {
             this.main = main;
             session = s;
-            Title = "Key item shuffle";
+            Title = "Apply";
             Width = 1000; Height = 900; MinWidth = 680; MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             opt.Nav.MaxClimb = main.ZoneClimb;
             opt.Nav.JumpSpellClimb = 2 * opt.Nav.MaxClimb;
 
             var top = new StackPanel { Spacing = 6 };
-            top.Children.Add(new TextBlock { Text = "Key item shuffle", FontSize = 16, FontWeight = FontWeight.SemiBold });
+            top.Children.Add(new TextBlock { Text = "Apply", FontSize = 16, FontWeight = FontWeight.SemiBold });
             top.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
                 Text = "Moves the key items to new places so that the game stays beatable with the logic chosen below. The automatic zones and their time-aware solver decide what is reachable: " +
                        "the key items are placed one by one, each where the solver reaches while the ones not placed yet are counted as held (assumed fill), and the other items fill the rest. " +
                        "A fresh solve of the shuffled levels must reach level 9 with no one-way trap; otherwise the next seed is tried. Items trade places whole (keys keep their lock numbers). " +
-                       "Nothing is written until Shuffle, one undoable step a level, saved with the levels." + (s.IsUw2 ? " Ultima Underworld 1 only: its facts and solver." : ""),
+                       "Nothing is written until Apply, one undoable step a level, saved with the levels." + (s.IsUw2 ? " Ultima Underworld 1 only: its facts and solver." : ""),
             });
             seed.Value = opt.Seed;
             seed.ValueChanged += (o, e) => { opt.Seed = (int)(seed.Value ?? 1); };
@@ -115,7 +115,7 @@ namespace UwEditor.App
             Grid.SetRow(report, 2);
             root.Children.Add(scroll); root.Children.Add(actions); root.Children.Add(report);
             Content = root;
-            ManualWindow.Attach(this, "Key item shuffle");
+            ManualWindow.Attach(this, "Apply");
         }
 
         KeyShuffleResult Compute()
@@ -178,7 +178,7 @@ namespace UwEditor.App
         public KeyShuffleResult PreviewNow()
         {
             try { var r = Compute(); Show(r, "Preview. "); return r; }
-            catch (Exception ex) { summary.Text = "Could not shuffle: " + ex.Message; return null; }
+            catch (Exception ex) { summary.Text = "Could not apply: " + ex.Message; return null; }
         }
 
         /// <summary>Shuffle: writes the result on show when it still fits, or a new one, into the levels (one undoable step a level).</summary>
@@ -189,7 +189,7 @@ namespace UwEditor.App
                 var r = Fits(Result) ? Result : Compute();
                 return ApplyResult(r);
             }
-            catch (Exception ex) { summary.Text = "Could not shuffle: " + ex.Message; return false; }
+            catch (Exception ex) { summary.Text = "Could not apply: " + ex.Message; return false; }
         }
 
         bool ApplyResult(KeyShuffleResult r)
@@ -208,7 +208,7 @@ namespace UwEditor.App
             if (apply && Fits(Result)) { ApplyResult(Result); return; }
             busy = true;
             previewButton.IsEnabled = shuffleButton.IsEnabled = false;
-            summary.Text = "Shuffling… (the solver runs once per key item, then checks the result)";
+            summary.Text = "Applying… (the solver runs once per key item, then checks the result)";
             try
             {
                 KeyShuffleResult r = null;
@@ -216,7 +216,7 @@ namespace UwEditor.App
                 var snap = KeyShuffle.Snapshot(session, main.ViewModel.Edits);
                 var o = opt.Clone();
                 await Task.Run(() => { try { r = KeyShuffle.RunOn(session, snap, o); } catch (Exception ex) { error = ex.Message; } });
-                if (error != null) { summary.Text = "Could not shuffle: " + error; return; }
+                if (error != null) { summary.Text = "Could not apply: " + error; return; }
                 if (apply) ApplyResult(r); else Show(r, "Preview. ");
             }
             finally

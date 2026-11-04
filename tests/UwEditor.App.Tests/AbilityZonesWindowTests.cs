@@ -39,10 +39,11 @@ namespace UwEditor.App.Tests
             Ui.Pump();
             Assert.NotNull(aw.Abilities);
             Assert.Same(aw.Abilities.Auto, aw.Result);
-            var text = aw.GetLogicalDescendants().OfType<TextBox>().First(t => t.IsReadOnly).Text;
+            // the window shows the last phase's report; Phase B's is still made by Core
+            var text = UwEditor.Core.Randomizer.AbilityZones.Report(aw.Abilities);
             Assert.Contains("PHASE B", text);
             Assert.Contains("HIDDEN GATES", text);
-            Assert.Contains("COMPARISON WITH THE PAINTED MAP", text);
+            Assert.Contains("PHASE C", aw.GetLogicalDescendants().OfType<TextBox>().First(t => t.IsReadOnly).Text);
             int withMagic = aw.Abilities.Solve.ZoneSphere.Count;
             Shot(aw, "autozones-b");
 
@@ -56,7 +57,7 @@ namespace UwEditor.App.Tests
             Assert.False(aw.Abilities.Options.Magic);
             Assert.True(aw.Abilities.Solve.ZoneSphere.Count < withMagic);
             Assert.NotEmpty(aw.Abilities.DoorsToOpen);
-            text = aw.GetLogicalDescendants().OfType<TextBox>().First(t => t.IsReadOnly).Text;
+            text = UwEditor.Core.Randomizer.AbilityZones.Report(aw.Abilities);
             Assert.Contains("DOORS THE SHUFFLE MUST OPEN", text);
             aw.Close();
             w.Close();

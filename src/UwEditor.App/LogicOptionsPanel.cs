@@ -9,7 +9,7 @@ namespace UwEditor.App
 {
     /// <summary>
     /// The automatic zones' options as rows of controls, shared by the Automatic zones window and
-    /// the Key item shuffle window: the movement options (climbs, gap jumps, the level cut, dead
+    /// the Apply window: the movement options (climbs, gap jumps, the level cut, dead
     /// ends) when asked, and the logic options (what the solver may expect of the player). The
     /// controls write straight into the options objects given.
     /// </summary>

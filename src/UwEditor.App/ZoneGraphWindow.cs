@@ -32,7 +32,7 @@ namespace UwEditor.App
     /// </summary>
     public sealed class ZoneGraphWindow : Window
     {
-        const double CanvasW = 3600, CanvasH = 2400;
+        const double CanvasW = 4800, CanvasH = 3600;
         readonly MainWindow main;
         readonly ZoningState z;
         readonly Canvas canvas = new Canvas { Width = CanvasW, Height = CanvasH };
@@ -50,6 +50,20 @@ namespace UwEditor.App
         ZoneLink selectedLink;
         int dragZone = -1;
         Point dragOffset;
+        // the force-directed layout
+        readonly ToggleButton forceButton = new ToggleButton { Content = "Force layout" };
+        readonly Slider attraction = new Slider { Minimum = 0.05, Maximum = 4, Value = 1, Width = 130 };
+        readonly Slider repulsion = new Slider { Minimum = 0.05, Maximum = 4, Value = 1, Width = 130 };
+        readonly TextBlock attractionText = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Width = 34, FontSize = 12 };
+        readonly TextBlock repulsionText = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Width = 34, FontSize = 12 };
+        readonly WrapPanel legend = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
+        readonly Avalonia.Threading.DispatcherTimer forceTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+        readonly Dictionary<int, int> levelOf = new Dictionary<int, int>();
+        int[] forceIds;
+        double[] fx, fy;
+        List<(int A, int B)> forceLinks;
+        bool forceMoved;
+        readonly ForceState forceState = new ForceState();
 
         public ZoningState Zoning { get { return z; } }
         public ZoneLink SelectedLink { get { return selectedLink; } }
@@ -84,11 +98,28 @@ namespace UwEditor.App
                 c.Margin = new Thickness(0, 0, 6, 0);
                 bar.Children.Add(c);
             }
+            attraction.ValueChanged += (s, e) => { attractionText.Text = attraction.Value.ToString("0.0#"); forceState.Reset(); };
+            repulsion.ValueChanged += (s, e) => { repulsionText.Text = repulsion.Value.ToString("0.0#"); forceState.Reset(); };
+            attractionText.Text = "1.0"; repulsionText.Text = "1.0";
+            ToolTip.SetTip(forceButton, "Lays the labels out by forces, live: links pull the zones they join together, every two zones push apart, and a weak pull keeps everything near the middle. Drag a label meanwhile to hold it. Press again to stop; the places are kept in the zoning.");
+            ToolTip.SetTip(attraction, "How hard a link pulls the two zones it joins together.");
+            ToolTip.SetTip(repulsion, "How hard every two zones push each other apart.");
+            forceButton.Click += (s, e) => { if (forceButton.IsChecked == true) StartForces(); else StopForces(); };
+            forceTimer.Tick += (s, e) => ForceTick();
+            var forceBar = new WrapPanel { Margin = new Thickness(0, 0, 0, 4) };
+            foreach (var c in new Control[] { forceButton, new TextBlock { Text = "Attraction", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 4, 0) }, attraction, attractionText,
+                new TextBlock { Text = "Repulsion", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 4, 0) }, repulsion, repulsionText })
+            {
+                c.Margin = new Thickness(c.Margin.Left, 0, 6, 0);
+                forceBar.Children.Add(c);
+            }
             var sideScroll = new ScrollViewer { Content = side, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Width = 360, Margin = new Thickness(12, 0, 0, 0) };
             var dock = new DockPanel { Margin = new Thickness(16) };
             var head = new StackPanel();
             head.Children.Add(new TextBlock { Text = "Zone graph", FontSize = 16, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
             head.Children.Add(bar);
+            head.Children.Add(forceBar);
+            head.Children.Add(legend);
             DockPanel.SetDock(head, Dock.Top);
             DockPanel.SetDock(status, Dock.Bottom);
             status.Margin = new Thickness(0, 8, 0, 0);
@@ -96,7 +127,7 @@ namespace UwEditor.App
             dock.Children.Add(head); dock.Children.Add(status); dock.Children.Add(sideScroll); dock.Children.Add(scroller);
             Content = dock;
             z.Changed += OnChanged;
-            Closed += (s, e) => z.Changed -= OnChanged;
+            Closed += (s, e) => { z.Changed -= OnChanged; forceTimer.Stop(); };
             ManualWindow.Attach(this, "Randomizer");
             AddHandler(KeyDownEvent, (s, e) =>
             {
@@ -165,17 +196,19 @@ namespace UwEditor.App
             if (z.Set.Zones.Any(x => x.Id > ZoneSet.Unassigned && !x.GraphX.HasValue)) { Layout(false); return; }
             foreach (var b in labels.Values) canvas.Children.Remove(b);
             labels.Clear();
+            levelOf.Clear();
             foreach (var zone in z.Set.Zones.Where(x => x.Id > ZoneSet.Unassigned))
             {
                 uint c = z.Set.ColorOf(zone.Id);
                 var lv = z.Set.LevelsOf(zone.Id);
+                levelOf[zone.Id] = lv.Count > 0 ? lv[0] : 0;
                 string levels = lv.Count == 0 ? "" : lv.Count == 1 ? "  L" + lv[0] : string.Format("  L{0}-L{1}", lv.First(), lv.Last());
                 var tb = new TextBlock { Text = zone.Id + "  " + zone.Name + levels, Foreground = TextOn(c), FontSize = 12, FontWeight = zone.Id == z.Set.StartZone || zone.Id == z.Set.GoalZone ? FontWeight.Bold : FontWeight.Normal, MaxWidth = 220, TextTrimming = TextTrimming.CharacterEllipsis };
                 var b = new Border
                 {
                     Child = tb, Background = new SolidColorBrush(Color.FromArgb(255, (byte)(c >> 16), (byte)(c >> 8), (byte)c)),
-                    CornerRadius = new CornerRadius(6), Padding = new Thickness(8, 4), BorderThickness = new Thickness(zone.Id == selectedZone ? 3 : 1),
-                    BorderBrush = zone.Id == selectedZone ? Brushes.White : new SolidColorBrush(Color.FromArgb(120, 0, 0, 0)), Cursor = new Cursor(StandardCursorType.Hand),
+                    CornerRadius = new CornerRadius(6), Padding = new Thickness(7, 3), BorderThickness = new Thickness(3),
+                    BorderBrush = LevelBrush(levelOf[zone.Id]), Cursor = new Cursor(StandardCursorType.Hand),
                     Tag = zone.Id,
                 };
                 ToolTip.SetTip(b, (zone.Id == z.Set.StartZone ? "Start. " : zone.Id == z.Set.GoalZone ? "Goal. " : "") + (string.IsNullOrEmpty(zone.Notes) ? zone.Name : zone.Notes));
@@ -185,6 +218,7 @@ namespace UwEditor.App
                 canvas.Children.Add(b);
                 labels[zone.Id] = b;
             }
+            BuildLegend();
             layer.InvalidateVisual();
         }
 
@@ -228,6 +262,11 @@ namespace UwEditor.App
             var p = e.GetPosition(canvas);
             double x = Math.Max(0, Math.Min(CanvasW - 60, p.X - dragOffset.X)), y = Math.Max(0, Math.Min(CanvasH - 24, p.Y - dragOffset.Y));
             z.MoveLabel(dragZone, x, y);
+            if (forceIds != null)
+            {
+                int i = Array.IndexOf(forceIds, dragZone);
+                if (i >= 0) { var r = LabelRect(dragZone); fx[i] = x + r.Width / 2; fy[i] = y + r.Height / 2; forceState.Reset(); }
+            }
             Canvas.SetLeft(labels[dragZone], x);
             Canvas.SetTop(labels[dragZone], y);
             layer.InvalidateVisual();
@@ -245,13 +284,103 @@ namespace UwEditor.App
         {
             selectedZone = id;
             if (id >= 0) { selectedLink = null; z.CurrentZone = id; }
-            foreach (var kv in labels)
-            {
-                kv.Value.BorderThickness = new Thickness(kv.Key == id ? 3 : 1);
-                kv.Value.BorderBrush = kv.Key == id ? Brushes.White : new SolidColorBrush(Color.FromArgb(120, 0, 0, 0));
-            }
             ShowSide();
             layer.InvalidateVisual();
+        }
+
+        // ---- the level outlines and the force-directed layout
+
+        static IBrush LevelBrush(int level)
+        {
+            uint c = ForceLayout.LevelColor(level);
+            return new SolidColorBrush(Color.FromArgb(255, (byte)(c >> 16), (byte)(c >> 8), (byte)c));
+        }
+
+        /// <summary>The level each zone's outline shows (its first level; 0 for none).</summary>
+        public int LevelOf(int zone) { int l; return levelOf.TryGetValue(zone, out l) ? l : 0; }
+
+        void BuildLegend()
+        {
+            legend.Children.Clear();
+            legend.Children.Add(new TextBlock { Text = "Outline: the zone's (first) level", FontSize = 12, Opacity = 0.75, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) });
+            foreach (int l in levelOf.Values.Where(v => v > 0).Distinct().OrderBy(v => v))
+            {
+                var chip = new Border { BorderBrush = LevelBrush(l), BorderThickness = new Thickness(3), CornerRadius = new CornerRadius(4), Padding = new Thickness(6, 0), Margin = new Thickness(0, 0, 6, 2), Child = new TextBlock { Text = "L" + l, FontSize = 11 } };
+                legend.Children.Add(chip);
+            }
+            legend.Children.Add(new TextBlock { Text = "Inside: the zone's colour in the zoning", FontSize = 12, Opacity = 0.75, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) });
+        }
+
+        /// <summary>The force layout's settings from the sliders.</summary>
+        public ForceOptions Forces { get { return new ForceOptions { Attraction = attraction.Value, Repulsion = repulsion.Value }; } }
+        public double Attraction { get { return attraction.Value; } set { attraction.Value = value; } }
+        public double Repulsion { get { return repulsion.Value; } set { repulsion.Value = value; } }
+        public bool ForcesRunning { get { return forceTimer.IsEnabled; } }
+        public double Zoom { get { return zoom.Value; } set { zoom.Value = value; } }
+
+        public void StartForces()
+        {
+            forceIds = labels.Keys.OrderBy(k => k).ToArray();
+            var index = new Dictionary<int, int>();
+            for (int i = 0; i < forceIds.Length; i++) index[forceIds[i]] = i;
+            fx = new double[forceIds.Length]; fy = new double[forceIds.Length];
+            for (int i = 0; i < forceIds.Length; i++) { var r = LabelRect(forceIds[i]); fx[i] = r.Center.X; fy[i] = r.Center.Y; }
+            var seen = new HashSet<(int, int)>();
+            forceLinks = new List<(int A, int B)>();
+            foreach (var k in z.Set.Links)
+            {
+                int a, b;
+                if (!index.TryGetValue(k.From, out a) || !index.TryGetValue(k.To, out b) || a == b) continue;
+                if (seen.Add((Math.Min(a, b), Math.Max(a, b)))) forceLinks.Add((a, b));
+            }
+            forceMoved = false;
+            forceState.Reset();
+            forceButton.IsChecked = true;
+            forceTimer.Start();
+            Status("Force layout running: links pull, zones push apart. Drag a label to hold it; press Force layout again to stop.");
+        }
+
+        public void StopForces()
+        {
+            forceTimer.Stop();
+            forceButton.IsChecked = false;
+            forceIds = null;
+            if (forceMoved) z.LinkChanged();
+            Status("Force layout stopped; the places are kept in the zoning (save it to keep them).");
+        }
+
+        /// <summary>Steps of the layout (two a tick), the labels moved to match. Returns the largest move.</summary>
+        public double ForceTick(int steps = 2)
+        {
+            if (forceIds == null) return 0;
+            var pinned = new bool[forceIds.Length];
+            if (dragZone >= 0) { int i = Array.IndexOf(forceIds, dragZone); if (i >= 0) pinned[i] = true; }
+            var o = Forces;
+            double most = 0;
+            for (int s = 0; s < steps; s++) most = Math.Max(most, ForceLayout.Step(fx, fy, forceLinks, pinned, o, CanvasW * 4, CanvasH * 4, forceState));
+            // keep the drawing in the top left of the canvas, where it shows without scrolling (unless a label is held)
+            if (!pinned.Any(p => p))
+            {
+                double minX = double.MaxValue, minY = double.MaxValue;
+                for (int i = 0; i < forceIds.Length; i++)
+                {
+                    var r = LabelRect(forceIds[i]);
+                    minX = Math.Min(minX, fx[i] - r.Width / 2); minY = Math.Min(minY, fy[i] - r.Height / 2);
+                }
+                double sx = 30 - minX, sy = 30 - minY;
+                for (int i = 0; i < forceIds.Length; i++) { fx[i] += sx; fy[i] += sy; }
+            }
+            for (int i = 0; i < forceIds.Length; i++)
+            {
+                if (pinned[i] || !labels.ContainsKey(forceIds[i])) continue;
+                var r = LabelRect(forceIds[i]);
+                double x = Math.Max(0, Math.Min(CanvasW - r.Width, fx[i] - r.Width / 2)), y = Math.Max(0, Math.Min(CanvasH - r.Height, fy[i] - r.Height / 2));
+                z.MoveLabel(forceIds[i], x, y);
+                Canvas.SetLeft(labels[forceIds[i]], x); Canvas.SetTop(labels[forceIds[i]], y);
+            }
+            if (most > 0.01) forceMoved = true;
+            layer.InvalidateVisual();
+            return most;
         }
 
         // ---- links
@@ -314,6 +443,8 @@ namespace UwEditor.App
                     dc.DrawText(ft, mid);
                 }
             }
+            if (selectedZone >= 0 && labels.ContainsKey(selectedZone))
+                dc.DrawRectangle(null, new Pen(Brushes.White, 2), LabelRect(selectedZone).Inflate(4), 8, 8);
             if (connectFrom >= 0 && labels.ContainsKey(connectFrom))
                 dc.DrawRectangle(null, new Pen(Brushes.White, 2, new DashStyle(new double[] { 3, 2 }, 0)), LabelRect(connectFrom).Inflate(4), 6, 6);
         }

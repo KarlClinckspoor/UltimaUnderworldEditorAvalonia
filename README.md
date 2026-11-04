@@ -351,7 +351,7 @@ controls and borders in place of white space, in either colour scheme; font size
   math as a live formula, and Undo puts everything back.
 - **Uniform progression** in the item and monster swaps: things are sorted by strength and handed
   out level by level in the game's order, the weakest first; each level keeps its count.
-- **Randomizer ▸ Key item shuffle** (UW1): moves keys, runes, ability and plot items so the game stays
+- **Randomizer ▸ Scatter ▸ Apply** (UW1, the key item shuffle): moves keys, runes, ability and plot items so the game stays
   beatable under the chosen logic (checked by the time-aware solver), with a spoiler log and undo.
 - **Randomizer ▸ Named challenges**: 21 whole-game rules (Monk, Lockdown, Hoarding, Ghost town,
   Bones rise…) with a preview, one undo step per level and an exact Undo; quest items and

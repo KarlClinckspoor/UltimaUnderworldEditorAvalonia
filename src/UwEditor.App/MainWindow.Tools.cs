@@ -155,6 +155,14 @@ namespace UwEditor.App
                 case "shuffle-curves": ShowItemShuffle()?.OpenWeaponCurves(0); break;
                 case "shuffle-quality": ShowItemShuffle()?.OpenWeaponQuality(); break;
                 case "zones-example": { var z = Zoning(); if (z != null && !z.FileExists) z.LoadExample(); ShowZones(); } break;
+                case "zonegraph-force":
+                    {
+                        var z = Zoning(); if (z != null && !z.FileExists) z.LoadExample();
+                        var g = ShowZoneGraph();
+                        if (g == null) break;
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() => { g.StartForces(); for (int i = 0; i < 300; i++) g.ForceTick(); g.StopForces(); g.SelectZone(2); g.Zoom = 0.45; }, Avalonia.Threading.DispatcherPriority.Background);
+                        break;
+                    }
                 case "zonegraph-example": { var z = Zoning(); if (z != null && !z.FileExists) z.LoadExample(); var g = ShowZoneGraph(); g?.SelectZone(2); } break;
                 case "manual": ManualWindow.ShowAt(this, "Editing levels"); break;
                 case "add":

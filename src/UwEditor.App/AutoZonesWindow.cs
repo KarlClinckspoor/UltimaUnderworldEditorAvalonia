@@ -62,7 +62,7 @@ namespace UwEditor.App
                        "Doors closed behind the player are one way. A return check looks for zones he can enter but not leave. " +
                        "The logic options say what the solver may expect of the player: where each ability comes from, picking, the Search skill. Bashing doors is always allowed." + (s.IsUw2 ? " Made for UW1; UW2's levels are read the same way but not checked." : ""),
             });
-            // the movement and logic options (shared with the Key item shuffle window)
+            // the movement and logic options (shared with the Apply window)
             top.Children.Add(new LogicOptionsPanel(opt, abil, true));
             compareBox.ItemsSource = CompareChoices();
             compareBox.SelectedIndex = 0;
@@ -73,11 +73,9 @@ namespace UwEditor.App
             reportButton.Click += (o, e) => { if (Result != null) report.Text = FullReport(); };
             openButton.Click += (o, e) => OpenInZones();
             exportButton.Click += (o, e) => Export();
-            var solve = new Button { Content = "Static solver report", IsEnabled = true };
-            ToolTip.SetTip(solve, "The solver without world changes (Phase B), sphere by sphere.");
-            solve.Click += (o, e) => { if (Abilities?.Solve != null) report.Text = Abilities.Solve.Report(Abilities.Set); };
+            ToolTip.SetTip(reportButton, "The solve over time: the timeline sphere by sphere, the changes set off, the doors closed behind, the return check and the goal with the main option sets.");
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 4) };
-            buttons.Children.Add(build); buttons.Children.Add(reportButton); buttons.Children.Add(solve); buttons.Children.Add(openButton); buttons.Children.Add(exportButton);
+            buttons.Children.Add(build); buttons.Children.Add(reportButton); buttons.Children.Add(openButton); buttons.Children.Add(exportButton);
             top.Children.Add(buttons);
             top.Children.Add(summary);
 
@@ -135,14 +133,15 @@ namespace UwEditor.App
             catch (Exception ex) { summary.Text = "Could not build the zones: " + ex.Message; }
         }
 
-        /// <summary>Phase C's report (timeline, changes, return check), Phase B's (abilities, gates, doors), then Phase A's (counts, comparison, levers, drops, mechanisms).</summary>
-        string FullReport()
+        /// <summary>The report: the solve over time (Phase C), which the earlier phases' reports are steps towards.</summary>
+        public string FullReport()
         {
             if (Result == null) return "";
-            string c = Timeline == null ? "" : Core.Randomizer.Timeline.Report(Timeline) + Environment.NewLine;
-            string b = Abilities == null ? "" : AbilityZones.Report(Abilities) + Environment.NewLine;
-            return c + b + AutoZones.Report(Result, Painted, session);
+            return Timeline != null ? Core.Randomizer.Timeline.Report(Timeline) : AbilityZones.Report(Abilities);
         }
+
+        /// <summary>The report shown now.</summary>
+        public string ReportText { get { return report.Text; } }
 
         string SuggestedPath { get { return Path.Combine(session.DataFolder, AutoZones.DefaultFileName(session.IsUw2)); } }
 

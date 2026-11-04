@@ -38,7 +38,7 @@ namespace UwEditor.App.Tests
             Assert.Contains("PHASE C", text);
             Assert.Contains("RETURN CHECK", text);
             Assert.Contains("CHANGES THAT CLOSE THINGS", text);
-            Assert.Contains("PHASE B", text);
+            Assert.DoesNotContain("PHASE B", text);
             string dir = Environment.GetEnvironmentVariable("AUTOZONES_SHOTS");
             if (!string.IsNullOrEmpty(dir)) { Directory.CreateDirectory(dir); new Ui.Codec().Save(Ui.Capture(aw), Path.Combine(dir, "autozones-c.png")); }
             int zones = aw.Timeline.Solve.ZoneSphere.Count;
