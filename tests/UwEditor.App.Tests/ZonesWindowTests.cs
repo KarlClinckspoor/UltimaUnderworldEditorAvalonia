@@ -107,5 +107,78 @@ namespace UwEditor.App.Tests
                 w.Close();
             }
         }
+
+        [AvaloniaFact]
+        public void The_zone_graph_is_a_view_that_follows_the_zones_window_and_shows_the_logic_check()
+        {
+            if (Uw1 == null) return;
+            var w = Ui.Open(Uw1);
+            w.AskBeforeDiscarding = false;
+            var z = w.Zoning();
+            z.LoadExample();
+            var zw = w.ShowZones();
+            var g = w.ShowZoneGraph();
+            Ui.Pump();
+            // no editing here: no connect modes, no link editor, no zoom bar, no save
+            foreach (var gone in new[] { "Select and move", "Connect one-way", "Connect two-way", "Save the zoning", "Start here", "Goal here" })
+                Assert.Null(Btn(g, gone));
+            Assert.Empty(g.GetLogicalDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Where(t => (t.Content as string ?? "").StartsWith("Connect")));
+            Assert.Equal(2, g.GetLogicalDescendants().OfType<Slider>().Count());                   // attraction and repulsion only
+            Assert.NotNull(Btn(g, "Fit"));
+            Assert.NotNull(Btn(g, "Reset graph appearance"));
+            // the start: the zone of UW.EXE's start square
+            Assert.Equal(53, g.StartZone);
+            // a link made in the Zones window shows here, and a link chosen here opens there
+            z.CurrentZone = 2;
+            Ui.Pump();
+            var k = zw.AddLink(9);
+            Ui.Pump();
+            Assert.Contains(k, g.Zoning.Set.Links);
+            g.SelectLink(k);
+            Ui.Pump();
+            Assert.Empty(g.GetLogicalDescendants().OfType<LinkEditorPanel>());
+            Assert.NotNull(Btn(g, "Edit in the Zones window"));
+            Assert.Same(zw, g.EditInZones(k));
+            Assert.Same(k, zw.SelectedLink);
+            // choosing a zone in the Zones window chooses it here too
+            z.CurrentZone = 53;
+            Ui.Pump();
+            Assert.Equal(53, g.SelectedZone);
+            // Check the logic: what is reached keeps its colour with its step, links from it to what is not reached are blocked
+            Assert.Null(g.Reached);
+            g.CheckLogic();
+            Ui.Pump();
+            Assert.NotNull(g.Reached);
+            Assert.Equal(0, g.Reached[53]);
+            Assert.True(g.Reached.Count > 40, g.Reached.Count + " zones reached");
+            Assert.Contains(z.Set.Links, l => g.LinkState(l) == "used");
+            var label = g.GetLogicalDescendants().OfType<Border>().First(b => b.Tag is int id && id == 53);
+            Assert.StartsWith("[0] 53", ((TextBlock)label.Child).Text);
+            var faded = g.GetLogicalDescendants().OfType<Border>().Where(b => b.Tag is int id && !g.Reached.ContainsKey(id)).ToList();
+            Assert.All(faded, b => Assert.True(b.Opacity < 0.5));
+            // split by level: a zone's level parts count as the zone
+            zw.SplitByLevelBox.IsChecked = true;
+            Ui.Pump();
+            g.CheckLogic();
+            Assert.True(g.Reached.ContainsKey(2));
+            Assert.All(g.Reached.Keys, id => Assert.NotNull(z.Set.GetZone(id)));
+            // Reset graph appearance
+            g.ResetAppearance();
+            Ui.Pump();
+            Assert.Null(g.Reached);
+            Assert.Null(g.LinkState(k));
+            label = g.GetLogicalDescendants().OfType<Border>().First(b => b.Tag is int id && id == 53);   // the split option built the labels again
+            Assert.Equal(1, label.Opacity);
+            Assert.All(g.GetLogicalDescendants().OfType<Border>().Where(b => b.Tag is int), b => Assert.Equal(1, b.Opacity));
+            Assert.StartsWith("53", ((TextBlock)label.Child).Text);
+            // Fit shows every label
+            g.Width = 1280; g.Height = 820;
+            Ui.Pump();
+            g.Fit();
+            Assert.True(g.Zoom <= 1 && g.Zoom >= 0.3);
+            zw.SplitByLevelBox.IsChecked = false;
+            g.Close(); zw.Close();
+            w.Close();
+        }
     }
 }

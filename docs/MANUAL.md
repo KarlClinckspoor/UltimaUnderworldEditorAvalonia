@@ -1184,13 +1184,17 @@ between runs.
 
 ## Randomizer (work in progress)
 
-All of it is in the **Randomizer** menu: **Scatter** (the hand-made zones, the zone graph,
-the **Automatic zones** the logic is built from, and **Apply**, the randomizer that moves the
-key items so the game stays beatable), **Item property shuffle**, **Item swap**, **Monster
-swap** and **Named challenges**. How its logic works is explained in **How the
+All of it is in the **Randomizer** menu:
+- **Key item scatter ▸ Zones** holds the zoning. Its **Zone graph…** and **Autozone…**
+  buttons open the zone graph and the **Automatic zones** the logic is built from.
+- **Key item scatter ▸ Apply** is the randomizer that moves the key items so the game stays
+  beatable.
+- **Item property shuffle**.
+- **Swap ▸ Swap items** and **Swap ▸ Swap monsters**.
+- **Named challenges**. How its logic works is explained in **How the
 randomizer's logic works** below.
 
-**Randomizer ▸ Scatter ▸ Zones…** opens the zoning of the game. A zone is a part of the world
+**Randomizer ▸ Key item scatter ▸ Zones…** opens the zoning of the game. A zone is a part of the world
 that can be walked without meeting a requirement. Every tile has a zone id: 0 is rock, 1 is
 open but not in a zone yet (magenta in the view), and 2–255 are the zones. The file is
 `uw1-zones.json` (or `uw2-zones.json`) in `DATA`, the same format the Unity editor uses.
@@ -1251,37 +1255,43 @@ notes: 91 zones, 139 links and 50 grants.
 
 Apply and the zone graph's **Check the logic** use this zoning, unsaved changes included.
 
-**Randomizer ▸ Scatter ▸ Zone graph…** shows a label for each zone, placed in a column for the
-level it first appears on. Drag the labels to arrange them; the positions are saved in the
-zone file. Each label's inside is the zone's colour in the zoning, and its outline the colour
-of the level it is on (its first level, for a zone on several); the row under the buttons is
-the key. Lines are the links between zones:
+The Zones window's **Zone graph…** button opens a view of the zoning. It shows the zoning as
+the Zones window edits it, as you go, so the two windows can sit side by side; links are made
+and edited in the Zones window, not here.
+
+Each zone has a label, placed in a column for the level it first appears on. Drag the labels
+to arrange them; the positions are saved in the zone file. Each label's inside is the zone's
+colour in the zoning, and its outline the colour of the level it is on (its first level, for a
+zone on several); the row under the buttons is the key.
+- **The start**, the zone of the new-game square in `UW.EXE`, has a thick outline round it.
+- **The goal** zones have a thick dashed one: level 9's arrival square, and the squares that
+  end the game.
+
+Lines are the links between zones:
 - one arrowhead means one-way, two mean two-way;
 - dashed means still to check;
 - the colour is the kind (door, portcullis, secret, drop, lever and so on).
 
-- **Connect one-way / two-way:** click the zone the path starts from, then the zone it leads
-  to. If doors join the two zones, the requirement is filled from their locks. A locked door
-  that cannot be picked or broken needs its key (`key:N`). Picking a lock of difficulty Z is
-  `pick:Z` (Pick Lock 3Z; 14 needs 31; 15 never). Breaking a breakable door is `bash`. A door
-  only a lever or a conversation opens becomes a flag to fill in.
-- **A selected path** has its zones, direction, kind, sureness, notes, and its list of
-  requirements. All of them must hold, and a line with `|` holds when any part does. **From
-  the doors** fills the list again. Delete removes the path.
+- **Click** a label or a line to see the zone or the link on the right. **Edit in the Zones
+  window** opens it there.
 - **Check the logic…** runs the solve over time on the zoning shown (with its unsaved
   changes), as **Apply** uses it, on the levels with their unsaved edits.
   - The zones are those of the zoning, laid on the levels' regions (see **How the
     randomizer's logic works**, Zones from a zoning).
   - Mechanisms are set off and applied when reached, and create traps and counts are
     followed.
-  - The report shows the steps, the changes, the goal, and the zoning's warnings: zones
-    merged, zones made for areas the zoning leaves out, and zones whose parts have no free
-    way between them.
+  - The graph then shows what the solve reached. Those zones keep their colour, with the
+    step they were reached in, in brackets. The others fade. A line from a zone reached to
+    one not reached turns red, with what it needs written on it.
+  - The report opens in a window of its own. It shows the steps, the changes, the goal, and
+    the zoning's warnings: zones merged, zones made for areas the zoning leaves out, and
+    zones whose parts have no free way between them.
   - The options are the Apply window's when it is open, else the Automatic zones window's,
     else the defaults. A zoning with nothing painted yet is solved on automatic zones.
+- **Reset graph appearance** takes away what Check the logic showed.
 - **Panning and zooming:** drag with the middle mouse button, over the labels and lines too,
-  to move the view. The mouse wheel zooms in and out about the pointer (the **Zoom** slider
-  follows, from 0.3 to 2); the scroll bars still scroll.
+  to move the view. The mouse wheel zooms in and out about the pointer, from 0.3 to 2, and
+  **Fit** shows every label. The scroll bars still scroll.
 - **Force layout** lays the labels out live by forces: every link pulls the two zones it joins
   together, every two zones push each other apart, and a weak pull keeps everything near the
   middle, until it settles. **Attraction** and **Repulsion** set how hard the links pull and
@@ -1292,7 +1302,7 @@ the key. Lines are the links between zones:
 ### How the randomizer's logic works
 
 This section explains, in one place, how the editor decides what the player can reach and
-how **Scatter ▸ Apply** uses that to move items without making the game unbeatable. It
+how **Key item scatter ▸ Apply** uses that to move items without making the game unbeatable. It
 covers Ultima Underworld 1, the only game with facts so far. The windows are described in
 **Automatic zones** and **Apply** below. The findings behind the rules, with their
 sources in the game's code, are in `docs/autozones-uw1.md` and `docs/facts/uw1-quests.md`.
@@ -1543,7 +1553,7 @@ The spoiler log names each place by the zones of the hand-made zoning (the zone 
 
 ### Automatic zones
 
-**Randomizer ▸ Scatter ▸ Automatic zones…** builds the zones from the levels instead of
+The Zones window's **Autozone…** button opens **Automatic zones**, which builds the zones from the levels instead of
 painting them. It reads the levels as they are in the editor, with unsaved edits. It is made
 for UW1; UW2's levels are read the same way but nobody has checked the result.
 
@@ -1822,7 +1832,7 @@ never has its enchantment replaced.
 
 ### Swapping items
 
-**Randomizer ▸ Item swap…** only moves the existing objects around: nothing is made or
+**Randomizer ▸ Swap ▸ Swap items…** only moves the existing objects around: nothing is made or
 removed, so every item keeps its count, and no weights apply. Its settings are its own, kept in
 `item-swap-uw1.json` / `-uw2.json` in the settings folder, apart from the shuffle's. The window
 has three tabs: **Settings**, **Ignored** and **Starting equipment**. **Preview** writes the
@@ -1907,7 +1917,7 @@ objects of a kind takes ranks r_ℓ … r_ℓ + n_ℓ − 1 of the sorted list.
 
 ### Swapping monsters
 
-**Randomizer ▸ Monster swap…** makes the monsters trade places. Each spot keeps its position,
+**Randomizer ▸ Swap ▸ Swap monsters…** makes the monsters trade places. Each spot keeps its position,
 home, goal and (by default) whatever lies in its inventory, and takes another monster's kind,
 hit points, powerful flag and attitude. **Preview**, **Swap** and **Undo swap** work as in the
 item tools; each swap is one Edit ▸ Undo step per level.
@@ -2075,7 +2085,7 @@ Limits:
 
 ### Apply
 
-**Randomizer ▸ Scatter ▸ Apply…** (the key item shuffle) moves the key items to new places so that the game can
+**Randomizer ▸ Key item scatter ▸ Apply…** (the key item shuffle) moves the key items to new places so that the game can
 still be finished with the logic you choose. It works on Ultima Underworld 1 only, because
 the facts and the solver it uses are UW1's. It reads the levels as they are in the editor,
 with unsaved edits and with any Named challenges or swaps already applied.

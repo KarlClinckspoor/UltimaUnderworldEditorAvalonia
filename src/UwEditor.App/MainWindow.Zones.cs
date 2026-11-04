@@ -43,6 +43,38 @@ namespace UwEditor.App
             return report.ToString();
         }
 
+        /// <summary>The zone of the new-game start square (UW.EXE, as the editor's start tool sets it), else the zoning's start zone.</summary>
+        public int ZoningStartZone(ZoningState z)
+        {
+            var st = z.Session.NewGameStart;
+            if (st != null) { int v = z.Set.ZoneAt(st.Level, (int)st.X, (int)st.Y); if (v > ZoneSet.Unassigned) return v; }
+            return z.Set.StartZone;
+        }
+
+        /// <summary>The squares that end the game in the levels as they are now (UW1), or none.</summary>
+        public List<EndTrigger> ZoningEnds(ZoningState z)
+        {
+            var edits = vm.Edits;
+            try { return EndGame.Find(z.Session, l => edits != null ? edits.Model(l) : z.Session.LoadLevel(l)); }
+            catch (Exception) { return new List<EndTrigger>(); }
+        }
+
+        /// <summary>The zones of the goal: the zone the goal fact puts the player in (level 9's arrival), and those of the squares that end the game.</summary>
+        public HashSet<int> ZoningGoalZones(ZoningState z)
+        {
+            var set = new HashSet<int>();
+            if (z.Session.IsUw2) return set;
+            try
+            {
+                var f = FactSet.Shipped(false).OfKind("goal").FirstOrDefault(x => x.Option.Length == 0);
+                if (f != null && f.To != null && f.To.HasTile) set.Add(z.Set.ZoneAt(f.To.Level, f.To.X, f.To.Y));
+            }
+            catch (Exception) { }
+            foreach (var e in ZoningEnds(z)) set.Add(z.Set.ZoneAt(e.Level, e.X, e.Y));
+            set.RemoveWhere(v => v <= ZoneSet.Unassigned);
+            return set;
+        }
+
         /// <summary>One line on a solve: solvable or not with its options, by what, and how many of the main option sets reach the goal.</summary>
         public static string Verdict(TimelineResult r)
         {

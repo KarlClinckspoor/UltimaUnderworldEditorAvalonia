@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -26,31 +25,36 @@ namespace UwEditor.App
     }
 
     /// <summary>
-    /// Tools ▸ Randomizer ▸ Zone graph (work in progress): a label for each zone, moved by dragging;
-    /// links drawn between them, made by clicking two labels in a connect mode (one-way or two-way),
-    /// and each link's list of requirements, filled from the doors between the zones when there are
-    /// any (a locked door that cannot be picked needs its key).
+    /// The Zones window's Zone graph… (work in progress): a view of the zoning, kept up to date as
+    /// it is edited in the Zones window. A label for each zone (dragged, or laid out by forces;
+    /// the places are kept in the zoning), the links between them, the start (a thick outline)
+    /// and the goal (thick dashed). Check the logic runs the solve over time on the zoning and
+    /// shows what it reaches; Reset graph appearance takes that away. Links are made and edited
+    /// in the Zones window.
     /// </summary>
     public sealed class ZoneGraphWindow : Window
     {
-        const double CanvasW = 4800, CanvasH = 3600;
+        const double CanvasW = 4800, CanvasH = 3600, MinZoom = 0.3, MaxZoom = 2;
         readonly MainWindow main;
         readonly ZoningState z;
         readonly Canvas canvas = new Canvas { Width = CanvasW, Height = CanvasH };
         readonly LinkLayer layer = new LinkLayer { Width = CanvasW, Height = CanvasH };
         readonly ScaleTransform scale = new ScaleTransform(1, 1);
         readonly Dictionary<int, Border> labels = new Dictionary<int, Border>();
-        readonly ToggleButton moveMode = new ToggleButton { Content = "Select and move", IsChecked = true };
-        readonly ToggleButton oneWayMode = new ToggleButton { Content = "Connect one-way" };
-        readonly ToggleButton twoWayMode = new ToggleButton { Content = "Connect two-way" };
+        readonly Dictionary<int, string> labelText = new Dictionary<int, string>();
         readonly CheckBox allText = new CheckBox { Content = "Requirements on every line" };
-        readonly Slider zoom = new Slider { Minimum = 0.3, Maximum = 2, Value = 1, Width = 140 };
         readonly TextBlock status = new TextBlock { FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.Wrap };
         readonly StackPanel side = new StackPanel { Spacing = 6 };
-        int selectedZone = -1, connectFrom = -1;
+        double zoom = 1;
+        int selectedZone = -1;
         ZoneLink selectedLink;
         int dragZone = -1;
         Point dragOffset;
+        // the start and the goal, as the game has them
+        int startZone = -1;
+        HashSet<int> goalZones = new HashSet<int>();
+        // what the last Check the logic reached: zone -> sphere (null: not shown)
+        Dictionary<int, int> reached;
         // panning with the middle button
         ScrollViewer scroll;
         bool panning;
@@ -99,19 +103,18 @@ namespace UwEditor.App
             scroller.AddHandler(PointerWheelChangedEvent, (s, e) =>
             {
                 if (e.Delta.Y == 0) return;
-                ZoomAt(zoom.Value * Math.Pow(1.15, e.Delta.Y), e.GetPosition(scroller));
+                ZoomAt(zoom * Math.Pow(1.15, e.Delta.Y), e.GetPosition(scroller));
                 e.Handled = true;
             }, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
-            zoom.ValueChanged += (s, e) => { scale.ScaleX = scale.ScaleY = zoom.Value; };
-            foreach (var t in new[] { moveMode, oneWayMode, twoWayMode })
-            {
-                var me = t;
-                me.Click += (s, e) => { foreach (var o in new[] { moveMode, oneWayMode, twoWayMode }) o.IsChecked = o == me; connectFrom = -1; Status(me == moveMode ? "Drag the labels; click a label or a line to edit it." : "Click the zone the path starts from, then the zone it leads to."); layer.InvalidateVisual(); };
-            }
             var bar = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
             allText.IsCheckedChanged += (s, e) => layer.InvalidateVisual();
-            foreach (var c in new Control[] { moveMode, oneWayMode, twoWayMode, Btn("Arrange by level", AutoLayout), allText, new TextBlock { Text = "Zoom", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 4, 0) }, zoom,
-                Btn("Check the logic…", Solve), Btn("Save the zoning", () => { try { z.Save(); Status("Saved " + z.Path + "."); } catch (Exception ex) { Status(ex.Message); } }) })
+            var fit = Btn("Fit", Fit);
+            ToolTip.SetTip(fit, "Zooms and scrolls so that every label shows. The wheel zooms too, about the mouse; the middle button pans.");
+            var check = Btn("Check the logic…", Solve);
+            ToolTip.SetTip(check, "The solve over time on this zoning, as Apply uses it. Zones it reaches keep their colour and show their step; the others fade, and links that stay closed turn red.");
+            var reset = Btn("Reset graph appearance", ResetAppearance);
+            ToolTip.SetTip(reset, "Takes away what Check the logic showed.");
+            foreach (var c in new Control[] { Btn("Arrange by level", AutoLayout), allText, fit, check, reset, Btn("Zones window…", () => main.ShowZones()) })
             {
                 c.Margin = new Thickness(0, 0, 6, 0);
                 bar.Children.Add(c);
@@ -131,7 +134,7 @@ namespace UwEditor.App
                 c.Margin = new Thickness(c.Margin.Left, 0, 6, 0);
                 forceBar.Children.Add(c);
             }
-            var sideScroll = new ScrollViewer { Content = side, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Width = 360, Margin = new Thickness(12, 0, 0, 0) };
+            var sideScroll = new ScrollViewer { Content = side, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Width = 340, Margin = new Thickness(12, 0, 0, 0) };
             var dock = new DockPanel { Margin = new Thickness(16) };
             var head = new StackPanel();
             head.Children.Add(new TextBlock { Text = "Zone graph", FontSize = 16, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
@@ -149,11 +152,10 @@ namespace UwEditor.App
             ManualWindow.Attach(this, "Randomizer");
             AddHandler(KeyDownEvent, (s, e) =>
             {
-                if (e.Key == Key.Delete && selectedLink != null && !(FocusManager?.GetFocusedElement() is TextBox)) { DeleteLink(); e.Handled = true; }
-                else if (e.Key == Key.Escape) { connectFrom = -1; SelectZone(-1); e.Handled = true; }
+                if (e.Key == Key.Escape) { SelectZone(-1); e.Handled = true; }
             }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             BuildLabels();
-            Status("Drag the labels; click a label or a line to edit it. Connect modes: click the start zone, then the end zone. The wheel zooms; drag with the middle button to pan.");
+            Status("A view of the Zones window's zoning: links are made and edited there. Drag the labels; click a label or a line to see it. The wheel zooms; drag with the middle button to pan.");
             ShowSide();
         }
 
@@ -163,9 +165,16 @@ namespace UwEditor.App
 
         void OnChanged(string what)
         {
-            if (what == "zones" || what == "file" || what == "tiles") BuildLabels();
-            else if (what == "links") layer.InvalidateVisual();
-            if (what == "file") { selectedLink = null; selectedZone = -1; ShowSide(); }
+            if (what == "zones" || what == "file" || what == "tiles" || what == "split") BuildLabels();
+            else
+            {
+                RefreshStartGoal();
+                layer.InvalidateVisual();
+            }
+            if (what == "file") { selectedLink = null; selectedZone = -1; reached = null; }
+            if (what == "current" && z.CurrentZone != selectedZone && labels.ContainsKey(z.CurrentZone)) { selectedZone = z.CurrentZone; selectedLink = null; }
+            if (selectedLink != null && !z.Set.Links.Contains(selectedLink)) selectedLink = null;
+            ShowSide();
         }
 
         // ---- labels
@@ -192,7 +201,6 @@ namespace UwEditor.App
                 l.Add(zone);
             }
             int col = 0;
-            double maxY = 40;
             foreach (var kv in byLevel)
             {
                 double y = 40;
@@ -201,7 +209,6 @@ namespace UwEditor.App
                     if (y > CanvasH - 80) { col++; y = 40; }
                     zone.GraphX = 30 + col * 260; zone.GraphY = y;
                     y += 44;
-                    maxY = Math.Max(maxY, y);
                 }
                 col++;
             }
@@ -209,11 +216,23 @@ namespace UwEditor.App
             BuildLabels();
         }
 
+        /// <summary>The start zone and the goal zones as the game has them now (UW.EXE's start square; level 9's arrival and the squares that end the game).</summary>
+        void RefreshStartGoal()
+        {
+            startZone = main.ZoningStartZone(z);
+            goalZones = main.ZoningGoalZones(z);
+        }
+
+        public int StartZone { get { return startZone; } }
+        public IReadOnlyCollection<int> GoalZones { get { return goalZones; } }
+
         void BuildLabels()
         {
             if (z.Set.Zones.Any(x => x.Id > ZoneSet.Unassigned && !x.GraphX.HasValue)) { Layout(false); return; }
+            RefreshStartGoal();
             foreach (var b in labels.Values) canvas.Children.Remove(b);
             labels.Clear();
+            labelText.Clear();
             levelOf.Clear();
             foreach (var zone in z.Set.Zones.Where(x => x.Id > ZoneSet.Unassigned))
             {
@@ -221,7 +240,9 @@ namespace UwEditor.App
                 var lv = z.Set.LevelsOf(zone.Id);
                 levelOf[zone.Id] = lv.Count > 0 ? lv[0] : 0;
                 string levels = lv.Count == 0 ? "" : lv.Count == 1 ? "  L" + lv[0] : string.Format("  L{0}-L{1}", lv.First(), lv.Last());
-                var tb = new TextBlock { Text = zone.Id + "  " + zone.Name + levels, Foreground = TextOn(c), FontSize = 12, FontWeight = zone.Id == z.Set.StartZone || zone.Id == z.Set.GoalZone ? FontWeight.Bold : FontWeight.Normal, MaxWidth = 220, TextTrimming = TextTrimming.CharacterEllipsis };
+                labelText[zone.Id] = zone.Id + "  " + zone.Name + levels;
+                bool key = zone.Id == startZone || goalZones.Contains(zone.Id);
+                var tb = new TextBlock { Text = labelText[zone.Id], Foreground = TextOn(c), FontSize = 12, FontWeight = key ? FontWeight.Bold : FontWeight.Normal, MaxWidth = 220, TextTrimming = TextTrimming.CharacterEllipsis };
                 var b = new Border
                 {
                     Child = tb, Background = new SolidColorBrush(Color.FromArgb(255, (byte)(c >> 16), (byte)(c >> 8), (byte)c)),
@@ -229,13 +250,14 @@ namespace UwEditor.App
                     BorderBrush = LevelBrush(levelOf[zone.Id]), Cursor = new Cursor(StandardCursorType.Hand),
                     Tag = zone.Id,
                 };
-                ToolTip.SetTip(b, (zone.Id == z.Set.StartZone ? "Start. " : zone.Id == z.Set.GoalZone ? "Goal. " : "") + (string.IsNullOrEmpty(zone.Notes) ? zone.Name : zone.Notes));
+                ToolTip.SetTip(b, (zone.Id == startZone ? "Start. " : "") + (goalZones.Contains(zone.Id) ? "Goal. " : "") + (string.IsNullOrEmpty(zone.Notes) ? zone.Name : zone.Notes));
                 Canvas.SetLeft(b, zone.GraphX ?? 0);
                 Canvas.SetTop(b, zone.GraphY ?? 0);
                 b.PointerPressed += OnLabelPressed;
                 canvas.Children.Add(b);
                 labels[zone.Id] = b;
             }
+            ApplyCheckLook();
             BuildLegend();
             layer.InvalidateVisual();
         }
@@ -250,23 +272,9 @@ namespace UwEditor.App
 
         void OnLabelPressed(object sender, PointerPressedEventArgs e)
         {
+            if (!e.GetCurrentPoint(canvas).Properties.IsLeftButtonPressed) return;
             int id = (int)((Border)sender).Tag;
             e.Handled = true;
-            if (oneWayMode.IsChecked == true || twoWayMode.IsChecked == true)
-            {
-                if (connectFrom < 0) { connectFrom = id; Status("From " + z.Label(id) + ": now click the zone it leads to."); layer.InvalidateVisual(); return; }
-                try
-                {
-                    var k = z.Connect(connectFrom, id, twoWayMode.IsChecked == true);
-                    selectedLink = k; selectedZone = -1;
-                    Status(string.Format("Linked {0} {1} {2}: requires {3}.", z.Label(k.From), k.TwoWay ? "<->" : "->", z.Label(k.To), k.Requires));
-                }
-                catch (Exception ex) { Status(ex.Message); }
-                connectFrom = -1;
-                ShowSide();
-                layer.InvalidateVisual();
-                return;
-            }
             SelectZone(id);
             dragZone = id;
             var p = e.GetPosition(canvas);
@@ -290,11 +298,13 @@ namespace UwEditor.App
             layer.InvalidateVisual();
         }
 
-        // ---- panning with the middle button
+        // ---- zoom and panning
 
         /// <summary>How far the view is scrolled (pixels of the zoomed canvas).</summary>
         public Vector ScrollOffset { get { return scroll.Offset; } set { scroll.Offset = ClampOffset(value); } }
         public bool Panning { get { return panning; } }
+        /// <summary>The scale of the view (0.3-2): the wheel and Fit set it.</summary>
+        public double Zoom { get { return zoom; } set { zoom = Math.Max(MinZoom, Math.Min(MaxZoom, value)); scale.ScaleX = scale.ScaleY = zoom; } }
 
         Vector ClampOffset(Vector v)
         {
@@ -302,18 +312,27 @@ namespace UwEditor.App
             return new Vector(Math.Max(0, Math.Min(mx, v.X)), Math.Max(0, Math.Min(my, v.Y)));
         }
 
-        /// <summary>
-        /// Zooms to a scale (kept within the Zoom slider's range) so that the point of the canvas
-        /// under at (a point of the view) stays under it.
-        /// </summary>
+        /// <summary>Zooms to a scale (0.3-2) so that the point of the canvas under at (a point of the view) stays under it.</summary>
         public void ZoomAt(double value, Point at)
         {
-            double old = zoom.Value, now = Math.Max(zoom.Minimum, Math.Min(zoom.Maximum, value));
+            double old = zoom, now = Math.Max(MinZoom, Math.Min(MaxZoom, value));
             if (Math.Abs(now - old) < 1e-9) return;
             var c = new Point((scroll.Offset.X + at.X) / old, (scroll.Offset.Y + at.Y) / old);
-            zoom.Value = now;                 // sets the scale
+            Zoom = now;
             scroll.UpdateLayout();            // the new extent, before scrolling to keep the point in place
             scroll.Offset = ClampOffset(new Vector(c.X * now - at.X, c.Y * now - at.Y));
+        }
+
+        /// <summary>Fit: the zoom and scroll that show every label (as near 1 as they fit).</summary>
+        public void Fit()
+        {
+            if (labels.Count == 0) return;
+            var rects = labels.Keys.Select(LabelRect).ToList();
+            double x0 = rects.Min(r => r.Left) - 20, y0 = rects.Min(r => r.Top) - 20, x1 = rects.Max(r => r.Right) + 20, y1 = rects.Max(r => r.Bottom) + 20;
+            double vw = scroll.Viewport.Width > 0 ? scroll.Viewport.Width : Bounds.Width - 400, vh = scroll.Viewport.Height > 0 ? scroll.Viewport.Height : Bounds.Height - 200;
+            Zoom = Math.Min(1, Math.Min(vw / Math.Max(1, x1 - x0), vh / Math.Max(1, y1 - y0)));
+            scroll.UpdateLayout();
+            scroll.Offset = ClampOffset(new Vector(x0 * zoom, y0 * zoom));
         }
 
         void OnPanPressed(object sender, PointerPressedEventArgs e)
@@ -386,7 +405,7 @@ namespace UwEditor.App
                 var chip = new Border { BorderBrush = LevelBrush(l), BorderThickness = new Thickness(3), CornerRadius = new CornerRadius(4), Padding = new Thickness(6, 0), Margin = new Thickness(0, 0, 6, 2), Child = new TextBlock { Text = "L" + l, FontSize = 11 } };
                 legend.Children.Add(chip);
             }
-            legend.Children.Add(new TextBlock { Text = "Inside: the zone's colour in the zoning", FontSize = 12, Opacity = 0.75, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) });
+            legend.Children.Add(new TextBlock { Text = "Inside: the zone's colour in the zoning. Thick outline: the start; thick dashed: the goal (level 9's arrival, a square that ends the game).", FontSize = 12, Opacity = 0.75, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0), TextWrapping = TextWrapping.Wrap });
         }
 
         /// <summary>The force layout's settings from the sliders.</summary>
@@ -394,7 +413,6 @@ namespace UwEditor.App
         public double Attraction { get { return attraction.Value; } set { attraction.Value = value; } }
         public double Repulsion { get { return repulsion.Value; } set { repulsion.Value = value; } }
         public bool ForcesRunning { get { return forceTimer.IsEnabled; } }
-        public double Zoom { get { return zoom.Value; } set { zoom.Value = value; } }
 
         public void StartForces()
         {
@@ -497,6 +515,20 @@ namespace UwEditor.App
             { "lever", Color.Parse("#E07060") }, { "stairs", Color.Parse("#B0B0B0") }, { "other", Color.Parse("#888888") },
         };
 
+        static readonly Color Blocked = Color.Parse("#E5484D");
+
+        /// <summary>After Check the logic: "used" (both ends reached), "blocked" (from a reached zone to one not reached), "out" (neither end reached); null when not shown.</summary>
+        public string LinkState(ZoneLink k)
+        {
+            if (reached == null) return null;
+            bool a = reached.ContainsKey(k.From), b = reached.ContainsKey(k.To);
+            if (a && b) return "used";
+            if (a || (k.TwoWay && b)) return "blocked";
+            return "out";
+        }
+
+        IBrush ThemeText { get { object o; return this.TryFindResource("Text", ActualThemeVariant, out o) && o is IBrush br ? br : Brushes.White; } }
+
         public void DrawLinks(DrawingContext dc)
         {
             var font = new Typeface(FontFamily.Default);
@@ -506,13 +538,18 @@ namespace UwEditor.App
                 var (a, b) = Ends(k);
                 Color col;
                 if (!KindColors.TryGetValue(k.Kind ?? "", out col)) col = Colors.Gray;
+                string state = LinkState(k);
+                double width = 1.6;
+                if (state == "blocked") { col = Blocked; width = 2.4; }
+                else if (state == "out") col = Color.FromArgb(70, col.R, col.G, col.B);
+                else if (state == "used") width = 2.2;
                 bool sel = k == selectedLink;
-                var pen = new Pen(new SolidColorBrush(sel ? Colors.White : col), sel ? 3 : 1.6, k.Confidence == "todo" ? new DashStyle(new double[] { 4, 3 }, 0) : null);
+                var pen = new Pen(sel ? ThemeText : new SolidColorBrush(col), sel ? 3 : width, k.Confidence == "todo" ? new DashStyle(new double[] { 4, 3 }, 0) : null);
                 dc.DrawLine(pen, a, b);
                 Arrow(dc, a, b, pen.Brush);
                 if (k.TwoWay) Arrow(dc, b, a, pen.Brush);
                 bool related = sel || k.From == selectedZone || k.To == selectedZone;
-                if (k.Requires != "free" && !string.IsNullOrEmpty(k.Requires) && (related || allText.IsChecked == true))
+                if (k.Requires != "free" && !string.IsNullOrEmpty(k.Requires) && (related || allText.IsChecked == true || state == "blocked"))
                 {
                     string t = k.Requires.Length > 30 ? k.Requires.Substring(0, 29) + "…" : k.Requires;
                     var ft = new FormattedText(t, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, font, 10, Brushes.White);
@@ -521,10 +558,13 @@ namespace UwEditor.App
                     dc.DrawText(ft, mid);
                 }
             }
+            // the start (thick) and the goal (thick, dashed), outside the level outline
+            var fg = ThemeText;
+            if (labels.ContainsKey(startZone)) dc.DrawRectangle(null, new Pen(fg, 4), LabelRect(startZone).Inflate(7), 10, 10);
+            foreach (int g in goalZones.Where(labels.ContainsKey))
+                dc.DrawRectangle(null, new Pen(fg, 4, new DashStyle(new double[] { 2, 1.5 }, 0)), LabelRect(g).Inflate(g == startZone ? 13 : 7), 10, 10);
             if (selectedZone >= 0 && labels.ContainsKey(selectedZone))
-                dc.DrawRectangle(null, new Pen(Brushes.White, 2), LabelRect(selectedZone).Inflate(4), 8, 8);
-            if (connectFrom >= 0 && labels.ContainsKey(connectFrom))
-                dc.DrawRectangle(null, new Pen(Brushes.White, 2, new DashStyle(new double[] { 3, 2 }, 0)), LabelRect(connectFrom).Inflate(4), 6, 6);
+                dc.DrawRectangle(null, new Pen(fg, 1.5), LabelRect(selectedZone).Inflate(3), 8, 8);
         }
 
         static void Arrow(DrawingContext dc, Point from, Point tip, IBrush brush)
@@ -546,6 +586,7 @@ namespace UwEditor.App
 
         void OnLayerPressed(object sender, PointerPressedEventArgs e)
         {
+            if (!e.GetCurrentPoint(canvas).Properties.IsLeftButtonPressed) return;
             var p = e.GetPosition(canvas);
             ZoneLink best = null;
             double bestD = 7;
@@ -556,8 +597,8 @@ namespace UwEditor.App
                 double d = Dist(p, a, b);
                 if (d < bestD) { bestD = d; best = k; }
             }
-            SelectLink(best);
-            if (best == null) { selectedZone = -1; connectFrom = -1; SelectZone(-1); }
+            if (best != null) SelectLink(best);
+            else SelectZone(-1);
         }
 
         static double Dist(Point p, Point a, Point b)
@@ -576,28 +617,18 @@ namespace UwEditor.App
             layer.InvalidateVisual();
         }
 
-        void DeleteLink()
-        {
-            if (selectedLink == null) return;
-            var k = selectedLink;
-            selectedLink = null;
-            z.RemoveLink(k);
-            Status("Link removed.");
-            ShowSide();
-        }
-
-        // ---- the side panel
+        // ---- the side panel (to read; editing is in the Zones window)
 
         void ShowSide()
         {
             side.Children.Clear();
             if (selectedLink != null) { LinkPanel(selectedLink); return; }
-            if (selectedZone >= 0) { ZonePanel(selectedZone); return; }
+            if (selectedZone >= 0 && z.Set.GetZone(selectedZone) != null) { ZonePanel(selectedZone); return; }
             side.Children.Add(new TextBlock { Classes = { "h", "first" }, Text = "ZONE GRAPH" });
             side.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12,
-                Text = string.Format("{0} zones, {1} links, {2} grants. Lines: one arrowhead one-way, two arrowheads two-way, dashed still to check; the colour is the kind (door, portcullis, secret, drop, lever…), and the text what the path needs.", z.Set.Zones.Count(x => x.Id > 1), z.Set.Links.Count, z.Set.Placements.Count),
+                Text = string.Format("{0} zones, {1} links. Lines: one arrowhead one-way, two arrowheads two-way, dashed still to check; the colour is the kind (door, portcullis, secret, drop, lever…), and the text what the path needs. Links are made and edited in the Zones window; this window shows them as they change.", z.Set.Zones.Count(x => x.Id > 1), z.Set.Links.Count),
             });
         }
 
@@ -609,14 +640,12 @@ namespace UwEditor.App
             var lv = z.Set.LevelsOf(id);
             int items = 0;
             try { items = z.Items.Count(i => i.Zone == id); } catch (Exception) { }
-            side.Children.Add(new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Text = string.Format("{0} tiles on level{1} {2}; {3} key items; {4} links.", z.Set.TileCount(id), lv.Count == 1 ? "" : "s", string.Join(", ", lv), items, z.Set.Links.Count(k => k.From == id || k.To == id)) });
+            string role = (id == startZone ? " The start." : "") + (goalZones.Contains(id) ? " A goal." : "");
+            int sphere;
+            string check = reached == null ? "" : reached.TryGetValue(id, out sphere) ? " Reached in step " + sphere + "." : " Not reached.";
+            side.Children.Add(new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Text = string.Format("{0} tiles on level{1} {2}; {3} key items; {4} links.{5}{6}", z.Set.TileCount(id), lv.Count == 1 ? "" : "s", string.Join(", ", lv), items, z.Set.Links.Count(k => k.From == id || k.To == id), role, check) });
             if (!string.IsNullOrEmpty(zone?.Notes)) side.Children.Add(new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.8, Text = zone.Notes });
-            var row = new WrapPanel();
-            row.Children.Add(Btn("Start here", () => { z.Set.StartZone = id; z.LinkChanged(); BuildLabels(); ShowSide(); }));
-            row.Children.Add(Btn("Goal here", () => { z.Set.GoalZone = id; z.LinkChanged(); BuildLabels(); ShowSide(); }));
-            row.Children.Add(Btn("Zones window…", () => main.ShowZones()));
-            foreach (Control c in row.Children) c.Margin = new Thickness(0, 4, 6, 0);
-            side.Children.Add(row);
+            side.Children.Add(Btn("Edit in the Zones window", () => { var zw = main.ShowZones(); z.CurrentZone = id; }));
             side.Children.Add(new TextBlock { Classes = { "h" }, Text = "LINKS" });
             foreach (var k in z.Set.Links.Where(k => k.From == id || k.To == id))
             {
@@ -630,26 +659,87 @@ namespace UwEditor.App
         void LinkPanel(ZoneLink k)
         {
             side.Children.Add(new TextBlock { Classes = { "h", "first" }, Text = "PATH" });
-            side.Children.Add(new LinkEditorPanel(main, z, k, Status, ShowSide, DeleteLink));
+            side.Children.Add(new TextBlock { FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Text = string.Format("{0} {1} {2}", z.Label(k.From), k.TwoWay ? "↔" : "→", z.Label(k.To)) });
+            string state = LinkState(k);
+            side.Children.Add(new TextBlock
+            {
+                FontSize = 12, TextWrapping = TextWrapping.Wrap,
+                Text = string.Format("Kind: {0}{1}. Needs: {2}.{3}", k.Kind, k.Confidence == "todo" ? " (still to check)" : "", string.IsNullOrEmpty(k.Requires) ? "free" : k.Requires,
+                    state == "blocked" ? " The last check reached its start but not its end." : state == "used" ? " The last check reached both ends." : state == "out" ? " The last check reached neither end." : ""),
+            });
+            if (!string.IsNullOrEmpty(k.Notes)) side.Children.Add(new TextBlock { FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.Wrap, Text = k.Notes });
+            var row = new WrapPanel();
+            row.Children.Add(Btn("Edit in the Zones window", () => EditInZones(k)));
+            if (k.Level > 0) row.Children.Add(Btn(string.Format("Go to level {0} ({1}, {2})", k.Level, k.X, k.Y), () => main.GoToTile(k.Level, k.X, k.Y)));
+            foreach (Control c in row.Children) c.Margin = new Thickness(0, 4, 6, 0);
+            side.Children.Add(row);
         }
+
+        /// <summary>Opens the Zones window on a link (its first zone current, the link chosen).</summary>
+        public ZonesWindow EditInZones(ZoneLink k)
+        {
+            var zw = main.ShowZones();
+            if (zw == null) return null;
+            z.CurrentZone = k.From;
+            zw.SelectLink(k);
+            return zw;
+        }
+
+        // ---- the logic check
 
         /// <summary>The last logic check's solve over time, or null.</summary>
         public TimelineResult LastCheck { get; private set; }
 
+        /// <summary>After Check the logic: each zone of the zoning reached -> the step it was reached in; null when not shown.</summary>
+        public IReadOnlyDictionary<int, int> Reached { get { return reached; } }
+
         /// <summary>
-        /// The logic check: the solve over time (Phase C) on the zoning shown, as Apply uses it, on
-        /// the levels with their unsaved edits: each region takes the zone that holds most of its
-        /// tiles, mechanisms are set off and applied when reached, create traps and counts are
-        /// followed, and the zoning's own links are added to those the levels give. The movement
-        /// and logic options are the Apply window's when it is open, else the Automatic zones
-        /// window's, else the defaults. A zoning with no zones yet: automatic zones.
+        /// The logic check: the solve over time on this zoning, as Apply uses it (see
+        /// MainWindow.SolveZoning). The graph then shows what it reached: those zones keep their
+        /// colour with their step, the others fade, and a link from a zone reached to one not
+        /// reached turns red. Reset graph appearance takes that away.
         /// </summary>
         public string CheckLogic()
         {
             TimelineResult r;
             string text = main.SolveZoning(z, out r);
             LastCheck = r;
+            reached = new Dictionary<int, int>();
+            var given = r.Abilities.Auto.Given;
+            if (given != null)
+                foreach (var kv in r.Solve.ZoneSphere)
+                {
+                    int id = given.Original(kv.Key);
+                    if (z.Set.GetZone(id) == null) continue;
+                    int was;
+                    if (!reached.TryGetValue(id, out was) || kv.Value < was) reached[id] = kv.Value;
+                }
+            ApplyCheckLook();
+            layer.InvalidateVisual();
+            ShowSide();
             return text;
+        }
+
+        /// <summary>Reset graph appearance: takes away what Check the logic showed.</summary>
+        public void ResetAppearance()
+        {
+            reached = null;
+            ApplyCheckLook();
+            layer.InvalidateVisual();
+            ShowSide();
+            Status("The graph shows the zoning again, without the last check.");
+        }
+
+        void ApplyCheckLook()
+        {
+            foreach (var kv in labels)
+            {
+                var tb = (TextBlock)kv.Value.Child;
+                int sphere;
+                if (reached == null) { kv.Value.Opacity = 1; tb.Text = labelText[kv.Key]; }
+                else if (reached.TryGetValue(kv.Key, out sphere)) { kv.Value.Opacity = 1; tb.Text = "[" + sphere + "] " + labelText[kv.Key]; }
+                else { kv.Value.Opacity = 0.3; tb.Text = labelText[kv.Key]; }
+            }
         }
 
         async void Solve()
@@ -660,7 +750,8 @@ namespace UwEditor.App
             try { text = CheckLogic(); }
             catch (Exception ex) { Status("The solver stopped: " + ex.Message); return; }
             var sv = LastCheck?.Solve;
-            Status(sv == null ? "The solve over time failed." : sv.GoalReached ? "Logic check: goal reached." : "Logic check: goal NOT reached.");
+            Status((sv == null ? "The solve over time failed." : sv.GoalReached ? "Logic check: goal reached." : "Logic check: goal NOT reached.")
+                + (LastCheck?.Abilities.Auto.Given == null ? " The zoning has no zones yet, so nothing is shown on the graph." : string.Format(" {0} of {1} zones reached (numbers in brackets: the step); the others fade, and red lines lead from a zone reached to one not reached. Reset graph appearance takes this away.", reached.Count, labels.Count)));
             await MessageWindow.ShowReport(this, "The logic from the start", text);
         }
     }

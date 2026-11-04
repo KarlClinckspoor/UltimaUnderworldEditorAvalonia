@@ -73,7 +73,7 @@ namespace UwEditor.App
         {
             this.main = main;
             session = s;
-            Title = "Item swap";
+            Title = "Swap items";
             Width = 940; Height = 880; MinWidth = 660; MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             set = Load();
@@ -81,7 +81,7 @@ namespace UwEditor.App
             if (set.Start == null) set.Start = ItemShuffle.StartingEquipment(s, Level);
 
             var header = new StackPanel { Spacing = 4, Margin = new Thickness(0, 0, 0, 6) };
-            header.Children.Add(new TextBlock { Text = "Item swap", FontSize = 16, FontWeight = FontWeight.SemiBold });
+            header.Children.Add(new TextBlock { Text = "Swap items", FontSize = 16, FontWeight = FontWeight.SemiBold });
             header.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,

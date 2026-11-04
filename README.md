@@ -315,18 +315,18 @@ controls and borders in place of white space, in either colour scheme; font size
   files (converted and checked against the games' limits), edit SOUNDS.DAT, add UW2 trap sounds;
   export any music theme as MIDI and import MIDI files as new themes (FM and MT-32 versions),
   checked against the game's limits. The editor does not play the music.
-- **Randomizer ▸ Scatter** (work in progress):
+- **Randomizer ▸ Key item scatter** (work in progress):
   - **Zones** paints a zone id on every tile, with Glasbey colours and an overlay in the
     view, and lists each zone's key items and links (made and edited there). **Mark as start**
     moves the new-game start (in `UW.EXE`); **Mark as goal** adds a square that ends the game
     (the game counts as won on level 9 or there); **Check if solvable** runs the solve over time.
-  - **Zone graph** has movable zone labels, one-way and two-way links, and a list of
-    requirements per link, filled from the locks of the doors between the zones. The middle
-    mouse button pans the view and the wheel zooms. **Check the logic** solves the zoning shown
-    over time, as Apply uses it.
-  - Both read and write the Unity editor's `uw1-zones.json`. The UW1 example zoning is in
-    `docs/examples`.
-- **Randomizer ▸ Scatter ▸ Automatic zones** (UW1): builds the randomizer's zones from the levels
+  - **Zone graph** (from the Zones window) shows the zoning live as it is edited: movable zone
+    labels, the links, the start (thick outline) and the goal (thick dashed). The middle mouse
+    button pans and the wheel zooms. **Check the logic** solves the zoning over time, as Apply
+    uses it, and shows what it reaches; **Reset graph appearance** clears that.
+  - The Zones window reads and writes the Unity editor's `uw1-zones.json`. The UW1 example
+    zoning is in `docs/examples`.
+- **Automatic zones** (UW1, from the Zones window's **Autozone…** button): builds the randomizer's zones from the levels
   (walkable regions, drops, climbs, gap jumps, doors, levers, teleports), lists the trigger chains
   that change the world and runs the solver: **Build and Report** shows the solve, **Build and Use**
   puts the zones in the Zones window (whose **Autozone…** button opens it). The start is the
@@ -342,14 +342,14 @@ controls and borders in place of white space, in either colour scheme; font size
   hand-drawn bars and curves), with UW2's special weapons, other armour effects, ring effects
   and curses, and minimums of tools and runes. Every setting starts from what the world holds,
   each tab can be refitted to the levels, and a world report lists what they hold.
-- **Randomizer ▸ Monster swap** makes the monsters trade places by strength (experience value,
+- **Randomizer ▸ Swap ▸ Swap monsters** makes the monsters trade places by strength (experience value,
   hit points, damage or both, powerful counted), keeping each spot's difficulty or following
   the depth, with a spread from strict to uniform. Creatures with a conversation stay unless
   whitelisted; swimmers, heights and race-bound creatures are respected, and no creature lands
   on water or lava it cannot survive; hit points can stay with the spot; UW1's fire elementals
   and UW2's brain creatures can be left alone. A live formula shows the math, the strength
   table sorts by any column, and a world report lists the creatures by kind and by level.
-- **Randomizer ▸ Item swap** only trades the existing objects around, within their kind or across
+- **Randomizer ▸ Swap ▸ Swap items** only trades the existing objects around, within their kind or across
   the ticked kinds, within a level, ±N levels, a world or the whole game, with its own
   settings and ignore list. Items take their spot's owner (the rat's food becomes the rat's
   lantern); bones and other scenery can join (never Garamon's bones); the starting equipment
@@ -357,7 +357,7 @@ controls and borders in place of white space, in either colour scheme; font size
   math as a live formula, and Undo puts everything back.
 - **Uniform progression** in the item and monster swaps: things are sorted by strength and handed
   out level by level in the game's order, the weakest first; each level keeps its count.
-- **Randomizer ▸ Scatter ▸ Apply** (UW1, the key item shuffle): moves keys, runes, ability and plot items so the game stays
+- **Randomizer ▸ Key item scatter ▸ Apply** (UW1, the key item shuffle): moves keys, runes, ability and plot items so the game stays
   beatable under the chosen logic (checked by the time-aware solver), with a spoiler log and undo. It uses the Zones window's
   zoning (painted or automatic) for its zones; **Quick autozone** makes one when there is none.
 - **Randomizer ▸ Named challenges**: 21 whole-game rules (Monk, Lockdown, Hoarding, Ghost town,

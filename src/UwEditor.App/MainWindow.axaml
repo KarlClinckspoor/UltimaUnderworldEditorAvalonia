@@ -120,18 +120,16 @@
         <MenuItem Header="_Mods…" Click="OnMods" InputGesture="Ctrl+Shift+M" IsEnabled="{Binding HasGame}" />
       </MenuItem>
       <MenuItem Header="Randomi_zer">
-        <MenuItem Header="_Scatter (work in progress)">
+        <!-- the zone graph and the automatic zones open from the Zones window (Zone graph…, Autozone…) -->
+        <MenuItem Header="_Key item scatter (work in progress)">
           <MenuItem Header="_Zones…" Click="OnZones" IsEnabled="{Binding HasGame}" />
-          <MenuItem Header="Zone _graph…" Click="OnZoneGraph" IsEnabled="{Binding HasGame}" />
-          <MenuItem Header="_Automatic zones…" Click="OnAutoZones" IsEnabled="{Binding HasGame}" />
-          <Separator />
           <MenuItem Header="A_pply…" Click="OnKeyShuffle" IsEnabled="{Binding HasGame}" />
         </MenuItem>
-        <Separator />
         <MenuItem Header="Item _property shuffle…" Click="OnItemShuffle" IsEnabled="{Binding HasGame}" />
-        <MenuItem Header="Item s_wap…" Click="OnItemSwap" IsEnabled="{Binding HasGame}" />
-        <MenuItem Header="_Monster swap…" Click="OnMonsterSwap" IsEnabled="{Binding HasGame}" />
-        <Separator />
+        <MenuItem Header="_Swap">
+          <MenuItem Header="Swap _items…" Click="OnItemSwap" IsEnabled="{Binding HasGame}" />
+          <MenuItem Header="Swap _monsters…" Click="OnMonsterSwap" IsEnabled="{Binding HasGame}" />
+        </MenuItem>
         <MenuItem Header="_Named challenges…" Click="OnChallenges" IsEnabled="{Binding HasGame}" />
       </MenuItem>
       <MenuItem Header="_Help">

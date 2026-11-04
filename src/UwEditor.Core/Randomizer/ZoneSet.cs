@@ -219,6 +219,12 @@ namespace UwEditor.Core.Randomizer
         /// links of kind "stairs" (a hand-made zoning takes the way between levels as given).
         /// note says how many zones were split, and any left whole for want of ids.
         /// </summary>
+        /// <summary>In a copy made by SplitByLevel: each zone made for a further level -> the zone it was split from (not saved).</summary>
+        public Dictionary<int, int> SplitFrom = new Dictionary<int, int>();
+
+        /// <summary>The zone of the zoning a zone stands for: itself, or the one it was split from by level.</summary>
+        public int Original(int id) { int o; return SplitFrom.TryGetValue(id, out o) ? o : id; }
+
         public ZoneSet SplitByLevel(out string note)
         {
             var c = FromJson(ToJson(), Levels);
@@ -243,6 +249,7 @@ namespace UwEditor.Core.Randomizer
                     var t = c.Tiles[lv[i] - 1];
                     for (int k = 0; k < t.Length; k++) if (t[k] == z.Id) t[k] = (byte)id;
                     c.Zones.Add(new Zone { Id = id, Name = baseName + " (L" + lv[i] + ")", Color = color, Notes = z.Notes, Status = z.Status, Levels = "L" + lv[i] });
+                    c.SplitFrom[id] = z.Id;
                     c.Links.Add(new ZoneLink { Id = c.NextLinkId(), From = prev, To = id, Kind = "stairs", Requires = "free", TwoWay = true, Level = lv[i], Notes = "the zone's own way between levels (split by level)" });
                     prev = id;
                     made++;
