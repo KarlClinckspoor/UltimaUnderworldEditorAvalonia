@@ -121,7 +121,7 @@
       </MenuItem>
       <MenuItem Header="Randomi_zer">
         <!-- the zone graph and the automatic zones open from the Zones window (Zone graph…, Autozone…) -->
-        <MenuItem Header="_Key item scatter (work in progress)">
+        <MenuItem Header="_Key item scatter (UW1 only)">
           <MenuItem Header="_Zones…" Click="OnZones" IsEnabled="{Binding HasGame}" />
           <MenuItem Header="A_pply…" Click="OnKeyShuffle" IsEnabled="{Binding HasGame}" />
         </MenuItem>

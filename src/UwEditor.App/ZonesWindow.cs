@@ -28,7 +28,7 @@ namespace UwEditor.App
     }
 
     /// <summary>
-    /// Tools ▸ Randomizer ▸ Zones (work in progress): the zone being painted, adding, renaming,
+    /// Tools ▸ Randomizer ▸ Zones (UW1 only): the zone being painted, adding, renaming,
     /// removing and colouring zones, painting them in the 3D view or filling an area, and the
     /// key items each zone holds.
     /// </summary>
@@ -273,7 +273,7 @@ namespace UwEditor.App
         {
             this.main = main;
             z = zoning;
-            Title = "Zones (randomizer, work in progress) — " + zoning.Session.Title;
+            Title = "Zones (randomizer, UW1 only) — " + zoning.Session.Title;
             Width = 1400; Height = 760; MinWidth = 1000; MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
@@ -304,7 +304,7 @@ namespace UwEditor.App
             head.Children.Add(new TextBlock
             {
                 FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap,
-                Text = "Work in progress. A zone is a part of the world that can be walked without meeting a requirement. Every tile has a zone id: 0 rock, 1 open but not in a zone yet (magenta), 2-255 the zones. The links between zones and what they need are made on the right; the zone graph shows them.",
+                Text = "A zone is a part of the world that can be walked without meeting a requirement. Every tile has a zone id: 0 rock, 1 open but not in a zone yet (magenta), 2-255 the zones. The links between zones and what they need are made on the right; the zone graph shows them.",
             });
             var files = Row(B("New", () => Confirm(() => z.NewFile())), B("Open…", OpenFile), B("Save", () => SaveFile(false)), B("Save as…", () => SaveFile(true)),
                 // Import pictures… / Export pictures… (ImportPictures, ExportPictures) are kept in the code but no longer offered

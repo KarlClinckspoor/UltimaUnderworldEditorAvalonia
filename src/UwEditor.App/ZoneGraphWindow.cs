@@ -25,7 +25,7 @@ namespace UwEditor.App
     }
 
     /// <summary>
-    /// The Zones window's Zone graph… (work in progress): a view of the zoning, kept up to date as
+    /// The Zones window's Zone graph… (UW1 only): a view of the zoning, kept up to date as
     /// it is edited in the Zones window. A label for each zone (dragged, or laid out by forces;
     /// the places are kept in the zoning), the links between them, the start (a thick outline)
     /// and the goal (thick dashed). Check the logic runs the solve over time on the zoning and
@@ -83,7 +83,7 @@ namespace UwEditor.App
         {
             this.main = main;
             z = zoning;
-            Title = "Zone graph (randomizer, work in progress) — " + zoning.Session.Title;
+            Title = "Zone graph (randomizer, UW1 only) — " + zoning.Session.Title;
             Width = 1280; Height = 820; MinWidth = 800; MinHeight = 500;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             layer.Owner = this;

@@ -8,3 +8,5 @@ gamedata/
 TestResults/
 # snapshot baselines are pictures of the game's graphics, made from your own game files
 tests/*/baselines/
+
+.claude/settings.local.json

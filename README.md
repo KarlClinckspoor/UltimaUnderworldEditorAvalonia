@@ -1,375 +1,354 @@
 # Underworld Editor (Avalonia)
 
-A level editor for **Ultima Underworld I** and **II** that runs on Windows, Linux and macOS.
-It uses Avalonia 12 for the window and OpenGL for the 3D view. It opens a game, shows any
-level in 3D, edits tiles and objects, and also edits conversations, strings, keys, the
-player and graphics. Changes can be packed into mods. The plan is in
-[PLAN.md](PLAN.md); the road to the Unity editor's other features is in
-[ROADMAP.md](ROADMAP.md).
+**Open the Stygian Abyss and change anything in it.** This is a level editor for **Ultima
+Underworld I** and **II** that runs on Windows, Linux and macOS. It shows every level in
+3D as the game draws it, and edits tiles, objects, traps, conversations, strings, the
+player, pictures, sounds and music. It can test your changes in the real game, pack them
+into mods, and shuffle the whole world into a randomizer run that stays beatable.
 
-![UW1, level 1, the sack next to the start selected](docs/uw1-level1.png)
+![UW2: Lord British on his throne, selected, with all of his record in the properties panel](docs/images/select-uw2.png)
 
-## What it does
+**Get it:** ready-made builds for Windows, Linux and macOS are on the
+[Releases page](https://github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia/releases).
+Point it at your own copy of the game (GOG's works) and go.
 
-- **File ▸ Open game folder…** (Ctrl+O). Choose the game folder (the one with `DATA` in it),
-  the `DATA` folder itself, or a saved game (`SAVE1`…). The game is recognised by its
-  files. A saved game takes its levels and player from the save, and everything else from
-  `DATA`.
-- **The camera starts over the start square of a new game.** The square is read from
-  `UW.EXE` / `UW2.EXE`, so a patched start square shows too. In a saved game the camera
-  starts over the player, facing where the player faces. A large **red arrow** marks the
-  new-game start; in a saved game a **green arrow** marks the player.
-- **Picking a level:**
-  - UW1: levels 1–9.
-  - UW2: pick the world, then a slot in it. Empty slots are marked.
-  - PgUp and PgDn step through the levels.
-- **The 3D view:**
-  - Floors, walls, slopes and diagonal walls, textured through the level's texture map.
-  - The ceiling (G), seen only from below, as in the game.
-  - Objects drawn the game's way, from COMOBJ.DAT's render field:
-    - doors in their frames (open doors swung by their flags, the portcullis raised, the
-      secret door in the wall texture);
-    - levers, switches, writings and paintings on their walls;
-    - furniture, pillars, bridges and so on as the 3D models built into `UW.EXE` /
-      `UW2.EXE`;
-    - everything else as its picture, always facing the camera.
-  - M switches the models off. Invisible objects and traps or triggers can be shown too.
-  - A yellow grid every N tiles (H; N set in the Show box), laid on the floors. The view's
-    edges name each line, as `X: 30` or `Y: 45`.
-  - **Light** (in the Show box): full light, or one of the game's eight light levels. These
-    are no light, candle, torch, taper, lantern, night vision, light sphere or Wizard Eye, and
-    the brightest. The view is then shaded as the game shades it. Each square gets one of the
-    16 shading maps of LIGHT.DAT (MONO.DAT's greys for night vision), by its distance in
-    squares and the level's row of SHADES.DAT. Squares beyond the level's range are not drawn.
-    The centre is the point looked at, or the eye in first person. In UW2, a level DL.DAT
-    never lets go darker shows at its minimum.
-- **Finding objects:**
-  - Creatures that talk show their name and unique objects their plot name in brackets,
-    as in "fighter (Corby)" and "shiny sword (Caliburn, the Sword of Justice)".
-    Enchanted objects show their enchantment.
-  - The search box matches item names, NPC names ("human (Lord British)"), the text of
-    books, scrolls, writings, gravestones and text traps, `#index` and `0x` item ids.
-  - The chips narrow the list to weapons, food, monsters, keys, traps or triggers (any of
-    those chosen), and Enchanted to enchanted objects.
-  - Each line shows the object's picture as the game shows it.
-  - **Level ▸ Find in all levels…** (Ctrl+Shift+F) runs the same search, with every item
-    kind, over all levels. Double-click a result to open its level with the object selected.
-- **Selecting:**
-  - Click an object or a tile in the view, or pick one in the object list.
-  - The list shows the objects lying on tiles in index order. Whatever is inside an object
-    (container contents, inventories, a trigger's trap, a door's lock) hangs under it.
-  - The filter takes a name, `#index` or `0x` item id.
-- **Properties:** every field of the object and tile records, with its value in decimal and
-  hex. The tooltip gives the field's meaning and its source in the reconstructed game code.
-  Fields whose meaning is only inferred or unknown are marked. The tile panel also shows
-  its wall and floor textures.
-- **Level ▸ Automap and map notes…** (Ctrl+Shift+A) edits the player's map of a level: paint
-  tiles seen or unseen as the game would mark them, and add, move or delete the map notes.
-- Changing level keeps the camera over the same X and Y.
-- **Level ▸ Check the object lists:** runs the game's own consistency check (Obj_ListOkay).
-- **Tools ▸ Conversations…** (Ctrl+Shift+C): every conversation in CNV.ARK, by slot and the
-  name the creature talks under. The list filter matches slots, names and any text a
-  conversation says. Four tabs:
-  - **Dialogue:** what the script does, rebuilt from its code by following the
-    machine's stack (conv/BABL.C). It shows the say and respond lines with their text, each
-    menu with its numbered choices, and the checks on quests, variables and the talker's
-    state. Simple `if` blocks are folded; other jumps stay as labels. Functions the script
-    never calls (the compiler's small library) are hidden unless you ask. Double-click a
-    line to see its code.
-  - **Strings:** the conversation's block of STRINGS.PAK, edited in place. Each string shows
-    where the script uses it. **Add string** appends one, for the script to say.
-  - **Script:** the code as assembly, one instruction a line (conv.h's opcodes):
-    - labels for jumps and calls;
-    - imported functions by name;
-    - the header and import table as directives;
-    - comments with each address and the strings.
-    **Apply** (Ctrl+Enter) assembles it. A mistake is reported at its line. Disassembling
-    and assembling every shipped conversation of both games gives back the same bytes.
-  - **Who talks:** the creatures in the levels that use the slot (whoami, or the generic
-    slot for whoami 0). Double-click one to go to it in the main window.
-  **Save** (Ctrl+S) writes CNV.ARK and STRINGS.PAK in `DATA`, with only the changed blocks
-  rewritten. UW2's blocks are compressed again. The old files are kept as `CNV.ARK.BKP` and
-  `STRINGS.PAK.BKP`. Edits stay in memory when the window closes, until the game is closed.
-- **Conversation simulator** and **Conversation graph** (Tools menu, or the conversation
-  window's Simulate… and Graph…): run a conversation with its menus, variables and the game's
-  state, or see its flow as nodes with editable strings. Saving conversations keeps
-  `BABGLOBS.DAT` / `BGLOBALS.DAT` records in step.
-- **Tools ▸ Global variables…** (Ctrl+Shift+G): the game state conversations can read and
-  change, with the conversations that read and write each:
-  - quest flags and quest bytes (`get_quest`, `set_quest`);
-  - the game variables traps share (`x_traps`; UW2's numbered variables);
-  - UW2's X clocks (`x_clock`);
-  - skills (`x_skills`);
-  - the talker's and player's variables copied in and out (`npc_attitude`, `play_hp`…);
-  - each conversation's own globals, kept in `BGLOBALS.DAT`.
-  The uses come from the constant arguments of those calls. With a saved game open, the
-  values come from its `PLAYER.DAT` and `BGLOBALS.DAT`; they can be changed and saved, and
-  the old files are kept as `.BKP`. With `DATA` open, a new game, they read 0. Double-click a
-  use to open its conversation at that line.
+**Why it is worth a look:**
+- **It reads the game the way the game reads itself.** Every file format and rule comes from
+  [underworld-exhumed](https://github.com/abedegno/underworld-exhumed), the reconstructed
+  source of both games, and the tooltips name the routine each field comes from.
+- **It does not break your game.** Every file it writes keeps a `.BKP`, and the first
+  version a `.ORIG`. It runs the game's own consistency checks, and refuses files the game
+  could not load. Unsaved work is kept in checkpoints and survives a crash.
+- **Both games, one editor.** UW1 and UW2, the shipped data and saved games.
+- **Proven on the real data.** Every shipped conversation and picture of both games, and the
+  string and conversation archives, are read and written back to the same bytes in the tests.
 
-- **Tools ▸ Player and inventory…** (Ctrl+Shift+P), with a saved game open. It edits the
-  saved character in `PLAYER.DAT`:
-  - name, class, sex, hand and portrait (the HEADS.GR picture shown);
-  - attributes, vitality, mana, hunger, fatigue, carrying capacity;
-  - level, experience, skill points and the twenty skills.
+## Contents
 
-  **Checks** are listed beside it and update as you type:
-  - **Game detects:** in UW2, strength + dexterity + intelligence above 64 makes the
-    end-of-game screen add "AND CHEATED ON THEIR CHARACTER" (game/SKILLS.C `game_stats`).
-    UW1 has no such check.
-  - **Not reachable:** values creation and play never give. Attributes over 30 or outside
-    the class's start in SKILLS.DAT, skills over 30, a sixth portrait, levels outside 1–16.
-  - **Notes:** maxima that disagree with what the game computes (`player_compute`), a level
-    the experience has not earned, and the like. *Set the maxima as the game computes them*
-    fixes those.
+- [The 3D view](#the-3d-view)
+- [Every field, explained](#every-field-explained)
+- [Building levels](#building-levels)
+- [Finding anything](#finding-anything)
+- [Conversations](#conversations)
+- [Game variables](#game-variables)
+- [The player and the inventory](#the-player-and-the-inventory)
+- [Pictures, animations and 3D models](#pictures-animations-and-3d-models)
+- [Sound and music](#sound-and-music)
+- [Keys, triggers and strings](#keys-triggers-and-strings)
+- [Tables and new items](#tables-and-new-items)
+- [The automap](#the-automap)
+- [The randomizer](#the-randomizer)
+- [Testing in the real game](#testing-in-the-real-game)
+- [Mods, checkpoints and safety](#mods-checkpoints-and-safety)
+- [Downloads](#downloads) · [Building and running](#building-and-running) · [Tests](#tests) · [Layout](#layout) · [License](#license)
 
-  The hand bit means right-handed in UW1 and left-handed in UW2: their creation menus list
-  the choices the other way round, so the labels come from CHRGEN.DAT. The **Inventory** tab
-  shows the worn and held objects, the pack and container contents, with icons:
-  - each object's id, quality, owner, quantity or special, flags and slot can be changed;
-  - objects can be added to the pack or into a container, or removed.
+## The 3D view
 
-  Saving renumbers the objects depth first, as the game's `InvSaveNexts` does. Rewriting a
-  shipped save's inventory unchanged gives the same bytes, except slots 19–27 (an open
-  bag's view, which the game rebuilds): those are cleared. The old file is kept as
-  `PLAYER.DAT.BKP`.
-- **Tools ▸ Graphics…** (Ctrl+Shift+R), with three tabs:
-  - **Pictures:** every `.GR`, `.TR`, `.BYT` and UW2's `BYT.ARK` in DATA, as thumbnails.
-    Each is shown large with a palette of PALS.DAT; UW2's screens start in the palette the
-    game shows them with.
-  - **Critter animations:** the CRIT art files by the creatures that use them. Their
-    animations come from the UW1 page headers or UW2's `CR.AN`. Pick an auxiliary palette;
-    play the animation or step through its frames.
-  - **Cutscenes:** every CUTS cutscene and its LPF animations, with a frame slider, playing
-    at the file's frame rate.
+<table>
+<tr>
+<td><img src="docs/images/view-uw1.png" alt="UW1, level 1: the start room, with the red arrow on the new-game start"></td>
+<td><img src="docs/images/view-uw2.png" alt="UW2, Britannia: the start room"></td>
+</tr>
+<tr>
+<td><img src="docs/images/walk-torch.png" alt="First person in UW1, lit by a torch as the game lights it"></td>
+<td><img src="docs/images/map-2d.png" alt="The 2D map of UW1's first level"></td>
+</tr>
+</table>
 
-  **Export** writes an indexed PNG whose palette is the picture's own colours (its 16 or 32
-  auxiliary colours, or the 256 of the palette), so the indices survive a round trip.
-  **Export all frames** writes a cutscene animation as numbered PNG files.
+Fly over any level, or walk through it at eye height.
+- **Drawn as the game draws it:** floors, walls, slopes and diagonal walls through the
+  level's texture map, and the ceiling (G) seen only from below. Doors sit in their frames
+  (open ones swung, the portcullis raised, the secret door in the wall), levers and writings
+  on their walls, furniture, pillars and bridges as the 3D models built into the
+  executable, and everything else as its picture facing the camera.
+- **The game's own light:** full light, or any of its eight light levels, from no light and
+  a candle up to a light sphere and Wizard Eye. Each square gets one of LIGHT.DAT's shading
+  maps by its distance, as in the game.
+- **First person** (P): W A S D walk, Q E or a drag turn, R V look up and down. Rock and
+  floors more than two steps up stop you.
+- **2D map** (Tab): the level straight down, exportable as a PNG.
+- **Where things start:** the camera opens over the new-game start, read from `UW.EXE` /
+  `UW2.EXE` (a red arrow), or over the player in a saved game (a green arrow).
+- A labelled grid every N tiles (H), invisible objects and traps on request, and PgUp / PgDn
+  to step through the levels. UW2's worlds and their slots are picked from a list.
 
-  **Import** takes a PNG back and refuses:
-  - **another size**;
-  - **colours the picture cannot use:** a 4-bit sprite has 15 colours and transparency,
-    a critter frame 31 or 15, an 8-bit picture its palette. The list names each missing
-    colour with its pixel count and the nearest one it has; *Use the nearest colours*
-    maps them instead;
-  - **transparency** in a picture the game draws solid (textures, screens);
-  - **files the game could not load:**
-    - a critter page over the 0x7FFF bytes `load_cpg` reads;
-    - a cutscene page over its 64 KB window or 256 records;
-    - more than 256 pages;
-    - texture and screen sizes are fixed.
+## Every field, explained
 
-  A replaced cutscene frame re-encodes only its own delta, the next frame's and the loop
-  back to the first. Saving keeps each old file as `.BKP`.
+![UW1, level 1: a lever selected, with its object and tile records](docs/images/select-uw1.png)
 
-### Editing levels
+Click anything in the view or the object list and the properties panel shows **every field**
+of its object and tile records, in decimal and hex.
+- Each field's **tooltip says what it means and where it comes from** in the reconstructed
+  game code. Fields whose meaning is only inferred are marked.
+- **Type into any field**, decimal or `0x` hex. Small fields have − and + buttons, flags are
+  checkboxes, the heading is an arrow, and the owner is picked from a list of races named by
+  their creatures.
+- Talking creatures show their name and unique items their plot name: "fighter (Corby)",
+  "shiny sword (Caliburn, the Sword of Justice)". Enchanted objects show the enchantment, and
+  names are coloured by attitude.
+- Whatever is inside an object (contents, inventories, a trigger's trap, a door's lock)
+  hangs under it in the list.
 
-Each level keeps its own undo history (Ctrl+Z, Ctrl+Y). **Save levels** (Ctrl+S) writes
-LEV.ARK and keeps `LEV.ARK.BKP`, plus `LEV.ARK.ORIG` the first time. The toolbar above the
-view chooses the tool:
-- **Select:** a click picks an object or tile; a double click also moves the view to it
-  (so does double-clicking in the list).
-- **Move:** click a square and the selected object goes there, keeping its height above the
-  floor. A critter's home moves with it.
-- **Paint:** drag over tiles to paint the light flag on or off (only that bit), a floor or
-  wall texture from the level's texture list (shown with thumbnails), a tile type, a
-  floor height, or a tile template (type, height and textures together). **Fill** paints
-  every tile walkable from the one clicked; **Paint selection** paints the selected tiles.
-- **Ctrl+wheel** raises or lowers the floor under the mouse, and the objects on it with it.
-- **First person** (P): walk the level at eye height. W A S D walk, Q E or a drag turns,
-  R V look up and down, and Esc leaves. Rock and floors more than two steps up stop you.
+## Building levels
 
-Any record field can be typed into in the properties panel (decimal or `0x` hex), except
-the list links, which the editor keeps. Small fields (fine X and Y, height, quality,
-owner, heading) have − and + buttons; hold them down to repeat. One-bit flags (invisible,
-enchanted, is quantity and so on) are checkboxes. The heading shows as an arrow, with north
-up. An owner field has a list of the races to choose
-from. Each race is named by its creatures, from OBJECTS.DAT's race byte.
+![The trap recipes: a teleport, there and back, made in one step](docs/images/trap-recipes.png)
 
-**Add…** (Insert) opens a window that lists the items as a tree. The groups are the object
-list's kinds (melee weapons, armour, containers and so on); a search opens the groups that
-match. The form changes with the kind of item:
-- a boulder or food gets quality, owner and quantity;
-- a weapon, armour or ring gets its enchantment, from the weapon/armour list (which names
-  what each really does) or the 64 spells, with how it is stored. In UW2 a warning says
-  that the game's own names swap the Accuracy and Damage enchantments;
-- a wand gets its spell and charges, kept in a spell object inside it;
-- a book or scroll gets its text, previewed;
-- a key gets its lock and description, and a lock gets its number, locked flag and
-  lockpicking difficulty;
-- a creature gets hit points, attitude and conversation;
-- a trap or trigger gets its description.
+Each level keeps its own undo history (Ctrl+Z, Ctrl+Y, and Ctrl+H for the list of steps).
+- **Paint** tiles: textures from the level's list (with thumbnails), tile types, floor
+  heights, the light flag, or a whole template. **Fill** paints everything walkable from a
+  square. **Ctrl+wheel** raises or lowers a floor and the objects on it.
+- **Move** objects by clicking a square or dragging, to the eighth of a tile, or onto a
+  container, creature or trigger to put them inside.
+- **Add…** (Insert) shows the items as a tree, with a form that fits each kind: a weapon's
+  enchantment (with what it really does), a wand's spell and charges, a book's text, a key's
+  lock, a creature's hit points, attitude and conversation.
+- **Copy, cut, paste and duplicate** objects with everything inside them, to any level of the
+  same game.
+- **Traps and triggers explained:** selecting one says what its kind does and what each
+  field means, and a **red bullseye** marks the square it acts on: the target, a teleport's
+  destination (even on another level), a delete trap's square.
+- **Trap recipes** build the usual contraptions in one undo step: a lever that opens a door,
+  teleports there and back, pressure plates, pick-up, use and look triggers that deal damage,
+  show a message, set a variable, create an object or creature, open a door or remove
+  something, and wandering-monster spawners.
+- **Fixes** finds and repairs object-list and game-logic problems, the **Item cleaner**
+  sweeps away debris and junk (never quest items, keys or texts), the **World check** finds
+  locks no key opens, and **Check the object lists** runs the game's own `Obj_ListOkay`.
+- **Move the start:** with the Move tool, click the red arrow and a square to patch the new-game
+  start into the executable, or the green one to put a saved game's player on any square of any level.
+- **Make this slot a level** and **Clear the level** create or empty levels; **Level
+  textures** changes the textures a level uses.
 
-The new object goes on the selected tile or into the selected container. The player
-window's **Add…** uses the same form for the inventory. **Delete** (Del) frees the object
-and what it holds.
+## Finding anything
 
-**Traps and triggers:** selecting one shows what its kind does and what each field means,
-from event/TRIGGER.C. The square it acts on gets a **red bullseye**: a trigger's target, a
-teleport's destination, a delete trap's square, or where the chains that reach a trap run.
-**Choose the target in the view** lets you click the square instead of typing it; a
-teleport can aim at another level; one to another level shows its bullseye faded with the
-level named, and **Go to the teleport's target** opens it. **Variable in globals…** opens the global variables
-window on the variable a set or check variable trap uses.
+![Find in all levels: every sword in UW1, where it lies and who carries it](docs/images/find.png)
 
-**Selecting several, copying, dragging:** Ctrl+click adds objects or tiles to the
-selection and Ctrl+drag selects tiles in a rectangle. Copy, cut, paste and duplicate
-(Ctrl+C, X, V, D) take objects with everything inside them (contents, a wand's spell, a
-trigger's traps) to any level of the same game. A selected object can be dragged to another
-tile, or onto a container, creature or trigger to go inside. A right click opens a menu of
-what can be done with the object or tile under the mouse.
+The search box matches item names, NPC names ("human (Lord British)"), the text of books,
+scrolls, writings, gravestones and text traps, `#index` and `0x` item ids. Chips narrow it to
+weapons, food, monsters, keys, traps, triggers or enchanted objects. **Find in all levels**
+(Ctrl+Shift+F) searches the whole game; double-click a result to jump there.
 
-**2D map** (View menu, Tab): the level straight down without perspective; the map can be
-exported as a PNG. **Undo history** (Ctrl+H) lists a level's steps and goes back to any.
-**World check** (Level menu) finds locked locks no key opens, keys with no lock, and levels
-near the object limits. **Play test** (F5) runs the game in DOSBox from a copy with the
-unsaved levels and the player on the selected square. **Trap recipes** (Edit menu) build a
-lever for a door, teleports there and back (also to another level), pressure plates and
-pick-up, use or look triggers running damage, a message, a variable, a new object or
-creature, a door or a removal, and wandering-monster spawners (UW2's random monster
-included), each as one undo step; the triggers window labels the shipped spawners. **Fixes** (Level menu) finds and
-repairs object-list and game-logic problems; the **Item cleaner** removes debris, bones,
-junk or any loose items while keeping quest items, keys, texts and trap-linked objects.
-**Make this slot a level** and **Clear the level** (Level menu) create or empty levels.
+## Conversations
 
-**The start and the player:** with the Move tool, click an arrow and then a square. The
-new-game start can only move on level 1: it is patched into `UW.EXE` / `UW2.EXE`, which is
-kept as `.ORIG`. The player in a saved game can go to any level, and is saved in
-`PLAYER.DAT`. Clicking the green arrow opens the player window. Edit ▸ Move the … here
-uses the selected tile.
+<table>
+<tr>
+<td colspan="2"><img src="docs/images/conversations.png" alt="The conversation editor: Corby's dialogue rebuilt from its code"></td>
+</tr>
+<tr>
+<td><img src="docs/images/conversation-graph.png" alt="Corby's conversation as a graph of nodes"></td>
+<td><img src="docs/images/conversation-simulator.png" alt="The conversation simulator with the game's variables"></td>
+</tr>
+</table>
 
-**Checkpoints** (File ▸ Checkpoints…): while there are unsaved changes, a copy of them is
-kept every 5 minutes. A copy holds the changed levels, plus STRINGS.PAK or PLAYER.DAT when
-they have unsaved edits. The newest 20 are kept. Both numbers can be changed: the interval
-from 0 (never) upwards, and up to 1000 copies. Restoring loads a checkpoint back as unsaved
-edits that can be undone; the game folder is not touched until you save.
+Read, change and run every conversation in CNV.ARK (Ctrl+Shift+C).
+- **Dialogue:** what the script does, rebuilt from its code: what the NPC says, each menu
+  with its numbered answers, and the checks on quests, variables and the talker's state.
+- **Strings:** the conversation's text, edited in place, each string showing where the
+  script uses it.
+- **Script:** the code as readable assembly, with labels, named imports and comments.
+  **Apply** assembles it again, and a mistake is reported at its line. Every shipped
+  conversation of both games disassembles and assembles back to the same bytes.
+- **Who talks:** the creatures in the levels that use the conversation.
+- **Graph:** the conversation's flow as nodes and edges, with editable strings.
+- **Simulator:** run a conversation with its menus, the game's variables and a saved game's
+  state, step by step.
 
-**Colour scheme:** View ▸ Colour scheme ▸ Dark or Light, remembered between runs.
-**Layout:** View ▸ Layout ▸ Comfortable or Compact: a classic, XP-like layout with tighter
-controls and borders in place of white space, in either colour scheme; font sizes stay.
+Saving rewrites only the changed blocks of CNV.ARK and STRINGS.PAK (compressed again in UW2).
 
-### More tools
+## Game variables
 
-- **Tools ▸ Keys and locks…** (Ctrl+Shift+K): every lock number with its keys and locks
-  across all levels, where each lies, whether it is locked, and the keys' description
-  (STRINGS.PAK block 5, 100 + the number), which can be edited. Double-click to go there.
-- **Tools ▸ Triggers and traps…** (Ctrl+Shift+T): every trigger of the level, where it
-  lies, the square its chain runs on and each trap in the chain, then the traps no trigger
-  reaches. A line explains itself; double-click goes to it in the map.
-- **Tools ▸ Strings…** (Ctrl+Shift+S): every block of STRINGS.PAK, with the conversations
-  named, searched in one block or all of them. Strings can be edited and added, and
-  characters the file cannot write are refused. Saving updates the names everywhere in the
-  editor. It shares the conversation editor's copy of the file, so edits made in both are
-  never written over each other.
-- **Tools ▸ Mods…** (Ctrl+Shift+M):
-  - **Make a mod** compares the game with the originals the editor kept (`.ORIG`), or with
-    an untouched copy, and writes a `.uwmod` (a zip with `mod.json`). It holds only what
-    changed: LEV.ARK and other archive blocks, single strings, bytes patched in place (an
-    executable's start square, never the program itself), or whole new files. It records
-    the SHA-256 of each file it was made from.
-  - **Load a mod** checks it against the open game, block by block and string by string
-    (fits, already applied, changed since, missing). It then applies it and opens the game
-    again.
+![The global variables: quest flags with the conversations that read and write them](docs/images/globals.png)
 
-- **Pixel editor** (graphics window's Edit pixels…, or an object's right-click menu): draw on
-  any picture with its own colours (the palette, or a 4-bit picture's 16), with pencil, eraser,
-  picker, fill, lines and rectangles, a brush of 1-16 pixels and undo; saved in place. The colours the
-  game cycles (water, lava, fire) are marked and can be animated.
-- Object names are coloured by attitude (hostile red … friendly blue) and enchantment
-  (purple), traps and triggers underlined; dragging places objects to the eighth of a tile;
-  the camera keys glide.
-- **Run and Test**: run the game in DOSBox (with GOG's configuration and C: on the folder
-  being edited) or in Underworld Exhumed (on the save being edited), play-test from a tile,
-  and **Check in Underworld Exhumed…**: the edits loaded by the game's own code, in
-  [Underworld Exhumed](https://github.com/abedegno/underworld-exhumed)'s native port run with
-  no window (or with it, to watch): the player, made level 16 with full hit points, is sent
-  to each chosen level, UW1 saves at the end and the levels the game wrote are checked again;
-  a running check can be stopped. **DOSBox spot test…** turns the same squares into saved
-  games 1–4 with a fresh, armoured tester on each, starts DOSBox on them, and when DOSBox
-  closes offers the next four, counting how many are done. **File ▸ Export as a saved game…** writes the edits as a
-  `SAVEn` folder, for the port or DOSBox.
-- **File ▸ Check and repair the saved game…**: map notes the game reads from another level's
-  automap (its own bug, which crashes the map screen), notes with no end, bad automap blocks,
-  and objects lost from the object lists ("Problems in object list"), repaired as unsaved
-  edits. A saved game opens from a folder of any name, and from outside the game folder.
-- **Crash recovery**: an unexpected error is logged and the unsaved work kept in a
-  checkpoint; after a crash or kill, the next start offers that checkpoint back.
-- **Tools ▸ Item slots…**: what uses each item id (levels, conversations, the game's code,
-  creature loot, combinations, quest items) and free slots, to make a new item from one: name and
-  plural, picture, stats, placing.
-- **Tools ▸ Object tables…**: OBJECTS.DAT (weapons, missiles, armour, creatures,
-  containers, lights, food, trigger modes, animations) and COMOBJ.DAT (every item's common
-  properties) in grids, with range checks and what each field means.
-- **Tools ▸ Game tables…**: the terrain of each texture, class skills, item combinations,
-  light levels and UW2's minimum light; **Level ▸ Level textures…** changes the textures a
-  level uses, with thumbnails.
-- **Tools ▸ Schedules…** (UW2): SCD.ARK's scheduled events with named fields.
-  **File ▸ Saved games…**: rename the save slots, copy one to another (with a backup), open one.
-- **Tools ▸ 3D models…** (Ctrl+Shift+O): the 32 models built into the executable, shown
-  flat-shaded in their palette colours (drag to turn). For each one it gives the points,
-  faces and colours, its place and room in the executable, and the items drawn with it.
-  **Export OBJ…** writes a Wavefront OBJ file with an MTL of the colours; **Export all…**
-  writes every model.
+Every piece of game state a conversation can read or change (Ctrl+Shift+G): quest flags and
+bytes, the variables traps share, UW2's X clocks, skills, the talker's and player's variables,
+and each conversation's private globals. Each one lists the conversations that read and write
+it; double-click to open the script at that line. With a saved game open, the values come from
+its `PLAYER.DAT` and `BGLOBALS.DAT` and can be changed and saved.
 
-- **Tools ▸ Sound and music**: play, export and replace the speech and digitised effects from WAV
-  files (converted and checked against the games' limits), edit SOUNDS.DAT, add UW2 trap sounds;
-  export any music theme as MIDI and import MIDI files as new themes (FM and MT-32 versions),
-  checked against the game's limits. The editor does not play the music.
-- **Randomizer ▸ Key item scatter** (work in progress):
-  - **Zones** paints a zone id on every tile, with Glasbey colours and an overlay in the
-    view, and lists each zone's key items and links (made and edited there). **Mark as start**
-    moves the new-game start (in `UW.EXE`); **Mark as goal** adds a square that ends the game
-    (the game counts as won on level 9 or there); **Check if solvable** runs the solve over time.
-  - **Zone graph** (from the Zones window) shows the zoning live as it is edited: movable zone
-    labels, the links, the start (thick outline) and the goal (thick dashed). The middle mouse
-    button pans and the wheel zooms. **Check the logic** solves the zoning over time, as Apply
-    uses it, and shows what it reaches; **Reset graph appearance** clears that.
-  - The Zones window reads and writes the Unity editor's `uw1-zones.json`. The UW1 example
-    zoning is in `docs/examples`.
-- **Automatic zones** (UW1, from the Zones window's **Autozone…** button): builds the randomizer's zones from the levels
-  (walkable regions, drops, climbs, gap jumps, doors, levers, teleports), lists the trigger chains
-  that change the world and runs the solver: **Build and Report** shows the solve, **Build and Use**
-  puts the zones in the Zones window (whose **Autozone…** button opens it). The start is the
-  executable's start square, or with the option the game's own.
-  It knows the player's abilities and where they come from (spells, items, the dragon skin
-  boots), hidden walls a look opens, and logic options for magic, single-use items, lock
-  picking and the Search skill. It follows the world as it changes (levers, terrain changes,
-  doors closed behind the player) with a return check for one-way traps, and with the quest
-  facts (talismans, the Key of Infinity, the ritual) it reaches the end of the game.
-- **Randomizer ▸ Item property shuffle** turns weapons, armour, food, lights, tools, runestones,
-  wands, spell scrolls, potions and rings into other items in place, by weights per type, and
-  rolls their enchantments again (chance, mean and deviation per kind, raised with depth, or
-  hand-drawn bars and curves), with UW2's special weapons, other armour effects, ring effects
-  and curses, and minimums of tools and runes. Every setting starts from what the world holds,
-  each tab can be refitted to the levels, and a world report lists what they hold.
-- **Randomizer ▸ Swap ▸ Swap monsters** makes the monsters trade places by strength (experience value,
-  hit points, damage or both, powerful counted), keeping each spot's difficulty or following
-  the depth, with a spread from strict to uniform. Creatures with a conversation stay unless
-  whitelisted; swimmers, heights and race-bound creatures are respected, and no creature lands
-  on water or lava it cannot survive; hit points can stay with the spot; UW1's fire elementals
-  and UW2's brain creatures can be left alone. A live formula shows the math, the strength
-  table sorts by any column, and a world report lists the creatures by kind and by level.
-- **Randomizer ▸ Swap ▸ Swap items** only trades the existing objects around, within their kind or across
-  the ticked kinds, within a level, ±N levels, a world or the whole game, with its own
-  settings and ignore list. Items take their spot's owner (the rat's food becomes the rat's
-  lantern); bones and other scenery can join (never Garamon's bones); the starting equipment
-  stays; enchantments can trade places within a class afterwards. Both item tools show their
-  math as a live formula, and Undo puts everything back.
-- **Uniform progression** in the item and monster swaps: things are sorted by strength and handed
-  out level by level in the game's order, the weakest first; each level keeps its count.
-- **Randomizer ▸ Key item scatter ▸ Apply** (UW1, the key item shuffle): moves keys, runes, ability and plot items so the game stays
-  beatable under the chosen logic (checked by the time-aware solver), with a spoiler log and undo. It uses the Zones window's
-  zoning (painted or automatic) for its zones; **Quick autozone** makes one when there is none.
-- **Randomizer ▸ Named challenges**: 21 whole-game rules (Monk, Lockdown, Hoarding, Ghost town,
-  Bones rise…) with a preview, one undo step per level and an exact Undo; quest items and
-  conversations stay.
+## The player and the inventory
 
-**Help ▸ Manual** (F1) opens [the manual](docs/MANUAL.md), which is built into the program,
-with its sections and a search box. F1 in a tool window opens that tool's section.
-Help ▸ Controls lists the mouse and keys.
+<table>
+<tr>
+<td><img src="docs/images/player.png" alt="The player window: name, class, portrait, attributes and skills, with the checks beside them"></td>
+<td><img src="docs/images/player-inventory.png" alt="The inventory, slot by slot as on the paper doll, with a sack's contents"></td>
+</tr>
+</table>
 
-![UW2, Britannia, the start room](docs/uw2-britannia.png)
+With a saved game open (Ctrl+Shift+P):
+- **The character:** name, class, sex, hand, portrait, attributes, vitality, mana, hunger,
+  fatigue, level, experience and the twenty skills.
+- **Checks as you type:** what the game itself would notice (UW2 calls attributes above 64
+  "CHEATED ON THEIR CHARACTER" on its end screen), values normal play never gives, and maxima
+  that disagree with what the game computes, with a button to set them right.
+- **The inventory, slot by slot** as on the paper doll: shoulders, head, torso, gloves, hands,
+  rings, legs, feet, then the eight pack slots. Drag objects into containers or other slots,
+  pick a bag once and add one item after another into it, and edit each object's fields.
+
+## Pictures, animations and 3D models
+
+<table>
+<tr>
+<td><img src="docs/images/graphics-critters.png" alt="A goblin's animations from the CRIT files"></td>
+<td><img src="docs/images/graphics-cutscenes.png" alt="A cutscene frame with its frame slider"></td>
+</tr>
+<tr>
+<td><img src="docs/images/pixel-editor.png" alt="The pixel editor on the shiny sword's picture"></td>
+<td><img src="docs/images/models.png" alt="The 3D models built into UW.EXE"></td>
+</tr>
+</table>
+
+- **Graphics** (Ctrl+Shift+R): every `.GR`, `.TR` and `.BYT` picture, the critter animations
+  (played or stepped through, in any auxiliary palette) and the cutscenes, playing at their
+  own frame rate.
+- **Export and import PNGs** that keep their palette indices. Imports are checked: the size,
+  colours the picture cannot use (with the nearest ones offered), transparency in a solid
+  picture, and files the game could not load are all refused. A replaced cutscene frame
+  re-encodes only its own delta.
+- **Pixel editor:** draw on any picture with its own colours: pencil, eraser, picker, fill,
+  lines, rectangles and undo. The colours the game cycles (water, lava, fire) are marked and
+  can be animated.
+- **3D models** (Ctrl+Shift+O): the 32 models built into the executable, turned with the
+  mouse, with their points, faces and colours, exported as Wavefront OBJ.
+
+## Sound and music
+
+![The music tab: UW2's themes with their FM and MT-32 versions](docs/images/sound.png)
+
+Play, export and replace the speech and sound effects from WAV files (converted and checked
+against the games' limits), edit SOUNDS.DAT and add UW2 trap sounds. Export any music theme
+as MIDI, and import MIDI files as new themes in both their FM and MT-32 versions.
+
+## Keys, triggers and strings
+
+<table>
+<tr>
+<td><img src="docs/images/keys.png" alt="Keys and locks: every lock number with its keys and locks"></td>
+<td><img src="docs/images/triggers.png" alt="Every trigger of a level and the traps its chain runs"></td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/images/strings.png" alt="The strings of STRINGS.PAK, block by block"></td>
+</tr>
+</table>
+
+- **Keys and locks** (Ctrl+Shift+K): every lock number with its keys and locks across all
+  levels, where each lies, whether it is locked, and the key's description to edit.
+- **Triggers and traps** (Ctrl+Shift+T): every trigger of a level, the square its chain runs
+  on, each trap in it, and the traps nothing reaches, each explained in a line.
+- **Strings** (Ctrl+Shift+S): every block of STRINGS.PAK, searched in one block or all of
+  them, edited and added to. Characters the file cannot hold are refused.
+
+## Tables and new items
+
+<table>
+<tr>
+<td><img src="docs/images/object-tables.png" alt="OBJECTS.DAT's weapon table"></td>
+<td><img src="docs/images/item-slots.png" alt="Item slots: what uses the shortsword, with its name, picture and stats"></td>
+</tr>
+</table>
+
+- **Object tables:** OBJECTS.DAT (weapons, armour, creatures, containers, lights, food and
+  more) and COMOBJ.DAT in grids, with range checks and what each field means.
+- **Item slots:** what uses each item id (levels, conversations, the game's code, loot,
+  combinations, quest items) and which slots are free, to make a new item from one: name,
+  picture, stats and placing.
+- **Game tables:** each texture's terrain, class skills, item combinations and light levels.
+  **Schedules** (UW2) lists SCD.ARK's events, and **File ▸ Saved games** renames, copies and opens saves.
+
+## The automap
+
+![The player's map of level 1, painted as the game marks it](docs/images/automap.png)
+
+Paint the player's map tiles seen or unseen as the game would mark them, and add, move or
+delete the map notes (Ctrl+Shift+A). **Check and repair the saved game** fixes notes the game
+would read from the wrong level (its own crash bug), broken automap blocks and objects lost
+from the lists.
+
+## The randomizer
+
+Turn the game into a fresh run every time, and keep it beatable.
+
+### Key item scatter (UW1 only)
+
+<table>
+<tr>
+<td><img src="docs/images/key-scatter.png" alt="Apply: a preview of the key item shuffle with its spoiler log"></td>
+<td><img src="docs/images/zone-graph.png" alt="The zone graph: zones, their links, the start and the goal"></td>
+</tr>
+<tr>
+<td><img src="docs/images/autozones.png" alt="Automatic zones: the solve over time, reaching the end of the game"></td>
+<td><img src="docs/images/zones.png" alt="The Zones window: a zone's key items and links"></td>
+</tr>
+</table>
+
+- **Apply** moves the keys, runes, ability and plot items to new places, and a solver that
+  follows the world over time checks that the game can still be won under the logic you
+  choose. You get a spoiler log, and Undo puts everything back.
+- **Automatic zones** build the logic from the levels themselves: walkable regions, drops,
+  climbs, gap jumps, doors, levers and teleports. It knows the player's abilities and where
+  they come from (spells, items, the dragon skin boots), hidden walls a look opens, levers
+  that change the world, doors closed behind the player, and the quest facts that lead to the
+  end of the game. Options cover magic, single-use items, lock picking and the Search skill.
+- **Zones** lets you paint the zoning by hand instead, with a live **zone graph** of the zones
+  and their links, and a check that it can be solved.
+
+### Shuffles, swaps and challenges (both games)
+
+<table>
+<tr>
+<td><img src="docs/images/item-shuffle.png" alt="Item property shuffle: weapon kinds and enchantments by weights and curves"></td>
+<td><img src="docs/images/monster-swap.png" alt="Swap monsters: by strength, with the formula shown live"></td>
+</tr>
+<tr>
+<td><img src="docs/images/item-swap.png" alt="Swap items: within a kind, a level, a range of levels or the world"></td>
+<td><img src="docs/images/challenges.png" alt="Named challenges: Bones rise previewed"></td>
+</tr>
+</table>
+
+- **Item property shuffle:** weapons, armour, food, lights, tools, runestones, wands,
+  scrolls, potions and rings become other items in place, by weights per type, with their
+  enchantments rolled again (chance, strength and depth, as numbers or hand-drawn curves).
+- **Swap monsters:** creatures trade places by strength, keeping each spot's difficulty or
+  growing with depth. Talkers stay, and nobody lands in water or lava they cannot survive.
+- **Swap items:** existing objects trade places within their kind or across kinds, within a
+  level, a range of levels or the whole game, and take their spot's owner (the rat's food
+  becomes the rat's lantern).
+- **Uniform progression:** things sorted by strength and handed out level by level, the
+  weakest first.
+- **Named challenges:** 21 whole-game rules (Monk, Lockdown, Hoarding, Ghost town, Bones
+  rise…) with a preview and an exact Undo. Quest items and conversations are never touched.
+
+The shuffles and swaps show their math as a live formula and write a world report; every tool
+makes one undo step per level.
+
+## Testing in the real game
+
+- **Play test** (F5) starts the game in DOSBox from a copy, with your unsaved levels and the
+  player on the selected square.
+- **Check in Underworld Exhumed** loads your edits with the game's own code, in
+  [Underworld Exhumed](https://github.com/abedegno/underworld-exhumed)'s native port: a
+  level-16 player visits each chosen level, and the levels the game wrote back are checked.
+- **DOSBox spot test** turns chosen squares into saved games 1–4 with a fresh, armoured
+  tester on each, and offers the next four when DOSBox closes.
+- **Export as a saved game** writes your edits as a `SAVEn` folder.
+
+## Mods, checkpoints and safety
+
+![Make a mod: only what changed, checked by SHA-256](docs/images/mods.png)
+
+- **Mods** (Ctrl+Shift+M): **Make a mod** writes a `.uwmod` with only what changed: level
+  blocks, single strings, patched bytes or new files, with the SHA-256 of each file it was
+  made from. **Load a mod** checks it block by block and string by string before applying it.
+- **Backups:** every file written keeps `.BKP`, and the first version `.ORIG`.
+- **Checkpoints:** while there are unsaved changes, a copy is kept every 5 minutes (both
+  numbers can be changed). Restoring loads one back as edits that can be undone.
+- **Crash recovery:** an unexpected error is logged and the unsaved work kept; the next start
+  offers it back.
+- **Dark or Light, Comfortable or Compact:** a colour scheme and a classic, tighter layout,
+  remembered between runs.
+
+**Help ▸ Manual** (F1) opens [the manual](docs/MANUAL.md), built into the program with its
+sections and a search box; F1 in a tool window opens that tool's section. The plan is in
+[PLAN.md](PLAN.md) and the road ahead in [ROADMAP.md](ROADMAP.md).
 
 ## Downloads
 
@@ -428,6 +407,17 @@ a diff, with differing pixels in magenta, to `TestResults/snapshots/`. After an 
 of the look, run with `UPDATE_SNAPSHOTS=1` to record new baselines. The baselines show the
 game's graphics, so they are made from your own game files and not committed.
 
+**The README's pictures.** The tool windows in `docs/images` are drawn headless by
+`ReadmePictures` in the interface tests, which only runs when `UW_README_PICTURES` names the
+folder to write to:
+
+```
+UW_README_PICTURES=docs/images dotnet test tests/UwEditor.App.Tests --filter ReadmePictures
+```
+
+The pictures of the 3D view are screenshots of the program itself, opened with `--size 1440x900`
+and, for some, `--select N`, `--light N`, `--walk` or `--window map`.
+
 The core tests check, among other things:
 - random edits (tiles, adding, deleting, moving, putting inside, copy and paste, fields, undo
   and redo, from fixed seeds on levels of both games): after each one the game's object-list
@@ -479,7 +469,11 @@ The core tests check, among other things:
 - `--state-file F`: level, selection, camera and view rectangle as JSON after every change;
 - `--conversations [N]`: open the conversation window (on slot N); `--tab N` picks its tab;
 - `--globals`: open the global variables window;
-- `--player` / `--graphics`: open the player or graphics window (`--tab N` picks the tab).
+- `--player` / `--graphics`: open the player or graphics window (`--tab N` picks the tab);
+- `--window NAME`: open a tool window or view (`map`, `zones`, `zonegraph`, `keys`, `strings`,
+  `triggers`, `mods`, `models`, `sound`, `music`, `automap`, `autozones`, `challenges`…);
+- `--light N`: the game's light level N (0 none … 7 the brightest); `--walk`: first person at
+  the start square.
 
 ## Layout
 
