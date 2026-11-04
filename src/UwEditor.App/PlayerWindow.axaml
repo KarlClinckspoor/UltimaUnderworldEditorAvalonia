@@ -113,6 +113,44 @@
                 <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding SkillPoints, Mode=TwoWay}" Minimum="0" Maximum="255" />
               </Grid>
               <TextBlock Text="{Binding Derived}" Classes="muted" FontSize="11" Margin="0,8,0,0" />
+
+              <StackPanel IsVisible="{Binding HasStoryBits}" Spacing="2">
+                <TextBlock Text="STORY (NOT QUEST FLAGS)" Classes="h" />
+                <CheckBox x:Name="GaramonBuriedBox" Content="Garamon buried" IsChecked="{Binding GaramonBuried, Mode=TwoWay}"
+                          ToolTip.Tip="Byte 0x62 bit 3 (player-&gt;garamon). Set, with the next one, when Garamon's bones are used on his grave on level 5 (obj/USEITEMS.C UseBonesOn)." />
+                <CheckBox x:Name="TalismansCanBurnBox" Content="Talismans can be destroyed in the lava" IsChecked="{Binding TalismansCanBurn, Mode=TwoWay}"
+                          ToolTip.Tip="Byte 0x62 bit 2 (player-&gt;talisman_ok). Without it a talisman thrown into the lava of the Slasher's chamber is not destroyed (motion/OBJPHYS.C). Set by burying Garamon, before his ghost speaks (the answers to his questions do not matter); cleared if his ghost is killed. Quest 5 is not it: nothing in the game sets quest 5." />
+                <Grid ColumnDefinitions="*,120" Margin="0,2,0,0">
+                  <TextBlock Classes="label" Text="Talismans left to destroy" />
+                  <NumericUpDown Grid.Column="1" x:Name="TalismansLeftBox" Value="{Binding TalismansLeft, Mode=TwoWay}" Minimum="0" Maximum="255"
+                                 ToolTip.Tip="Byte 0x6D: 8 at the start, one less for each destroyed, 255 once the last is gone and the moongate has opened (game/SKILLS.C check_victory)." />
+                </Grid>
+                <CheckBox x:Name="OrbDestroyedBox" Content="Tybal's orb destroyed" IsChecked="{Binding OrbDestroyed, Mode=TwoWay}"
+                          ToolTip.Tip="Byte 0x60 bit 5. While the orb stands, level 7 takes the mana away and puts the maze back (game/GAMEWRAP.C), and Tybal's guards act otherwise (critter/AI.C). Set when the orb is broken." />
+                <CheckBox x:Name="CupFoundBox" Content="Cup of Wonder found" IsChecked="{Binding CupFound, Mode=TwoWay}"
+                          ToolTip.Tip="Byte 0x60 bit 7. The flute's tune makes the Cup only while this is clear (sound/SOUND.C), and the shrine mantra pointing the way to it stops once it is set." />
+                <CheckBox x:Name="KeyOfTruthBox" Content="Key of Truth given" IsChecked="{Binding KeyOfTruthGiven, Mode=TwoWay}"
+                          ToolTip.Tip="Byte 0x60 bit 6. The shrine mantra gives the Key of Truth only while this is clear, then sets it (game/SKILLS.C)." />
+                <Grid ColumnDefinitions="*,120" RowDefinitions="Auto,Auto" Margin="0,2,0,0">
+                  <TextBlock Classes="label" Text="Moonstone on level (0: carried)" />
+                  <NumericUpDown Grid.Column="1" x:Name="MoonstoneBox" Value="{Binding MoonstoneLevel, Mode=TwoWay}" Minimum="0" Maximum="15" Margin="0,0,0,4"
+                                 ToolTip.Tip="Byte 0x5E bits 0-3: where Gate Travel takes the player (combat/SPELLS.C). 2 at the start, 0 while carried, the level it is put down on." />
+                  <TextBlock Grid.Row="1" Classes="label" Text="Silver tree on level (0: none)" />
+                  <NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="SilverTreeBox" Value="{Binding SilverTreeLevel, Mode=TwoWay}" Minimum="0" Maximum="15"
+                                 ToolTip.Tip="Byte 0x5E bits 4-7: where a dead player comes back to life (game/SKILLS.C). 0 for no tree; Armageddon clears it." />
+                </Grid>
+                <TextBlock Text="LESS ABOUT THE PLOT" Classes="h" />
+                <CheckBox x:Name="ArmageddonBox" Content="Armageddon cast (levels arrived on are emptied)" IsChecked="{Binding ArmageddonCast, Mode=TwoWay}"
+                          ToolTip.Tip="Byte 0x60 bit 4. While set, every level the player arrives on is cleared of objects (game/GAMEWRAP.C do_level_hacks)." />
+                <CheckBox x:Name="MazeSpellBox" Content="Maze navigation spell" IsChecked="{Binding MazeSpell, Mode=TwoWay}"
+                          ToolTip.Tip="Byte 0x62 bit 4 (game/PLAYDATA.C). Level 7 puts it back on arrival while the orb stands." />
+                <Grid ColumnDefinitions="*,120" Margin="0,2,0,0">
+                  <TextBlock Classes="label" Text="Dreams (bits)" />
+                  <NumericUpDown Grid.Column="1" x:Name="DreamsBox" Value="{Binding Dreams, Mode=TwoWay}" Minimum="0" Maximum="65535"
+                                 ToolTip.Tip="Word 0x6E, a bit per dream (game/SKILLS.C dream): 1 and 2 the first two dreams seen; 4 Tybal's death and 8 a talisman thrown before the burial, each cleared once its dream has played; 16-512 the random dreams seen. No dream plays once Garamon is buried." />
+                </Grid>
+                <TextBlock Text="{Binding DreamsText}" Classes="muted" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
               <Button x:Name="RecomputeButton" Content="Set the maxima as the game computes them" Click="OnRecompute" Margin="0,6,0,0"
                       ToolTip.Tip="Maximum vitality, mana and carrying capacity from the attributes, level and Mana skill (game/SKILLS.C player_compute)" />
             </StackPanel>

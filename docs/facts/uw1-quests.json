@@ -42,8 +42,8 @@
       "level": 5,
       "object": 599,
       "requires": "item:garamon_bones",
-      "notes": "Using Garamon's bones on his grave, the gravestone #599 at L5 (54, 54) (special link 0x21), buries him: it sets talisman_ok, without which the talismans are not destroyed, Garamon's ghost talks (conversation 0x1B: 'cast all eight into the Abyss') and the trigger at (54, 52) is set off. Garamon's conversation sets quest 5, which nothing checks.",
-      "source": "obj/USEITEMS.C UseBonesOn (gravestone 0x165, link 0x221, player->talisman_ok = 1); L5 #599 link 545 = 0x221; conversation 27 (Garamon)",
+      "notes": "Using Garamon's bones on his grave, the gravestone #599 at L5 (54, 54) (special link 0x21), buries him: it sets talisman_ok (player byte 0x62 bit 2), without which the talismans are not destroyed, and garamon (bit 3), before Garamon's ghost talks (conversation 0x1B: 'cast all eight into the Abyss'), so the answers to his questions do not matter; they only set his conversation's own variables (BGLOBALS.DAT slot 27). The trigger at (54, 52) is set off (a create-object trap making the ghost #196). Killing the ghost (whoami 0x1B) clears talisman_ok again (event/WORLDEV.C death_check). No quest flag stands for it: quest 5 is only read, by Garamon's conversation, and nothing in the game sets it (no conversation, no set-variable trap, no game code).",
+      "source": "obj/USEITEMS.C UseBonesOn (gravestone 0x165, link 0x221, player->talisman_ok = 1, player->garamon = 1); event/WORLDEV.C death_check (0x1B clears talisman_ok); L5 #599 link 545 = 0x221; conversation 27 (Garamon: get_quest(5) only); Karl's saves 2 and 3 (byte 0x62 0x00 -> 0x0C, quests unchanged)",
       "confidence": "certain"
     },
     {

@@ -118,6 +118,70 @@ namespace UwEditor.Core.Player
         public int SkillPoints { get { return R[0x52]; } set { Set(0x52, value); } }
         public int SkillPointsEarned { get { return R[0x53]; } set { Set(0x53, value); } }
 
+        // ---- UW1's story bits (include/player.h: byte 0x62 and 0x6D), not quest flags
+
+        /// <summary>The story bits below are known (UW1; Underworld II keeps other things there).</summary>
+        public bool HasStoryBits { get { return !uw2; } }
+
+        /// <summary>
+        /// UW1: talismans thrown into the lava of the Slasher's chamber are destroyed (byte 0x62 bit 2,
+        /// player->talisman_ok; motion/OBJPHYS.C mob_to_static). Set with GaramonBuried when Garamon's
+        /// bones are used on his grave (obj/USEITEMS.C UseBonesOn), before his ghost speaks; cleared
+        /// when the ghost (whoami 0x1B) is killed (event/WORLDEV.C death_check). No quest flag stands
+        /// for it: quest 5 is only read, by Garamon's conversation, and nothing in the game sets it.
+        /// </summary>
+        public bool TalismansCanBurn { get { return !uw2 && (R[0x62] & 4) != 0; } set { StoryBit(0x62, 4, value); } }
+
+        /// <summary>UW1: Garamon is buried (byte 0x62 bit 3, player->garamon), set with TalismansCanBurn.</summary>
+        public bool GaramonBuried { get { return !uw2 && (R[0x62] & 8) != 0; } set { StoryBit(0x62, 8, value); } }
+
+        /// <summary>UW1: the talismans still to destroy (byte 0x6D: 8 at the start, 0xFF once the last is gone and the moongate opened; game/SKILLS.C check_victory).</summary>
+        public int TalismansLeft { get { return uw2 ? 0 : R[0x6D]; } set { if (uw2) throw new InvalidOperationException("Ultima Underworld 1 only."); Set(0x6D, value); } }
+
+        /// <summary>UW1: Tybal's orb on level 7 is destroyed (byte 0x60 bit 5, player->orb). While it is not, level 7 takes the mana away and puts the maze back (game/GAMEWRAP.C do_level_hacks), and Tybal's guards act otherwise (critter/AI.C). Set when the orb is broken (obj/USEITEMS.C).</summary>
+        public bool OrbDestroyed { get { return !uw2 && (R[0x60] & 0x20) != 0; } set { StoryBit(0x60, 0x20, value); } }
+
+        /// <summary>UW1: the Key of Truth was given (byte 0x60 bit 6, player->key): the shrine mantra gives it only once (game/SKILLS.C).</summary>
+        public bool KeyOfTruthGiven { get { return !uw2 && (R[0x60] & 0x40) != 0; } set { StoryBit(0x60, 0x40, value); } }
+
+        /// <summary>UW1: the Cup of Wonder was found (byte 0x60 bit 7, player->cup): the flute's tune makes it only while clear (sound/SOUND.C play_cup_tune), and the shrine mantra pointing the way to it stops (game/SKILLS.C).</summary>
+        public bool CupFound { get { return !uw2 && (R[0x60] & 0x80) != 0; } set { StoryBit(0x60, 0x80, value); } }
+
+        /// <summary>UW1: Armageddon was cast (byte 0x60 bit 4, player->armageddon): every level arrived on is cleared of objects (game/GAMEWRAP.C do_level_hacks).</summary>
+        public bool ArmageddonCast { get { return !uw2 && (R[0x60] & 0x10) != 0; } set { StoryBit(0x60, 0x10, value); } }
+
+        /// <summary>UW1: the maze navigation spell (byte 0x62 bit 4, player->maze; game/PLAYDATA.C), put back on level 7 while the orb stands.</summary>
+        public bool MazeSpell { get { return !uw2 && (R[0x62] & 0x10) != 0; } set { StoryBit(0x62, 0x10, value); } }
+
+        /// <summary>UW1: the level the moonstone lies on, where Gate Travel goes (byte 0x5E bits 0-3, player->moonstone; combat/SPELLS.C): 2 at the start, 0 while carried (ui/INTERACT.C), the level it is put down on (inv/BAGS.C).</summary>
+        public int MoonstoneLevel { get { return uw2 ? 0 : R[0x5E] & 0xF; } set { StoryNibble(0x5E, 0, value); } }
+
+        /// <summary>UW1: the level the silver tree grows on, where a dead player comes back (byte 0x5E bits 4-7, player->tree; game/SKILLS.C): 0 for none; Armageddon clears it.</summary>
+        public int SilverTreeLevel { get { return uw2 ? 0 : R[0x5E] >> 4; } set { StoryNibble(0x5E, 4, value); } }
+
+        /// <summary>
+        /// UW1: the dreams, a bit each (word 0x6E, player->dreams; game/SKILLS.C dream). Bits 0 and 1
+        /// are set once the first two dreams have played; bits 2 and 3 are set by Tybal's death and by
+        /// a talisman thrown before Garamon is buried, and cleared once that dream has played; 4-9 the
+        /// random dreams seen. No dream plays once Garamon is buried.
+        /// </summary>
+        public int Dreams { get { return uw2 ? 0 : R[0x6E] | R[0x6F] << 8; } set { if (uw2) throw new InvalidOperationException("Ultima Underworld 1 only."); Word(0x6E, value); } }
+
+        void StoryBit(int at, int mask, bool on)
+        {
+            if (uw2) throw new InvalidOperationException("Ultima Underworld 1 only.");
+            R[at] = (byte)(on ? R[at] | mask : R[at] & ~mask);
+            Dirty = true;
+        }
+
+        void StoryNibble(int at, int shift, int v)
+        {
+            if (uw2) throw new InvalidOperationException("Ultima Underworld 1 only.");
+            if (v < 0 || v > 15) throw new ArgumentOutOfRangeException("value", "0-15");
+            R[at] = (byte)((R[at] & ~(0xF << shift)) | (v << shift));
+            Dirty = true;
+        }
+
         int AppearanceAt { get { return uw2 ? 0x65 : 0x64; } }
         /// <summary>
         /// The hand bit (struct Player's "lefty"). Character creation stores the menu choice in it,

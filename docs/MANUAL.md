@@ -636,6 +636,19 @@ saved character in `PLAYER.DAT`:
 - name, class, sex, hand and portrait (the HEADS.GR picture shown);
 - attributes, vitality, mana, hunger, fatigue, carrying capacity;
 - level, experience, skill points and the twenty skills.
+- UW1's story bits, which are not quest flags (**Story**): **Garamon buried** and **Talismans
+  can be destroyed in the lava** (byte 0x62 bits 3 and 2), and the talismans left to destroy
+  (byte 0x6D: 8, then 255 once the moongate has opened). Using Garamon's bones on his grave
+  sets both bits before his ghost speaks (`obj/USEITEMS.C` `UseBonesOn`), so his questions do
+  not matter; killing the ghost clears the second again. Without it, talismans thrown into
+  the Slasher's lava are not destroyed. Quest 5 is not this flag: nothing in the game sets it.
+  The section also has **Tybal's orb destroyed**, **Cup of Wonder found** and **Key of Truth
+  given** (byte 0x60 bits 5, 7 and 6: level 7's mana and maze, the flute's tune and the shrine
+  mantra each give their item only once), the levels of the **moonstone** (where Gate Travel
+  goes; 0 while carried) and the **silver tree** (where a dead player comes back; 0 for none),
+  byte 0x5E, and, less about the plot, **Armageddon cast** (levels arrived on are emptied),
+  the **maze navigation spell** and the **dreams** (word 0x6E, a bit per dream, spelt out
+  under the box).
 
 **Checks** are listed beside it and update as you type:
 - **Game detects:** in UW2, strength + dexterity + intelligence above 64 makes the

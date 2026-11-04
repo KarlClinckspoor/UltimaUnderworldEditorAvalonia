@@ -120,6 +120,36 @@ namespace UwEditor.App
         public decimal? Experience { get { return Sheet.Experience; } set { Field(() => Sheet.Experience = (long)(value ?? 0), "Experience", nameof(Experience)); } }
         public decimal? SkillPoints { get { return Sheet.SkillPoints; } set { Field(() => Sheet.SkillPoints = (int)(value ?? 0), "Skill points", nameof(SkillPoints)); } }
         public decimal? MaxWeight { get { return Sheet.MaxWeight; } set { Field(() => Sheet.MaxWeight = (int)(value ?? 0), "Carrying capacity", nameof(MaxWeight)); } }
+        /// <summary>UW1's story bits are shown (PlayerSheet.HasStoryBits).</summary>
+        public bool HasStoryBits { get { return Sheet.HasStoryBits; } }
+        public bool TalismansCanBurn { get { return Sheet.TalismansCanBurn; } set { Field(() => Sheet.TalismansCanBurn = value, "Talismans can be destroyed", nameof(TalismansCanBurn)); } }
+        public bool GaramonBuried { get { return Sheet.GaramonBuried; } set { Field(() => Sheet.GaramonBuried = value, "Garamon buried", nameof(GaramonBuried)); } }
+        public decimal? TalismansLeft { get { return Sheet.TalismansLeft; } set { Field(() => Sheet.TalismansLeft = (int)(value ?? 0), "Talismans left", nameof(TalismansLeft)); } }
+        public bool OrbDestroyed { get { return Sheet.OrbDestroyed; } set { Field(() => Sheet.OrbDestroyed = value, "Orb destroyed", nameof(OrbDestroyed)); } }
+        public bool CupFound { get { return Sheet.CupFound; } set { Field(() => Sheet.CupFound = value, "Cup of Wonder found", nameof(CupFound)); } }
+        public bool KeyOfTruthGiven { get { return Sheet.KeyOfTruthGiven; } set { Field(() => Sheet.KeyOfTruthGiven = value, "Key of Truth given", nameof(KeyOfTruthGiven)); } }
+        public decimal? MoonstoneLevel { get { return Sheet.MoonstoneLevel; } set { Field(() => Sheet.MoonstoneLevel = (int)(value ?? 0), "Moonstone level", nameof(MoonstoneLevel)); } }
+        public decimal? SilverTreeLevel { get { return Sheet.SilverTreeLevel; } set { Field(() => Sheet.SilverTreeLevel = (int)(value ?? 0), "Silver tree level", nameof(SilverTreeLevel)); } }
+        public bool ArmageddonCast { get { return Sheet.ArmageddonCast; } set { Field(() => Sheet.ArmageddonCast = value, "Armageddon cast", nameof(ArmageddonCast)); } }
+        public bool MazeSpell { get { return Sheet.MazeSpell; } set { Field(() => Sheet.MazeSpell = value, "Maze spell", nameof(MazeSpell)); } }
+        public decimal? Dreams { get { return Sheet.Dreams; } set { Field(() => Sheet.Dreams = (int)(value ?? 0), "Dreams", nameof(Dreams)); Raise(nameof(DreamsText)); } }
+        /// <summary>The dream bits set, in words.</summary>
+        public string DreamsText
+        {
+            get
+            {
+                if (!Sheet.HasStoryBits) return "";
+                int d = Sheet.Dreams;
+                var said = new List<string>();
+                if ((d & 1) != 0) said.Add("first dream seen");
+                if ((d & 2) != 0) said.Add("second dream seen");
+                if ((d & 4) != 0) said.Add("Tybal's death dream to come");
+                if ((d & 8) != 0) said.Add("talisman dream to come");
+                var random = Enumerable.Range(4, 6).Where(b => (d & (1 << b)) != 0).ToList();
+                if (random.Count > 0) said.Add("random dreams seen: " + string.Join(", ", random));
+                return said.Count == 0 ? "No dream bits set." : string.Join("; ", said) + ".";
+            }
+        }
         public string Derived
         {
             get
@@ -138,7 +168,9 @@ namespace UwEditor.App
         public void RaiseAll()
         {
             foreach (var n in new[] { nameof(Name), nameof(ClassIndex), nameof(SexIndex), nameof(HandIndex), nameof(Body), nameof(Portrait), nameof(Strength), nameof(Dexterity), nameof(Intelligence),
-                nameof(Vitality), nameof(MaxVitality), nameof(Mana), nameof(MaxMana), nameof(Hunger), nameof(Fatigue), nameof(Level), nameof(Experience), nameof(SkillPoints), nameof(MaxWeight), nameof(Derived) })
+                nameof(Vitality), nameof(MaxVitality), nameof(Mana), nameof(MaxMana), nameof(Hunger), nameof(Fatigue), nameof(Level), nameof(Experience), nameof(SkillPoints), nameof(MaxWeight), nameof(Derived),
+                nameof(TalismansCanBurn), nameof(GaramonBuried), nameof(TalismansLeft), nameof(OrbDestroyed), nameof(CupFound), nameof(KeyOfTruthGiven),
+                nameof(MoonstoneLevel), nameof(SilverTreeLevel), nameof(ArmageddonCast), nameof(MazeSpell), nameof(Dreams), nameof(DreamsText) })
                 Raise(n);
             foreach (var s in Skills) s.Refresh();
         }

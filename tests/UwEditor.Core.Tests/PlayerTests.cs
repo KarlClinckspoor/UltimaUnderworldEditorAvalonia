@@ -37,6 +37,60 @@ namespace UwEditor.Core.Tests
         }
 
         [Fact]
+        public void Uw1_story_bits_are_byte_0x62_and_the_talismans_left_byte_0x6D()
+        {
+            var sheet = PlayerSheet.FromBytes(Uw1File("avatar", 20, 20, 20), GameKind.UW1, null);
+            Assert.True(sheet.HasStoryBits);
+            Assert.False(sheet.GaramonBuried);
+            Assert.False(sheet.TalismansCanBurn);
+            Assert.Equal(0, sheet.TalismansLeft);
+            sheet.Dat.Record[0x62] = 0x03;      // other bits of the byte (the drink level) are kept
+            sheet.TalismansCanBurn = true;
+            Assert.Equal(0x07, sheet.Dat.Record[0x62]);
+            sheet.GaramonBuried = true;
+            Assert.Equal(0x0F, sheet.Dat.Record[0x62]);      // a burial as the game makes it: 0x0C
+            sheet.TalismansLeft = 8;
+            Assert.Equal(8, sheet.Dat.Record[0x6D]);
+            Assert.True(sheet.Dirty);
+            // written and read back
+            var again = PlayerSheet.FromBytes(sheet.ToBytes(), GameKind.UW1, null);
+            Assert.True(again.GaramonBuried && again.TalismansCanBurn);
+            Assert.Equal(8, again.TalismansLeft);
+            again.TalismansCanBurn = false;
+            Assert.Equal(0x0B, again.Dat.Record[0x62]);
+            Assert.True(again.GaramonBuried);
+
+            // byte 0x60: armageddon, orb, key, cup in bits 4-7; its low bits (spells, runes) are kept
+            again.Dat.Record[0x60] = 0x0F;
+            again.OrbDestroyed = true; Assert.Equal(0x2F, again.Dat.Record[0x60]);
+            again.KeyOfTruthGiven = true; Assert.Equal(0x6F, again.Dat.Record[0x60]);
+            again.CupFound = true; Assert.Equal(0xEF, again.Dat.Record[0x60]);
+            again.ArmageddonCast = true; Assert.Equal(0xFF, again.Dat.Record[0x60]);
+            again.OrbDestroyed = false; Assert.Equal(0xDF, again.Dat.Record[0x60]);
+            Assert.True(again.KeyOfTruthGiven && again.CupFound && again.ArmageddonCast && !again.OrbDestroyed);
+            // the maze spell, byte 0x62 bit 4, beside the Garamon bits
+            again.MazeSpell = true; Assert.Equal(0x1B, again.Dat.Record[0x62]);
+            // byte 0x5E: the moonstone's level low, the silver tree's high
+            again.Dat.Record[0x5E] = 2;
+            Assert.Equal(2, again.MoonstoneLevel); Assert.Equal(0, again.SilverTreeLevel);
+            again.SilverTreeLevel = 5; Assert.Equal(0x52, again.Dat.Record[0x5E]);
+            again.MoonstoneLevel = 7; Assert.Equal(0x57, again.Dat.Record[0x5E]);
+            Assert.Throws<ArgumentOutOfRangeException>(() => again.MoonstoneLevel = 16);
+            // the dreams, word 0x6E
+            again.Dreams = 0x203; Assert.Equal(0x03, again.Dat.Record[0x6E]); Assert.Equal(0x02, again.Dat.Record[0x6F]);
+            var third = PlayerSheet.FromBytes(again.ToBytes(), GameKind.UW1, null);
+            Assert.Equal(7, third.MoonstoneLevel); Assert.Equal(5, third.SilverTreeLevel); Assert.Equal(0x203, third.Dreams);
+            Assert.True(third.MazeSpell && third.CupFound);
+
+            // UW2 keeps other things there
+            string p = Save("SAVE1"); if (p == null) return;
+            var uw2 = PlayerSheet.Load(p, GameKind.UW2, null);
+            Assert.False(uw2.HasStoryBits);
+            Assert.False(uw2.TalismansCanBurn);
+            Assert.Throws<InvalidOperationException>(() => uw2.GaramonBuried = true);
+        }
+
+        [Fact]
         public void Uw2_saves_read_with_their_inventories()
         {
             var p = Save("SAVE1"); if (p == null) return;
