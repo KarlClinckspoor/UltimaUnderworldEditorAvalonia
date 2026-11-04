@@ -86,7 +86,9 @@ namespace UwEditor.App
             ManualWindow.Attach(this, "Automatic zones");
         }
 
-        string[] CompareChoices()
+        string[] CompareChoices() { return CompareChoices(session); }
+
+        static string[] CompareChoices(GameSession session)
         {
             var list = new System.Collections.Generic.List<string> { "Nothing" };
             if (!session.IsUw2) list.Insert(0, "Karl's painted UW1 map (shipped)");
@@ -94,9 +96,19 @@ namespace UwEditor.App
             return list.ToArray();
         }
 
-        ZoneSet ChosenPainted()
+        ZoneSet ChosenPainted() { return LoadPainted(session, compareBox.SelectedItem as string ?? ""); }
+
+        /// <summary>The painted zoning chosen under Compare with, loaded now (null for Nothing).</summary>
+        public ZoneSet ChosenComparison { get { return ChosenPainted(); } }
+
+        /// <summary>The painted zoning a build compares with when nothing else is chosen: the window's first choice.</summary>
+        public static ZoneSet DefaultPainted(GameSession session) { return LoadPainted(session, CompareChoices(session)[0]); }
+
+        /// <summary>The movement options of the next build.</summary>
+        public NavOptions MovementOptions { get { return opt; } }
+
+        static ZoneSet LoadPainted(GameSession session, string c)
         {
-            string c = compareBox.SelectedItem as string ?? "";
             try
             {
                 if (c.StartsWith("The zone file")) return ZoneSet.Load(Path.Combine(session.DataFolder, ZoneSet.DefaultFileName(session.IsUw2)), session.Profile.LevelSlots);

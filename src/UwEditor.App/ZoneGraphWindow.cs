@@ -8,6 +8,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using UwEditor.Core;
 using UwEditor.Core.Randomizer;
 
 namespace UwEditor.App
@@ -50,6 +51,11 @@ namespace UwEditor.App
         ZoneLink selectedLink;
         int dragZone = -1;
         Point dragOffset;
+        // panning with the middle button
+        ScrollViewer scroll;
+        bool panning;
+        Point panStart;
+        Vector panOrigin;
         // the force-directed layout
         readonly ToggleButton forceButton = new ToggleButton { Content = "Force layout" };
         readonly Slider attraction = new Slider { Minimum = 0.05, Maximum = 4, Value = 1, Width = 130 };
@@ -82,8 +88,13 @@ namespace UwEditor.App
             canvas.PointerMoved += OnCanvasMoved;
             canvas.PointerReleased += (s, e) => { if (dragZone >= 0) { dragZone = -1; z.LinkChanged(); } };
             var zoomed = new LayoutTransformControl { LayoutTransform = scale, Child = canvas };
-            var scroller = new ScrollViewer { Content = zoomed, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            var scroller = scroll = new ScrollViewer { Content = zoomed, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
             scroller.Bind(ScrollViewer.BackgroundProperty, scroller.GetResourceObservable("Panel"));
+            // the middle button pans the view, over the labels and the lines too (tunnelling, ahead of them)
+            scroller.AddHandler(PointerPressedEvent, OnPanPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+            scroller.AddHandler(PointerMovedEvent, OnPanMoved, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+            scroller.AddHandler(PointerReleasedEvent, OnPanReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+            scroller.PointerCaptureLost += (s, e) => EndPan();
             zoom.ValueChanged += (s, e) => { scale.ScaleX = scale.ScaleY = zoom.Value; };
             foreach (var t in new[] { moveMode, oneWayMode, twoWayMode })
             {
@@ -135,7 +146,7 @@ namespace UwEditor.App
                 else if (e.Key == Key.Escape) { connectFrom = -1; SelectZone(-1); e.Handled = true; }
             }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             BuildLabels();
-            Status("Drag the labels; click a label or a line to edit it. Connect modes: click the start zone, then the end zone.");
+            Status("Drag the labels; click a label or a line to edit it. Connect modes: click the start zone, then the end zone. Drag with the middle button to pan.");
             ShowSide();
         }
 
@@ -270,6 +281,52 @@ namespace UwEditor.App
             Canvas.SetLeft(labels[dragZone], x);
             Canvas.SetTop(labels[dragZone], y);
             layer.InvalidateVisual();
+        }
+
+        // ---- panning with the middle button
+
+        /// <summary>How far the view is scrolled (pixels of the zoomed canvas).</summary>
+        public Vector ScrollOffset { get { return scroll.Offset; } set { scroll.Offset = ClampOffset(value); } }
+        public bool Panning { get { return panning; } }
+
+        Vector ClampOffset(Vector v)
+        {
+            double mx = Math.Max(0, scroll.Extent.Width - scroll.Viewport.Width), my = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+            return new Vector(Math.Max(0, Math.Min(mx, v.X)), Math.Max(0, Math.Min(my, v.Y)));
+        }
+
+        void OnPanPressed(object sender, PointerPressedEventArgs e)
+        {
+            if (!e.GetCurrentPoint(scroll).Properties.IsMiddleButtonPressed) return;
+            panning = true;
+            panStart = e.GetPosition(scroll);
+            panOrigin = scroll.Offset;
+            scroll.Cursor = new Cursor(StandardCursorType.SizeAll);
+            e.Pointer.Capture(scroll);
+            e.Handled = true;
+        }
+
+        void OnPanMoved(object sender, PointerEventArgs e)
+        {
+            if (!panning) return;
+            var p = e.GetPosition(scroll);
+            scroll.Offset = ClampOffset(new Vector(panOrigin.X - (p.X - panStart.X), panOrigin.Y - (p.Y - panStart.Y)));
+            e.Handled = true;
+        }
+
+        void OnPanReleased(object sender, PointerReleasedEventArgs e)
+        {
+            if (!panning || e.InitialPressMouseButton != MouseButton.Middle) return;
+            e.Handled = true;
+            e.Pointer.Capture(null);
+            EndPan();
+        }
+
+        void EndPan()
+        {
+            if (!panning) return;
+            panning = false;
+            scroll.Cursor = null;
         }
 
         /// <summary>Moves a label (for tests and scripts).</summary>
@@ -644,14 +701,61 @@ namespace UwEditor.App
             return s.ToList();
         }
 
+        /// <summary>The last logic check's solve over time, or null.</summary>
+        public TimelineResult LastCheck { get; private set; }
+
+        /// <summary>Whether the zoning shown was made by the automatic zones (rather than painted by hand).</summary>
+        public bool IsAutomaticZoning { get { return (z.Set.Source ?? "").StartsWith("automatic zones", StringComparison.OrdinalIgnoreCase); } }
+
+        /// <summary>
+        /// The logic check: the same solve over time as Automatic zones ▸ Report (Phase C), on the
+        /// levels with their unsaved edits, so that mechanisms set off, create traps and counts are
+        /// followed. The options and the zoning compared with are the Automatic zones window's when
+        /// it is open. A zoning painted by hand is that comparison, and its own drawn links are
+        /// checked after it without world changes.
+        /// </summary>
+        public string CheckLogic()
+        {
+            var s = z.Session;
+            var auto = main.OpenAutoZones;
+            NavOptions nav;
+            if (auto != null) nav = auto.MovementOptions.Clone();
+            else { nav = new NavOptions { MaxClimb = main.ZoneClimb }; nav.JumpSpellClimb = 2 * nav.MaxClimb; }
+            var abil = auto != null ? auto.LogicOptions.Clone() : new AbilityOptions();
+            bool hand = !IsAutomaticZoning;
+            var painted = hand ? z.Set : auto != null ? auto.ChosenComparison : AutoZonesWindow.DefaultPainted(s);
+            var edits = main.ViewModel.Edits;
+            Func<int, LevelModel> level = l => edits != null ? edits.Model(l) : s.LoadLevel(l);
+            LastCheck = Timeline.Build(s, level, nav, abil, painted);
+            var report = new System.Text.StringBuilder();
+            report.AppendLine(hand
+                ? "The solve over time, as Automatic zones ▸ Report: the zones are built from the levels again; the zoning drawn here gives the goal and the names."
+                : "The solve over time, as Automatic zones ▸ Report: the zones are built from the levels again with " + (auto != null ? "that window's options" : "the default options") + ", so link edits made here are not part of it.");
+            report.AppendLine();
+            report.Append(Timeline.Report(LastCheck));
+            if (hand)
+            {
+                var drawn = new ZoneSolver(z.Set, new SolverOptions()).Solve(z.Set.StartZone, z.Set.GoalZone);
+                report.AppendLine();
+                report.AppendLine();
+                report.AppendLine("THE LINKS DRAWN HERE, WITHOUT WORLD CHANGES");
+                report.AppendLine("This check follows only the links and placements of this zoning: it does not set off mechanisms, create traps or counts, so it may stop where the solve over time goes on.");
+                report.AppendLine();
+                report.Append(drawn.Report(z.Set));
+            }
+            return report.ToString();
+        }
+
         async void Solve()
         {
-            try
-            {
-                var res = new ZoneSolver(z.Set, new SolverOptions()).Solve(z.Set.StartZone, z.Set.GoalZone);
-                await MessageWindow.Show(this, "The logic from the start", res.Report(z.Set), true);
-            }
-            catch (Exception ex) { Status("The solver stopped: " + ex.Message); }
+            Status("Checking the logic (the solve over time)…");
+            await System.Threading.Tasks.Task.Delay(30);   // let the status show before the solve holds the window
+            string text;
+            try { text = CheckLogic(); }
+            catch (Exception ex) { Status("The solver stopped: " + ex.Message); return; }
+            var sv = LastCheck?.Solve;
+            Status(sv == null ? "The solve over time failed." : sv.GoalReached ? "Logic check: goal reached." : "Logic check: goal NOT reached.");
+            await MessageWindow.Show(this, "The logic from the start", text, true);
         }
     }
 }

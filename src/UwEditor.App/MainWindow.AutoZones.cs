@@ -9,6 +9,9 @@ namespace UwEditor.App
 
         void OnAutoZones(object sender, RoutedEventArgs e) { ShowAutoZones(); }
 
+        /// <summary>The automatic zones window if it is open (the zone graph's logic check takes its options), or null.</summary>
+        public AutoZonesWindow OpenAutoZones { get { return autoZonesWindow; } }
+
         /// <summary>Opens the automatic zones window (one at a time).</summary>
         public AutoZonesWindow ShowAutoZones()
         {

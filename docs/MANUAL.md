@@ -1238,8 +1238,19 @@ the key. Lines are the links between zones:
 - **A selected path** has its zones, direction, kind, sureness, notes, and its list of
   requirements. All of them must hold, and a line with `|` holds when any part does. **From
   the doors** fills the list again. Delete removes the path.
-- **Check the logic…** runs the solver from the start zone: the spheres, the route to the
-  goal, and what blocks each path.
+- **Check the logic…** runs the same solve over time as **Automatic zones ▸ Report**, so the
+  two agree: the zones are built from the levels again (with their unsaved edits), mechanisms
+  are set off and applied when reached, create traps and counts are followed, and the report
+  shows the spheres, the changes and the goal. It takes the movement and logic options and
+  the zoning to compare with from the Automatic zones window when that is open, and the
+  defaults when it is not. Link edits made in the graph are not part of this solve, since it
+  builds its own zones. For a zoning painted by hand, that zoning gives the goal and the
+  names, and its drawn links are then checked on their own, **without world changes**. That
+  second check does not set off mechanisms, so it can stop at a create trap's flag
+  (`flag:create_l5_648` for key 15, say) or a counted item (`item:gold_20`) where the solve
+  over time goes on.
+- **Panning:** drag with the middle mouse button, over the labels and lines too, to move the
+  view.
 - **Force layout** lays the labels out live by forces: every link pulls the two zones it joins
   together, every two zones push each other apart, and a weak pull keeps everything near the
   middle, until it settles. **Attraction** and **Repulsion** set how hard the links pull and

@@ -319,7 +319,9 @@ controls and borders in place of white space, in either colour scheme; font size
   - **Zones** paints a zone id on every tile, with Glasbey colours and an overlay in the
     view, and lists each zone's key items.
   - **Zone graph** has movable zone labels, one-way and two-way links, and a list of
-    requirements per link, filled from the locks of the doors between the zones.
+    requirements per link, filled from the locks of the doors between the zones. The middle
+    mouse button pans the view. **Check the logic** runs the same solve over time as
+    Automatic zones.
   - Both read and write the Unity editor's `uw1-zones.json`. The UW1 example zoning is in
     `docs/examples`.
 - **Randomizer ▸ Scatter ▸ Automatic zones** (UW1): builds the randomizer's zones from the levels

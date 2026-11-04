@@ -2,8 +2,10 @@ using System;
 using System.IO;
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia;
 using Avalonia.LogicalTree;
 using UwEditor.Core;
 using UwEditor.Core.Editing;
@@ -783,6 +785,47 @@ namespace UwEditor.App.Tests
             z.RemoveLink(k2);
             Assert.DoesNotContain(k2, z.Set.Links);
                         Assert.Throws<InvalidOperationException>(() => z.Connect(5, 5, true));
+            g.Close();
+            w.Close();
+        }
+
+        [AvaloniaFact]
+        public void Zone_graph_pans_with_the_middle_button_without_moving_a_label()
+        {
+            if (Uw1 == null) return;
+            var w = OpenQuiet(Uw1);
+            var z = w.Zoning();
+            z.LoadExample();
+            var g = w.ShowZoneGraph();
+            g.Width = 1280; g.Height = 820;
+            Ui.Pump();
+            g.ScrollOffset = new Avalonia.Vector(300, 200);
+            Ui.Pump();
+            Assert.Equal(new Avalonia.Vector(300, 200), g.ScrollOffset);
+            // press over a label, so the pan must win over selecting and dragging it
+            var zone = z.Set.Zones.First(x => x.Id > 1);
+            g.MoveLabel(zone.Id, 400, 300);
+            Ui.Pump();
+            var label = g.GetLogicalDescendants().OfType<Border>().First(b => b.Tag is int id && id == zone.Id);
+            var start = label.TranslatePoint(new Avalonia.Point(10, 8), g).Value;
+            g.MouseMove(start);
+            g.MouseDown(start, MouseButton.Middle);
+            Assert.True(g.Panning);
+            g.MouseMove(start + new Avalonia.Point(-120, -90), RawInputModifiers.MiddleMouseButton);
+            g.MouseUp(start + new Avalonia.Point(-120, -90), MouseButton.Middle);
+            Ui.Pump();
+            Assert.False(g.Panning);
+            Assert.Equal(420, g.ScrollOffset.X, 1);
+            Assert.Equal(290, g.ScrollOffset.Y, 1);
+            Assert.Equal(400, z.Set.GetZone(zone.Id).GraphX);
+            Assert.Equal(-1, g.SelectedZone);
+            // it stops at the canvas's edge
+            g.MouseMove(start);
+            g.MouseDown(start, MouseButton.Middle);
+            g.MouseMove(start + new Avalonia.Point(5000, 5000), RawInputModifiers.MiddleMouseButton);
+            g.MouseUp(start + new Avalonia.Point(5000, 5000), MouseButton.Middle);
+            Ui.Pump();
+            Assert.Equal(new Avalonia.Vector(0, 0), g.ScrollOffset);
             g.Close();
             w.Close();
         }

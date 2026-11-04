@@ -57,5 +57,41 @@ namespace UwEditor.App.Tests
             aw.Close();
             w.Close();
         }
+
+        [AvaloniaFact]
+        public void Zone_graph_logic_check_is_the_solve_over_time_and_agrees_with_the_automatic_zones()
+        {
+            if (Uw1 == null) return;
+            var w = Ui.Open(Uw1);
+            w.AskBeforeDiscarding = false;
+            var aw = w.ShowAutoZones();
+            aw.BuildNow();
+            Ui.Pump();
+            Assert.True(aw.Timeline.Solve.GoalReached);
+            aw.GetLogicalDescendants().OfType<Button>().First(b => (b.Content as string) == "Open in the Zones window")
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Ui.Pump();
+            var g = w.ShowZoneGraph();
+            Ui.Pump();
+            Assert.True(g.IsAutomaticZoning);
+            // the automatic zones in the graph: the same solve as the window's report, so the same outcome
+            string text = g.CheckLogic();
+            Assert.Contains("AUTOMATIC ZONES, PHASE C", text);
+            Assert.DoesNotContain("WITHOUT WORLD CHANGES", text);
+            Assert.True(g.LastCheck.Solve.GoalReached);
+            Assert.Equal(aw.Timeline.Solve.ZoneSphere.Count, g.LastCheck.Solve.ZoneSphere.Count);
+            Assert.Equal(aw.Timeline.Solve.Applied.Count, g.LastCheck.Solve.Applied.Count);
+            aw.Close();
+            Ui.Pump();
+            // a painted zoning: the solve over time still decides, and the drawn links are checked after it
+            w.Zoning().LoadExample();
+            Ui.Pump();
+            Assert.False(g.IsAutomaticZoning);
+            text = g.CheckLogic();
+            Assert.True(g.LastCheck.Solve.GoalReached);
+            Assert.True(text.IndexOf("AUTOMATIC ZONES, PHASE C", StringComparison.Ordinal) < text.IndexOf("WITHOUT WORLD CHANGES", StringComparison.Ordinal));
+            g.Close();
+            w.Close();
+        }
     }
 }
