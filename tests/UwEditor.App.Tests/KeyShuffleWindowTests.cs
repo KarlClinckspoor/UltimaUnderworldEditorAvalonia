@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
@@ -127,6 +128,50 @@ namespace UwEditor.App.Tests
             Ui.Pump();
             Assert.False(kw.UsesZoning);
             Assert.True(kw.QuickAutozoneButton.IsEnabled);
+            kw.Close();
+            w.Close();
+        }
+
+        [AvaloniaFact]
+        public void The_options_line_up_and_apply_puts_a_full_torch_and_the_map_and_explores_the_maps()
+        {
+            if (Uw1 == null) return;
+            var w = Ui.Open(Uw1);
+            w.AskBeforeDiscarding = false;
+            var kw = w.ShowKeyShuffle();
+            kw.Width = 1000; kw.Height = 940;
+            Ui.Pump();
+            // checkboxes in the same column start at the same place, in every group
+            Func<string, double> x = t => Box(kw, t).TranslatePoint(new Avalonia.Point(0, 0), kw).Value.X;
+            double first = x("Keys");
+            foreach (var t in new[] { "Runestones", "Plot items", "Creature inventories", "A full torch", "Magic", "Ring of Levitation", "Cut at level changes", "Consider the current starting square" })
+                Assert.Equal(first, x(t), 0);
+            Assert.Equal(x("Key of Infinity parts"), x("Ability items"), 0);
+            Assert.Equal(x("Everything else as filler"), x("Every map square explored"), 0);   // the longer choices: a grid of their own
+            Assert.Equal(x("Talismans"), x("Dragon skin"), 0);
+            Assert.Equal(x("Single-use items count"), x("Killing NPCs"), 0);
+            Assert.Equal(x("Single-use items count"), x("Require breaking the orb"), 0);
+            Assert.Equal(x("Single-use items count"), x("Retry until found"), 0);
+            // the helps: off at first, ticked here, done at Apply
+            Assert.False(Box(kw, "A full torch").IsChecked);
+            Assert.False(Box(kw, "Every map square explored").IsChecked);
+            Box(kw, "A full torch").IsChecked = true;
+            Box(kw, "Every map square explored").IsChecked = true;
+            Ui.Pump();
+            var vm = w.ViewModel;
+            var level1 = (byte[])vm.Edits.For(1).Data.Clone();
+            Assert.True(kw.ShuffleNow());
+            Ui.Pump();
+            Assert.Contains("AT APPLY", kw.Spoiler);
+            Assert.Contains("explored", kw.Spoiler);
+            var m = vm.Edits.Model(1);
+            Assert.Contains(m.Objects, o => !o.Free && o.Item == UwEditor.Core.Randomizer.StartAids.Map);
+            Assert.Contains(m.Objects, o => !o.Free && (o.Item == 0x91 || o.Item == 0x95) && o.Quality == 63);
+            Assert.True(UltimateEditor.Games.AutomapLevel.Seen(vm.Edits.AutomapFor(1).Map[2 * 64 + 32]));
+            // Undo apply takes them back
+            Assert.True(kw.UndoNow());
+            Assert.True(vm.Edits.For(1).Data.AsSpan().SequenceEqual(level1));
+            Assert.False(UltimateEditor.Games.AutomapLevel.Seen(vm.Edits.AutomapFor(1).Map[2 * 64 + 32]));
             kw.Close();
             w.Close();
         }

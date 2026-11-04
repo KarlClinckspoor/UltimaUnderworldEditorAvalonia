@@ -31,6 +31,10 @@ namespace UwEditor.Core.Randomizer
         public bool CreatureInventories;
         /// <summary>Everything else the item swap moves (weapons, armour, food, coins, lights …) takes part as filler, and its places too.</summary>
         public bool Filler;
+        /// <summary>At Apply: a torch of quality 63 and the map beside the start square (StartAids.PutKit).</summary>
+        public bool StartKit;
+        /// <summary>At Apply: every level's map explored (StartAids.ExploreMaps).</summary>
+        public bool ExploreMaps;
 
         public KeyShuffleOptions Clone()
         {
@@ -127,6 +131,10 @@ namespace UwEditor.Core.Randomizer
         public readonly StringBuilder Log = new StringBuilder();
         /// <summary>Each level's block as Apply left it: Undo only puts back a level not edited since.</summary>
         public readonly Dictionary<int, byte[]> Applied = new Dictionary<int, byte[]>();
+        /// <summary>The maps Apply explored (ExploreMaps), as they were before, for Undo.</summary>
+        public readonly Dictionary<int, Tuple<byte[], List<UwEditor.Core.Editing.MapNote>>> MapsBefore = new Dictionary<int, Tuple<byte[], List<UwEditor.Core.Editing.MapNote>>>();
+        /// <summary>What Apply did besides moving the items (the torch and map, the maps explored).</summary>
+        public readonly List<string> AppliedAids = new List<string>();
         public bool IsApplied { get { return Applied.Count > 0; } }
         public IEnumerable<ShuffleObject> Moving { get { return Objects.Where(o => o.Stays == null); } }
     }
@@ -659,6 +667,8 @@ namespace UwEditor.Core.Randomizer
                 var e = edits.For(kv.Key);
                 if (!e.Data.AsSpan().SequenceEqual(r.Before[kv.Key])) throw new InvalidOperationException("Level " + kv.Key + " changed since the shuffle was computed: preview again.");
             }
+            r.AppliedAids.Clear();
+            r.MapsBefore.Clear();
             edits.Together(() =>
             {
                 foreach (var kv in r.After.OrderBy(k => k.Key))
@@ -666,6 +676,23 @@ namespace UwEditor.Core.Randomizer
                     var e = edits.For(kv.Key);
                     e.Replace(kv.Value, null, "Key item scatter: apply (seed " + r.UsedSeed + ")");
                     r.Applied[kv.Key] = (byte[])e.Data.Clone();
+                }
+                // the helps chosen: part of the same step, so Undo takes them back with the items
+                if (r.Options.StartKit)
+                {
+                    var st = r.Options.Nav.StartOf(edits.Session);
+                    if (st != null)
+                    {
+                        var e = edits.For(st.Level);
+                        if (!r.Before.ContainsKey(st.Level)) r.Before[st.Level] = (byte[])e.Data.Clone();
+                        r.AppliedAids.AddRange(StartAids.PutKit(edits.Session, edits, st));
+                        r.Applied[st.Level] = (byte[])e.Data.Clone();
+                    }
+                }
+                if (r.Options.ExploreMaps)
+                {
+                    foreach (var kv in StartAids.ExploreMaps(edits.Session, edits, "Key item scatter: maps explored")) r.MapsBefore[kv.Key] = kv.Value;
+                    r.AppliedAids.Add(r.MapsBefore.Count == 0 ? "Every map was explored already." : "The maps of levels " + string.Join(", ", r.MapsBefore.Keys.OrderBy(k => k)) + " explored.");
                 }
             });
         }
@@ -683,6 +710,14 @@ namespace UwEditor.Core.Randomizer
                     e.Replace(r.Before[kv.Key], null, "Undo key item shuffle");
                 }
             });
+            // the maps explored at Apply, as they were (a map is cosmetic: put back as it was even if marked since)
+            foreach (var kv in r.MapsBefore)
+            {
+                var a = edits.AutomapFor(kv.Key);
+                a.Replace(kv.Value.Item1, kv.Value.Item2, "Undo key item scatter: maps");
+                edits.AutomapEdited(a);
+            }
+            r.MapsBefore.Clear();
             r.Applied.Clear();
             return skipped;
         }

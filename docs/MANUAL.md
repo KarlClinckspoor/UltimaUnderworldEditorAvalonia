@@ -2117,6 +2117,24 @@ with unsaved edits and with any Named challenges or swaps already applied.
 Their inventories become places too. **Everything else as filler** adds every other item the
 item swap moves (weapons, armour, food, coins, lights …), and their places.
 
+**At the start** (both off at first) adds two helps, done at **Apply** as part of the same
+step, so **Undo apply** takes them back too:
+- **A full torch (quality 63) and the map beside the start.** The start is the square the
+  solver uses: the new-game square in `UW.EXE`, or the game's own with **Consider the current
+  starting square in the editor** off.
+  - Apply looks on the start and the eight squares around it, on the floor and inside
+    containers there. The shipped game has a sack at (33, 3) holding a torch (quality 40) and
+    the map.
+  - A torch found there is filled up to 63 (the most a light holds).
+  - A missing torch, or a missing map, is put on the floor of the first open square beside
+    the start.
+- **Every map square explored.** Every level's map shows every open square, as if the player
+  had seen it all: each square gets the code the game writes when the player sees it. The
+  notes are kept. Edit ▸ Undo takes back the levels but not the maps; **Undo apply** takes
+  back both.
+
+The options are laid out in columns: the checkboxes of a group start at the same places.
+
 Some objects always stay where they are. The log lists them with the reason: items carried
 by an NPC with a conversation, a create trap's template, objects a trap or trigger names,
 objects that hold other objects or a trigger, the orbs, the moonstone (Gate Travel goes to

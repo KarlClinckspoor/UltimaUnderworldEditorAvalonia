@@ -41,6 +41,8 @@ namespace UwEditor.App
         readonly TextBlock zoningText = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 560 };
         readonly Button quickButton = new Button { Content = "Quick autozone" };
         bool quickRunning, namesFromZoning;
+        readonly CheckBox kitBox = new CheckBox { Content = "A full torch (quality 63) and the map beside the start" };
+        readonly CheckBox mapsBox = new CheckBox { Content = "Every map square explored" };
 
         /// <summary>The last preview or shuffle, or null.</summary>
         public KeyShuffleResult Result { get; private set; }
@@ -54,7 +56,7 @@ namespace UwEditor.App
             this.main = main;
             session = s;
             Title = "Apply";
-            Width = 1000; Height = 900; MinWidth = 680; MinHeight = 520;
+            Width = 1000; Height = 960; MinWidth = 680; MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             opt.Nav.MaxClimb = main.ZoneClimb;
             opt.Nav.JumpSpellClimb = 2 * opt.Nav.MaxClimb;
@@ -75,7 +77,9 @@ namespace UwEditor.App
             ToolTip.SetTip(quickButton, "Makes automatic zones with the movement options below and puts them in the Zones window (to look at and change there); Apply then uses them. Only when there is no zoning yet.");
             var zonesButton = new Button { Content = "Zones window…" };
             zonesButton.Click += (o, e) => main.ShowZones();
-            top.Children.Add(LogicOptionsPanel.Row(LogicOptionsPanel.Label("Zones"), zoningText, quickButton, zonesButton));
+            var head = new OptionGrid(1);
+            head.AddRow("Zones", LogicOptionsPanel.Row(zoningText, quickButton, zonesButton));
+            top.Children.Add(head);
             if (zoning != null)
             {
                 zoning.Changed += OnZoningChanged;
@@ -88,30 +92,36 @@ namespace UwEditor.App
             newSeed.Click += (o, e) => seed.Value = new Random().Next(1, int.MaxValue);
             retries.Value = opt.Retries;
             retries.ValueChanged += (o, e) => { opt.Retries = (int)(retries.Value ?? 20); };
-            top.Children.Add(LogicOptionsPanel.Row(LogicOptionsPanel.Label("Seed"), seed, newSeed, LogicOptionsPanel.Label("Retries", 60), retries, LogicOptionsPanel.Note("further seeds tried when a fill fails the check")));
+            head.AddRow("Seed", LogicOptionsPanel.Row(seed, newSeed, LogicOptionsPanel.Label("Retries", 60), retries, LogicOptionsPanel.Note("further seeds tried when a fill fails the check")));
             // the logic options, as the Automatic zones window has them
             top.Children.Add(new LogicOptionsPanel(opt.Nav, opt.Logic, true));
-            var cats = new WrapPanel { Orientation = Orientation.Horizontal };
-            foreach (var c in KeyShuffle.Categories)
+            // what moves, three to a row, lined up with the options above
+            top.Children.Add(LogicOptionsPanel.Heading("THE SCATTER", "what moves, and what Apply adds"));
+            var moves = new OptionGrid(3);
+            var boxes = KeyShuffle.Categories.Select(c =>
             {
                 string cat = c;
-                var box = new CheckBox { Content = KeyShuffle.CategoryName(c), IsChecked = opt.Move.Contains(c), Margin = new Thickness(0, 0, 12, 0) };
+                var box = new CheckBox { Content = KeyShuffle.CategoryName(c), IsChecked = opt.Move.Contains(c) };
                 box.IsCheckedChanged += (o, e) => { if (box.IsChecked == true) opt.Move.Add(cat); else opt.Move.Remove(cat); };
-                cats.Children.Add(box);
-            }
-            var moveRow = new DockPanel();
-            var moveLabel = LogicOptionsPanel.Label("Move");
-            moveLabel.VerticalAlignment = VerticalAlignment.Top;
-            moveLabel.Margin = new Thickness(0, 6, 0, 0);
-            DockPanel.SetDock(moveLabel, Dock.Left);
-            moveRow.Children.Add(moveLabel);
-            moveRow.Children.Add(cats);
-            top.Children.Add(moveRow);
+                return (Control)box;
+            }).ToList();
+            for (int i = 0; i < boxes.Count; i += 3) moves.AddRow(i == 0 ? "Move" : "", boxes.Skip(i).Take(3).Concat(Enumerable.Repeat<Control>(null, Math.Max(0, 3 - (boxes.Count - i)))).ToArray());
             var creatures = new CheckBox { Content = "Creature inventories (creatures without a conversation)", IsChecked = opt.CreatureInventories };
             creatures.IsCheckedChanged += (o, e) => opt.CreatureInventories = creatures.IsChecked == true;
             var filler = new CheckBox { Content = "Everything else as filler (weapons, armour, food, coins, lights …)", IsChecked = opt.Filler };
             filler.IsCheckedChanged += (o, e) => opt.Filler = filler.IsChecked == true;
-            top.Children.Add(LogicOptionsPanel.Row(LogicOptionsPanel.Label(""), creatures, filler));
+            top.Children.Add(moves);
+            // the longer choices in a grid of their own, so that the categories' columns stay close
+            var more = new OptionGrid(2);
+            more.AddRow("Also", creatures, filler);
+            kitBox.IsChecked = opt.StartKit;
+            kitBox.IsCheckedChanged += (o, e) => opt.StartKit = kitBox.IsChecked == true;
+            ToolTip.SetTip(kitBox, "At Apply: a torch of quality 63 and the map lie beside the start square (the editor's, or the game's own with that option off). One found there is filled up or kept; a missing one is put on the floor beside the start.");
+            mapsBox.IsChecked = opt.ExploreMaps;
+            mapsBox.IsCheckedChanged += (o, e) => opt.ExploreMaps = mapsBox.IsChecked == true;
+            ToolTip.SetTip(mapsBox, "At Apply: every level's map shows every square, as if the player had seen it all (the notes are kept).");
+            more.AddRow("At the start", kitBox, mapsBox);
+            top.Children.Add(more);
 
             previewButton.Click += async (o, e) => await RunAsync(false);
             shuffleButton.Click += async (o, e) => await RunAsync(true);
@@ -129,6 +139,8 @@ namespace UwEditor.App
             // the settings scroll when the window is short; the buttons stay in sight, the log takes the rest
             var root = new Grid { Margin = new Thickness(16), RowDefinitions = new RowDefinitions("Auto,Auto,*") };
             var scroll = new ScrollViewer { Content = top, MaxHeight = 560, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
+            // the settings take what the window can spare, the log keeps at least 220 pixels
+            SizeChanged += (o, e) => scroll.MaxHeight = Math.Max(240, e.NewSize.Height - 300);
             Grid.SetRow(actions, 1);
             Grid.SetRow(report, 2);
             root.Children.Add(scroll); root.Children.Add(actions); root.Children.Add(report);
@@ -274,7 +286,16 @@ namespace UwEditor.App
         bool ApplyResult(KeyShuffleResult r)
         {
             if (r == null || !r.Success) { if (r != null) Show(r, ""); return false; }
+            // the helps are done at Apply, with the choices as they are now
+            r.Options.StartKit = opt.StartKit;
+            r.Options.ExploreMaps = opt.ExploreMaps;
             KeyShuffle.Apply(r, main.ViewModel.Edits);
+            if (r.AppliedAids.Count > 0)
+            {
+                r.Log.AppendLine();
+                r.Log.AppendLine("AT APPLY");
+                foreach (var l in r.AppliedAids) r.Log.AppendLine("  " + l);
+            }
             applied.Add(r);
             undoButton.IsEnabled = true;
             Show(r, "Shuffled (not saved yet). ");
