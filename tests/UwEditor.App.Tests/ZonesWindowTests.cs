@@ -109,6 +109,52 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void A_level_edit_keeps_the_link_being_edited_and_painting_an_automatic_zoning_makes_it_hand_made()
+        {
+            if (Uw1 == null) return;
+            using (var c = new Copy(Uw1))
+            {
+                var w = Ui.Open(c.Folder);
+                w.AskBeforeDiscarding = false;
+                var z = w.Zoning();
+                z.LoadExample();
+                var zw = w.ShowZones();
+                Ui.Pump();
+                z.CurrentZone = 2;
+                Ui.Pump();
+                var k = zw.AddLink(9);
+                var editor = zw.GetLogicalDescendants().OfType<LinkEditorPanel>().Single();
+                // notes typed but not yet committed (the box keeps the focus while the main window is used)
+                var notes = editor.GetLogicalDescendants().OfType<TextBox>().Last();
+                notes.Text = "typed, not committed";
+                // an edit in the main window: the zoning hears of it ("items"), the link editor and its text stay
+                var e = w.ViewModel.Edits.For(1);
+                e.SetTileField(30, 30, "Wall texture", (e.TileField(30, 30, "Wall texture") + 1) % 60);
+                Ui.Pump();
+                Assert.Same(editor, zw.GetLogicalDescendants().OfType<LinkEditorPanel>().Single());
+                Assert.Equal("typed, not committed", notes.Text);
+                zw.Close();
+
+                // an automatic zoning, painted on: no longer automatic, so the solver keeps its zones after a change
+                var auto = Timeline.AutoZoning(w.ViewModel.Session, l => w.ViewModel.Edits.Model(l));
+                z.Adopt(auto, Path.Combine(c.Folder, "DATA", "auto.json"));
+                Assert.True(AutoZones.IsAutomatic(z.Set));
+                z.CurrentZone = z.Set.Zones.First(x => x.Id > ZoneSet.Unassigned).Id;
+                var m = w.ViewModel.Edits.Model(1);
+                int t = Enumerable.Range(0, 4096).First(i => { int x = i % 64, y = i / 64, v = z.Set.ZoneAt(1, x, y); return v > ZoneSet.Unassigned && v != z.CurrentZone; });
+                Assert.True(z.PaintTile(1, t % 64, t / 64, true));
+                Assert.False(AutoZones.IsAutomatic(z.Set));
+                Assert.Equal(ZoningState.HandEditedSource, z.Set.Source);
+                // placing zones in the graph for the view is not an edit
+                var z2 = w.Zoning();
+                z2.Save(Path.Combine(c.Folder, "DATA", "auto.json"));
+                z2.PositionsChanged(false);
+                Assert.False(z2.Dirty);
+                w.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void Picking_a_zone_shows_it_and_its_name_and_the_columns_can_be_resized()
         {
             if (Uw1 == null) return;

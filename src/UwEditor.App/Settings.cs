@@ -46,6 +46,8 @@ namespace UwEditor.App
         public bool ExhumedLook { get; set; }
         /// <summary>The check in Underworld Exhumed shows the game's window while it runs.</summary>
         public bool ExhumedShowWindow { get; set; }
+        /// <summary>The port in use crashes on UW1's level 9 (Underworld Exhumed v1.0.2 and later builds so far).</summary>
+        public bool ExhumedLevel9Crash { get; set; } = true;
 
         /// <summary>The folder the settings (and the checkpoints) live in.</summary>
         public static string Folder { get { return Path.GetDirectoryName(PathOf()); } }

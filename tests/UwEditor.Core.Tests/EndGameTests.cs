@@ -60,5 +60,20 @@ namespace UwEditor.Core.Tests
             string g2 = GameData.Game("UW2");
             if (g2 != null) Assert.Throws<System.InvalidOperationException>(() => TrapRecipes.EndOfGame(new LevelEdits(GameSession.Open(g2)).For(1), 10, 10));
         }
+
+        [Fact]
+        public void A_square_that_ends_the_game_needs_only_the_goal_options_not_level_9s_requirement()
+        {
+            var res = new TimelineResult { GoalRequires = "talismans:8 & flag:garamon_buried" };
+            res.GoalExtras.Add(new Fact { Id = "goal_orb", Option = "require_orb", Requires = "flag:orb_destroyed" });
+            var off = new SolverOptions();
+            var on = new SolverOptions(); on.OptionsOn.Add("require_orb");
+            // level 9's arrival: the goal fact's requirement, and the option's extra when on
+            Assert.Equal("talismans:8 & flag:garamon_buried", res.GoalFor(off));
+            Assert.Equal("talismans:8 & flag:garamon_buried & flag:orb_destroyed", res.GoalFor(on));
+            // a square that ends the game (check_victory plays the ending at once): only the option's extra
+            Assert.Equal("free", res.EndFor(off));
+            Assert.Equal("flag:orb_destroyed", res.EndFor(on));
+        }
     }
 }

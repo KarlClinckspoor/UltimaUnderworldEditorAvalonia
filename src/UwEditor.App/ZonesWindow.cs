@@ -85,25 +85,15 @@ namespace UwEditor.App
         public TimelineResult LastCheck { get; private set; }
         public ZoneLink SelectedLink { get { return selectedLink; } }
 
-        Func<int, LevelModel> Levels { get { var edits = main.ViewModel.Edits; return l => edits != null ? edits.Model(l) : z.Session.LoadLevel(l); } }
+        /// <summary>The zone of the start square as the solver takes it (MainWindow.ZoningStartZone).</summary>
+        int StartZone() { return main.ZoningStartZone(z); }
 
-        /// <summary>The zone of the new-game start square (UW.EXE, as the editor's start tool sets it), else the zoning's start zone.</summary>
-        int StartZone()
-        {
-            var st = z.Session.NewGameStart;
-            if (st != null) { int v = z.Set.ZoneAt(st.Level, (int)st.X, (int)st.Y); if (v > ZoneSet.Unassigned) return v; }
-            return z.Set.StartZone;
-        }
-
-        List<EndTrigger> Ends()
-        {
-            try { return EndGame.Find(z.Session, Levels); }
-            catch (Exception) { return new List<EndTrigger>(); }
-        }
+        /// <summary>The squares that end the game (MainWindow.ZoningEnds, kept until a level changes).</summary>
+        List<EndTrigger> Ends() { return main.ZoningEnds(z); }
 
         void RefreshStartGoal()
         {
-            var st = z.Session.NewGameStart;
+            var st = main.ZoningStart(z);
             string start = st == null ? "Start: unknown." : string.Format("Start: level {0} ({1}, {2}), {3}.", st.Level, (int)st.X, (int)st.Y, ZoneText(z.Set.ZoneAt(st.Level, (int)st.X, (int)st.Y)));
             var ends = Ends();
             string goal = z.Session.IsUw2 ? "Goal: not known for UW2." :
@@ -168,8 +158,12 @@ namespace UwEditor.App
 
         string LinkText(ZoneLink k) { return string.Format("{0} {1} {2}: {3}", z.Label(k.From), k.TwoWay ? "↔" : "→", z.Label(k.To), k.Requires); }
 
-        /// <summary>The links of the current zone; with rebuild, the zones to link to and the editor of the selected link too.</summary>
-        void RefreshLinks(bool rebuild)
+        /// <summary>
+        /// The links of the current zone; with rebuild, the zones to link to and the editor of the
+        /// selected link too. The editor is built again only when another link is chosen or the zones
+        /// changed (zonesChanged), so what is being typed in it is kept.
+        /// </summary>
+        void RefreshLinks(bool rebuild, bool zonesChanged = true)
         {
             int cur = z.CurrentZone;
             if (selectedLink != null && !z.Set.Links.Contains(selectedLink)) { selectedLink = null; rebuild = true; }
@@ -189,7 +183,8 @@ namespace UwEditor.App
             if (rebuild)
             {
                 if (selectedLink != null && selectedLink.From != cur && selectedLink.To != cur) selectedLink = null;
-                ShowLinkEditor();
+                var shown = linkHost.Content as LinkEditorPanel;
+                if (zonesChanged || linkHost.Content == null || (shown == null ? selectedLink != null : !ReferenceEquals(shown.Link, selectedLink))) ShowLinkEditor();
             }
         }
 
@@ -241,13 +236,25 @@ namespace UwEditor.App
             return verdict + Environment.NewLine + Environment.NewLine + text;
         }
 
+        bool solving;
+
+        /// <summary>The button's check: the solve runs on another thread, so the editor keeps answering meanwhile.</summary>
         async System.Threading.Tasks.Task CheckSolvableAsync()
         {
+            if (solving) return;
+            solving = true;
             solveText.Text = "Checking (the solve over time, with the main option sets)…";
-            await System.Threading.Tasks.Task.Delay(30);   // let the line show before the solve holds the window
             string text;
-            try { text = CheckSolvable(); }
+            try
+            {
+                var done = await main.SolveZoningAsync(z);
+                LastCheck = done.Item2;
+                string verdict = MainWindow.Verdict(done.Item2);
+                solveText.Text = verdict;
+                text = verdict + Environment.NewLine + Environment.NewLine + done.Item1;
+            }
             catch (Exception ex) { solveText.Text = "The solver stopped: " + ex.Message; return; }
+            finally { solving = false; }
             await MessageWindow.ShowReport(this, "Is the zoning solvable?", text);
         }
 
@@ -453,6 +460,9 @@ namespace UwEditor.App
             if (what == "notes") return;
             // a link edited: the list's lines only, so the link being edited keeps its controls
             if (what == "links") { RefreshLinks(false); RefreshStartGoal(); return; }
+            // a level edited (in the main window): the items and the start and goal only, so the boxes being typed in keep their text
+            if (what == "items") { RefreshItems(); RefreshStartGoal(); return; }
+            if (what == "layout") return;
             Refresh();
         }
 
@@ -480,6 +490,7 @@ namespace UwEditor.App
             // the list is rebuilt only when it changed: rebuilding it while a zone is being picked from it leaves the box empty
             bool same = rows.Count == fresh.Count && rows.Zip(fresh, (a, b) => a.Id == b.Id && a.Label == b.Label && a.Color == b.Color).All(x => x);
             if (!same) { rows.Clear(); foreach (var r in fresh) rows.Add(r); }
+            bool zonesChanged = !same;
             var want = rows.FirstOrDefault(r => r.Id == z.CurrentZone);
             if (!ReferenceEquals(zoneBox.SelectedItem, want)) zoneBox.SelectedItem = want;
             filling = false;
@@ -500,7 +511,7 @@ namespace UwEditor.App
             }
             RefreshItems();
             RefreshSplit();
-            RefreshLinks(true);
+            RefreshLinks(true, zonesChanged);
             RefreshStartGoal();
         }
 

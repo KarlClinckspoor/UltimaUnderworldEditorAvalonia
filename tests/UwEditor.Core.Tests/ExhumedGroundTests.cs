@@ -194,6 +194,16 @@ namespace UwEditor.Core.Tests
                 var plain = ExhumedCheck.Prepare(s, new LevelEdits(s), null, new[] { 2 }, dir);
                 Assert.False(plain.CrashLevelLast);
                 Assert.DoesNotContain("level 9", File.ReadAllText(plain.Script));
+                // a port that no longer crashes there (the option off): level 9 in its place, and a crash there is a problem again
+                var fixedPort = new ExhumedOptions { PortCrashesOnLevel9 = false };
+                Assert.Equal(0, ExhumedCheck.PortCrashLevel(s.Kind, fixedPort));
+                var plan2 = ExhumedCheck.Prepare(s, new LevelEdits(s), null, new[] { 9, 2 }, dir, true, true, fixedPort);
+                Assert.False(plan2.CrashLevelLast);
+                Assert.Equal(new[] { 9, 2 }, plan2.Visits.Select(v => v.Level).Distinct().ToArray());
+                var v9b = plan2.Visits.First(v => v.Level == 9);
+                var crashed = ExhumedCheck.Analyze(s, plan2, 3, Goto(v9b) + "uw1port: host fault; the call stack:\n", false);
+                Assert.Equal(0, crashed.PortCrashedOn);
+                Assert.Contains(crashed.Problems, p => p.Contains("crashed"));
             }
             finally { try { Directory.Delete(dir, true); } catch (Exception) { } }
         }

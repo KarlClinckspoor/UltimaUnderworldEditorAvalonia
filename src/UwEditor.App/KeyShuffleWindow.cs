@@ -207,7 +207,13 @@ namespace UwEditor.App
             await Task.Run(() => { try { made = Timeline.AutoZoning(session, snap.Level, nav, logic); } catch (Exception ex) { error = ex.Message; } });
             quickRunning = false;
             if (error != null) { summary.Text = "Could not make the zones: " + error; RefreshZoning(); return false; }
-            zoning.Adopt(made, Path.Combine(session.DataFolder, AutoZones.DefaultFileName(session.IsUw2)));
+            // a zoning opened or painted in the Zones window while these were made is not replaced without asking
+            if (UsesZoning)
+            {
+                string a = await MessageWindow.Ask(this, "Quick autozone", "The Zones window got a zoning while the automatic zones were being made (" + Path.GetFileName(zoning.Path) + "). Replace it with the automatic zones?", "Keep it", "Replace");
+                if (a != "Replace") { summary.Text = "The automatic zones were made, but the Zones window's zoning was kept."; RefreshZoning(); return false; }
+            }
+            zoning.Adopt(made,Path.Combine(session.DataFolder, AutoZones.DefaultFileName(session.IsUw2)));
             summary.Text = string.Format("{0} automatic zones made and put in the Zones window (not saved; saving there asks for a name). Apply uses them now.", zoning.ZoneCount);
             RefreshZoning();
             return true;

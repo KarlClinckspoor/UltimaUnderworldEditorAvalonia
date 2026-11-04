@@ -461,6 +461,37 @@ namespace UwEditor.Core.Randomizer
             if (r.Refused != null) throw new InvalidOperationException(r.Refused);
             var a = new ChallengeApplied { Label = label };
             var w = r.World;
+            // what lies outside the levels' undo: the automaps, the creature table, the player
+            Action rest = () =>
+            {
+                a.MapBefore.Clear(); a.MapAfter.Clear(); a.Table.Clear();
+                foreach (int level in w.OpenedMaps)
+                {
+                    var sa = w.OpenedMap(level);
+                    if (!w.MapChanged(level)) continue;
+                    var ra = edits.AutomapFor(level);
+                    if (ra.Map.AsSpan().SequenceEqual(sa.Map)) continue;
+                    a.MapBefore[level] = Tuple.Create((byte[])ra.Map.Clone(), ra.Notes.Select(n => new MapNote { Text = n.Text, X = n.X, Y = n.Y }).ToList());
+                    ra.Replace(sa.Map, sa.Notes, label);
+                    edits.AutomapEdited(ra);
+                    a.MapAfter[level] = (byte[])ra.Map.Clone();
+                }
+                if (setTable != null)
+                    foreach (var t in r.TableChanges)
+                    {
+                        string err = setTable(t.Row, t.Field, t.New);
+                        if (err == null) a.Table.Add(t);
+                    }
+                if (player != null && w.Player != null && w.PlayerChanged)
+                {
+                    a.Player = PlayerSnapshot.Take(player);
+                    Array.Copy(w.Player.Dat.Record, player.Dat.Record, Math.Min(player.Dat.Record.Length, w.Player.Dat.Record.Length));
+                    player.Inventory.Top.Clear();
+                    player.Inventory.Top.AddRange(w.Player.Inventory.Top);
+                    player.Inventory.Changed = true;
+                    player.Dirty = true;
+                }
+            };
             edits.Together(() =>
             {
                 foreach (int level in r.ChangedLevels())
@@ -472,34 +503,27 @@ namespace UwEditor.Core.Randomizer
                     e.Replace(se.Data, se.TextureBytes, label);
                     a.After[level] = (byte[])e.Data.Clone();
                 }
-            });
-            foreach (int level in w.OpenedMaps)
+            },
+            // Edit ▸ Undo / Redo of the levels' step takes the rest with it
+            undone: () => UndoRest(a, edits, setTable, player, new List<int>(), "Undo " + label),
+            redone: rest);
+            rest();
+            return a;
+        }
+
+        /// <summary>The automaps (those not changed since), the creature table and the player put back as they were before Apply; the levels whose maps changed since go into skipped.</summary>
+        static void UndoRest(ChallengeApplied a, LevelEdits edits, Func<int, string, int, string> setTable, PlayerSheet player, List<int> skipped, string label)
+        {
+            foreach (var kv in a.MapBefore)
             {
-                var sa = w.OpenedMap(level);
-                if (!w.MapChanged(level)) continue;
-                var ra = edits.AutomapFor(level);
-                if (ra.Map.AsSpan().SequenceEqual(sa.Map)) continue;
-                a.MapBefore[level] = Tuple.Create((byte[])ra.Map.Clone(), ra.Notes.Select(n => new MapNote { Text = n.Text, X = n.X, Y = n.Y }).ToList());
-                ra.Replace(sa.Map, sa.Notes, label);
-                edits.AutomapEdited(ra);
-                a.MapAfter[level] = (byte[])ra.Map.Clone();
+                var m = edits.AutomapFor(kv.Key);
+                if (!m.Map.AsSpan().SequenceEqual(a.MapAfter[kv.Key])) { if (!skipped.Contains(kv.Key)) skipped.Add(kv.Key); continue; }
+                m.Replace(kv.Value.Item1, kv.Value.Item2, label);
+                edits.AutomapEdited(m);
             }
             if (setTable != null)
-                foreach (var t in r.TableChanges)
-                {
-                    string err = setTable(t.Row, t.Field, t.New);
-                    if (err == null) a.Table.Add(t);
-                }
-            if (player != null && w.Player != null && w.PlayerChanged)
-            {
-                a.Player = PlayerSnapshot.Take(player);
-                Array.Copy(w.Player.Dat.Record, player.Dat.Record, Math.Min(player.Dat.Record.Length, w.Player.Dat.Record.Length));
-                player.Inventory.Top.Clear();
-                player.Inventory.Top.AddRange(w.Player.Inventory.Top);
-                player.Inventory.Changed = true;
-                player.Dirty = true;
-            }
-            return a;
+                for (int i = a.Table.Count - 1; i >= 0; i--) setTable(a.Table[i].Row, a.Table[i].Field, a.Table[i].Old);
+            if (a.Player != null && player != null) a.Player.Restore(player);
         }
 
         /// <summary>
@@ -520,16 +544,7 @@ namespace UwEditor.Core.Randomizer
                     e.Replace(kv.Value.Item1, kv.Value.Item2, label);
                 }
             });
-            foreach (var kv in a.MapBefore)
-            {
-                var m = edits.AutomapFor(kv.Key);
-                if (!m.Map.AsSpan().SequenceEqual(a.MapAfter[kv.Key])) { if (!skipped.Contains(kv.Key)) skipped.Add(kv.Key); continue; }
-                m.Replace(kv.Value.Item1, kv.Value.Item2, label);
-                edits.AutomapEdited(m);
-            }
-            if (setTable != null)
-                for (int i = a.Table.Count - 1; i >= 0; i--) setTable(a.Table[i].Row, a.Table[i].Field, a.Table[i].Old);
-            if (a.Player != null && player != null) a.Player.Restore(player);
+            UndoRest(a, edits, setTable, player, skipped, label);
             skipped.Sort();
             return skipped;
         }

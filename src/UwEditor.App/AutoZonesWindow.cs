@@ -61,7 +61,7 @@ namespace UwEditor.App
             top.Children.Add(new LogicOptionsPanel(opt, abil, true));
 
             var build = new Button { Content = "Build and Report", FontWeight = FontWeight.SemiBold };
-            build.Click += (o, e) => BuildNow();
+            build.Click += async (o, e) => await BuildAsync();
             ToolTip.SetTip(build, "Builds the zones and shows the solve over time: the timeline sphere by sphere, the changes set off, the doors closed behind, the return check and the goal with the main option sets.");
             var use = new Button { Content = "Build and Use" };
             use.Click += async (o, e) => await BuildAndUse();
@@ -85,19 +85,49 @@ namespace UwEditor.App
             {
                 var edits = main.ViewModel.Edits;
                 Func<int, LevelModel> level = l => edits != null ? edits.Model(l) : session.LoadLevel(l);
-                Timeline = Core.Randomizer.Timeline.Build(session, level, opt, abil.Clone());
-                Abilities = Timeline.Abilities;
-                Result = Abilities.Auto;
-                var g = Result.Graph;
-                var zs = Result.Set;
-                var sv = Timeline.Solve;
-                summary.Text = string.Format("{0} regions, {1} edges, {2} zones, {3} links, {4} placements, {5} mechanisms ({6} applied when set off, {7} doors closed behind), {8} levers ({9} out of reach), {10} ability sources, {11} hidden gates. Timeline: {12}, {13} of {14} zones reached, {15} changes applied, {16} one-way traps.",
-                    g.Regions.Count, g.Edges.Count, zs.Zones.Count(z => z.Id > ZoneSet.Unassigned), zs.Links.Count, zs.Placements.Count, g.Mechanisms.Count, Timeline.Changes.Count(c => c.Applied), Timeline.Closers.Count, g.Levers.Count, g.Levers.Count(l => l.OutOfReach),
-                    Abilities.Sources.Count, Abilities.Hidden.Count,
-                    sv == null ? "failed" : sv.GoalReached ? "goal reached" : "goal not reached", sv?.ZoneSphere.Count(kv => kv.Key < 1000) ?? 0, zs.Zones.Count(z => z.Id > ZoneSet.Unassigned), sv?.Applied.Count ?? 0, sv?.Traps.Count ?? 0);
-                report.Text = FullReport();
+                Show(Core.Randomizer.Timeline.Build(session, level, opt, abil.Clone()));
             }
             catch (Exception ex) { summary.Text = "Could not build the zones: " + ex.Message; }
+        }
+
+        bool building;
+
+        /// <summary>Build and Report from the button: the build runs on another thread (on a copy of the levels and options), so the editor keeps answering meanwhile. False when it failed or one was running.</summary>
+        public async System.Threading.Tasks.Task<bool> BuildAsync()
+        {
+            if (building) return false;
+            building = true;
+            summary.Text = "Building the zones and solving over time…";
+            try
+            {
+                var edits = main.ViewModel.Edits;
+                Func<int, LevelModel> level;
+                if (edits != null) { var snap = KeyShuffle.Snapshot(session, edits); level = snap.Level; }
+                else level = l => session.LoadLevel(l);
+                var nav = opt.Clone();
+                var logic = abil.Clone();
+                var t = await System.Threading.Tasks.Task.Run(() => Core.Randomizer.Timeline.Build(session, level, nav, logic));
+                Show(t);
+                return true;
+            }
+            catch (Exception ex) { summary.Text = "Could not build the zones: " + ex.Message; return false; }
+            finally { building = false; }
+        }
+
+        /// <summary>Shows a build: the summary line and the report.</summary>
+        void Show(TimelineResult t)
+        {
+            Timeline = t;
+            Abilities = Timeline.Abilities;
+            Result = Abilities.Auto;
+            var g = Result.Graph;
+            var zs = Result.Set;
+            var sv = Timeline.Solve;
+            summary.Text = string.Format("{0} regions, {1} edges, {2} zones, {3} links, {4} placements, {5} mechanisms ({6} applied when set off, {7} doors closed behind), {8} levers ({9} out of reach), {10} ability sources, {11} hidden gates. Timeline: {12}, {13} of {14} zones reached, {15} changes applied, {16} one-way traps.",
+                g.Regions.Count, g.Edges.Count, zs.Zones.Count(z => z.Id > ZoneSet.Unassigned), zs.Links.Count, zs.Placements.Count, g.Mechanisms.Count, Timeline.Changes.Count(c => c.Applied), Timeline.Closers.Count, g.Levers.Count, g.Levers.Count(l => l.OutOfReach),
+                Abilities.Sources.Count, Abilities.Hidden.Count,
+                sv == null ? "failed" : sv.GoalReached ? "goal reached" : "goal not reached", sv?.ZoneSphere.Count(kv => kv.Key < 1000) ?? 0, zs.Zones.Count(z => z.Id > ZoneSet.Unassigned), sv?.Applied.Count ?? 0, sv?.Traps.Count ?? 0);
+            report.Text = FullReport();
         }
 
         /// <summary>The report: the solve over time (Phase C), which the earlier phases' reports are steps towards.</summary>
@@ -118,8 +148,7 @@ namespace UwEditor.App
         /// </summary>
         public async System.Threading.Tasks.Task<bool> BuildAndUse()
         {
-            BuildNow();
-            if (Result == null) return false;
+            if (!await BuildAsync() || Result == null) return false;
             var z = main.Zoning();
             if (z == null) return false;
             if (z.Dirty)

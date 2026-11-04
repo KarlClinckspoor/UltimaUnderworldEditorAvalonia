@@ -12,52 +12,104 @@ namespace UwEditor.App
     public partial class MainWindow
     {
         /// <summary>
-        /// The solve over time on a zoning (Check the logic, Check if solvable), as Apply uses it:
-        /// its copy for the solver (split by level when that option is on), on the levels with
-        /// their unsaved edits, with the main option sets too. The options are the Apply window's
-        /// when it is open, else the Automatic zones window's, else the defaults. A zoning with
-        /// nothing painted is solved on automatic zones. Returns the report.
+        /// The movement and logic options the zoning tools use: the Apply window's when it is open,
+        /// else the Automatic zones window's, else the defaults (copies). from says which.
         /// </summary>
-        public string SolveZoning(ZoningState z, out TimelineResult result)
+        public void ZoningOptions(out NavOptions nav, out AbilityOptions abil, out string from)
         {
-            var s = z.Session;
             var apply = OpenKeyShuffle;
             var auto = OpenAutoZones;
-            NavOptions nav;
-            AbilityOptions abil;
-            string from;
             if (apply != null) { nav = apply.Options.Nav.Clone(); abil = apply.Options.Logic.Clone(); from = "the Apply window's options"; }
             else if (auto != null) { nav = auto.MovementOptions.Clone(); abil = auto.LogicOptions.Clone(); from = "the Automatic zones window's options"; }
             else { nav = new NavOptions { MaxClimb = ZoneClimb }; nav.JumpSpellClimb = 2 * nav.MaxClimb; abil = new AbilityOptions(); from = "the default options"; }
+        }
+
+        /// <summary>A solve over time set up on the UI thread (options, the zoning's copy, the levels as they are now), to run on any thread.</summary>
+        sealed class ZoningSolve
+        {
+            public GameSession Session;
+            public Func<int, LevelModel> Level;
+            public NavOptions Nav;
+            public AbilityOptions Abil;
+            public string From, Split = "";
+            public ZoneSet Zoning;
+            public bool SplitByLevel;
+        }
+
+        ZoningSolve PrepareSolve(ZoningState z)
+        {
+            var p = new ZoningSolve { Session = z.Session, SplitByLevel = z.SplitByLevel };
+            ZoningOptions(out p.Nav, out p.Abil, out p.From);
+            // a copy of the levels with their unsaved edits, so that editing on while the solve runs changes nothing under it
             var edits = vm.Edits;
-            Func<int, LevelModel> level = l => edits != null ? edits.Model(l) : s.LoadLevel(l);
-            string split = "";
-            var zoning = z.HasZones ? z.ForSolver(out split) : null;
-            result = Timeline.Build(s, level, nav, abil, null, null, true, zoning);
+            if (edits != null) { var snap = KeyShuffle.Snapshot(z.Session, edits); p.Level = snap.Level; }
+            else { var s = z.Session; p.Level = l => s.LoadLevel(l); }
+            p.Zoning = z.HasZones ? z.ForSolver(out p.Split) : null;
+            return p;
+        }
+
+        static string RunSolve(ZoningSolve p, out TimelineResult result)
+        {
+            result = Timeline.Build(p.Session, p.Level, p.Nav, p.Abil, null, null, true, p.Zoning);
             var report = new System.Text.StringBuilder();
-            report.AppendLine(zoning != null
-                ? "The solve over time on this zoning (unsaved changes included), as Apply uses it, with " + from + "." + (z.SplitByLevel ? " Split by level: " + split + "." : "")
-                : "This zoning has no zones yet: the solve over time on automatic zones, with " + from + ".");
+            report.AppendLine(p.Zoning != null
+                ? "The solve over time on this zoning (unsaved changes included), as Apply uses it, with " + p.From + "." + (p.SplitByLevel ? " Split by level: " + p.Split + "." : "")
+                : "This zoning has no zones yet: the solve over time on automatic zones, with " + p.From + ".");
             report.AppendLine();
             report.Append(Timeline.Report(result));
             return report.ToString();
         }
 
-        /// <summary>The zone of the new-game start square (UW.EXE, as the editor's start tool sets it), else the zoning's start zone.</summary>
+        /// <summary>
+        /// The solve over time on a zoning (Check the logic, Check if solvable), as Apply uses it:
+        /// its copy for the solver (split by level when that option is on), on the levels with
+        /// their unsaved edits, with the main option sets too, and the options of ZoningOptions. A
+        /// zoning with nothing painted is solved on automatic zones. Returns the report.
+        /// </summary>
+        public string SolveZoning(ZoningState z, out TimelineResult result) { return RunSolve(PrepareSolve(z), out result); }
+
+        /// <summary>SolveZoning with the solve on another thread, so the editor keeps drawing and answering meanwhile.</summary>
+        public async System.Threading.Tasks.Task<Tuple<string, TimelineResult>> SolveZoningAsync(ZoningState z)
+        {
+            var p = PrepareSolve(z);
+            return await System.Threading.Tasks.Task.Run(() => { TimelineResult r; string text = RunSolve(p, out r); return Tuple.Create(text, r); });
+        }
+
+        /// <summary>The start square the zoning tools use: as the solver takes it with the options in use (NavOptions.StartOf: UW.EXE's new-game square, or the game's own with ShippedStart).</summary>
+        public StartPoint ZoningStart(ZoningState z)
+        {
+            NavOptions nav; AbilityOptions abil; string from;
+            ZoningOptions(out nav, out abil, out from);
+            return nav.StartOf(z.Session);
+        }
+
+        /// <summary>The zone of the start square (ZoningStart), else the zoning's start zone.</summary>
         public int ZoningStartZone(ZoningState z)
         {
-            var st = z.Session.NewGameStart;
+            var st = ZoningStart(z);
             if (st != null) { int v = z.Set.ZoneAt(st.Level, (int)st.X, (int)st.Y); if (v > ZoneSet.Unassigned) return v; }
             return z.Set.StartZone;
         }
 
-        /// <summary>The squares that end the game in the levels as they are now (UW1), or none.</summary>
+        // the squares that end the game, found again only when a level changed (ZoningState.LevelsVersion)
+        ZoningState endsOf;
+        int endsVersion = -1;
+        List<EndTrigger> ends = new List<EndTrigger>();
+
+        /// <summary>The squares that end the game in the levels as they are now (UW1), or none. Kept until a level changes.</summary>
         public List<EndTrigger> ZoningEnds(ZoningState z)
         {
+            if (ReferenceEquals(endsOf, z) && endsVersion == z.LevelsVersion) return ends;
             var edits = vm.Edits;
-            try { return EndGame.Find(z.Session, l => edits != null ? edits.Model(l) : z.Session.LoadLevel(l)); }
-            catch (Exception) { return new List<EndTrigger>(); }
+            try { ends = EndGame.Find(z.Session, l => edits != null ? edits.Model(l) : z.Session.LoadLevel(l)); }
+            catch (Exception) { ends = new List<EndTrigger>(); }
+            endsOf = z; endsVersion = z.LevelsVersion;
+            return ends;
         }
+
+        // the shipped goal fact (level 9's arrival), read once
+        static Fact shippedGoal;
+        static bool shippedGoalRead;
 
         /// <summary>The zones of the goal: the zone the goal fact puts the player in (level 9's arrival), and those of the squares that end the game.</summary>
         public HashSet<int> ZoningGoalZones(ZoningState z)
@@ -66,7 +118,8 @@ namespace UwEditor.App
             if (z.Session.IsUw2) return set;
             try
             {
-                var f = FactSet.Shipped(false).OfKind("goal").FirstOrDefault(x => x.Option.Length == 0);
+                if (!shippedGoalRead) { shippedGoalRead = true; shippedGoal = FactSet.Shipped(false).OfKind("goal").FirstOrDefault(x => x.Option.Length == 0); }
+                var f = shippedGoal;
                 if (f != null && f.To != null && f.To.HasTile) set.Add(z.Set.ZoneAt(f.To.Level, f.To.X, f.To.Y));
             }
             catch (Exception) { }

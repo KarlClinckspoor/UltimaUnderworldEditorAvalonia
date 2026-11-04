@@ -32,6 +32,7 @@ namespace UwEditor.App
         readonly CheckBox editsBox = new CheckBox { Content = "Also stop beside every edit (tiles and objects changed), so what is near them is drawn and runs" };
         readonly CheckBox sweepBox = new CheckBox { Content = "Sweep each level: also one stop in every 16 × 16 area with room to stand" };
         readonly CheckBox lookBox = new CheckBox { Content = "Look around at each stop (turn round once, about 3.5 s more a stop)" };
+        readonly CheckBox level9Box = new CheckBox { Content = "This port crashes on UW1's level 9 (Underworld Exhumed v1.0.2): leave it out, or last" };
         readonly CheckBox shownBox = new CheckBox { Content = "Show the game's window while it runs (to watch what happens; leave its keys and mouse alone)" };
         CancellationTokenSource stopper;
         Process portProcess;
@@ -52,6 +53,8 @@ namespace UwEditor.App
         {
             this.main = main;
             var s = main.ViewModel.Session;
+            // before the level boxes, which it marks
+            level9Box.IsChecked = main.ExhumedThoroughness.PortCrashesOnLevel9;
             Title = "Check in Underworld Exhumed";
             Width = 900; Height = 760; MinWidth = 600; MinHeight = 460;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -91,12 +94,13 @@ namespace UwEditor.App
                 var dirty = new HashSet<int>(ExhumedCheck.EditedLevels(main.ViewModel.Edits));
                 foreach (var slot in s.LevelSlots().Where(x => x.Present))
                 {
-                    bool crash = slot.Level == ExhumedCheck.PortCrashLevel(s.Kind);
-                    var b = new CheckBox { Content = (s.IsUw2 ? slot.Level + " " + slot.Name : slot.Name) + (dirty.Contains(slot.Level) ? "  (edited)" : "") + (crash ? "  (the port crashes here)" : ""), Tag = slot.Level, IsChecked = dirty.Contains(slot.Level) && !crash };
-                    if (crash) ToolTip.SetTip(b, "Underworld Exhumed crashes on arriving at this level, even on the shipped game and after the talisman ritual's moongate: a bug of the port. Left out of Edited and All; when ticked it comes last, after the save, and its crash is reported as a note. Check it with the DOSBox spot test.");
+                    bool crash = slot.Level == ExhumedCheck.PortCrashLevel(s.Kind, main.ExhumedThoroughness);
+                    var b = new CheckBox { Tag = slot.Level, IsChecked = dirty.Contains(slot.Level) && !crash };
+                    labels[b] = (s.IsUw2 ? slot.Level + " " + slot.Name : slot.Name) + (dirty.Contains(slot.Level) ? "  (edited)" : "");
                     boxes.Add(b); levelBoxes.Children.Add(b);
                 }
                 if (dirty.Count == 0 && main.ViewModel.Level != null) Tick(Checkable(new[] { main.ViewModel.Level.Level }));
+                RelabelLevels();
                 saveBox.IsVisible = !s.IsUw2;
             }
 
@@ -117,14 +121,17 @@ namespace UwEditor.App
             };
             buttons.Children.Add(untick);
             var th = main.ExhumedThoroughness;
-            editsBox.IsChecked = th.VisitEdits; sweepBox.IsChecked = th.Sweep; lookBox.IsChecked = th.LookAround;
-            foreach (var c in new[] { editsBox, sweepBox, lookBox })
+            editsBox.IsChecked = th.VisitEdits; sweepBox.IsChecked = th.Sweep; lookBox.IsChecked = th.LookAround; level9Box.IsChecked = th.PortCrashesOnLevel9;
+            level9Box.IsVisible = s != null && !s.IsUw2;
+            ToolTip.SetTip(level9Box, "Underworld Exhumed crashes on arriving at level 9, even on the shipped game. On: level 9 is left out of Edited and All, comes last after the save when ticked, and its crash is a note. Turn it off once a release of the port fixes level 9, so a crash there counts as a problem again.");
+            level9Box.IsCheckedChanged += (o, e) => RelabelLevels();
+            foreach (var c in new[] { editsBox, sweepBox, lookBox, level9Box })
                 c.IsCheckedChanged += (o, e) => { main.ExhumedThoroughness = Thoroughness; Estimate(); };
             foreach (var b in boxes) b.IsCheckedChanged += (o, e) => Estimate();
             ToolTip.SetTip(editsBox, "Creatures more than 10 squares from the player stand frozen, triggers fire only when walked on, and only what is in view is drawn: a stop beside each edited spot makes the game run and draw what changed. At most 12 such stops a level, 5 squares apart.");
             ToolTip.SetTip(sweepBox, "A stop in each 16 × 16 area of the level that has an open, flat, dry square: up to 16 a level, about 5 s each.");
             ToolTip.SetTip(lookBox, "Holds the turn-left key for one full turn at each stop, so the game draws everything around (bad textures and models show only when drawn).");
-            top.Children.Add(saveBox); top.Children.Add(aliveBox); top.Children.Add(editsBox); top.Children.Add(sweepBox); top.Children.Add(lookBox); top.Children.Add(shownBox); top.Children.Add(estimate); top.Children.Add(buttons);
+            top.Children.Add(saveBox); top.Children.Add(aliveBox); top.Children.Add(editsBox); top.Children.Add(sweepBox); top.Children.Add(lookBox); top.Children.Add(level9Box); top.Children.Add(shownBox); top.Children.Add(estimate); top.Children.Add(buttons);
 
             var right = new DockPanel();
             shotBox = new Border { Child = shot, BorderBrush = new SolidColorBrush(Color.Parse("#40808080")), BorderThickness = new Thickness(1), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0), IsVisible = false };
@@ -147,12 +154,28 @@ namespace UwEditor.App
             Estimate();
         }
 
-        /// <summary>The levels without the one the port crashes on (ExhumedCheck.PortCrashLevel).</summary>
+        // each level box's own text, before what the port does there is added
+        readonly Dictionary<CheckBox, string> labels = new Dictionary<CheckBox, string>();
+
+        int CrashLevel { get { var s = main.ViewModel.Session; return s == null ? 0 : ExhumedCheck.PortCrashLevel(s.Kind, Thoroughness); } }
+
+        /// <summary>The levels without the one the port crashes on (ExhumedCheck.PortCrashLevel), when the option says it does.</summary>
         List<int> Checkable(IEnumerable<int> levels)
         {
-            var s = main.ViewModel.Session;
-            int crash = s == null ? 0 : ExhumedCheck.PortCrashLevel(s.Kind);
+            int crash = CrashLevel;
             return levels.Where(l => l != crash).ToList();
+        }
+
+        /// <summary>Marks the level the port crashes on (or none, with the option off).</summary>
+        void RelabelLevels()
+        {
+            int crash = CrashLevel;
+            foreach (var b in boxes)
+            {
+                bool c = (int)b.Tag == crash;
+                b.Content = labels[b] + (c ? "  (the port crashes here)" : "");
+                ToolTip.SetTip(b, c ? "Underworld Exhumed crashes on arriving at this level, even on the shipped game and after the talisman ritual's moongate: a bug of the port. Left out of Edited and All; when ticked it comes last, after the save, and its crash is reported as a note. Check it with the DOSBox spot test." : null);
+            }
         }
 
         void Tick(IList<int> levels)
@@ -167,8 +190,8 @@ namespace UwEditor.App
         /// <summary>The thoroughness ticked.</summary>
         public ExhumedOptions Thoroughness
         {
-            get { return new ExhumedOptions { VisitEdits = editsBox.IsChecked == true, Sweep = sweepBox.IsChecked == true, LookAround = lookBox.IsChecked == true }; }
-            set { editsBox.IsChecked = value.VisitEdits; sweepBox.IsChecked = value.Sweep; lookBox.IsChecked = value.LookAround; }
+            get { return new ExhumedOptions { VisitEdits = editsBox.IsChecked == true, Sweep = sweepBox.IsChecked == true, LookAround = lookBox.IsChecked == true, PortCrashesOnLevel9 = level9Box.IsChecked == true }; }
+            set { editsBox.IsChecked = value.VisitEdits; sweepBox.IsChecked = value.Sweep; lookBox.IsChecked = value.LookAround; level9Box.IsChecked = value.PortCrashesOnLevel9; }
         }
 
         /// <summary>How many stops the ticked levels make and about how long the run takes.</summary>

@@ -33,6 +33,8 @@ namespace UwEditor.Core
         public int MaxEditStops = 12;
         /// <summary>Stops closer than this many squares to another stop are left out.</summary>
         public int Spacing = 5;
+        /// <summary>The port in use crashes on arriving at UW1's level 9 (PortCrashLevel): on in UW1 v1.0.2 and later builds so far; turned off once a release fixes it, so a crash there counts again.</summary>
+        public bool PortCrashesOnLevel9 = true;
         public ExhumedOptions Clone() { return (ExhumedOptions)MemberwiseClone(); }
     }
 
@@ -135,9 +137,14 @@ namespace UwEditor.Core
         /// The level Underworld Exhumed crashes on arriving at, whatever the levels hold: UW1's level 9
         /// (the void). Checked with UW1 v1.0.2 and a build of 2026-11-04: a host fault once the level is
         /// loaded, with a new character on the shipped game, after the goto cheat and after the talisman
-        /// ritual's moongate (game/SKILLS.C check_victory's do_teleport to level 9 (27, 23)). 0 for none (UW2).
+        /// ritual's moongate (game/SKILLS.C check_victory's do_teleport to level 9 (27, 23)). 0 for none:
+        /// UW2, or options saying the port in use no longer crashes there (ExhumedOptions.PortCrashesOnLevel9).
         /// </summary>
-        public static int PortCrashLevel(GameKind kind) { return kind == GameKind.UW2 ? 0 : 9; }
+        public static int PortCrashLevel(GameKind kind, ExhumedOptions options = null)
+        {
+            if (kind == GameKind.UW2 || (options != null && !options.PortCrashesOnLevel9)) return 0;
+            return 9;
+        }
 
         /// <summary>What the report says about the level the port crashes on.</summary>
         public static string PortCrashNote(int level)
@@ -452,7 +459,7 @@ namespace UwEditor.Core
             plan.Options = options.Clone();
             plan.SavesAtEnd = saveAtEnd && !s.IsUw2;
             // the level the port crashes on goes last, after the save, so that the others are checked and saved first
-            int crashLevel = PortCrashLevel(s.Kind);
+            int crashLevel = PortCrashLevel(s.Kind, options);
             levels = levels.OrderBy(l => l == crashLevel ? 1 : 0).ToList();
             bool saved = false;
             Action save = () =>
@@ -621,7 +628,7 @@ namespace UwEditor.Core
                 else if (line.IndexOf("cheat:", StringComparison.Ordinal) >= 0 && line.IndexOf("refused", StringComparison.OrdinalIgnoreCase) >= 0) r.Problems.Add("the test cheats were refused: " + line);
             }
             // the port's own crash on arriving at the level it always crashes on: a note, not a problem
-            int crashLevel = PortCrashLevel(s.Kind);
+            int crashLevel = PortCrashLevel(s.Kind, plan.Options);
             int lastGoto = 0;
             foreach (var raw in lines)
             {

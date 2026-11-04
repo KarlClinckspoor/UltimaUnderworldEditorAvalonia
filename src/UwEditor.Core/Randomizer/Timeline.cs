@@ -103,6 +103,14 @@ namespace UwEditor.Core.Randomizer
             foreach (var f in GoalExtras) if (so.OptionsOn.Contains(f.Option)) terms.Add(f.Requires);
             return ZoneLink.JoinAnd(terms);
         }
+
+        /// <summary>What a square that ends the game needs: the goal options' extras only (option:require_orb), not the goal fact's own requirement, which is level 9's.</summary>
+        public string EndFor(SolverOptions so)
+        {
+            var terms = new List<string> { "free" };
+            foreach (var f in GoalExtras) if (so.OptionsOn.Contains(f.Option)) terms.Add(f.Requires);
+            return ZoneLink.JoinAnd(terms);
+        }
         public TimelineSolve Solve;
         public readonly List<KeyValuePair<string, TimelineSolve>> Variants = new List<KeyValuePair<string, TimelineSolve>>();
         public readonly List<string> Warnings = new List<string>();
@@ -748,6 +756,11 @@ namespace UwEditor.Core.Randomizer
             /// zoning. A region on tiles no zone holds (opened by the change) takes its group's zone,
             /// else a new zone. A base zone of this level that no region takes any more is joined by a
             /// free link to the zone that took most of its tiles.
+            /// Open question (code review, 2026-11-04, left for Karl): a change that cuts a painted zone
+            /// in two (a portcullis closing inside it) leaves both parts in that zone, so the solver is
+            /// too kind there; the automatic regroup gives the cut-off part a fresh id ("part of Z").
+            /// A fix would split only the parts that had a free way between them before the change and
+            /// have none after it, so that zones painted apart on purpose stay as painted.
             /// </summary>
             void GroupGiven(LevelState st, int[] comp)
             {
@@ -1007,17 +1020,18 @@ namespace UwEditor.Core.Randomizer
                     sv.Spheres.Add(sphere);
                 }
                 // the goal: the goal zone (level 9), or a square that ends the game
-                sv.GoalZoneReached = ctx.Reach.Contains(res.GoalZone);
-                if (sv.GoalZoneReached) sv.GoalBy = "the goal zone";
-                else
-                {
-                    var end = res.Ends.FirstOrDefault(e => ctx.Reach.Contains(EndZoneNow(e, cur)));
-                    if (end.Key != null) { sv.GoalZoneReached = true; sv.GoalBy = "the end of the game at " + end.Key; }
-                }
+                // the goal zone (level 9's arrival) with the goal fact's requirement, or a square that ends the game:
+                // stepping there wins at once (game/SKILLS.C check_victory), so it needs only the goal options' extras (option:require_orb)
+                bool atGoal = ctx.Reach.Contains(res.GoalZone);
+                var end = res.Ends.FirstOrDefault(e => ctx.Reach.Contains(EndZoneNow(e, cur)));
                 var greq = Req(res.GoalFor(so));
-                sv.GoalReached = sv.GoalZoneReached && greq.Eval(ctx);
+                var ereq = Req(res.EndFor(so));
+                sv.GoalZoneReached = atGoal || end.Key != null;
+                if (atGoal && greq.Eval(ctx)) { sv.GoalReached = true; sv.GoalBy = "the goal zone"; }
+                else if (end.Key != null && ereq.Eval(ctx)) { sv.GoalReached = true; sv.GoalBy = "the end of the game at " + end.Key; }
+                else sv.GoalReached = false;
                 if (!sv.GoalZoneReached) sv.GoalMissing.Add("the goal zone " + ZoneName(res.GoalZone) + (res.Ends.Count > 0 ? " or an end of the game (" + string.Join(", ", res.Ends.Select(e => e.Key.ToString())) + ")" : ""));
-                greq.Missing(ctx, sv.GoalMissing);
+                if (!sv.GoalReached) (atGoal || end.Key == null ? greq : ereq).Missing(ctx, sv.GoalMissing);
                 // blocked links out of the reached part
                 foreach (var k in links)
                 {

@@ -48,8 +48,8 @@ namespace UwEditor.App
         /// <summary>The check's thoroughness, remembered between runs.</summary>
         public ExhumedOptions ExhumedThoroughness
         {
-            get { return new ExhumedOptions { VisitEdits = settings.ExhumedEdits, Sweep = settings.ExhumedSweep, LookAround = settings.ExhumedLook }; }
-            set { settings.ExhumedEdits = value.VisitEdits; settings.ExhumedSweep = value.Sweep; settings.ExhumedLook = value.LookAround; settings.Save(); }
+            get { return new ExhumedOptions { VisitEdits = settings.ExhumedEdits, Sweep = settings.ExhumedSweep, LookAround = settings.ExhumedLook, PortCrashesOnLevel9 = settings.ExhumedLevel9Crash }; }
+            set { settings.ExhumedEdits = value.VisitEdits; settings.ExhumedSweep = value.Sweep; settings.ExhumedLook = value.LookAround; settings.ExhumedLevel9Crash = value.PortCrashesOnLevel9; settings.Save(); }
         }
 
         public void SetExhumedPort(GameKind kind, string path)

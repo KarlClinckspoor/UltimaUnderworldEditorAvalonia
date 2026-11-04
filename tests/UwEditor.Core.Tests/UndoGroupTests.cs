@@ -76,13 +76,73 @@ namespace UwEditor.Core.Tests
             Assert.Equal(edits.For(1).UndoGroup, edits.For(2).UndoGroup);
             Assert.NotEqual(0, edits.For(1).UndoGroup);
             string refused;
-            Assert.Equal(1, edits.Step(2, 1, out refused));
+            // one step back takes the whole group: the two steps of this level (the count is of this level's steps)
+            Assert.Equal(2, edits.Step(2, 1, out refused));
             Assert.True(edits.For(1).Data.AsSpan().SequenceEqual(b1));
             Assert.True(edits.For(2).Data.AsSpan().SequenceEqual(b2));
             Assert.False(edits.For(1).CanUndo);
-            Assert.Equal(1, edits.Step(1, -1, out refused));
+            Assert.Equal(2, edits.Step(1, -1, out refused));
             Assert.False(edits.For(1).Data.AsSpan().SequenceEqual(b1));
             Assert.False(edits.For(2).Data.AsSpan().SequenceEqual(b2));
+        }
+
+        [Fact]
+        public void Going_back_two_steps_from_a_group_stops_after_one_more_step_not_two_groups()
+        {
+            string g = GameData.Game("UW"); if (g == null) return;
+            var s = GameSession.Open(g);
+            var edits = new LevelEdits(s);
+            var e1 = edits.For(1);
+            // a single step, then a group of three steps on level 1 (and one on level 2)
+            e1.SetTileField(10, 10, "Wall texture", (e1.TileField(10, 10, "Wall texture") + 1) % 60);
+            byte[] afterSingle = (byte[])e1.Data.Clone();
+            e1.SetTileField(11, 10, "Wall texture", (e1.TileField(11, 10, "Wall texture") + 1) % 60);
+            byte[] beforeGroup = (byte[])e1.Data.Clone();
+            edits.Together(() =>
+            {
+                for (int x = 20; x < 23; x++) e1.SetTileField(x, 20, "Wall texture", (e1.TileField(x, 20, "Wall texture") + 2) % 60);
+                var e2 = edits.For(2);
+                e2.SetTileField(20, 20, "Wall texture", (e2.TileField(20, 20, "Wall texture") + 2) % 60);
+            });
+            Assert.Equal(5, e1.UndoLabels.Count);
+            string refused;
+            // the History window's row 4 back (the state after the single step): the group (3 steps) and one step more, not a group and two more
+            Assert.Equal(4, edits.Step(1, 4, out refused));
+            Assert.Null(refused);
+            Assert.True(e1.Data.AsSpan().SequenceEqual(afterSingle));
+            Assert.Single(e1.UndoLabels);
+            // forward again to the top (the single step, then the group), and one back from there takes the group whole: 3 steps
+            Assert.Equal(4, edits.Step(1, -4, out refused));
+            Assert.Equal(3, edits.Step(1, 1, out refused));
+            Assert.True(e1.Data.AsSpan().SequenceEqual(beforeGroup));
+        }
+
+        [Fact]
+        public void A_group_whose_steps_a_level_lost_is_not_redone_in_part()
+        {
+            string g = GameData.Game("UW"); if (g == null) return;
+            var s = GameSession.Open(g);
+            var edits = new LevelEdits(s);
+            edits.Together(() =>
+            {
+                foreach (int l in new[] { 1, 2, 3 })
+                {
+                    var e = edits.For(l);
+                    e.SetTileField(20, 20, "Wall texture", (e.TileField(20, 20, "Wall texture") + 2) % 60);
+                }
+            });
+            string refused;
+            Assert.Equal(new[] { 1, 2, 3 }, edits.Undo(1, out refused));
+            byte[] two = (byte[])edits.For(2).Data.Clone(), three = (byte[])edits.For(3).Data.Clone();
+            // a new change on level 2 drops its redo steps, the group's part among them
+            var e2 = edits.For(2);
+            e2.SetTileField(30, 30, "Wall texture", (e2.TileField(30, 30, "Wall texture") + 1) % 60);
+            byte[] twoNow = (byte[])e2.Data.Clone();
+            Assert.Empty(edits.Redo(1, out refused));
+            Assert.Contains("level 2 no longer holds its part", refused);
+            Assert.Empty(edits.Redo(3, out refused));
+            Assert.True(edits.For(3).Data.AsSpan().SequenceEqual(three), "level 3 is not redone alone");
+            Assert.True(e2.Data.AsSpan().SequenceEqual(twoNow));
         }
     }
 }

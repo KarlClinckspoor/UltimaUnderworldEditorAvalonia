@@ -669,6 +669,7 @@ namespace UwEditor.Core.Randomizer
             }
             r.AppliedAids.Clear();
             r.MapsBefore.Clear();
+            Dictionary<int, byte[]> appliedThen = null;
             edits.Together(() =>
             {
                 foreach (var kv in r.After.OrderBy(k => k.Key))
@@ -684,7 +685,8 @@ namespace UwEditor.Core.Randomizer
                     if (st != null)
                     {
                         var e = edits.For(st.Level);
-                        if (!r.Before.ContainsKey(st.Level)) r.Before[st.Level] = (byte[])e.Data.Clone();
+                        // a start level the scatter left alone: Undo puts back the level as it is now (Before holds it as computed, which may be older)
+                        if (!r.After.ContainsKey(st.Level)) r.Before[st.Level] = (byte[])e.Data.Clone();
                         r.AppliedAids.AddRange(StartAids.PutKit(edits.Session, edits, st));
                         r.Applied[st.Level] = (byte[])e.Data.Clone();
                     }
@@ -694,7 +696,33 @@ namespace UwEditor.Core.Randomizer
                     foreach (var kv in StartAids.ExploreMaps(edits.Session, edits, "Key item scatter: maps explored")) r.MapsBefore[kv.Key] = kv.Value;
                     r.AppliedAids.Add(r.MapsBefore.Count == 0 ? "Every map was explored already." : "The maps of levels " + string.Join(", ", r.MapsBefore.Keys.OrderBy(k => k)) + " explored.");
                 }
+            },
+            // Edit ▸ Undo took the whole apply back: the maps too, and the result is no longer applied; Redo brings both again
+            undone: () =>
+            {
+                RestoreMaps(r, edits, null);
+                appliedThen = new Dictionary<int, byte[]>(r.Applied);
+                r.Applied.Clear();
+            },
+            redone: () =>
+            {
+                if (appliedThen != null) foreach (var kv in appliedThen) r.Applied[kv.Key] = kv.Value;
+                if (r.Options.ExploreMaps)
+                    foreach (var kv in StartAids.ExploreMaps(edits.Session, edits, "Key item scatter: maps explored")) r.MapsBefore[kv.Key] = kv.Value;
             });
+        }
+
+        /// <summary>The maps explored at Apply put back as they were (a map is cosmetic: even if marked since), but not on the levels in skip.</summary>
+        static void RestoreMaps(KeyShuffleResult r, LevelEdits edits, ICollection<int> skip)
+        {
+            foreach (var kv in r.MapsBefore)
+            {
+                if (skip != null && skip.Contains(kv.Key)) continue;
+                var a = edits.AutomapFor(kv.Key);
+                a.Replace(kv.Value.Item1, kv.Value.Item2, "Undo key item scatter: maps");
+                edits.AutomapEdited(a);
+            }
+            r.MapsBefore.Clear();
         }
 
         /// <summary>Puts every level back as it was before Apply, byte for byte (one undoable step a level); a level edited since is left alone and returned.</summary>
@@ -710,14 +738,8 @@ namespace UwEditor.Core.Randomizer
                     e.Replace(r.Before[kv.Key], null, "Undo key item shuffle");
                 }
             });
-            // the maps explored at Apply, as they were (a map is cosmetic: put back as it was even if marked since)
-            foreach (var kv in r.MapsBefore)
-            {
-                var a = edits.AutomapFor(kv.Key);
-                a.Replace(kv.Value.Item1, kv.Value.Item2, "Undo key item scatter: maps");
-                edits.AutomapEdited(a);
-            }
-            r.MapsBefore.Clear();
+            // the maps explored at Apply, as they were, but not on the levels left alone (edited since)
+            RestoreMaps(r, edits, skipped);
             r.Applied.Clear();
             return skipped;
         }

@@ -122,7 +122,12 @@ once (the key item scatter's Apply, the swaps, the item property shuffle, the na
 challenges, and their own undo buttons) is undone and redone on all of them together, from
 any of its levels. That way no level keeps items moved to or from another. If one of those
 levels was changed again after it, the undo is refused and the status line says which level:
-undo that change there first. **Save levels** (Ctrl+S) writes
+undo that change there first. It is refused too when one of its levels no longer holds its part
+(a change made there after undoing it drops the steps to redo, or the oldest steps were
+dropped after 200): it can then not be redone or undone whole. What such a change did besides
+the levels (the explored maps, the named challenges' maps, creature table and player) goes
+back and comes again with it. The **Undo history** window counts the steps of the level shown:
+going back into a change made with other levels takes all of it. **Save levels** (Ctrl+S) writes
 LEV.ARK and keeps `LEV.ARK.BKP`, plus `LEV.ARK.ORIG` the first time. The toolbar above the
 view chooses the tool:
 - **Select:** a click picks an object or tile; a double click also moves the view to it
@@ -360,10 +365,12 @@ levels hold: with a new character on the shipped game, after the `goto` cheat, a
 talisman ritual's moongate (the last talisman burnt in the Slasher's lava on level 8 with
 Garamon buried: `game/SKILLS.C` `check_victory` sends the player to level 9 (27, 23)). It is a
 bug of the port (UW1 v1.0.2, and a build of November 2026), so the check cannot test level 9.
-Its box says so and is left out of **Edited**, **All** and the first choice; ticked by hand,
+While **This port crashes on UW1's level 9** is ticked (on at first, remembered), its box says
+so and is left out of **Edited**, **All** and the first choice; ticked by hand,
 level 9 comes last, after the save in slot I, so the other levels are still checked and saved,
 and its crash is reported as a note ("PASSED for the rest; level 9 could not be checked")
-rather than a problem. The **DOSBox spot test** checks level 9 in the original game.
+rather than a problem. The **DOSBox spot test** checks level 9 in the original game. Untick the
+option once a release of the port fixes level 9: a crash there is then a problem again.
 
 Underworld II is checked from a saved game and does not save at the end (its save menu is
 not scripted yet). Unsaved strings and conversations are not in the copy.
@@ -1292,6 +1299,11 @@ notes: 91 zones, 139 links and 50 grants.
     else the defaults.
   - The line beside the button says whether the goal is reached and by what, and how many of
     the main option sets reach it. The report opens in a window of its own.
+  - The solve runs in the background, on a copy of the levels taken when it starts: the editor
+    keeps answering meanwhile (so do Check the logic in the zone graph and the Automatic zones
+    window's builds).
+  - The start is the one the solver uses: the new-game square in `UW.EXE`, or the game's own
+    with **Consider the current starting square** off in the open Apply or Automatic zones window.
 - **Split multi-level zones by level for the solver** (remembered): Apply and Check the logic
   get each zone painted on several levels as one zone a level, joined by free two-way links.
   The line under it lists the zones on several levels. See **How the randomizer's logic
@@ -1412,6 +1424,10 @@ A zone counts as reached all at once. A painted zone whose parts have no free wa
 them (a locked door, a climb or a jump inside it) therefore makes the solver too kind: it
 counts the whole zone reached as soon as any part is. The report lists such zones with
 their number of parts. Splitting them in the Zones window makes the logic strict again.
+The same holds after a change in the world: a change that cuts a painted zone in two (a
+portcullis closing inside it, say) leaves both parts in that zone, so what lies behind the
+closed part still counts as reachable. (Automatic zones give the cut-off part a zone of its
+own.) Whether a painted zoning should be split that way too is still open.
 
 **Split multi-level zones by level** (an option in the Zones window, remembered) gives the
 solver a copy of the zoning in which each zone painted on several levels becomes one zone a
@@ -1653,7 +1669,9 @@ groups.
   applied, the changes that close things and how each is treated, the one-way traps and the
   return check. The shuffle itself (Phase D) is **Apply**, which has its own spoiler log.
 - **Build and Use** builds the zones, puts them in the Zones window and closes this window.
-  It asks first if the Zones window's zoning has unsaved changes. There you can look at
+  It asks first if the Zones window's zoning has unsaved changes. Painting on those zones or
+  drawing a link there makes the zoning your own: after a change in the world the solver then
+  keeps its zones, as for a painted zoning, rather than regrouping them as automatic ones. There you can look at
   them in the view, change them and save them; saving asks for a file name and suggests
   `uw1-zones-auto.json`, and the painted `uw1-zones.json` is never written unless you choose
   it. Apply then uses them.
@@ -2167,8 +2185,8 @@ step, so **Undo apply** takes them back too:
     the start.
 - **Every map square explored.** Every level's map shows every open square, as if the player
   had seen it all: each square gets the code the game writes when the player sees it. The
-  notes are kept. Edit ▸ Undo takes back the levels but not the maps; **Undo apply** takes
-  back both.
+  notes are kept. Edit ▸ Undo of the apply and **Undo apply** both take back the maps with the
+  levels (Undo apply leaves the maps of levels changed since); Edit ▸ Redo explores them again.
 
 The options are laid out in columns: the checkboxes of a group start at the same places.
 
@@ -2183,12 +2201,15 @@ randomizer's logic works** (Zones from a zoning). With no zoning yet (nothing pa
 makes automatic zones from the movement options, as before. **Quick autozone** makes those
 automatic zones at once and puts them in the Zones window, to look at, change and save there
 (saving asks for a name; `uw1-zones-auto.json` is suggested). It is only available while
-there is no zoning, and goes faint once clicked. **Zones window…** opens that window.
+there is no zoning, and goes faint once clicked. If a zoning appears in the Zones window while
+they are being made, it asks before replacing it. **Zones window…** opens that window.
 
 **The logic** rows are the same as in the Automatic zones window, with one more:
 **Require breaking the orb (level 7)**. With it on, finishing also needs Tyball's orb broken
 with an orb rock. The goal is reaching level 9, through the ritual in the Slasher's chamber,
-or a square that ends the game (see the Zones window's **Mark as goal**).
+or a square that ends the game (see the Zones window's **Mark as goal**). Stepping on such a
+square plays the ending at once, so it needs only this option's orb, not what level 9's goal
+needs.
 
 **How it works.** The key items, in a random order, are placed one by one. For each, the
 solver of the automatic zones (with the world changing over time) finds the places it can

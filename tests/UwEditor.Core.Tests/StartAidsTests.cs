@@ -69,5 +69,49 @@ namespace UwEditor.Core.Tests
             Assert.True(edits.For(1).Data.AsSpan().SequenceEqual(level1));
             foreach (var kv in maps) Assert.True(edits.AutomapFor(kv.Key).Map.AsSpan().SequenceEqual(kv.Value), "map " + kv.Key);
         }
+
+        [Fact]
+        public void Edit_undo_of_the_apply_takes_the_maps_back_too_and_redo_brings_them_again()
+        {
+            string g = GameData.Game("UW"); if (g == null) return;
+            var s = GameSession.Open(g);
+            var edits = new LevelEdits(s);
+            var maps = s.LevelSlots().Where(x => x.Present).ToDictionary(x => x.Level, x => (byte[])edits.AutomapFor(x.Level).Map.Clone());
+            var r = KeyShuffle.Run(s, edits, new KeyShuffleOptions { StartKit = true, ExploreMaps = true });
+            Assert.True(r.Success);
+            KeyShuffle.Apply(r, edits);
+            Assert.True(r.IsApplied);
+            var explored = s.LevelSlots().Where(x => x.Present).ToDictionary(x => x.Level, x => (byte[])edits.AutomapFor(x.Level).Map.Clone());
+            // Edit ▸ Undo (the group, from any of its levels): the maps go back with the levels, and the result is no longer applied
+            string refused;
+            Assert.NotEmpty(edits.Undo(r.After.Keys.First(), out refused));
+            Assert.Null(refused);
+            foreach (var kv in maps) Assert.True(edits.AutomapFor(kv.Key).Map.AsSpan().SequenceEqual(kv.Value), "map " + kv.Key + " back");
+            Assert.False(r.IsApplied);
+            // Edit ▸ Redo: both again, so Undo apply still works afterwards
+            Assert.NotEmpty(edits.Redo(r.After.Keys.First(), out refused));
+            foreach (var kv in explored) Assert.True(edits.AutomapFor(kv.Key).Map.AsSpan().SequenceEqual(kv.Value), "map " + kv.Key + " explored again");
+            Assert.True(r.IsApplied);
+            Assert.Empty(KeyShuffle.Undo(r, edits));
+            foreach (var kv in maps) Assert.True(edits.AutomapFor(kv.Key).Map.AsSpan().SequenceEqual(kv.Value), "map " + kv.Key + " back after Undo apply");
+        }
+
+        [Fact]
+        public void Undo_apply_keeps_start_level_edits_made_after_the_scatter_was_computed()
+        {
+            string g = GameData.Game("UW"); if (g == null) return;
+            var s = GameSession.Open(g);
+            var edits = new LevelEdits(s);
+            var r = KeyShuffle.Run(s, edits, new KeyShuffleOptions { StartKit = true });
+            Assert.True(r.Success);
+            // a scatter that leaves the start level (1) alone: only the torch and map change it at Apply
+            r.After.Remove(1);
+            var e1 = edits.For(1);
+            e1.SetTileField(40, 40, "Wall texture", (e1.TileField(40, 40, "Wall texture") + 1) % 60);
+            byte[] edited = (byte[])e1.Data.Clone();
+            KeyShuffle.Apply(r, edits);
+            Assert.Empty(KeyShuffle.Undo(r, edits));
+            Assert.True(e1.Data.AsSpan().SequenceEqual(edited), "the edit made after computing is kept");
+        }
     }
 }

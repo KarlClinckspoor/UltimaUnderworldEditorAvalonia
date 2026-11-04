@@ -766,25 +766,38 @@ namespace UwEditor.Core.Editing
         public LevelEdits(GameSession s) { Session = s; }
 
         int groupNow, lastGroup;
+        // each group's levels (those that took a step of it), and what runs after it is undone or redone
+        readonly Dictionary<int, SortedSet<int>> groupLevels = new Dictionary<int, SortedSet<int>>();
+        readonly Dictionary<int, Tuple<Action, Action>> groupHooks = new Dictionary<int, Tuple<Action, Action>>();
 
         /// <summary>
         /// Runs a change made on several levels at once (a randomizer's apply, its undo) so that it
         /// undoes and redoes as one: every undo step taken meanwhile, on any level, gets the same
         /// group, and Undo / Redo below take them all together. Inside another Together it is part
-        /// of that one.
+        /// of that one. undone and redone run after Edit ▸ Undo / Redo took the whole group (for
+        /// what lies outside the levels' undo, such as the automaps).
         /// </summary>
-        public void Together(Action changes)
+        public void Together(Action changes, Action undone = null, Action redone = null)
         {
             if (groupNow != 0) { changes(); return; }
-            groupNow = ++lastGroup;
+            int g = groupNow = ++lastGroup;
             try { changes(); }
-            finally { groupNow = 0; }
+            finally
+            {
+                groupNow = 0;
+                var levels = new SortedSet<int>(editors.Values.Where(x => x.UndoHasGroup(g)).Select(x => x.Level));
+                if (levels.Count > 0)
+                {
+                    groupLevels[g] = levels;
+                    if (undone != null || redone != null) groupHooks[g] = Tuple.Create(undone, redone);
+                }
+            }
         }
 
         /// <summary>
         /// Undoes the last step of a level. A step made together with other levels is undone on
-        /// all of them; if one of those levels was changed after it, nothing is undone and why
-        /// is said in refused. Returns the levels undone.
+        /// all of them; if one of those levels was changed after it, or no longer holds its part,
+        /// nothing is undone and why is said in refused. Returns the levels undone.
         /// </summary>
         public List<int> Undo(int level, out string refused) { return UndoOrRedo(level, true, out refused); }
 
@@ -799,14 +812,26 @@ namespace UwEditor.Core.Editing
             if (e == null || (undo ? !e.CanUndo : !e.CanRedo)) return done;
             int g = undo ? e.UndoGroup : e.RedoGroup;
             if (g == 0) { if (undo) e.Undo(); else e.Redo(); done.Add(level); return done; }
-            var with = editors.Values.Where(x => undo ? x.UndoHasGroup(g) : x.RedoHasGroup(g)).OrderBy(x => x.Level).ToList();
+            string label = undo ? e.UndoLabel : e.RedoLabel;
+            SortedSet<int> members;
+            if (!groupLevels.TryGetValue(g, out members)) members = new SortedSet<int>(editors.Values.Where(x => undo ? x.UndoHasGroup(g) : x.RedoHasGroup(g)).Select(x => x.Level));
+            var with = members.Select(Existing).ToList();
+            // a level that no longer holds its part (a new edit after undoing dropped the redo steps, or the oldest steps were dropped): the group cannot go back whole
+            var lost = members.Where((l, i) => with[i] == null || !(undo ? with[i].UndoHasGroup(g) : with[i].RedoHasGroup(g))).ToList();
+            if (lost.Count > 0)
+            {
+                refused = string.Format("\"{0}\" changed levels {1} together, and {2} no longer {3} its part ({4}), so it cannot be {5} as a whole.",
+                    label, string.Join(", ", members), (lost.Count == 1 ? "level " : "levels ") + string.Join(", ", lost), lost.Count == 1 ? "holds" : "hold",
+                    undo ? "the oldest steps are dropped after " + LevelEditor.UndoDepth : "a change made after undoing it dropped the steps to redo", undo ? "undone" : "redone");
+                return done;
+            }
             var later = with.Where(x => (undo ? x.UndoGroup : x.RedoGroup) != g).Select(x => x.Level).ToList();
             if (later.Count > 0)
             {
                 string where = (later.Count == 1 ? "level " : "levels ") + string.Join(", ", later);
                 refused = undo
-                    ? string.Format("\"{0}\" changed levels {1} together, and {2} changed again after it: undo that first, there.", e.UndoLabel, string.Join(", ", with.Select(x => x.Level)), where)
-                    : string.Format("\"{0}\" changed levels {1} together, and {2} has another step to redo first: redo that first, there.", e.RedoLabel, string.Join(", ", with.Select(x => x.Level)), where);
+                    ? string.Format("\"{0}\" changed levels {1} together, and {2} changed again after it: undo that first, there.", label, string.Join(", ", members), where)
+                    : string.Format("\"{0}\" changed levels {1} together, and {2} has another step to redo first: redo that first, there.", label, string.Join(", ", members), where);
                 return done;
             }
             foreach (var x in with)
@@ -815,21 +840,30 @@ namespace UwEditor.Core.Editing
                 while (undo ? x.UndoGroup == g : x.RedoGroup == g) { if (undo) x.Undo(); else x.Redo(); }
                 done.Add(x.Level);
             }
+            Tuple<Action, Action> hooks;
+            if (groupHooks.TryGetValue(g, out hooks)) (undo ? hooks.Item1 : hooks.Item2)?.Invoke();
             return done;
         }
 
-        /// <summary>Goes back (steps &gt; 0) or forward (steps &lt; 0) through a level's history, keeping steps made together with other levels whole; stops where one is refused.</summary>
+        /// <summary>
+        /// Goes back (steps &gt; 0) or forward (steps &lt; 0) through a level's history by that many of its
+        /// steps, keeping steps made together with other levels whole (a group can take it further than
+        /// asked); stops where one is refused. Returns the steps of this level gone through.
+        /// </summary>
         public int Step(int level, int steps, out string refused)
         {
             refused = null;
-            int n = 0;
-            for (; steps != 0; steps += steps > 0 ? -1 : 1)
+            var e = Existing(level);
+            if (e == null) return 0;
+            int want = Math.Abs(steps), moved = 0;
+            while (moved < want)
             {
+                int before = e.UndoLabels.Count;
                 var done = UndoOrRedo(level, steps > 0, out refused);
                 if (done.Count == 0) break;
-                n++;
+                moved += Math.Abs(e.UndoLabels.Count - before);
             }
-            return n;
+            return moved;
         }
 
         readonly Dictionary<int, Automap> automaps = new Dictionary<int, Automap>();

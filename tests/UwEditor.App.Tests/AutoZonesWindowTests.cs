@@ -62,7 +62,10 @@ namespace UwEditor.App.Tests
             Assert.True(start.IsChecked);
             Assert.False(aw.MovementOptions.ShippedStart);
 
+            // the build runs on another thread: the window answers meanwhile, and the result comes when it is done
             Ui.Click(aw, Btn(aw, "Build and Report"));
+            var until = DateTime.UtcNow.AddMinutes(2);
+            while (aw.Result == null && DateTime.UtcNow < until) { Ui.Pump(); System.Threading.Thread.Sleep(20); }
             Assert.NotNull(aw.Result);
             var text = aw.ReportText;
             // the report is the last phase's only: the solve over time

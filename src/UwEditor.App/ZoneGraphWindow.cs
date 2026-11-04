@@ -90,7 +90,7 @@ namespace UwEditor.App
             canvas.Children.Add(layer);
             layer.PointerPressed += OnLayerPressed;
             canvas.PointerMoved += OnCanvasMoved;
-            canvas.PointerReleased += (s, e) => { if (dragZone >= 0) { dragZone = -1; z.LinkChanged(); } };
+            canvas.PointerReleased += (s, e) => { if (dragZone >= 0) { dragZone = -1; z.PositionsChanged(true); } };
             var zoomed = new LayoutTransformControl { LayoutTransform = scale, Child = canvas };
             var scroller = scroll = new ScrollViewer { Content = zoomed, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
             scroller.Bind(ScrollViewer.BackgroundProperty, scroller.GetResourceObservable("Panel"));
@@ -200,7 +200,13 @@ namespace UwEditor.App
                 if (!byLevel.TryGetValue(first, out l)) byLevel[first] = l = new List<Zone>();
                 l.Add(zone);
             }
+            // new zones go in columns after the zones already placed, not on top of them
             int col = 0;
+            if (!all)
+            {
+                var placed = z.Set.Zones.Where(x => x.Id > ZoneSet.Unassigned && x.GraphX.HasValue).ToList();
+                if (placed.Count > 0) col = (int)Math.Ceiling((placed.Max(x => x.GraphX.Value) - 30) / 260.0) + 1;
+            }
             foreach (var kv in byLevel)
             {
                 double y = 40;
@@ -212,7 +218,8 @@ namespace UwEditor.App
                 }
                 col++;
             }
-            if (byLevel.Count > 0) z.LinkChanged();
+            // all: the user asked for a new layout (worth saving); otherwise the new zones are only placed for the view
+            if (byLevel.Count > 0) z.PositionsChanged(all);
             BuildLabels();
         }
 
@@ -441,7 +448,7 @@ namespace UwEditor.App
             forceTimer.Stop();
             forceButton.IsChecked = false;
             forceIds = null;
-            if (forceMoved) z.LinkChanged();
+            if (forceMoved) z.PositionsChanged(true);
             Status("Force layout stopped; the places are kept in the zoning (save it to keep them).");
         }
 
@@ -703,21 +710,35 @@ namespace UwEditor.App
         {
             TimelineResult r;
             string text = main.SolveZoning(z, out r);
+            ShowCheck(r);
+            return text;
+        }
+
+        /// <summary>Shows on the graph what a logic check reached.</summary>
+        void ShowCheck(TimelineResult r)
+        {
             LastCheck = r;
             reached = new Dictionary<int, int>();
             var given = r.Abilities.Auto.Given;
-            if (given != null)
-                foreach (var kv in r.Solve.ZoneSphere)
+            if (given != null && r.Solve != null)
+            {
+                Action<int, int> mark = (id, sphere) =>
                 {
-                    int id = given.Original(kv.Key);
-                    if (z.Set.GetZone(id) == null) continue;
+                    if (z.Set.GetZone(id) == null) return;
                     int was;
-                    if (!reached.TryGetValue(id, out was) || kv.Value < was) reached[id] = kv.Value;
+                    if (!reached.TryGetValue(id, out was) || sphere < was) reached[id] = sphere;
+                };
+                foreach (var kv in r.Solve.ZoneSphere) mark(given.Original(kv.Key), kv.Value);
+                // a zone of the zoning merged into another (one walkable area): reached when the zone that took it is
+                foreach (var kv in r.Abilities.Auto.GivenMap)
+                {
+                    int sphere;
+                    if (kv.Value != kv.Key && r.Solve.ZoneSphere.TryGetValue(kv.Value, out sphere)) mark(given.Original(kv.Key), sphere);
                 }
+            }
             ApplyCheckLook();
             layer.InvalidateVisual();
             ShowSide();
-            return text;
         }
 
         /// <summary>Reset graph appearance: takes away what Check the logic showed.</summary>
@@ -742,13 +763,23 @@ namespace UwEditor.App
             }
         }
 
+        bool solving;
+
         async void Solve()
         {
+            if (solving) return;
+            solving = true;
             Status("Checking the logic (the solve over time)…");
-            await System.Threading.Tasks.Task.Delay(30);   // let the status show before the solve holds the window
             string text;
-            try { text = CheckLogic(); }
+            try
+            {
+                // the solve on another thread, so the editor keeps answering meanwhile
+                var done = await main.SolveZoningAsync(z);
+                text = done.Item1;
+                ShowCheck(done.Item2);
+            }
             catch (Exception ex) { Status("The solver stopped: " + ex.Message); return; }
+            finally { solving = false; }
             var sv = LastCheck?.Solve;
             Status((sv == null ? "The solve over time failed." : sv.GoalReached ? "Logic check: goal reached." : "Logic check: goal NOT reached.")
                 + (LastCheck?.Abilities.Auto.Given == null ? " The zoning has no zones yet, so nothing is shown on the graph." : string.Format(" {0} of {1} zones reached (numbers in brackets: the step); the others fade, and red lines lead from a zone reached to one not reached. Reset graph appearance takes this away.", reached.Count, labels.Count)));

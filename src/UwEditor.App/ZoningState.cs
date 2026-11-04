@@ -97,9 +97,14 @@ namespace UwEditor.App
 
         public ZoneSet ForSolver() { string note; return ForSolver(out note); }
 
+        /// <summary>What an automatic zoning says once it is changed by hand (no longer AutoZones.IsAutomatic: the solver keeps its zones after a change, as for a painted one).</summary>
+        public const string HandEditedSource = "hand-edited automatic zones (Underworld Editor)";
+
         void Raise(string what, bool dirty = true)
         {
             if (dirty) Dirty = true;
+            // painting or a link drawn on an automatic zoning: from now on it is the user's
+            if (dirty && (what == "tiles" || what == "links") && AutoZones.IsAutomatic(Set)) Set.Source = HandEditedSource;
             if (what == "tiles" || what == "file") items = null;
             if (what == "tiles" || what == "file") doors = null;
             Changed?.Invoke(what);
@@ -283,7 +288,10 @@ namespace UwEditor.App
         public List<DoorPassage> Doors { get { return doors ?? (doors = ZoneDoors.Find(Session, level, Set)); } }
 
         /// <summary>The level objects changed (edits): the key items and doors are read again when next asked for.</summary>
-        public void LevelsChanged() { items = null; doors = null; Changed?.Invoke("items"); }
+        /// <summary>Counts the level edits (LevelsChanged), so what is worked out from the levels can be kept until they change.</summary>
+        public int LevelsVersion { get; private set; }
+
+        public void LevelsChanged() { LevelsVersion++; items = null; doors = null; Changed?.Invoke("items"); }
 
         public void Mark(int level1, int index, bool? important)
         {
@@ -314,6 +322,9 @@ namespace UwEditor.App
         }
 
         public void LinkChanged() { Raise("links"); }
+
+        /// <summary>The zones' places in the zone graph changed (dirty: by the user, so they are worth saving; not dirty: placed for the view only).</summary>
+        public void PositionsChanged(bool dirty) { Raise("layout", dirty); }
 
         public void RemoveLink(ZoneLink k)
         {
