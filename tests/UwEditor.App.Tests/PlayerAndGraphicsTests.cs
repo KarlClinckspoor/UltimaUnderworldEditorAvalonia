@@ -1,8 +1,11 @@
 using System;
 using System.IO;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
 using UwEditor.Core.Graphics;
 using UwEditor.Core.Player;
 using UwEditor.Core.Tests;
@@ -58,13 +61,20 @@ namespace UwEditor.App.Tests
                 // inventory: coins into the sack, a sword to the pack
                 pw.ShowTab(1);
                 Ui.Pump();
-                m.Selected = m.Items.First(n => n.Item.ItemId == 0x80);
+                var sack = m.Items.First(n => n.Item != null && n.Item.ItemId == 0x80);
+                m.Selected = sack;
+                Assert.Same(sack.Item, m.AddTarget.Container);
                 m.NewItem = 0xA0;
-                var coins = m.Add(true);
+                var coins = m.Add();
                 Assert.NotNull(coins);
                 m.Link = 99;
+                // the sack stays where new objects go: a second add goes in too
+                Assert.Same(sack.Item, m.AddTarget.Container);
+                m.NewItem = 0x13C;
+                Assert.Same(sack.Item, m.Add().Item.Parent);
+                m.AddTarget = m.AddTargets[0];
                 m.NewItem = 0x04;
-                var sword = m.Add(false);
+                var sword = m.Add();
                 Assert.NotNull(sword);
                 Assert.True(pw.Save(), m.Status);
                 pw.Close();
@@ -76,6 +86,63 @@ namespace UwEditor.App.Tests
                 Assert.Contains(back.Inventory.Top, t => t.ItemId == 0x04 && t.Slot >= PlayerInventory.PackFirst);
                 Assert.True(File.Exists(Path.Combine(copy.Folder, "SAVE1", "PLAYER.DAT.BKP")));
             }
+        }
+
+        [AvaloniaFact]
+        public void Inventory_lists_every_slot_and_moves_objects_by_dragging_and_by_the_move_box()
+        {
+            if (Uw2 == null || !Directory.Exists(Path.Combine(Uw2, "SAVE1"))) return;
+            var w = Ui.Open(Path.Combine(Uw2, "SAVE1"));
+            var pw = w.ShowPlayer();
+            pw.ShowTab(1);
+            Ui.Pump();
+            var m = pw.Model;
+            // the slots top to bottom as on the paper doll, then the pack
+            Assert.Equal(new[] { "Shoulder 1", "Shoulder 2", "Head", "Torso", "Gloves", "Hand 1", "Hand 2", "Ring 1", "Ring 2", "Legs", "Feet" },
+                m.Items.Take(11).Select(n => n.SlotLabel));
+            Assert.Equal("Pack 8", m.Items[18].SlotLabel);
+            Assert.True(m.Items.First(n => n.SlotLabel == "Head").IsEmpty);
+            var sack = m.Items.First(n => n.Item != null && n.Item.ItemId == 0x80).Item;
+            var map = sack.Contents.First(c => c.ItemId == 0x13A);
+            // drag the map out of the sack onto the empty head slot, then back onto the sack
+            m.Drop(m.Find(m.Items, map), m.Items.First(n => n.SlotLabel == "Head"));
+            Assert.Null(map.Parent);
+            Assert.Equal(0, map.Slot);
+            Assert.Same(map, m.Items.First(n => n.SlotLabel == "Head").Item);
+            Assert.False(m.CanDrop(m.Find(m.Items, sack), m.Find(m.Items, sack.Contents[0])));
+            m.Drop(m.Find(m.Items, map), m.Find(m.Items, sack));
+            Assert.Same(sack, map.Parent);
+            // the move box: the torch on a shoulder trades places with the vest on the torso
+            var torch = m.Items.First(n => n.Item != null && n.Item.ItemId == 0x91).Item;
+            var vest = m.Items.First(n => n.SlotLabel == "Torso").Item;
+            int torchSlot = torch.Slot;
+            m.Selected = m.Find(m.Items, torch);
+            m.MoveTarget = m.MoveTargets.First(p => p.Slot == 1);
+            Assert.Equal(1, torch.Slot);
+            Assert.Equal(torchSlot, vest.Slot);
+            Assert.Same(torch, m.It);
+            Assert.DoesNotContain(m.MoveTargets, p => p.Container == torch);
+            // with the mouse: press on the map, move, release on the empty head slot
+            Ui.Pump();
+            var tree = Ui.Find<TreeView>(pw, "ItemTree");
+            Func<ItemNode, Avalonia.Point> line = n =>
+            {
+                var tvi = tree.GetVisualDescendants().OfType<TreeViewItem>().First(t => t.DataContext == n);
+                return tvi.TranslatePoint(new Avalonia.Point(120, 10), pw).Value;
+            };
+            var from = line(m.Find(m.Items, map));
+            var to = line(m.Items.First(n => n.SlotLabel == "Head"));
+            pw.MouseDown(from, Avalonia.Input.MouseButton.Left);
+            pw.MouseMove(new Avalonia.Point(from.X, from.Y - 10), Avalonia.Input.RawInputModifiers.LeftMouseButton);
+            pw.MouseMove(to, Avalonia.Input.RawInputModifiers.LeftMouseButton);
+            Ui.Pump();
+            Assert.True(m.Items.First(n => n.SlotLabel == "Head").IsDropTarget);
+            pw.MouseUp(to, Avalonia.Input.MouseButton.Left);
+            Ui.Pump();
+            Assert.Null(map.Parent);
+            Assert.Equal(0, map.Slot);
+            pw.Close();
+            w.Close();
         }
 
         [AvaloniaFact]
@@ -176,6 +243,30 @@ namespace UwEditor.App.Tests
             Ui.Pump();
             var frame = Ui.Capture(pw, Ui.Find<ListBox>(pw, "WarningList"));
             Expect(Snapshots.Check(Ui.BaselineDir, "player-window", frame, new Ui.Codec()));
+            pw.Close();
+            w.Close();
+        }
+
+        [AvaloniaFact]
+        public void Snapshot_of_the_player_inventory()
+        {
+            if (Uw2 == null || !Directory.Exists(Path.Combine(Uw2, "SAVE1"))) return;
+            var w = Ui.Open(Path.Combine(Uw2, "SAVE1"));
+            var pw = w.ShowPlayer();
+            pw.Width = 1180; pw.Height = 800;
+            pw.ShowTab(1);
+            Ui.Pump();
+            var tree = Ui.Find<TreeView>(pw, "ItemTree");
+            // the sack picked becomes where new objects go; two are added into it (not saved)
+            var m = pw.Model;
+            m.Selected = m.Items.First(n => n.Item != null && n.Item.ItemId == 0x80);
+            m.NewItem = 0xA0;
+            m.Add();
+            m.NewItem = 0x13C;
+            m.Add();
+            Ui.Pump();
+            var frame = Ui.Capture(pw, tree);
+            Expect(Snapshots.Check(Ui.BaselineDir, "player-inventory", frame, new Ui.Codec()));
             pw.Close();
             w.Close();
         }

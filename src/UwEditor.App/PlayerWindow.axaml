@@ -180,14 +180,26 @@
         <Grid ColumnDefinitions="*,12,330" Margin="0,6,0,0">
           <DockPanel>
             <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="0,0,0,6"
-                       Text="What the player carries: worn and held objects and the pack (slots), with what is inside containers. Saving renumbers the objects as the game does." />
+                       Text="What the player carries, slot by slot as on the paper doll, with what is inside containers. Drag an object onto a container, an empty slot or another object to move it. Saving renumbers the objects as the game does." />
             <TreeView x:Name="ItemTree" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected, Mode=TwoWay}" Background="{DynamicResource Bg}">
+              <TreeView.Styles>
+                <Style Selector="TreeViewItem" x:DataType="app:ItemNode">
+                  <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                </Style>
+                <Style Selector="TextBlock.slot"><Setter Property="Foreground" Value="{DynamicResource Muted}" /></Style>
+                <Style Selector="TextBlock.slot.noslot"><Setter Property="Foreground" Value="{DynamicResource Warn}" /></Style>
+                <Style Selector="TextBlock.empty"><Setter Property="Foreground" Value="{DynamicResource Muted}" /><Setter Property="FontStyle" Value="Italic" /></Style>
+                <Style Selector="Border.drop"><Setter Property="BorderBrush" Value="{DynamicResource Accent}" /></Style>
+              </TreeView.Styles>
               <TreeView.ItemTemplate>
                 <TreeDataTemplate ItemsSource="{Binding Children}" x:DataType="app:ItemNode">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Image Source="{Binding Icon}" Width="16" Height="16" RenderOptions.BitmapInterpolationMode="None" />
-                    <TextBlock Text="{Binding Text}" FontSize="12" VerticalAlignment="Center" />
-                  </StackPanel>
+                  <Border Classes.drop="{Binding IsDropTarget}" Padding="2,0" CornerRadius="3" BorderThickness="1" BorderBrush="Transparent" Background="Transparent">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="slot" Classes.noslot="{Binding NoSlot}" Text="{Binding SlotLabel}" Width="78" FontSize="12" VerticalAlignment="Center" />
+                      <Image Source="{Binding Icon}" Width="16" Height="16" RenderOptions.BitmapInterpolationMode="None" />
+                      <TextBlock Classes.empty="{Binding IsEmpty}" Text="{Binding Text}" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Border>
                 </TreeDataTemplate>
               </TreeView.ItemTemplate>
             </TreeView>
@@ -212,22 +224,23 @@
               <CheckBox Content="Link is a quantity or special (not a container)" IsChecked="{Binding IsQuantity, Mode=TwoWay}" />
               <CheckBox Content="Enchanted" IsChecked="{Binding Enchanted, Mode=TwoWay}" />
               <CheckBox Content="Invisible" IsChecked="{Binding Invisible, Mode=TwoWay}" />
-              <StackPanel IsVisible="{Binding IsTop}">
-                <TextBlock Classes="label" Text="Slot" Margin="0,4,0,2" />
-                <ComboBox x:Name="SlotBox" ItemsSource="{Binding SlotChoices}" SelectedIndex="{Binding SlotIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" />
-              </StackPanel>
+              <TextBlock Classes="label" Text="Move to" Margin="0,4,0,2" />
+              <ComboBox x:Name="MoveBox" ItemsSource="{Binding MoveTargets}" SelectedItem="{Binding MoveTarget, Mode=TwoWay}" HorizontalAlignment="Stretch"
+                        ToolTip.Tip="A slot (an object already there makes way) or a container; dragging in the list does the same" />
               <Button x:Name="DeleteButton" Content="Remove from the inventory" Click="OnDelete" Margin="0,6,0,0" />
             </StackPanel>
             <TextBlock Text="ADD AN OBJECT" Classes="h" />
+            <TextBlock Classes="label" Text="Add to" Margin="0,0,0,2" />
+            <ComboBox x:Name="AddTargetBox" ItemsSource="{Binding AddTargets}" SelectedItem="{Binding AddTarget, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+            <TextBlock Text="{Binding AddTargetText}" Classes="muted" FontSize="11" Margin="0,0,0,4" />
             <Grid ColumnDefinitions="*,140">
               <TextBlock Classes="label" Text="Item id" />
               <NumericUpDown Grid.Column="1" x:Name="NewItemBox" Value="{Binding NewItem, Mode=TwoWay}" Minimum="0" Maximum="511" />
             </Grid>
             <TextBlock Text="{Binding NewItemName}" FontSize="12" />
             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-              <Button x:Name="AddPackButton" Content="Add to the pack" Click="OnAddPack" />
-              <Button x:Name="AddIntoButton" Content="Add into selected" Click="OnAddInto" IsEnabled="{Binding HasItem}" ToolTip.Tip="Into the selected container, or the container the selected object is in" />
-              <Button x:Name="AddDetailedButton" Content="Add…" Click="OnAddDetailed" ToolTip.Tip="Choose the item with a form for its kind: enchantments, wand spells, texts, keys" />
+              <Button x:Name="AddButton" Content="Add" Click="OnAdd" MinWidth="72" HorizontalContentAlignment="Center" />
+              <Button x:Name="AddDetailedButton" Content="Add…" Click="OnAddDetailed" ToolTip.Tip="Choose the item with a form for its kind: enchantments, wand spells, texts, keys; it can stay open to add several" />
             </StackPanel>
           </StackPanel>
         </Grid>

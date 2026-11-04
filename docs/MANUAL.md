@@ -669,9 +669,19 @@ saved character in `PLAYER.DAT`:
 
 The hand bit means right-handed in UW1 and left-handed in UW2: their creation menus list
 the choices the other way round, so the labels come from CHRGEN.DAT. The **Inventory** tab
-shows the worn and held objects, the pack and container contents, with icons:
-- each object's id, quality, owner, quantity or special, flags and slot can be changed;
-- objects can be added to the pack or into a container, or removed.
+lists every slot, named on the left, top to bottom as on the paper doll (shoulders, head,
+torso, gloves, hands, rings, legs, feet), then the eight pack slots, with container contents
+under their container and icons; an empty slot says so:
+- each object's id, quality, owner, quantity or special and flags can be changed;
+- **Move to** puts the selected object in any slot (an object already there takes its old
+  slot, or a free pack slot) or inside a container. Dragging in the list does the same:
+  drop onto a container to put it inside, onto an empty slot, onto an object in a container
+  to put it just before it, or onto an object in a slot to trade places;
+- **Add to** says where new objects go: the first free pack slot, an empty slot or a
+  container. Clicking a container or an empty slot in the list picks it, and it stays
+  picked while you add, so several objects go into the same bag in a row. **Add…**'s
+  **Add, keep open** adds one object after another from the form;
+- **Remove from the inventory** (Del) takes the object out, with what is inside it.
 
 Saving renumbers the objects depth first, as the game's `InvSaveNexts` does. Rewriting a
 shipped save's inventory unchanged gives the same bytes, except slots 19–27 (an open
@@ -1233,10 +1243,10 @@ between runs.
   most every 0x2FD ticks (USEITEMS.C `checkSpell`). An enchanted object never runs out; only
   a wand's spell object has charges.
 
-## Randomizer (work in progress)
+## Randomizer
 
 All of it is in the **Randomizer** menu:
-- **Key item scatter ▸ Zones** holds the zoning. Its **Zone graph…** and **Autozone…**
+- **Key item scatter ▸ Zones** (UW1 only) holds the zoning. Its **Zone graph…** and **Autozone…**
   buttons open the zone graph and the **Automatic zones** the logic is built from.
 - **Key item scatter ▸ Apply** is the randomizer that moves the key items so the game stays
   beatable.

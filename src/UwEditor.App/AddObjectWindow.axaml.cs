@@ -20,9 +20,12 @@ namespace UwEditor.App
 
         /// <param name="where">Where it will go, said in the heading.</param>
         /// <param name="inside">The container it can go into instead, or null.</param>
-        public AddObjectWindow(GameSession s, Func<int, Bitmap> icon, bool forInventory, string where, string inside = null, bool insideByDefault = false)
+        /// <param name="keepAdding">Adds an object and says what happened, leaving the window open (null: no such button).</param>
+        public AddObjectWindow(GameSession s, Func<int, Bitmap> icon, bool forInventory, string where, string inside = null, bool insideByDefault = false, Func<ObjectSpec, string> keepAdding = null)
         {
             InitializeComponent();
+            this.keepAdding = keepAdding;
+            AddMoreButton.IsVisible = keepAdding != null;
             Model = new AddObjectModel(s, icon, forInventory);
             DataContext = Model;
             ManualWindow.Attach(this, "Editing levels");
@@ -44,12 +47,20 @@ namespace UwEditor.App
             Close(Result);
         }
 
+        readonly Func<ObjectSpec, string> keepAdding;
+
+        void OnAddMore(object sender, RoutedEventArgs e)
+        {
+            if (!Model.HasItem || keepAdding == null) return;
+            WhereText.Text = keepAdding(Model.Build());
+        }
+
         void OnCancel(object sender, RoutedEventArgs e) { Result = null; Close(null); }
 
         /// <summary>Shows the window as a dialog and returns the spec chosen, or null.</summary>
-        public static async Task<AddObjectWindow> Ask(Window owner, GameSession s, Func<int, Bitmap> icon, bool forInventory, string where, string inside = null, bool insideByDefault = false)
+        public static async Task<AddObjectWindow> Ask(Window owner, GameSession s, Func<int, Bitmap> icon, bool forInventory, string where, string inside = null, bool insideByDefault = false, Func<ObjectSpec, string> keepAdding = null)
         {
-            var w = new AddObjectWindow(s, icon, forInventory, where, inside, insideByDefault);
+            var w = new AddObjectWindow(s, icon, forInventory, where, inside, insideByDefault, keepAdding);
             await w.ShowDialog<ObjectSpec>(owner);
             return w;
         }

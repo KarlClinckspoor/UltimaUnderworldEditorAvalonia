@@ -38,7 +38,8 @@ namespace UwEditor.App
             Model = new PlayerViewModel(sheet, session, icon, portrait);
             iconOf = icon;
             DataContext = Model;
-            Title = "Player — " + sheet.Name + " — " + session.Title;
+            WireDragging();
+            Title ="Player — " + sheet.Name + " — " + session.Title;
             TitleText.Text = "Player: " + sheet.Name;
             FileText.Text = sheet.Path ?? "";
             Model.Status = string.Format("{0}, level {1} {2}, carrying {3} objects. Changes are kept until you save.", sheet.Name, sheet.Level, PlayerSheet.ClassNames[sheet.Class], sheet.Inventory.All().Count());
@@ -53,19 +54,70 @@ namespace UwEditor.App
 
         void OnRecompute(object sender, RoutedEventArgs e) { Model.Recompute(); }
         void OnDelete(object sender, RoutedEventArgs e) { Model.Delete(); }
-        void OnAddPack(object sender, RoutedEventArgs e) { Model.Add(false); }
-        void OnAddInto(object sender, RoutedEventArgs e) { Model.Add(true); }
+        void OnAdd(object sender, RoutedEventArgs e) { Model.Add(); }
         void OnSave(object sender, RoutedEventArgs e) { Save(); }
 
         Func<int, Bitmap> iconOf;
 
         async void OnAddDetailed(object sender, RoutedEventArgs e)
         {
-            var it = Model.It;
-            var container = it == null ? null : (it.IsQuantity ? it.Parent : it);
-            string inside = container == null ? null : string.Format("0x{0:X3} {1} (the selected container)", container.ItemId, Model.Session.Names.Get(container.ItemId));
-            var w = await AddObjectWindow.Ask(this, Model.Session, iconOf, true, "Into the pack (slots 11-18), or into a container.", inside, container != null);
-            if (w.Result != null) Model.AddSpec(w.Result, w.Inside);
+            Func<string> where = () => "It goes to " + Model.AddTargetWhere + " (chosen under Add to in the inventory tab).";
+            var w = await AddObjectWindow.Ask(this, Model.Session, iconOf, true, where(), keepAdding: spec => { Model.AddSpec(spec); return Model.Status + " " + where(); });
+            if (w.Result != null) Model.AddSpec(w.Result);
+        }
+
+        // ---- dragging in the inventory list: press on an object, move, release on another line
+
+        ItemNode dragged, dropOnto;
+        Avalonia.Point pressedAt;
+        bool dragging;
+
+        void WireDragging()
+        {
+            ItemTree.AddHandler(PointerPressedEvent, (s, e) =>
+            {
+                dragged = e.GetCurrentPoint(ItemTree).Properties.IsLeftButtonPressed ? NodeAt(e.Source) : null;
+                pressedAt = e.GetPosition(ItemTree);
+                dragging = false;
+            }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
+            ItemTree.AddHandler(PointerMovedEvent, (s, e) =>
+            {
+                if (dragged == null || dragged.Item == null || !e.GetCurrentPoint(ItemTree).Properties.IsLeftButtonPressed) return;
+                var p = e.GetPosition(ItemTree);
+                if (!dragging && Math.Abs(p.X - pressedAt.X) + Math.Abs(p.Y - pressedAt.Y) < 6) return;
+                dragging = true;
+                var onto = NodeAt(ItemTree.InputHitTest(p));
+                SetDropOnto(Model.CanDrop(dragged, onto) ? onto : null);
+                ItemTree.Cursor = new Cursor(dropOnto != null ? StandardCursorType.DragMove : StandardCursorType.No);
+            }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
+            ItemTree.AddHandler(PointerReleasedEvent, (s, e) =>
+            {
+                var from = dragging ? dragged : null;
+                var onto = dropOnto;
+                dragged = null; dragging = false;
+                SetDropOnto(null);
+                ItemTree.Cursor = Cursor.Default;
+                if (from != null && onto != null) Model.Drop(from, onto);
+            }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
+            ItemTree.AddHandler(KeyDownEvent, (s, e) =>
+            {
+                if (e.Key == Key.Delete && Model.HasItem) { Model.Delete(); e.Handled = true; }
+            });
+        }
+
+        void SetDropOnto(ItemNode n)
+        {
+            if (dropOnto == n) return;
+            if (dropOnto != null) dropOnto.IsDropTarget = false;
+            dropOnto = n;
+            if (n != null) n.IsDropTarget = true;
+        }
+
+        static ItemNode NodeAt(object source)
+        {
+            for (var v = source as Avalonia.Visual; v != null; v = Avalonia.VisualTree.VisualExtensions.GetVisualParent(v))
+                if (v is TreeViewItem tvi) return tvi.DataContext as ItemNode;
+            return null;
         }
 
         public bool Save()

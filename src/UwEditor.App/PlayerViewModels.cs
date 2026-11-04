@@ -48,14 +48,40 @@ namespace UwEditor.App
         internal void Refresh() { Raise(nameof(Value)); }
     }
 
-    /// <summary>A line of the inventory tree.</summary>
+    /// <summary>A line of the inventory tree: a slot (its object, or none), an object without a slot, or an object inside another.</summary>
     public sealed class ItemNode : Observable
     {
+        /// <summary>The object, or null for an empty slot.</summary>
         public InventoryItem Item { get; set; }
+        /// <summary>The slot a top line stands for, or -1.</summary>
+        public int Slot { get; set; } = -1;
+        /// <summary>The slot's name on a top line, or "".</summary>
+        public string SlotLabel { get; set; } = "";
+        public bool IsEmpty { get { return Item == null; } }
+        /// <summary>An object at the top of the inventory in no slot: the game shows it nowhere.</summary>
+        public bool NoSlot { get { return Item != null && Item.Parent == null && Slot < 0; } }
         public ObservableCollection<ItemNode> Children { get; } = new ObservableCollection<ItemNode>();
-        public Bitmap Icon { get; set; }
+        Bitmap icon;
+        public Bitmap Icon { get { return icon; } set { Set(ref icon, value); } }
         string text;
         public string Text { get { return text; } set { Set(ref text, value); } }
+        bool expanded = true;
+        internal Action<ItemNode> Toggled;
+        public bool IsExpanded { get { return expanded; } set { if (Set(ref expanded, value)) Toggled?.Invoke(this); } }
+        bool dropTarget;
+        /// <summary>The line an object being dragged would land on.</summary>
+        public bool IsDropTarget { get { return dropTarget; } set { Set(ref dropTarget, value); } }
+    }
+
+    /// <summary>A place an object can go: a slot, a container, or the first free pack slot.</summary>
+    public sealed class ItemPlace
+    {
+        public int Slot = -1;
+        public InventoryItem Container;
+        public string Label { get; set; }
+        public bool FirstFree { get { return Slot < 0 && Container == null; } }
+        public bool Same(ItemPlace p) { return p != null && p.Slot == Slot && p.Container == Container; }
+        public override string ToString() { return Label; }
     }
 
     public sealed class PlayerViewModel : Observable
@@ -74,7 +100,6 @@ namespace UwEditor.App
         public string[] ClassNames { get { return PlayerSheet.ClassNames; } }
         public string[] Sexes { get; } = { "Male", "Female" };
         public string[] Hands { get; }
-        public List<string> SlotChoices { get; } = new[] { "(no slot)" }.Concat(PlayerInventory.SlotNames.Select((n, i) => i + ": " + n)).ToList();
 
         public event Action Edited;
 
@@ -190,16 +215,46 @@ namespace UwEditor.App
 
         // ---- inventory
 
+        /// <summary>The slots as the tree lists them: top to bottom as on the paper doll, then the pack.</summary>
+        public static readonly int[] SlotOrder = { 5, 6, 0, 1, 2, 7, 8, 9, 10, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18 };
+        static readonly string[] SlotLabels =
+        {
+            "Head", "Torso", "Gloves", "Legs", "Feet", "Shoulder 1", "Shoulder 2", "Hand 1", "Hand 2", "Ring 1", "Ring 2",
+            "Pack 1", "Pack 2", "Pack 3", "Pack 4", "Pack 5", "Pack 6", "Pack 7", "Pack 8",
+        };
+        public static string SlotLabel(int slot) { return slot >= 0 && slot < SlotLabels.Length ? SlotLabels[slot] : "No slot"; }
+
+        readonly HashSet<InventoryItem> collapsed = new HashSet<InventoryItem>();
+        ItemPlace addTarget, moveTarget;
+        List<ItemPlace> addTargets = new List<ItemPlace>(), moveTargets = new List<ItemPlace>();
+        bool placing;
+
         public void BuildTree()
         {
+            var inv = Sheet.Inventory;
             Items.Clear();
-            foreach (var t in Sheet.Inventory.Top.OrderBy(t => t.Slot < 0 ? 99 : t.Slot)) Items.Add(Node(t));
+            foreach (int s in SlotOrder)
+            {
+                var it = inv.InSlot(s);
+                var n = it != null ? Node(it) : new ItemNode { Text = "empty" };
+                n.Slot = s;
+                n.SlotLabel = SlotLabel(s);
+                Items.Add(n);
+            }
+            foreach (var t in inv.Top.Where(t => t.Slot < 0))
+            {
+                var n = Node(t);
+                n.SlotLabel = "No slot";
+                Items.Add(n);
+            }
+            BuildAddTargets();
         }
 
         ItemNode Node(InventoryItem it)
         {
-            var n = new ItemNode { Item = it, Icon = icon?.Invoke(it.ItemId) };
+            var n = new ItemNode { Item = it, Icon = icon?.Invoke(it.ItemId), IsExpanded = !collapsed.Contains(it) };
             n.Text = ItemText(it);
+            n.Toggled = x => { if (x.IsExpanded) collapsed.Remove(x.Item); else collapsed.Add(x.Item); };
             foreach (var c in it.Contents) n.Children.Add(Node(c));
             return n;
         }
@@ -208,8 +263,86 @@ namespace UwEditor.App
         {
             string name = Session.Names.Get(it.ItemId) ?? "item";
             string q = it.Quantity.HasValue && it.Quantity.Value > 1 ? " × " + it.Quantity.Value : "";
-            string slot = it.Slot >= 0 ? "   [" + PlayerInventory.SlotNames[it.Slot] + "]" : it.Parent == null ? "   [no slot]" : "";
-            return string.Format("0x{0:X3}  {1}{2}{3}{4}", it.ItemId, name, q, it.Enchanted ? " (enchanted)" : "", slot);
+            return string.Format("0x{0:X3}  {1}{2}{3}", it.ItemId, name, q, it.Enchanted ? " (enchanted)" : "");
+        }
+
+        string Short(InventoryItem it) { return string.Format("0x{0:X3} {1}", it.ItemId, Session.Names.Get(it.ItemId) ?? "item"); }
+
+        /// <summary>Where an object is: its slot, or the container it is in.</summary>
+        string Where(InventoryItem it) { return it.Parent == null ? SlotLabel(it.Slot) : "in " + Short(it.Parent); }
+
+        IEnumerable<ItemPlace> Containers(InventoryItem except)
+        {
+            foreach (var c in Sheet.Inventory.All())
+                if (!c.IsQuantity && (except == null || !PlayerInventory.IsWithin(c, except)))
+                    yield return new ItemPlace { Container = c, Label = "Inside " + Short(c) + " (" + Where(c) + ")" };
+        }
+
+        /// <summary>Where new objects go: the first free pack slot, an empty slot, or a container. It stays until changed.</summary>
+        public List<ItemPlace> AddTargets { get { return addTargets; } }
+        public ItemPlace AddTarget
+        {
+            get { return addTarget; }
+            set { if (value != null && Set(ref addTarget, value)) Raise(nameof(AddTargetText)); }
+        }
+        public string AddTargetText
+        {
+            get { return addTarget == null || addTarget.FirstFree ? "Click a container or an empty slot in the list to add there instead." : "New objects keep going there until you pick another place."; }
+        }
+
+        void BuildAddTargets()
+        {
+            var inv = Sheet.Inventory;
+            var l = new List<ItemPlace> { new ItemPlace { Label = "The pack (first free slot)" } };
+            foreach (int s in SlotOrder) if (inv.InSlot(s) == null) l.Add(new ItemPlace { Slot = s, Label = SlotLabel(s) + " (empty)" });
+            l.AddRange(Containers(null));
+            var keep = addTarget;
+            addTargets = l;
+            addTarget = l.FirstOrDefault(p => p.Same(keep)) ?? l[0];
+            Raise(nameof(AddTargets));
+            Raise(nameof(AddTarget));
+            Raise(nameof(AddTargetText));
+        }
+
+        /// <summary>The places the selected object can move to: any slot (its object makes way), or a container not inside it.</summary>
+        public List<ItemPlace> MoveTargets { get { return moveTargets; } }
+        public ItemPlace MoveTarget
+        {
+            get { return moveTarget; }
+            set
+            {
+                if (placing || value == null || It == null || value.Same(moveTarget) || (value.FirstFree)) return;
+                MoveTo(It, value.Container, value.Slot, null);
+            }
+        }
+
+        void BuildMoveTargets()
+        {
+            placing = true;
+            var l = new List<ItemPlace>();
+            ItemPlace here = null;
+            if (It != null)
+            {
+                var inv = Sheet.Inventory;
+                foreach (int s in SlotOrder)
+                {
+                    var o = inv.InSlot(s);
+                    var p = new ItemPlace { Slot = s, Label = SlotLabel(s) + (o == null ? " (empty)" : o == It ? "" : " (swap with " + Short(o) + ")") };
+                    l.Add(p);
+                    if (It.Parent == null && It.Slot == s) here = p;
+                }
+                foreach (var p in Containers(It))
+                {
+                    l.Add(p);
+                    if (p.Container == It.Parent) here = p;
+                }
+                if (here == null) { here = new ItemPlace { Label = SlotLabel(-1) }; l.Insert(0, here); }
+            }
+            moveTargets = l;
+            moveTarget = here;
+            Raise(nameof(MoveTargets));
+            Raise(nameof(MoveTarget));
+            placing = false;
         }
 
         public ItemNode Selected
@@ -218,13 +351,21 @@ namespace UwEditor.App
             set
             {
                 if (Set(ref selected, value))
-                    foreach (var n in new[] { nameof(HasItem), nameof(ItemId), nameof(ItemName), nameof(Quality), nameof(Owner), nameof(Link), nameof(IsQuantity), nameof(Enchanted), nameof(Invisible), nameof(ItemFlags), nameof(SlotIndex), nameof(IsTop), nameof(LinkMeaning) })
+                {
+                    foreach (var n in new[] { nameof(HasItem), nameof(ItemId), nameof(ItemName), nameof(Quality), nameof(Owner), nameof(Link), nameof(IsQuantity), nameof(Enchanted), nameof(Invisible), nameof(ItemFlags), nameof(LinkMeaning) })
                         Raise(n);
+                    bool quiet = placing;
+                    BuildMoveTargets();
+                    // a container or an empty slot picked in the list becomes where new objects go
+                    var p = value == null || quiet ? null
+                        : value.Item == null ? addTargets.FirstOrDefault(x => x.Slot == value.Slot)
+                        : !value.Item.IsQuantity ? addTargets.FirstOrDefault(x => x.Container == value.Item) : null;
+                    if (p != null) AddTarget = p;
+                }
             }
         }
 
-        public bool HasItem { get { return selected != null; } }
-        public bool IsTop { get { return selected != null && selected.Item.Parent == null; } }
+        public bool HasItem { get { return It != null; } }
         public InventoryItem It { get { return selected == null ? null : selected.Item; } }
 
         void ItemField(Action<InventoryItem> a, string what, params string[] names)
@@ -244,15 +385,14 @@ namespace UwEditor.App
         public decimal? Quality { get { return It?.Quality; } set { ItemField(i => i.Quality = (int)(value ?? 0), "Quality", nameof(Quality)); } }
         public decimal? Owner { get { return It?.Owner; } set { ItemField(i => i.Owner = (int)(value ?? 0), "Owner", nameof(Owner)); } }
         public decimal? Link { get { return It?.Link; } set { ItemField(i => { if (!i.IsQuantity) throw new InvalidOperationException("A container's link is its contents."); i.Link = (int)(value ?? 0); }, "Quantity", nameof(Link), nameof(LinkMeaning)); } }
-        public bool IsQuantity { get { return It != null && It.IsQuantity; } set { ItemField(i => i.IsQuantity = value, "Link kind", nameof(IsQuantity), nameof(Link), nameof(LinkMeaning)); } }
+        public bool IsQuantity
+        {
+            get { return It != null && It.IsQuantity; }
+            set { ItemField(i => i.IsQuantity = value, "Link kind", nameof(IsQuantity), nameof(Link), nameof(LinkMeaning)); BuildAddTargets(); BuildMoveTargets(); }
+        }
         public bool Enchanted { get { return It != null && It.Enchanted; } set { ItemField(i => i.Enchanted = value, "Enchanted", nameof(Enchanted)); } }
         public bool Invisible { get { return It != null && It.Invisible; } set { ItemField(i => i.Invisible = value, "Invisible", nameof(Invisible)); } }
         public decimal? ItemFlags { get { return It?.Flags; } set { ItemField(i => i.Flags = (int)(value ?? 0), "Flags", nameof(ItemFlags)); } }
-        public int SlotIndex
-        {
-            get { return It == null ? 0 : It.Slot + 1; }
-            set { if (value >= 0 && It != null && It.Parent == null) { ItemField(i => Sheet.Inventory.SetSlot(i, value - 1), "Slot", nameof(SlotIndex)); RefreshTexts(Items); } }
-        }
         public string LinkMeaning
         {
             get
@@ -263,52 +403,105 @@ namespace UwEditor.App
             }
         }
 
-        void RefreshTexts(IEnumerable<ItemNode> nodes)
-        {
-            foreach (var n in nodes) { n.Text = ItemText(n.Item); RefreshTexts(n.Children); }
-        }
-
         public decimal? NewItem { get { return newItem; } set { if (Set(ref newItem, value)) Raise(nameof(NewItemName)); } }
         public string NewItemName { get { return Session.Names.Get((int)(newItem ?? 0)) ?? ""; } }
 
-        /// <summary>Adds the new item id: into the selected container, or to the pack.</summary>
-        public ItemNode Add(bool intoSelected)
+        /// <summary>Adds the new item id where AddTarget says.</summary>
+        public ItemNode Add()
         {
             int id = (int)(newItem ?? 0);
-            var container = intoSelected && It != null ? It : null;
-            if (container != null && container.IsQuantity) container = container.Parent;
+            bool isContainer = (ItemCategories.Of(id, Session.Kind) & ItemCategory.Container) != 0;
+            return Added(c => Sheet.Inventory.Add(id, c, isContainer), string.Format("0x{0:X3} {1}", id, NewItemName));
+        }
+
+        /// <summary>Adds an object chosen in the add window (an enchanted weapon, a wand with its spell) where AddTarget says.</summary>
+        public ItemNode AddSpec(UwEditor.Core.Editing.ObjectSpec spec)
+        {
+            return Added(c => Sheet.Inventory.Add(spec, c), spec.Describe(Session.Names));
+        }
+
+        /// <summary>Where AddTarget sends new objects, in words.</summary>
+        public string AddTargetWhere
+        {
+            get
+            {
+                var t = addTarget ?? addTargets[0];
+                return t.FirstFree ? "the first free pack slot" : t.Slot >= 0 ? "the " + SlotLabel(t.Slot) + " slot" : "inside " + Short(t.Container);
+            }
+        }
+
+        ItemNode Added(Func<InventoryItem, InventoryItem> add, string what)
+        {
+            var target = addTarget ?? addTargets[0];
             try
             {
-                bool isContainer = (ItemCategories.Of(id, Session.Kind) & ItemCategory.Container) != 0;
-                var it = Sheet.Inventory.Add(id, container, isContainer);
-                BuildTree();
-                Status = string.Format("Added 0x{0:X3} {1} (not saved).", id, NewItemName);
-                Check();
-                Edited?.Invoke();
-                var n = Find(Items, it);
-                Selected = n;
-                return n;
+                if (target.Slot >= 0 && Sheet.Inventory.InSlot(target.Slot) != null)
+                    throw new InvalidOperationException(SlotLabel(target.Slot) + " is not empty any more: pick another place.");
+                var it = add(target.Container);
+                if (target.Slot >= 0) Sheet.Inventory.MoveToSlot(it, target.Slot);
+                if (target.Container != null) collapsed.Remove(target.Container);
+                Status = "Added " + what + (target.Container != null ? " inside " + Short(target.Container) : " to " + SlotLabel(it.Slot)) + " (not saved).";
+                return Changed(it);
             }
             catch (Exception ex) { Status = ex.Message; return null; }
         }
 
-        /// <summary>Adds an object chosen in the add window (an enchanted weapon, a wand with its spell).</summary>
-        public ItemNode AddSpec(UwEditor.Core.Editing.ObjectSpec spec, bool intoSelected)
+        /// <summary>Rebuilds the tree after a change and selects the object, keeping where new objects go.</summary>
+        ItemNode Changed(InventoryItem it)
         {
-            var container = intoSelected && It != null ? It : null;
-            if (container != null && container.IsQuantity) container = container.Parent;
+            var keep = addTarget;
+            BuildTree();
+            Check();
+            Edited?.Invoke();
+            placing = true;
+            Selected = Find(Items, it);
+            placing = false;
+            AddTarget = addTargets.FirstOrDefault(p => p.Same(keep)) ?? addTargets[0];
+            return selected;
+        }
+
+        /// <summary>Moves an object into a container (before another of its objects), or to a slot.</summary>
+        public ItemNode MoveTo(InventoryItem it, InventoryItem container, int slot, InventoryItem before)
+        {
             try
             {
-                var it = Sheet.Inventory.Add(spec, container);
-                BuildTree();
-                Status = "Added " + spec.Describe(Session.Names) + " (not saved).";
-                Check();
-                Edited?.Invoke();
-                var n = Find(Items, it);
-                Selected = n;
-                return n;
+                if (container != null)
+                {
+                    Sheet.Inventory.MoveInto(it, container, before);
+                    collapsed.Remove(container);
+                    Status = "Moved " + Short(it) + " inside " + Short(container) + " (not saved).";
+                }
+                else
+                {
+                    var other = Sheet.Inventory.InSlot(slot);
+                    Sheet.Inventory.MoveToSlot(it, slot);
+                    Status = "Moved " + Short(it) + " to " + SlotLabel(slot) + (other != null && other != it ? "; " + Short(other) + " went to " + SlotLabel(other.Slot) : "") + " (not saved).";
+                }
+                return Changed(it);
             }
-            catch (Exception ex) { Status = ex.Message; return null; }
+            catch (Exception ex) { Status = ex.Message; BuildMoveTargets(); return null; }
+        }
+
+        /// <summary>
+        /// Whether a dragged object can land on a line: an empty slot, a container (not inside the
+        /// dragged one), an object in a container (it goes before it) or an object in a slot (they swap).
+        /// </summary>
+        public bool CanDrop(ItemNode dragged, ItemNode onto)
+        {
+            if (dragged == null || dragged.Item == null || onto == null || onto == dragged) return false;
+            if (onto.Item == null) return true;
+            if (PlayerInventory.IsWithin(onto.Item, dragged.Item)) return false;
+            return !onto.Item.IsQuantity || onto.Item.Parent != null || onto.Slot >= 0;
+        }
+
+        public ItemNode Drop(ItemNode dragged, ItemNode onto)
+        {
+            if (!CanDrop(dragged, onto)) return null;
+            var it = dragged.Item;
+            if (onto.Item == null) return MoveTo(it, null, onto.Slot, null);
+            if (!onto.Item.IsQuantity) return MoveTo(it, onto.Item, -1, null);
+            if (onto.Item.Parent != null) return MoveTo(it, onto.Item.Parent, -1, onto.Item);
+            return MoveTo(it, null, onto.Slot, null);
         }
 
         public void Delete()

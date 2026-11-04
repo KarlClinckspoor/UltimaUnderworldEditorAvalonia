@@ -9,13 +9,15 @@
   <DockPanel Margin="16">
     <TextBlock DockPanel.Dock="Top" x:Name="Heading" Text="Add an object" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" />
     <TextBlock DockPanel.Dock="Top" x:Name="WhereText" Classes="muted" Margin="0,0,0,10" TextWrapping="Wrap" />
-    <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
+    <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,12,0,0">
       <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center">
         <CheckBox x:Name="InsideBox" IsVisible="False" />
         <TextBlock Text="{Binding Summary}" Classes="muted" TextTrimming="CharacterEllipsis" />
       </StackPanel>
-      <Button Grid.Column="1" x:Name="AddButton" Content="Add" Click="OnAdd" IsDefault="True" IsEnabled="{Binding HasItem}" MinWidth="88" HorizontalContentAlignment="Center" Margin="0,0,8,0" />
-      <Button Grid.Column="2" Content="Cancel" Click="OnCancel" IsCancel="True" MinWidth="88" HorizontalContentAlignment="Center" />
+      <Button Grid.Column="1" x:Name="AddMoreButton" Content="Add, keep open" Click="OnAddMore" IsVisible="False" IsEnabled="{Binding HasItem}" MinWidth="88" HorizontalContentAlignment="Center" Margin="0,0,8,0"
+              ToolTip.Tip="Adds this object and leaves the window open for the next one" />
+      <Button Grid.Column="2" x:Name="AddButton" Content="Add" Click="OnAdd" IsDefault="True" IsEnabled="{Binding HasItem}" MinWidth="88" HorizontalContentAlignment="Center" Margin="0,0,8,0" />
+      <Button Grid.Column="3" Content="Cancel" Click="OnCancel" IsCancel="True" MinWidth="88" HorizontalContentAlignment="Center" />
     </Grid>
     <Grid ColumnDefinitions="300,16,*">
       <DockPanel Grid.Column="0">

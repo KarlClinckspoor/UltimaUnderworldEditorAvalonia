@@ -149,6 +149,46 @@ namespace UwEditor.Core.Tests
         }
 
         [Fact]
+        public void Moving_objects_between_containers_and_slots_survives_saving()
+        {
+            var p = Save("SAVE2"); if (p == null) return;
+            var s = PlayerSheet.FromBytes(File.ReadAllBytes(p), GameKind.UW2, null);
+            var inv = s.Inventory;
+            int before = inv.All().Count();
+            var bag = inv.Top.First(t => t.ItemId == 0x80);
+            var inner = inv.Add(0x81, bag, true);
+            var coins = inv.Add(0xA0, bag, false);
+            // into a container, before another object
+            inv.MoveInto(coins, inner);
+            Assert.Same(inner, coins.Parent);
+            Assert.DoesNotContain(coins, bag.Contents);
+            var gem = inv.Add(0xA6, inner, false);
+            inv.MoveInto(gem, inner, coins);
+            Assert.Equal(new[] { gem, coins }, inner.Contents);
+            Assert.Throws<InvalidOperationException>(() => inv.MoveInto(bag, inner));
+            Assert.Throws<InvalidOperationException>(() => inv.MoveInto(bag, coins));
+            // out to a free slot, then onto a taken one: the object there takes the old slot
+            int free = inv.FreePackSlot();
+            inv.MoveToSlot(gem, free);
+            Assert.Null(gem.Parent);
+            Assert.Equal(free, gem.Slot);
+            int bagSlot = bag.Slot;
+            inv.MoveToSlot(gem, bagSlot);
+            Assert.Equal(bagSlot, gem.Slot);
+            Assert.Equal(free, bag.Slot);
+            // from a container onto a taken slot: the object there goes to a free pack slot
+            inv.MoveToSlot(coins, bagSlot);
+            Assert.Equal(bagSlot, coins.Slot);
+            Assert.InRange(gem.Slot, PlayerInventory.PackFirst, PlayerInventory.PackLast);
+            var back = PlayerSheet.FromBytes(s.ToBytes(), GameKind.UW2, null);
+            Assert.Equal(before + 3, back.Inventory.All().Count());
+            Assert.Equal(0xA0, back.Inventory.InSlot(bagSlot).ItemId);
+            Assert.Equal(0x80, back.Inventory.InSlot(free).ItemId);
+            Assert.Contains(back.Inventory.InSlot(free).Contents, c => c.ItemId == 0x81);
+            Assert.Equal(0, back.Inventory.Unreached);
+        }
+
+        [Fact]
         public void Uw2_cheat_detection_is_warned_and_creation_limits_are_checked()
         {
             string g = GameData.Game("UW2"); if (g == null) return;

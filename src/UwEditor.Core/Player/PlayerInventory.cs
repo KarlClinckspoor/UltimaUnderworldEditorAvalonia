@@ -184,6 +184,56 @@ namespace UwEditor.Core.Player
             Changed = true;
         }
 
+        /// <summary>Whether an object is the given one or inside it, at any depth.</summary>
+        public static bool IsWithin(InventoryItem it, InventoryItem outer)
+        {
+            for (var p = it; p != null; p = p.Parent) if (p == outer) return true;
+            return false;
+        }
+
+        /// <summary>Moves an object (with what is inside it) into a container, before another of its objects (null: at the end).</summary>
+        public void MoveInto(InventoryItem it, InventoryItem container, InventoryItem before = null)
+        {
+            if (container == null) throw new ArgumentNullException("container");
+            if (container.IsQuantity) throw new InvalidOperationException("That object is not a container: its link is a quantity or special value.");
+            if (IsWithin(container, it)) throw new InvalidOperationException("An object cannot go inside itself.");
+            if (before == it) return;
+            Detach(it);
+            it.Parent = container;
+            int at = before == null ? -1 : container.Contents.IndexOf(before);
+            if (at < 0) container.Contents.Add(it); else container.Contents.Insert(at, it);
+            Changed = true;
+        }
+
+        /// <summary>
+        /// Moves an object (from a container or another slot) to the top of the inventory, in a slot.
+        /// An object already there takes the moved one's old slot, or the first free pack slot.
+        /// </summary>
+        public void MoveToSlot(InventoryItem it, int slot)
+        {
+            if (slot < 0 || slot >= Slots) throw new ArgumentOutOfRangeException("slot");
+            if (it.Parent == null && it.Slot == slot) return;
+            var other = InSlot(slot);
+            int old = it.Parent == null ? it.Slot : -1;
+            int otherTo = -1;
+            if (other != null)
+            {
+                otherTo = old >= 0 ? old : FreePackSlot();
+                if (otherTo < 0) throw new InvalidOperationException(string.Format("The {0} slot holds 0x{1:X3} and the pack has no free slot for it: move it first.", SlotNames[slot], other.ItemId));
+            }
+            if (it.Parent != null) { Detach(it); Top.Add(it); }
+            if (other != null) other.Slot = otherTo;
+            it.Slot = slot;
+            Changed = true;
+        }
+
+        void Detach(InventoryItem it)
+        {
+            (it.Parent == null ? Top : it.Parent.Contents).Remove(it);
+            it.Parent = null;
+            it.Slot = -1;
+        }
+
         /// <summary>Puts a top-level object in a slot (or -1 for none); whatever was there loses it.</summary>
         public void SetSlot(InventoryItem it, int slot)
         {
