@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -26,11 +27,15 @@ namespace UwEditor.App
         readonly StackPanel levelBoxes = new StackPanel { Spacing = 2 };
         readonly TextBlock portText = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
         readonly CheckBox saveBox = new CheckBox { Content = "Save in slot I at the end, and check the levels the game wrote", IsChecked = true };
-        readonly CheckBox aliveBox = new CheckBox { Content = "Keep the player alive (strength 99, defense 30, full hit points before each level)", IsChecked = true };
+        readonly CheckBox aliveBox = new CheckBox { Content = "Keep the player alive (experience level 16, the most strength the hit points allow, defense 30, full hit points before each level)", IsChecked = true };
         readonly Button untick = new Button { Content = "Untick the levels with nowhere to stand", IsVisible = false };
         readonly CheckBox editsBox = new CheckBox { Content = "Also stop beside every edit (tiles and objects changed), so what is near them is drawn and runs" };
         readonly CheckBox sweepBox = new CheckBox { Content = "Sweep each level: also one stop in every 16 × 16 area with room to stand" };
         readonly CheckBox lookBox = new CheckBox { Content = "Look around at each stop (turn round once, about 3.5 s more a stop)" };
+        readonly CheckBox shownBox = new CheckBox { Content = "Show the game's window while it runs (to watch what happens; leave its keys and mouse alone)" };
+        CancellationTokenSource stopper;
+        Process portProcess;
+        bool closeAsked;
         readonly TextBlock estimate = new TextBlock { FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap };
         List<int> nowhere = new List<int>();
         readonly TextBox report = new TextBox { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, FontFamily = new FontFamily("Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,monospace"), FontSize = 12, MinHeight = 160 };
@@ -70,9 +75,9 @@ namespace UwEditor.App
             var left = new DockPanel { Width = 230, Margin = new Thickness(0, 0, 12, 0) };
             var pickRow = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
             var edited = new Button { Content = "Edited", Margin = new Thickness(0, 0, 6, 6) };
-            edited.Click += (o, e) => Tick(ExhumedCheck.EditedLevels(main.ViewModel.Edits));
+            edited.Click += (o, e) => Tick(Checkable(ExhumedCheck.EditedLevels(main.ViewModel.Edits)));
             var all = new Button { Content = "All", Margin = new Thickness(0, 0, 6, 6) };
-            all.Click += (o, e) => Tick(boxes.Select(b => (int)b.Tag).ToList());
+            all.Click += (o, e) => Tick(Checkable(boxes.Select(b => (int)b.Tag)));
             var none = new Button { Content = "None", Margin = new Thickness(0, 0, 6, 6) };
             none.Click += (o, e) => Tick(new List<int>());
             pickRow.Children.Add(edited); pickRow.Children.Add(all); pickRow.Children.Add(none);
@@ -86,19 +91,24 @@ namespace UwEditor.App
                 var dirty = new HashSet<int>(ExhumedCheck.EditedLevels(main.ViewModel.Edits));
                 foreach (var slot in s.LevelSlots().Where(x => x.Present))
                 {
-                    var b = new CheckBox { Content = (s.IsUw2 ? slot.Level + " " + slot.Name : slot.Name) + (dirty.Contains(slot.Level) ? "  (edited)" : ""), Tag = slot.Level, IsChecked = dirty.Contains(slot.Level) };
+                    bool crash = slot.Level == ExhumedCheck.PortCrashLevel(s.Kind);
+                    var b = new CheckBox { Content = (s.IsUw2 ? slot.Level + " " + slot.Name : slot.Name) + (dirty.Contains(slot.Level) ? "  (edited)" : "") + (crash ? "  (the port crashes here)" : ""), Tag = slot.Level, IsChecked = dirty.Contains(slot.Level) && !crash };
+                    if (crash) ToolTip.SetTip(b, "Underworld Exhumed crashes on arriving at this level, even on the shipped game and after the talisman ritual's moongate: a bug of the port. Left out of Edited and All; when ticked it comes last, after the save, and its crash is reported as a note. Check it with the DOSBox spot test.");
                     boxes.Add(b); levelBoxes.Children.Add(b);
                 }
-                if (dirty.Count == 0 && main.ViewModel.Level != null) Tick(new List<int> { main.ViewModel.Level.Level });
+                if (dirty.Count == 0 && main.ViewModel.Level != null) Tick(Checkable(new[] { main.ViewModel.Level.Level }));
                 saveBox.IsVisible = !s.IsUw2;
             }
 
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 0) };
-            run.Click += async (o, e) => await RunCheck();
+            run.Click += async (o, e) => { if (Running) Stop(); else await RunCheck(); };
             openFolder.Click += (o, e) => { if (LastPlan != null) OpenInShell(LastPlan.Folder); };
             buttons.Children.Add(run); buttons.Children.Add(openFolder);
             var top = new StackPanel { Spacing = 4 };
-            ToolTip.SetTip(aliveBox, "Underworld Exhumed has no god mode. Its test cheat sets strength and defense (the maximum hit points follow), and fills the hit points before each level, so monsters waiting on a level don't end the check.");
+            ToolTip.SetTip(aliveBox, "Underworld Exhumed has no god mode. The check's saved game makes the player experience level 16 (a new character, with no saved game to start from, stays level 1), the port's test cheat sets strength and defense (the maximum hit points follow: 254 at level 16 with strength 70, as more would wrap round in the game's byte), and fills the hit points before each level, so monsters waiting on a level don't end the check.");
+            shownBox.IsChecked = main.ExhumedShowWindow;
+            shownBox.IsCheckedChanged += (o, e) => main.ExhumedShowWindow = shownBox.IsChecked == true;
+            ToolTip.SetTip(shownBox, "Runs the port with its window, so you can see where the player is and what the game draws when something goes wrong. The input script still plays the keys at set times: a key pressed or a click in that window can upset it. The run takes as long as hidden.");
             untick.Click += (o, e) =>
             {
                 foreach (var b in boxes) if (nowhere.Contains((int)b.Tag)) b.IsChecked = false;
@@ -114,7 +124,7 @@ namespace UwEditor.App
             ToolTip.SetTip(editsBox, "Creatures more than 10 squares from the player stand frozen, triggers fire only when walked on, and only what is in view is drawn: a stop beside each edited spot makes the game run and draw what changed. At most 12 such stops a level, 5 squares apart.");
             ToolTip.SetTip(sweepBox, "A stop in each 16 × 16 area of the level that has an open, flat, dry square: up to 16 a level, about 5 s each.");
             ToolTip.SetTip(lookBox, "Holds the turn-left key for one full turn at each stop, so the game draws everything around (bad textures and models show only when drawn).");
-            top.Children.Add(saveBox); top.Children.Add(aliveBox); top.Children.Add(editsBox); top.Children.Add(sweepBox); top.Children.Add(lookBox); top.Children.Add(estimate); top.Children.Add(buttons);
+            top.Children.Add(saveBox); top.Children.Add(aliveBox); top.Children.Add(editsBox); top.Children.Add(sweepBox); top.Children.Add(lookBox); top.Children.Add(shownBox); top.Children.Add(estimate); top.Children.Add(buttons);
 
             var right = new DockPanel();
             shotBox = new Border { Child = shot, BorderBrush = new SolidColorBrush(Color.Parse("#40808080")), BorderThickness = new Thickness(1), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0), IsVisible = false };
@@ -130,9 +140,19 @@ namespace UwEditor.App
             dock.Children.Add(head); dock.Children.Add(body);
             Content = dock;
             ManualWindow.Attach(this, "Checking in Underworld Exhumed");
+            Closing += OnClosing;
+            Closed += (o, e) => Stop();
             ShowPort();
             report.Text = "Tick the levels, then Run the check. A stop takes about " + ExhumedCheck.VisitMs / 1000 + " seconds.";
             Estimate();
+        }
+
+        /// <summary>The levels without the one the port crashes on (ExhumedCheck.PortCrashLevel).</summary>
+        List<int> Checkable(IEnumerable<int> levels)
+        {
+            var s = main.ViewModel.Session;
+            int crash = s == null ? 0 : ExhumedCheck.PortCrashLevel(s.Kind);
+            return levels.Where(l => l != crash).ToList();
         }
 
         void Tick(IList<int> levels)
@@ -202,13 +222,15 @@ namespace UwEditor.App
             if (s == null || Running) return null;
             string port = main.ExhumedPort(s.Kind);
             if (port == null && main.ExhumedLaunch) { report.Text = "Choose the port first (" + ExhumedCheck.ProgramName(s.Kind) + ")."; return null; }
-            Running = true; run.IsEnabled = false;
+            Running = true;
+            stopper = new CancellationTokenSource();
+            run.Content = "Stop the check"; run.IsDefault = false;
             try
             {
                 report.Text = "Setting up…";
                 ExhumedPlan plan;
                 untick.IsVisible = false;
-                try { plan = main.PrepareExhumed(ChosenLevels, saveBox.IsChecked == true, aliveBox.IsChecked == true, Thoroughness); }
+                try { plan = main.PrepareExhumed(ChosenLevels, saveBox.IsChecked == true, aliveBox.IsChecked == true, Thoroughness, shownBox.IsChecked == true); }
                 catch (NowhereToStandException ex)
                 {
                     nowhere = ex.Levels;
@@ -220,8 +242,15 @@ namespace UwEditor.App
                 LastPlan = plan;
                 openFolder.IsEnabled = true;
                 if (!main.ExhumedLaunch) { report.Text = "Ready in " + plan.Folder + " (not run).\n" + plan.Note; return null; }
-                report.Text = "Running Underworld Exhumed with no window: " + plan.Note + "\nThis takes about " + (plan.ExitAfterMs / 1000 + 5) + " seconds.";
-                var (code, output, timedOut) = await RunPort(port, plan);
+                report.Text = "Running Underworld Exhumed " + (plan.Shown ? "in its window" : "with no window") + ": " + plan.Note + "\nThis takes about " + (plan.ExitAfterMs / 1000 + 5) + " seconds. Stop the check ends it.";
+                var (code, output, timedOut, stopped) = await RunPort(port, plan, stopper.Token, p => portProcess = p);
+                portProcess = null;
+                if (stopped)
+                {
+                    report.Text = "Stopped before the end: the port was closed, nothing was checked.\nThe check's files: " + plan.Folder + "\n\nThe port's output:\n" + (string.IsNullOrWhiteSpace(output) ? "(nothing)" : output.TrimEnd());
+                    vm.EditStatus = "Underworld Exhumed check stopped.";
+                    return null;
+                }
                 var result = ExhumedCheck.Analyze(s, plan, code, output, timedOut);
                 LastResult = result;
                 var sb = new StringBuilder();
@@ -233,10 +262,37 @@ namespace UwEditor.App
                 sb.AppendLine(string.IsNullOrWhiteSpace(output) ? "(nothing)" : output.TrimEnd());
                 report.Text = sb.ToString();
                 ShowShot(plan.Screenshot);
-                vm.EditStatus = result.Passed ? "Underworld Exhumed check passed." : "Underworld Exhumed check: " + result.Problems.Count + " problem(s).";
+                vm.EditStatus = result.Passed ? (result.PortCrashedOn > 0 ? "Underworld Exhumed check passed; level " + result.PortCrashedOn + " not checked (the port crashes there)." : "Underworld Exhumed check passed.") :"Underworld Exhumed check: " + result.Problems.Count + " problem(s).";
                 return result;
             }
-            finally { Running = false; run.IsEnabled = true; }
+            finally
+            {
+                Running = false;
+                stopper?.Dispose(); stopper = null;
+                run.Content = "Run the check"; run.IsDefault = true;
+            }
+        }
+
+        /// <summary>Stops a check that is running: the port is closed (nothing is checked). Nothing happens when none runs.</summary>
+        public void Stop()
+        {
+            try { stopper?.Cancel(); } catch (ObjectDisposedException) { }
+            // closed here as well, not only after the await: the editor may be closing, and nothing after it then runs
+            try { portProcess?.Kill(true); } catch (Exception) { }
+        }
+
+        /// <summary>Closing while a check runs: asked first (closed by hand); the port is stopped when the window goes.</summary>
+        async void OnClosing(object sender, WindowClosingEventArgs e)
+        {
+            if (!Running || closeAsked) return;
+            // the editor closing, or a close from code: the port goes with the window (Closed stops it)
+            if (e.CloseReason != WindowCloseReason.WindowClosing || e.IsProgrammatic) return;
+            e.Cancel = true;
+            string a = await MessageWindow.Ask(this, "Check in Underworld Exhumed", "A check is running. Closing the window stops it: the port is closed and nothing is checked.", "Stop and close", "Keep running");
+            if (a != "Stop and close") return;
+            Stop();
+            closeAsked = true;
+            Close();
         }
 
         void ShowShot(string path)
@@ -245,8 +301,8 @@ namespace UwEditor.App
             shotBox.IsVisible = shot.Source != null;
         }
 
-        /// <summary>Runs the port, reading what it prints, and stops it if it outlives its exit time by a minute.</summary>
-        static async Task<(int Code, string Output, bool TimedOut)> RunPort(string port, ExhumedPlan plan)
+        /// <summary>Runs the port, reading what it prints, and stops it if it outlives its exit time by a minute, or when stop is set (Stopped).</summary>
+        static async Task<(int Code, string Output, bool TimedOut, bool Stopped)> RunPort(string port, ExhumedPlan plan, CancellationToken stop, Action<Process> started)
         {
             var psi = new ProcessStartInfo(port) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true, WorkingDirectory = plan.Folder };
             foreach (var a in plan.Arguments) psi.ArgumentList.Add(a);
@@ -258,12 +314,24 @@ namespace UwEditor.App
                 p.OutputDataReceived += (o, e) => { if (e.Data != null) lock (gate) output.AppendLine(e.Data); };
                 p.ErrorDataReceived += (o, e) => { if (e.Data != null) lock (gate) output.AppendLine(e.Data); };
                 try { p.Start(); }
-                catch (Exception ex) { return (-1, "The port did not start: " + ex.Message, false); }
+                catch (Exception ex) { return (-1, "The port did not start: " + ex.Message, false, false); }
+                started?.Invoke(p);
                 p.BeginOutputReadLine(); p.BeginErrorReadLine();
-                var exited = await Task.Run(() => p.WaitForExit(plan.ExitAfterMs + 60000));
-                if (!exited) { try { p.Kill(true); } catch (Exception) { } }
+                bool exited = false;
+                using (var limit = CancellationTokenSource.CreateLinkedTokenSource(stop))
+                {
+                    limit.CancelAfter(plan.ExitAfterMs + 60000);
+                    try { await p.WaitForExitAsync(limit.Token); exited = true; }
+                    catch (OperationCanceledException) { }
+                }
+                bool stopped = stop.IsCancellationRequested;   // also when Stop closed it and it ended before the wait saw the stop
+                if (!exited)
+                {
+                    try { p.Kill(true); } catch (Exception) { }
+                    try { await Task.Run(() => p.WaitForExit(5000)); } catch (Exception) { }
+                }
                 else p.WaitForExit();   // the rest of the output
-                lock (gate) return (exited ? p.ExitCode : -1, output.ToString(), !exited);
+                lock (gate) return (exited ? p.ExitCode : -1, output.ToString(), !exited && !stopped, stopped);
             }
         }
 

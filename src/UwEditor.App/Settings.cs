@@ -44,6 +44,8 @@ namespace UwEditor.App
         public bool ExhumedEdits { get; set; }
         public bool ExhumedSweep { get; set; }
         public bool ExhumedLook { get; set; }
+        /// <summary>The check in Underworld Exhumed shows the game's window while it runs.</summary>
+        public bool ExhumedShowWindow { get; set; }
 
         /// <summary>The folder the settings (and the checkpoints) live in.</summary>
         public static string Folder { get { return Path.GetDirectoryName(PathOf()); } }

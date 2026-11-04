@@ -59,12 +59,19 @@ namespace UwEditor.App
         }
 
         /// <summary>Sets a check up with the unsaved levels (and player) in the settings folder.</summary>
-        public ExhumedPlan PrepareExhumed(IList<int> levels, bool saveAtEnd, bool keepAlive = true, ExhumedOptions options = null)
+        public ExhumedPlan PrepareExhumed(IList<int> levels, bool saveAtEnd, bool keepAlive = true, ExhumedOptions options = null, bool showWindow = false)
         {
             var s = vm.Session;
             string folder = ExhumedFolder ?? Path.Combine(Settings.Folder, "Exhumed check", (s.IsUw2 ? "uw2-" : "uw1-") + new string(Path.GetFileName(s.GameFolder.TrimEnd('/', '\\')).Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray()));
             byte[] player = playerSheet != null && playerSheet.Dirty ? playerSheet.ToBytes() : null;
-            return ExhumedCheck.Prepare(s, vm.Edits, player, levels, folder, saveAtEnd, keepAlive, options);
+            return ExhumedCheck.Prepare(s, vm.Edits, player, levels, folder, saveAtEnd, keepAlive, options, showWindow);
+        }
+
+        /// <summary>The check shows the game's window while it runs, remembered.</summary>
+        public bool ExhumedShowWindow
+        {
+            get { return settings.ExhumedShowWindow; }
+            set { settings.ExhumedShowWindow = value; settings.Save(); }
         }
 
         SaveCheckWindow saveCheckWindow;

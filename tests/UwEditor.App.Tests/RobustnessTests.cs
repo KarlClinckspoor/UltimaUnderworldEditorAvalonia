@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using UwEditor.Core.Editing;
 using UwEditor.Core.Tests;
 using Xunit;
@@ -173,6 +174,77 @@ namespace UwEditor.App.Tests
                 Assert.True(r.Resaved);
                 Assert.Contains("passed", vm.EditStatus);
                 x.Close();
+            }
+            finally { try { Directory.Delete(dir, true); File.Delete(fake); } catch (Exception) { } w.Close(); }
+        }
+
+        [AvaloniaFact]
+        public void UW1_level_9_is_left_out_of_All_but_can_be_ticked()
+        {
+            string g = GameData.Game("UW"); if (g == null) return;
+            var w = Ui.Open(g);
+            w.AskBeforeDiscarding = false;
+            try
+            {
+                var x = w.ShowExhumed();
+                Ui.Pump();
+                var all = x.GetVisualDescendants().OfType<Avalonia.Controls.Button>().First(b => b.Content as string == "All");
+                all.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+                Assert.Contains(2, x.ChosenLevels);
+                Assert.DoesNotContain(9, x.ChosenLevels);
+                var nine = x.GetVisualDescendants().OfType<Avalonia.Controls.CheckBox>().First(b => b.Tag is int l && l == 9);
+                Assert.Contains("crashes", nine.Content as string);
+                x.Choose(new[] { 9 });
+                Assert.Equal(new[] { 9 }, x.ChosenLevels);
+                x.Close();
+            }
+            finally { w.Close(); }
+        }
+
+        [AvaloniaFact]
+        public void A_running_check_stops_with_Stop_and_when_its_window_closes()
+        {
+            string g = GameData.Game("UW"); if (g == null) return;
+            var w = Ui.Open(g);
+            w.AskBeforeDiscarding = false;
+            string dir = Path.Combine(Path.GetTempPath(), "uwedit-exstop-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            // a port that never finishes by itself (a minute and more)
+            bool win = OperatingSystem.IsWindows();
+            string fake = dir + (win ? "-uw1port.cmd" : "-uw1port.sh");
+            try
+            {
+                File.WriteAllText(fake, win ? "@echo off\r\necho uw1port: started\r\nping -n 120 127.0.0.1 >nul\r\n" : "#!/bin/sh\necho uw1port: started\nsleep 120\n");
+                if (!win) System.Diagnostics.Process.Start("chmod", new[] { "+x", fake }).WaitForExit();
+                w.ExhumedFolder = dir;
+                w.SetExhumedPort(UltimateEditor.Games.GameKind.UW1, fake);
+                var x = w.ShowExhumed();
+                Ui.Pump();
+                Func<System.Threading.Tasks.Task<UwEditor.Core.ExhumedResult>, bool> wait = task =>
+                {
+                    var until = DateTime.UtcNow.AddSeconds(30);
+                    while (!task.IsCompleted && DateTime.UtcNow < until) { Ui.Pump(); System.Threading.Thread.Sleep(20); }
+                    return task.IsCompleted;
+                };
+                // Stop: the port is closed, nothing is reported as checked
+                var t1 = x.RunCheck();
+                var started = DateTime.UtcNow.AddSeconds(10);
+                while (!x.Running && DateTime.UtcNow < started) Ui.Pump();
+                Assert.True(x.Running);
+                System.Threading.Thread.Sleep(500);
+                x.Stop();
+                Assert.True(wait(t1), "Stop did not end the check");
+                Assert.Null(t1.Result);
+                Assert.False(x.Running);
+                Assert.Contains("stopped", w.ViewModel.EditStatus);
+                // closing the window (from code, as the editor closing does) stops it too
+                var t2 = x.RunCheck();
+                started = DateTime.UtcNow.AddSeconds(10);
+                while (!x.Running && DateTime.UtcNow < started) Ui.Pump();
+                Assert.True(x.Running);
+                System.Threading.Thread.Sleep(500);
+                x.Close();
+                Assert.True(wait(t2), "closing the window did not end the check");
+                Assert.Null(t2.Result);
             }
             finally { try { Directory.Delete(dir, true); File.Delete(fake); } catch (Exception) { } w.Close(); }
         }

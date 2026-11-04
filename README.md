@@ -283,8 +283,9 @@ controls and borders in place of white space, in either colour scheme; font size
   being edited) or in Underworld Exhumed (on the save being edited), play-test from a tile,
   and **Check in Underworld Exhumed…**: the edits loaded by the game's own code, in
   [Underworld Exhumed](https://github.com/abedegno/underworld-exhumed)'s native port run with
-  no window: the player is sent to each chosen level, UW1 saves at the end and the levels the
-  game wrote are checked again. **DOSBox spot test…** turns the same squares into saved
+  no window (or with it, to watch): the player, made level 16 with full hit points, is sent
+  to each chosen level, UW1 saves at the end and the levels the game wrote are checked again;
+  a running check can be stopped. **DOSBox spot test…** turns the same squares into saved
   games 1–4 with a fresh, armoured tester on each, starts DOSBox on them, and when DOSBox
   closes offers the next four, counting how many are done. **File ▸ Export as a saved game…** writes the edits as a
   `SAVEn` folder, for the port or DOSBox.

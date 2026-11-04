@@ -323,9 +323,14 @@ check**. The editor then:
    The choices are remembered. Triggers still do not fire and nobody is talked to: the player
    is put down on empty squares and does not walk.
    With **Keep the player alive** (on at first) the player is made sturdy first, since the
-   port has no god mode: its `set` cheat raises strength to 99 and defense to 30 (the
-   maximum hit points follow, as a level gained does), and fills the hit points before each
-   level, so monsters near the square don't end the check;
+   port has no god mode: the check's saved game makes the player experience level 16 (the
+   highest), and the port's `set` cheat raises defense to 30 and strength to the most the
+   hit points allow (the maximum hit points follow, 30 + level × strength / 5, as a level
+   gained does), then fills the hit points before each level, so monsters near the square
+   don't end the check. At level 16 that is strength 70 and 254 hit points: the game keeps the
+   maximum in one byte (`game/SKILLS.C` `player_compute`), so more strength would wrap round to
+   a few hit points. A new character (UW1 with no saved game to start from) stays level 1, as
+   no cheat sets the level: strength 99, 49 hit points;
 4. in UW1, saves in slot I at the end (Ctrl+S, slot I, Enter), so the game writes every
    level it visited, and checks those levels again here (the object-list check and the list
    errors of **Level ▸ Fixes**).
@@ -340,6 +345,25 @@ and shows the last screen. The check's folder keeps the script (`script.txt`), t
 (`home/SAVE1`) and the save as written (`before`), so a problem can be run again by hand:
 `uw1port --data game --home home --input-script script.txt` (with `EXHUME_TEST_CHEATS=1` set,
 which the port asks for before it runs a test cheat).
+
+**Show the game's window while it runs** runs the port with its window instead of hidden
+(remembered), to watch where the player is and what the game draws when something goes
+wrong. The script still plays the keys at set times, so leave the keyboard and mouse off that
+window; the run takes as long as hidden.
+
+While a check runs, **Run the check** becomes **Stop the check**, which closes the port
+(nothing is then checked). Closing the window while a check runs asks first (**Stop and close**
+or **Keep running**); the port also stops when the editor closes.
+
+**Level 9 in UW1.** Underworld Exhumed crashes on arriving at level 9 (the void), whatever the
+levels hold: with a new character on the shipped game, after the `goto` cheat, and after the
+talisman ritual's moongate (the last talisman burnt in the Slasher's lava on level 8 with
+Garamon buried: `game/SKILLS.C` `check_victory` sends the player to level 9 (27, 23)). It is a
+bug of the port (UW1 v1.0.2, and a build of November 2026), so the check cannot test level 9.
+Its box says so and is left out of **Edited**, **All** and the first choice; ticked by hand,
+level 9 comes last, after the save in slot I, so the other levels are still checked and saved,
+and its crash is reported as a note ("PASSED for the rest; level 9 could not be checked")
+rather than a problem. The **DOSBox spot test** checks level 9 in the original game.
 
 Underworld II is checked from a saved game and does not save at the end (its save menu is
 not scripted yet). Unsaved strings and conversations are not in the copy.

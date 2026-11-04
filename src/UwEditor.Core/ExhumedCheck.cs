@@ -49,10 +49,18 @@ namespace UwEditor.Core
         public bool SavesAtEnd;
         /// <summary>Where the player went on each level and what he did there.</summary>
         public ExhumedOptions Options = new ExhumedOptions();
-        /// <summary>The player is kept alive: strength 99 and defense 30 at the start, hit points filled before each level (the port has no god mode; its set cheat does this).</summary>
+        /// <summary>The player is kept alive: experience level 16 in the saved game, then strength (AliveStrength) and defense 30 at the start, hit points filled before each level (the port has no god mode; its set cheat does this).</summary>
         public bool KeepAlive;
-        /// <summary>The hit points set before each level: the maximum with strength 99 (SKILLS.C player_compute: 30 + level × strength / 5, at most 255).</summary>
+        /// <summary>The player's experience level in the check: 16 from a saved game, 1 for a new character (the port has no cheat for the level).</summary>
+        public int AliveLevel;
+        /// <summary>The strength set at the start (AliveStrengthAt of AliveLevel).</summary>
+        public int AliveStrength;
+        /// <summary>The hit points set before each level: the maximum at AliveLevel and AliveStrength (SKILLS.C player_compute: 30 + level × strength / 5).</summary>
         public int AliveHp;
+        /// <summary>The port runs with its window shown (no --hidden), to watch what happens.</summary>
+        public bool Shown;
+        /// <summary>The level the port crashes on (ExhumedCheck.PortCrashLevel) was chosen: it comes last, after the save.</summary>
+        public bool CrashLevelLast;
         public int ExitAfterMs;
         /// <summary>When the files were ready: a save written after it is the game's.</summary>
         public DateTime ReadyUtc;
@@ -89,12 +97,14 @@ namespace UwEditor.Core
         public readonly List<string> Problems = new List<string>();
         public readonly List<string> Notes = new List<string>();
         public bool Resaved;
+        /// <summary>The level the port crashed on arriving at, the one it always crashes on (ExhumedCheck.PortCrashLevel): said in the notes, not a problem; 0 when it did not.</summary>
+        public int PortCrashedOn;
         public bool Passed { get { return Problems.Count == 0; } }
 
         public string Report()
         {
             var sb = new StringBuilder();
-            sb.AppendLine(Passed ? "PASSED: nothing went wrong." : "PROBLEMS: " + Problems.Count + ".");
+            sb.AppendLine((Passed ? (PortCrashedOn > 0 ? "PASSED for the rest; level " + PortCrashedOn + " could not be checked (Underworld Exhumed crashes there, see below)." : "PASSED: nothing went wrong.") : "PROBLEMS: " + Problems.Count + "."));
             foreach (var p in Problems) sb.AppendLine("  ✗ " + p);
             foreach (var n in Notes) sb.AppendLine("  · " + n);
             return sb.ToString();
@@ -118,6 +128,52 @@ namespace UwEditor.Core
         public const int VisitMs = 5000;
         /// <summary>How long the turn-left key is held to look round once (a turn takes about 3.1 s; a little more for the start of the turn).</summary>
         public const int LookMs = 3600;
+        /// <summary>The experience level a kept-alive player is given in the check's saved game: the games' highest (SKILLCHK.C: level 16 at 96000 experience).</summary>
+        public const int TopLevel = 16;
+
+        /// <summary>
+        /// The level Underworld Exhumed crashes on arriving at, whatever the levels hold: UW1's level 9
+        /// (the void). Checked with UW1 v1.0.2 and a build of 2026-11-04: a host fault once the level is
+        /// loaded, with a new character on the shipped game, after the goto cheat and after the talisman
+        /// ritual's moongate (game/SKILLS.C check_victory's do_teleport to level 9 (27, 23)). 0 for none (UW2).
+        /// </summary>
+        public static int PortCrashLevel(GameKind kind) { return kind == GameKind.UW2 ? 0 : 9; }
+
+        /// <summary>What the report says about the level the port crashes on.</summary>
+        public static string PortCrashNote(int level)
+        {
+            return "Underworld Exhumed crashed on arriving at level " + level + ", as it does on the shipped game (with a new character, and after the talisman ritual's moongate): a bug of the port, not of the edits, so level " + level + " could not be checked. The DOSBox spot test can check it in the original game.";
+        }
+
+        /// <summary>
+        /// The strength the keep-alive cheat sets at an experience level: the most, up to 99, whose
+        /// maximum hit points (30 + level × strength / 5, SKILLS.C player_compute) still fit the byte
+        /// the game keeps them in (playerdat->avghit is an unsigned char: more wraps round to a few
+        /// hit points). Level 1: 99 (49 hit points); level 16: 70 (254).
+        /// </summary>
+        public static int AliveStrengthAt(int level) { level = Math.Max(1, level); return Math.Min(99, (225 * 5 + 4) / level); }
+
+        /// <summary>The maximum hit points at an experience level and strength (SKILLS.C player_compute).</summary>
+        public static int MaxHpAt(int level, int strength) { return 30 + level * strength / 5; }
+
+        /// <summary>
+        /// Makes the player in a saved game's PLAYER.DAT experience level 16 (with at least that
+        /// level's experience, 96000) and fills the hit points to that level's maximum at the
+        /// keep-alive strength; the script's cheat sets the strength again and works the maxima out.
+        /// </summary>
+        static void RaiseToTopLevel(string saveFolder, GameKind kind)
+        {
+            string path = GameProfile.Find(saveFolder, "PLAYER.DAT");
+            if (path == null) return;
+            var pd = PlayerDat.Parse(File.ReadAllBytes(path), kind);
+            int str = AliveStrengthAt(TopLevel), hp = MaxHpAt(TopLevel, str);
+            pd.Level = TopLevel;
+            if (pd.ExperienceTenths < 960000) pd.ExperienceTenths = 960000;
+            pd.Strength = str;
+            pd.MaxVitality = hp;
+            pd.Vitality = hp;
+            File.WriteAllBytes(path, pd.ToBytes());
+        }
 
         /// <summary>The port's program for the game: uw1port or uw2port (with .exe on Windows).</summary>
         public static string ProgramName(GameKind kind) { return (kind == GameKind.UW2 ? "uw2port" : "uw1port") + (OperatingSystem.IsWindows() ? ".exe" : ""); }
@@ -306,20 +362,6 @@ namespace UwEditor.Core
             return list;
         }
 
-        /// <summary>The player's experience level in the save a check starts from (1 for a new character).</summary>
-        static int PlayerLevelOf(GameSession s, byte[] playerDat)
-        {
-            try
-            {
-                string from = SaveSource(s);
-                byte[] file = playerDat ?? (from == null ? null : File.ReadAllBytes(GameProfile.Find(from, "PLAYER.DAT")));
-                if (file == null) return 1;
-                int l = PlayerDat.Parse(file, s.Kind).Level;
-                return l < 1 || l > 16 ? 1 : l;
-            }
-            catch (Exception) { return 1; }
-        }
-
         /// <summary>The levels changed since they were opened (the default to check).</summary>
         public static List<int> EditedLevels(LevelEdits edits)
         {
@@ -330,7 +372,7 @@ namespace UwEditor.Core
         /// Sets a check up in folder (made afresh; only a folder made here is ever cleared): the
         /// copied game with the edits, the port's home with saved game I holding them, the script.
         /// </summary>
-        public static ExhumedPlan Prepare(GameSession s, LevelEdits edits, byte[] playerDat, IList<int> levels, string folder, bool saveAtEnd = true, bool keepAlive = true, ExhumedOptions options = null)
+        public static ExhumedPlan Prepare(GameSession s, LevelEdits edits, byte[] playerDat, IList<int> levels, string folder, bool saveAtEnd = true, bool keepAlive = true, ExhumedOptions options = null, bool showWindow = false)
         {
             if (s == null) throw new InvalidOperationException("Open a game first.");
             levels = (levels ?? new List<int>()).Distinct().ToList();
@@ -368,6 +410,7 @@ namespace UwEditor.Core
             {
                 string slot = Path.Combine(plan.Home, "SAVE1");
                 WriteSave(s, edits, playerDat, slot, null, lev);
+                if (keepAlive) RaiseToTopLevel(slot, s.Kind);
                 CopyFlat(slot, plan.Before);
             }
             else if (s.IsUw2) throw new InvalidOperationException("UW2 is checked from a saved game: save a game once (any slot), or open a SAVEn folder.");
@@ -397,15 +440,40 @@ namespace UwEditor.Core
             plan.KeepAlive = keepAlive;
             if (keepAlive)
             {
-                // no god mode in the port: its set cheat (port/sys/cheats.c c_set) raises the maxima as a level gained does, then the hit points are filled before each level
-                plan.AliveHp = Math.Min(255, 30 + PlayerLevelOf(s, plan.NewCharacter ? null : playerDat) * 99 / 5);
-                sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat set str 99        # keep the player alive\n{1} cheat set defense 30", t, t + 200));
+                // no god mode in the port: the saved game's player is made level 16 (no cheat sets the level; a new character stays 1), then its set cheat
+                // (port/sys/cheats.c c_set) raises the strength and works the maxima out as a level gained does, and the hit points are filled before each level
+                plan.AliveLevel = plan.NewCharacter ? 1 : TopLevel;
+                plan.AliveStrength = AliveStrengthAt(plan.AliveLevel);
+                plan.AliveHp = MaxHpAt(plan.AliveLevel, plan.AliveStrength);
+                sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat set str {1}        # keep the player alive\n{2} cheat set defense 30", t, plan.AliveStrength, t + 200));
                 t += 500;
             }
             options = options ?? new ExhumedOptions();
             plan.Options = options.Clone();
+            plan.SavesAtEnd = saveAtEnd && !s.IsUw2;
+            // the level the port crashes on goes last, after the save, so that the others are checked and saved first
+            int crashLevel = PortCrashLevel(s.Kind);
+            levels = levels.OrderBy(l => l == crashLevel ? 1 : 0).ToList();
+            bool saved = false;
+            Action save = () =>
+            {
+                if (!plan.SavesAtEnd || saved) return;
+                saved = true;
+                // UW1: Ctrl+S, slot I, Enter keeps the description (GAMEWRAP.C SaveGame); a new character's slot has none, so one is typed
+                sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} down ctrl\n{1} key s\n{2} up ctrl\n{3} key enter        # slot I", t, t + 100, t + 300, t + 2000));
+                int at = t + 3500;
+                if (plan.NewCharacter) foreach (char c in "check") { sc.AppendLine(at + " key " + c); at += 200; }
+                sc.AppendLine((at + 500) + " key enter        # the description");
+                t = at + 500 + VisitMs;
+            };
             foreach (int level in levels)
             {
+                if (level == crashLevel)
+                {
+                    save();
+                    plan.CrashLevelLast = true;
+                    sc.AppendLine("# level " + level + " last: Underworld Exhumed crashes on arriving there");
+                }
                 foreach (var v in Stops(s, edits, level, options, terrain))
                 {
                     if (keepAlive) { sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} cheat set hp {1}", t, plan.AliveHp)); t += 300; }
@@ -421,27 +489,24 @@ namespace UwEditor.Core
                     }
                 }
             }
-            plan.SavesAtEnd = saveAtEnd && !s.IsUw2;
-            if (plan.SavesAtEnd)
-            {
-                // UW1: Ctrl+S, slot I, Enter keeps the description (GAMEWRAP.C SaveGame); a new character's slot has none, so one is typed
-                sc.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0} down ctrl\n{1} key s\n{2} up ctrl\n{3} key enter        # slot I", t, t + 100, t + 300, t + 2000));
-                int at = t + 3500;
-                if (plan.NewCharacter) foreach (char c in "check") { sc.AppendLine(at + " key " + c); at += 200; }
-                sc.AppendLine((at + 500) + " key enter        # the description");
-                t = at + 500 + VisitMs;
-            }
+            save();
             plan.ExitAfterMs = t + 3000;
             File.WriteAllText(plan.Script, sc.ToString());
 
-            plan.Arguments.InsertRange(0, new[] { "--data", plan.Game, "--home", plan.Home, "--hidden", "--no-audio", "--no-recording", "--exit-on-halt",
+            plan.Shown = showWindow;
+            var args = new List<string> { "--data", plan.Game, "--home", plan.Home };
+            if (!showWindow) args.Add("--hidden");
+            args.AddRange(new[] { "--no-audio", "--no-recording", "--exit-on-halt",
                 "--input-script", plan.Script, "--screenshot-after", (plan.ExitAfterMs - 1000).ToString(CultureInfo.InvariantCulture), "--screenshot", plan.Screenshot,
                 "--exit-after", plan.ExitAfterMs.ToString(CultureInfo.InvariantCulture) });
+            plan.Arguments.InsertRange(0, args);
             plan.Environment["EXHUME_TEST_CHEATS"] = "1";
             plan.ReadyUtc = DateTime.UtcNow;
             string stops = string.Join("; ", plan.Visits.GroupBy(v => v.Level).Select(g => (s.IsUw2 ? "slot " : "level ") + g.Key + " " + string.Join(", ", g.Select(v => "(" + v.X + ", " + v.Y + ")" + (v.Why == "edit" ? " by an edit" : v.Why == "sweep" ? " sweep" : "")))));
-            plan.Note = string.Format("{0}{1}, then {2} stop{3}: {4}{5}{6}.", plan.NewCharacter ? "A new character" : "Saved game I", keepAlive ? " kept alive (strength 99, defense 30, " + plan.AliveHp + " hit points before each stop)" : "",
-                plan.Visits.Count, plan.Visits.Count == 1 ? "" : "s", stops, options.LookAround ? "; looking round at each" : "", plan.SavesAtEnd ? "; then a save in slot I" : "");
+            plan.Note = string.Format("{0}{1}, then {2} stop{3}: {4}{5}{6}.", plan.NewCharacter ? "A new character" : "Saved game I", keepAlive ? string.Format(" kept alive (experience level {0}{1}, strength {2}, defense 30, {3} hit points before each stop)", plan.AliveLevel, plan.NewCharacter ? " as a new character: no cheat sets the level" : "", plan.AliveStrength, plan.AliveHp) : "",
+                plan.Visits.Count, plan.Visits.Count == 1 ? "" : "s", stops, options.LookAround ? "; looking round at each" : "",
+                (plan.SavesAtEnd ? (plan.CrashLevelLast ? "; a save in slot I before level " + crashLevel + ", which comes last (Underworld Exhumed crashes there)" : "; then a save in slot I") : plan.CrashLevelLast ? "; level " + crashLevel + " last (Underworld Exhumed crashes there)" : "")
+                + (showWindow ? "; the game's window shown" : ""));
             return plan;
         }
 
@@ -555,8 +620,23 @@ namespace UwEditor.Core
                 else if (line.IndexOf("can no longer run", StringComparison.OrdinalIgnoreCase) >= 0) r.Problems.Add("the game's fatal error: " + line);
                 else if (line.IndexOf("cheat:", StringComparison.Ordinal) >= 0 && line.IndexOf("refused", StringComparison.OrdinalIgnoreCase) >= 0) r.Problems.Add("the test cheats were refused: " + line);
             }
+            // the port's own crash on arriving at the level it always crashes on: a note, not a problem
+            int crashLevel = PortCrashLevel(s.Kind);
+            int lastGoto = 0;
+            foreach (var raw in lines)
+            {
+                var gm = System.Text.RegularExpressions.Regex.Match(raw, @"cheat: goto (\d+) \d+ \d+ \(not as DOS\)");
+                if (gm.Success) lastGoto = int.Parse(gm.Groups[1].Value, CultureInfo.InvariantCulture);
+            }
+            bool knownCrash = crashLevel > 0 && lastGoto == crashLevel && !timedOut && exitCode != 0;
+            if (knownCrash)
+            {
+                r.Problems.RemoveAll(p => p == why || p.StartsWith("the port crashed (", StringComparison.Ordinal) || p.StartsWith("the port halted: ", StringComparison.Ordinal));
+                r.Notes.Add(PortCrashNote(crashLevel));
+                r.PortCrashedOn = crashLevel;
+            }
             foreach (var v in plan.Visits)
-                if (!r.StopsReached.Contains(v.Key) && !(r.Reached.Contains(v.Level) && plan.Visits.Count(x => x.Level == v.Level) == 1) && !r.Refused.Any(x => x.StartsWith("level " + v.Level + ":", StringComparison.Ordinal)))
+                if (!(knownCrash && v.Level == crashLevel) && !r.StopsReached.Contains(v.Key) && !(r.Reached.Contains(v.Level) && plan.Visits.Count(x => x.Level == v.Level) == 1) && !r.Refused.Any(x => x.StartsWith("level " + v.Level + ":", StringComparison.Ordinal)))
                     r.Problems.Add((plan.Visits.Count(x => x.Level == v.Level) > 1 ? "(" + v.X + ", " + v.Y + ") on " + (s.IsUw2 ? "slot " : "level ") : (s.IsUw2 ? "Slot " : "Level ")) + v.Level + " was never reached (the run ended or stalled before its cheat ran)");
             if (plan.Visits.Count > plan.Visits.Select(v => v.Level).Distinct().Count())
                 r.Notes.Add("The player stopped at " + r.StopsReached.Count + " of " + plan.Visits.Count + " squares.");
@@ -575,7 +655,7 @@ namespace UwEditor.Core
                     try
                     {
                         var ark = Archive.Open(File.ReadAllBytes(saved), s.Kind);
-                        foreach (int lv in r.Reached.Distinct())
+                        foreach (int lv in r.Reached.Distinct().Where(l => !(knownCrash && l == crashLevel)))
                         {
                             int block = s.Profile.LevelBlock(lv);
                             if (!ark.Has(block)) { r.Problems.Add("The game's save has no level " + lv + "."); continue; }
