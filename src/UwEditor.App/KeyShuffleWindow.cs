@@ -227,7 +227,7 @@ namespace UwEditor.App
             if (o.Seed != opt.Seed || o.Retries != opt.Retries || o.Filler != opt.Filler || o.CreatureInventories != opt.CreatureInventories || !o.Move.SetEquals(opt.Move)) return false;
             if (o.Logic.ToString() != opt.Logic.ToString() || o.Nav.MaxClimb != opt.Nav.MaxClimb || o.Nav.JumpSpellClimb != opt.Nav.JumpSpellClimb || o.Nav.GapJumps != opt.Nav.GapJumps
                 || o.Nav.GapTiles != opt.Nav.GapTiles || o.Nav.JumpSpellGapTiles != opt.Nav.JumpSpellGapTiles || o.Nav.DiagonalJumps != opt.Nav.DiagonalJumps
-                || o.Nav.CutAtLevelChanges != opt.Nav.CutAtLevelChanges || o.Nav.FoldEmptyDeadEnds != opt.Nav.FoldEmptyDeadEnds) return false;
+                || o.Nav.CutAtLevelChanges != opt.Nav.CutAtLevelChanges || o.Nav.FoldEmptyDeadEnds != opt.Nav.FoldEmptyDeadEnds || o.Nav.ShippedStart != opt.Nav.ShippedStart) return false;
             // the zoning as it is now
             if ((o.Zoning != null) != UsesZoning || (o.Zoning != null && o.Zoning.ToJson() != zoning.ForSolver().ToJson())) return false;
             var edits = main.ViewModel.Edits;

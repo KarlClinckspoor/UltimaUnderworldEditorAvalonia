@@ -1117,6 +1117,8 @@ namespace UwEditor.Core.Randomizer
             sb.AppendLine("Options: " + res.Options + ".");
             sb.AppendLine("Facts read: " + string.Join(", ", res.Facts.Files) + " (" + res.Facts.Facts.Count + " facts; " + string.Join(", ", res.Facts.Facts.GroupBy(f => f.Kind).Select(g => g.Key + " " + g.Count())) + ").");
             sb.AppendLine("Rules: glitchless. Bashing is always allowed (fists). item:pole means the pole or Telekinesis.");
+            var start = res.Abilities.Auto.Start;
+            if (start != null) sb.AppendLine(string.Format("Start: {0}, level {1} ({2}, {3}), zone {4}.", start.Description, start.Level, (int)start.X, (int)start.Y, SolveResult.ZoneName(zs, zs.StartZone)));
             var given = res.Abilities.Auto.Given;
             if (given != null && !AutoZones.IsAutomatic(given))
             {

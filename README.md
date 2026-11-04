@@ -326,7 +326,9 @@ controls and borders in place of white space, in either colour scheme; font size
     `docs/examples`.
 - **Randomizer ▸ Scatter ▸ Automatic zones** (UW1): builds the randomizer's zones from the levels
   (walkable regions, drops, climbs, gap jumps, doors, levers, teleports), lists the trigger chains
-  that change the world, compares them with the painted map and runs the solver.
+  that change the world and runs the solver: **Build and Report** shows the solve, **Build and Use**
+  puts the zones in the Zones window (whose **Autozone…** button opens it). The start is the
+  executable's start square, or with the option the game's own.
   It knows the player's abilities and where they come from (spells, items, the dragon skin
   boots), hidden walls a look opens, and logic options for magic, single-use items, lock
   picking and the Search skill. It follows the world as it changes (levers, terrain changes,

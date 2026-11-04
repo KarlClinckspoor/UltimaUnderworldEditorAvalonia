@@ -106,7 +106,7 @@ namespace UwEditor.App
             });
             var files = Row(B("New", () => Confirm(() => z.NewFile())), B("Open…", OpenFile), B("Save", () => SaveFile(false)), B("Save as…", () => SaveFile(true)),
                 z.Session.IsUw2 ? null : B("Load the UW1 example", () => Confirm(() => z.LoadExample())), B("Import pictures…", ImportPictures), B("Export pictures…", ExportPictures),
-                B("Zone graph…", () => main.ShowZoneGraph()));
+                B("Zone graph…", () => main.ShowZoneGraph()), AutozoneButton());
             head.Children.Add(files);
             head.Children.Add(fileText);
             splitBox.IsChecked = z.SplitByLevel;
@@ -183,6 +183,13 @@ namespace UwEditor.App
         }
 
         static TextBlock H(string t) { return new TextBlock { Classes = { "h" }, Text = t }; }
+
+        Button AutozoneButton()
+        {
+            var b = B("Autozone…", () => main.ShowAutoZones());
+            ToolTip.SetTip(b, "Opens the Automatic zones window: Build and Use puts automatic zones here, in place of this zoning.");
+            return b;
+        }
 
         static Button B(string text, Action a)
         {

@@ -1224,6 +1224,8 @@ notes: 91 zones, 139 links and 50 grants.
   get each zone painted on several levels as one zone a level, joined by free two-way links.
   The line under it lists the zones on several levels. See **How the randomizer's logic
   works**, Zones from a zoning.
+- **Autozone…** opens the Automatic zones window, whose **Build and Use** puts automatic zones
+  here.
 
 Apply and the zone graph's **Check the logic** use this zoning, unsaved changes included.
 
@@ -1495,11 +1497,11 @@ The spoiler log names each place by the zones of the hand-made zoning (the zone 
 | Diagonal jumps | off | jumps on the diagonals too |
 | Cut at level changes | on | zones never span two levels |
 | Fold empty dead ends | on | fewer, larger zones |
+| Consider the current starting square in the editor | on | off: the game's own start, level 1 (32, 2) |
 | Magic | on | casting from runes counts |
 | Single-use items count | off | scrolls, potions and charged wands count |
 | Lock picking in logic, skill | off, 30 | doors may be picked |
 | Search skill, retry | 0, on | look gates by Search |
-| Damage-trap tiles are walls everywhere | off | beyond the damaging maze |
 | Killing NPCs in logic | off | an NPC's items by killing it |
 | Ring of Levitation needs lava protection | on | the ring's area needs the lava ability |
 | Require breaking the orb | off | the goal also needs Tyball's orb broken |
@@ -1552,31 +1554,39 @@ It works in steps:
   trip) become one zone. A door tile goes with a zone next to it. With **Cut at level
   changes** on, stairs never join zones, so each zone stays on one level. **Fold empty dead
   ends** puts a pit or ledge that has nothing in it and only one neighbour into that
-  neighbour's zone. Zones are named after the painted zone most of them lies in, else by what
-  they are (`L5 ledge at (2, 10)`). Key items become what each zone grants, as **Add them to
-  the zone's grants** does. The start is the new-game square. The goal is the painted goal
-  zone, or the largest zone of the last level.
+  neighbour's zone. Zones are named by what they are (`L5 ledge at (2, 10)`). Key items become
+  what each zone grants, as **Add them to the zone's grants** does. The goal is reaching level
+  9 (a fact), else the largest zone of the last level.
+- **Start.** With **Consider the current starting square in the editor** on (the default),
+  the start is the new-game square the executable now holds: the game's own, or where the
+  editor's start tool moved it. Off, it is the game's own square, level 1 (32, 2), whatever
+  the executable says. The report's **Start** line says which square and zone were used.
 
-**Compare with** picks the painted zoning to compare with: Karl's map shipped with the editor,
-the zone file in `DATA`, or nothing.
+The options come in two groups. **Autozone movement** says how tiles become regions and
+regions zones (climbs, gap jumps, the level cut, dead ends, the start). **Player logic (the
+solver)** says what the solver may expect of the player. The Apply window has the same two
+groups.
 
-- **Build** builds the zones and shows the report.
-- **Report** shows it again: the solve over time (the last phase, which the others lead up
-  to). It has the options, the solver's result and a table of the main option sets, the
-  timeline sphere by sphere with the changes set off and applied, the changes that close
-  things and how each is treated, the one-way traps and the return check. The shuffle itself
-  (Phase D) is **Apply**, which has its own spoiler log.
-- **Open in the Zones window** loads the automatic zones into the Zones window to look at
-  them in the view and edit them. Saving there asks for a file name and suggests
-  `uw1-zones-auto.json`. The painted `uw1-zones.json` is never written unless you choose it.
-- **Export JSON…** saves the automatic zones as a zone file.
+- **Build and Report** builds the zones and shows the report: the solve over time (the last
+  phase, which the others lead up to). It has the options, the start, the solver's result and
+  a table of the main option sets, the timeline sphere by sphere with the changes set off and
+  applied, the changes that close things and how each is treated, the one-way traps and the
+  return check. The shuffle itself (Phase D) is **Apply**, which has its own spoiler log.
+- **Build and Use** builds the zones, puts them in the Zones window and closes this window.
+  It asks first if the Zones window's zoning has unsaved changes. There you can look at
+  them in the view, change them and save them; saving asks for a file name and suggests
+  `uw1-zones-auto.json`, and the painted `uw1-zones.json` is never written unless you choose
+  it. Apply then uses them.
+
+The Zones window's **Autozone…** button opens this window.
 
 Fall damage is not a requirement: no drop in UW1 kills a new character (the worst fall does
 about 8 damage).
 
 #### Abilities and logic options
 
-The window also decides what the logic may expect of the player. The **Logic** rows:
+The window also decides what the logic may expect of the player. The **Player logic (the
+solver)** rows:
 
 - **Magic.** Casting from runes counts. A spell can be cast once the rune bag and its runes
   are reached. Character level, mana and the casting roll are ignored.
@@ -1587,8 +1597,10 @@ The window also decides what the logic may expect of the player. The **Logic** r
   (with retries; the pick does not break). Difficulty 14 needs skill 31, and 15 never opens.
   The Open spell picks with skill 45.
 - **Search skill** and **Retry until found.** For walls that a look opens (below).
-- **Damage-trap tiles are walls everywhere.** Every tile holding a move trigger that hurts the
-  player becomes a wall, not only those of the damaging maze.
+
+The tiles of the damaging maze on level 7 that hold a move trigger hurting the player are
+always walls (a fact). Damage-trap tiles elsewhere are not: making every one a wall left the
+solver unable to finish, so that option is no longer offered.
 
 **Abilities.** Links that need levitation, the jump spell, water walking, walking on lava,
 Reveal or Open name them as `spell:levitate`, `spell:jump`, `spell:waterwalk`, `spell:lava`,

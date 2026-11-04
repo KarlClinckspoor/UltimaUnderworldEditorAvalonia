@@ -24,6 +24,11 @@ namespace UwEditor.Core.Randomizer
         public bool CutAtLevelChanges = true;
         /// <summary>Groups of regions with one neighbour and no objects (empty pits and ledges) go into that neighbour's zone.</summary>
         public bool FoldEmptyDeadEnds = true;
+        /// <summary>The start is the game's own new-game square (UW1 (32, 2)), not the one the executable now holds (moved in the editor).</summary>
+        public bool ShippedStart;
+
+        /// <summary>Where the player starts with these options: the new-game square in the executable (or, with ShippedStart, the game's own), else the start of the game opened.</summary>
+        public StartPoint StartOf(GameSession s) { return ShippedStart ? s.ShippedNewGameStart() : s.NewGameStart ?? s.Start; }
 
         // ---- Phase C
 

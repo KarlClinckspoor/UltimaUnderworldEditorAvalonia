@@ -28,6 +28,8 @@ namespace UwEditor.Core.Randomizer
         /// <summary>With a given zoning: zones made for open areas it leaves out, and for doorways kept apart.</summary>
         public int FreshZones;
         public int GivenInto(int id) { int z; return GivenMap.TryGetValue(id, out z) ? z : 0; }
+        /// <summary>The square the player starts on (NavOptions.StartOf), whose zone is the start zone.</summary>
+        public StartPoint Start;
     }
 
     /// <summary>
@@ -191,7 +193,8 @@ namespace UwEditor.Core.Randomizer
             var items = KeyItems.Find(s, level, zs);
             zs.Placements.AddRange(KeyItems.SuggestPlacements(zs, items));
             // start and goal
-            var st = s.NewGameStart ?? s.Start;
+            var st = g.Options.StartOf(s);
+            res.Start = st;
             if (st != null) zs.StartZone = Math.Max(2, (int)zs.NearestZone(st.Level, (int)st.X, (int)st.Y));
             zs.GoalZone = GoalFrom(zs, painted);
             if (painted != null && painted.GoalZone > ZoneSet.Unassigned && painted.TileCount(painted.GoalZone) == 0)
@@ -365,7 +368,7 @@ namespace UwEditor.Core.Randomizer
                         if (o.Item < 0x140 || (o.Item >= 0x170 && o.Item < 0x180)) { busy[r.Id] = true; break; }
             }
             foreach (var lv in g.Levers) { foreach (int r in lv.Reach.Concat(lv.PoleReach)) busy[r] = true; if (lv.Nearest >= 0) busy[lv.Nearest] = true; }
-            var st = s.NewGameStart ?? s.Start;
+            var st = g.Options.StartOf(s);
             if (st != null) { int r0 = g.NearestRegion(st.Level, (int)st.X, (int)st.Y); if (r0 >= 0) busy[r0] = true; }
             int folded = 0;
             for (int pass = 0; pass < 4; pass++)

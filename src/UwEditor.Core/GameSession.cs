@@ -201,13 +201,20 @@ namespace UwEditor.Core
             return null;
         }
 
+        /// <summary>The new-game start square the game ships with (uw1 ui/MAINMENU.C player_setup(0x20, 2); uw2 (0x13, 0x30)), whatever the executable now says.</summary>
+        public StartPoint ShippedNewGameStart()
+        {
+            int x = Kind == GameKind.UW2 ? 0x13 : 0x20, y = Kind == GameKind.UW2 ? 0x30 : 2;
+            return new StartPoint { Level = 1, X = x + 0.5, Y = y + 0.5, Z = double.NaN, FacingDegrees = 0, Description = string.Format("the shipped new game start square ({0}, {1})", x, y) };
+        }
+
         StartPoint FindNewGameStart()
         {
             // a new game: player_setup(x, y, how) on level 1 (uw1 ui/MAINMENU.C 0x20, 2;
             // uw2 0x13, 0x30), read from the executable in case it was patched
             int x, y;
             bool fromExe = StartPosition.Load(DataFolder, Kind, out x, out y);
-            if (!fromExe) { x = Kind == GameKind.UW2 ? 0x13 : 0x20; y = Kind == GameKind.UW2 ? 0x30 : 2; }
+            if (!fromExe) { var d = ShippedNewGameStart(); x = (int)d.X; y = (int)d.Y; }
             return new StartPoint
             {
                 Level = 1,

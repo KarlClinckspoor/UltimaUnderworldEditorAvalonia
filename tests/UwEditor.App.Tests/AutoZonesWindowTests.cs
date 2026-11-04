@@ -24,37 +24,71 @@ namespace UwEditor.App.Tests
             new Ui.Codec().Save(Ui.Capture(w), Path.Combine(dir, name + ".png"));
         }
 
+        static Button Btn(Window w, string text) { return w.GetLogicalDescendants().OfType<Button>().FirstOrDefault(b => (b.Content as string) == text); }
+
+        static void Wait(System.Threading.Tasks.Task task)
+        {
+            var until = DateTime.UtcNow.AddMinutes(2);
+            while (!task.IsCompleted && DateTime.UtcNow < until) { Ui.Pump(); System.Threading.Thread.Sleep(20); }
+            Assert.True(task.IsCompleted);
+        }
+
         [AvaloniaFact]
-        public void Builds_reports_and_opens_in_the_zones_window()
+        public void Build_and_report_then_build_and_use_puts_the_zones_in_the_zones_window_and_closes()
         {
             if (Uw1 == null) return;
             var w = Ui.Open(Uw1);
             w.AskBeforeDiscarding = false;
-            var aw = w.ShowAutoZones();
+            // the Zones window's Autozone button opens this window
+            var zw = w.ShowZones();
             Ui.Pump();
+            Ui.Click(zw, Btn(zw, "Autozone…"));
+            var aw = w.OpenAutoZones;
+            Assert.NotNull(aw);
             Assert.Same(aw, w.ShowAutoZones());
-            aw.BuildNow();
-            Ui.Pump();
+            // two buttons only; no comparison with a painted zoning; the options in two named groups
+            Assert.Equal(new[] { "Build and Report", "Build and Use" }, aw.GetLogicalDescendants().OfType<Button>().Select(b => b.Content as string).Where(t => t != null && t.StartsWith("Build")).ToArray());
+            Assert.Null(Btn(aw, "Report"));
+            Assert.Null(Btn(aw, "Export JSON…"));
+            Assert.Null(Btn(aw, "Open in the Zones window"));
+            Assert.Empty(aw.GetLogicalDescendants().OfType<ComboBox>());
+            var texts = aw.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text ?? "").ToList();
+            Assert.Contains("AUTOZONE MOVEMENT", texts);
+            Assert.Contains("PLAYER LOGIC (THE SOLVER)", texts);
+            Assert.DoesNotContain("Logic", texts);
+            Assert.DoesNotContain(aw.GetLogicalDescendants().OfType<CheckBox>(), c => (c.Content as string ?? "").StartsWith("Damage-trap"));
+            // the start square: the editor's, normally
+            var start = aw.GetLogicalDescendants().OfType<CheckBox>().First(c => (c.Content as string ?? "").StartsWith("Consider the current starting square"));
+            Assert.True(start.IsChecked);
+            Assert.False(aw.MovementOptions.ShippedStart);
+
+            Ui.Click(aw, Btn(aw, "Build and Report"));
             Assert.NotNull(aw.Result);
-            Assert.NotNull(aw.Painted);          // Karl's shipped map is the default comparison
-            var text = aw.GetLogicalDescendants().OfType<TextBox>().First(t => t.IsReadOnly).Text;
+            var text = aw.ReportText;
             // the report is the last phase's only: the solve over time
             Assert.StartsWith("AUTOMATIC ZONES, PHASE C", text);
+            Assert.Contains("Start: new game start square (32, 2)", text);
             Assert.DoesNotContain("PHASE B", text);
             Assert.DoesNotContain("(Phase A)", text);
-            Assert.DoesNotContain(aw.GetLogicalDescendants().OfType<Button>(), b => (b.Content as string ?? "").Contains("Static"));
             Shot(aw, "autozones");
-            var open = aw.GetLogicalDescendants().OfType<Button>().First(b => (b.Content as string) == "Open in the Zones window");
-            Assert.True(open.IsEnabled);
-            open.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            start.IsChecked = false;
             Ui.Pump();
+            Assert.True(aw.MovementOptions.ShippedStart);
+            start.IsChecked = true;
+            Ui.Pump();
+
+            var task = aw.BuildAndUse();
+            Wait(task);
+            Assert.True(task.Result);
+            Assert.Null(w.OpenAutoZones);                     // closed
             var z = w.Zoning();
             Assert.True(z.AskForName);
             Assert.Equal("uw1-zones-auto.json", Path.GetFileName(z.Path));
             Assert.Equal(aw.Result.Set.Zones.Count, z.Set.Zones.Count);
             Assert.NotSame(aw.Result.Set, z.Set);
+            Assert.True(AutoZones.IsAutomatic(z.Set));
             Shot(w, "autozones-main");
-            aw.Close();
+            zw.Close();
             w.Close();
         }
 
@@ -65,12 +99,8 @@ namespace UwEditor.App.Tests
             var w = Ui.Open(Uw1);
             w.AskBeforeDiscarding = false;
             var aw = w.ShowAutoZones();
-            aw.BuildNow();
-            Ui.Pump();
+            Wait(aw.BuildAndUse());                              // the default options, as the logic check uses with no window open
             Assert.True(aw.Timeline.Solve.GoalReached);
-            aw.GetLogicalDescendants().OfType<Button>().First(b => (b.Content as string) == "Open in the Zones window")
-                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            Ui.Pump();
             var g = w.ShowZoneGraph();
             Ui.Pump();
             // the automatic zones in the graph: solved as they are, so the same outcome as the window's report
@@ -80,8 +110,6 @@ namespace UwEditor.App.Tests
             Assert.True(g.LastCheck.Solve.GoalReached);
             Assert.Equal(aw.Timeline.Solve.ZoneSphere.Keys.OrderBy(x => x), g.LastCheck.Solve.ZoneSphere.Keys.OrderBy(x => x));
             Assert.Equal(aw.Timeline.Solve.Applied.Count, g.LastCheck.Solve.Applied.Count);
-            aw.Close();
-            Ui.Pump();
             // a painted zoning: its own zones, solved over time
             w.Zoning().LoadExample();
             Ui.Pump();
