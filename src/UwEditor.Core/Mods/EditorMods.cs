@@ -42,6 +42,45 @@ namespace UwEditor.Core.Mods
 
         public static List<FileCheck> Check(ModPackage mod, string gameFolder) { return mod.Check(Reader(gameFolder)); }
 
+        /// <summary>The note inside a .zip of changed files (README-CHANGED-FILES.txt), and the one the Mods window shows.</summary>
+        public const string ZipWarning =
+            "This .zip holds whole game files as the editor saved them: they are the game's data, so it is not for sharing in public " +
+            "(share a .uwmod instead: it holds only the differences). It is not for the mod manager either, which takes .uwmod files. " +
+            "Unzip it over your own copy of the game, keeping the folders, to get your changes there.";
+
+        public const string ZipReadmeName = "README-CHANGED-FILES.txt";
+
+        /// <summary>
+        /// Writes the changed files of <paramref name="changes"/> (as saved, whole) into a .zip at
+        /// their paths in the game folder (DATA/LEV.ARK, SOUND/12.VOC...), with a note saying
+        /// what it is and is not for. Returns the paths written. Problems that keep the changes
+        /// from being a mod do not stop the .zip: the files that did change go in.
+        /// </summary>
+        public static List<string> WriteZip(FolderChanges changes, string zipPath, string gameName)
+        {
+            if (changes.Changed.Count == 0) throw new InvalidOperationException("No changed files to put in the .zip: save your edits first.");
+            string tmp = zipPath + ".tmp";
+            var written = new List<string>();
+            using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write))
+            using (var zip = new System.IO.Compression.ZipArchive(fs, System.IO.Compression.ZipArchiveMode.Create))
+            {
+                var note = new System.Text.StringBuilder();
+                note.Append("Changed files of ").Append(gameName).Append(", saved by ").Append(MadeWith).Append(" on ").Append(DateTime.Now.ToString("yyyy-MM-dd HH:mm")).Append(".\r\n\r\n");
+                note.Append(ZipWarning).Append("\r\n\r\nFiles:\r\n");
+                foreach (var c in changes.Changed.OrderBy(c => c.Path, StringComparer.Ordinal))
+                {
+                    var e = zip.CreateEntry(c.Path, System.IO.Compression.CompressionLevel.Optimal);
+                    using (var s = e.Open()) s.Write(c.Edited, 0, c.Edited.Length);
+                    written.Add(c.Path);
+                    note.Append("  ").Append(c.Path.Replace('/', '\\')).Append(c.Original == null ? "  (new)" : "").Append("\r\n");
+                }
+                var r = zip.CreateEntry(ZipReadmeName);
+                using (var s = r.Open()) { var b = System.Text.Encoding.UTF8.GetBytes(note.ToString()); s.Write(b, 0, b.Length); }
+            }
+            File.Move(tmp, zipPath, true);
+            return written;
+        }
+
         /// <summary>
         /// Applies a mod to a game folder: every file must be the original the mod was made from
         /// (or already the mod's result, which is left alone). All results are built and checked

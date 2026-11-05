@@ -341,7 +341,9 @@ makes one undo step per level.
   UW2's compressed blocks are compared uncompressed. A mod changes files the game has, and adds
   only sounds the game opens by number. **Load a mod** applies it to those exact originals,
   giving back the saved files byte for byte. The format is in
-  [docs/mod-format.md](docs/mod-format.md).
+  [docs/mod-format.md](docs/mod-format.md). **Changed files as a .zip** packs the changed
+  files whole, at their folders, to unzip over your own copy of the game (not for the mod
+  manager, and not to share: it holds game data).
 - **Backups:** every file written keeps its previous version as `.BKP`, and its first version
   as `.ORIG`.
 - **Checkpoints:** while there are unsaved changes, a copy is taken every 5 minutes and the
@@ -354,7 +356,9 @@ makes one undo step per level.
   choice is remembered between runs. The mod manager shares the look (`src/UwEditor.Look`).
 
 **Help ▸ Manual** (F1) opens [the manual](docs/MANUAL.md), built into the program with its
-sections and a search box; F1 in a tool window opens that tool's section. The plan is in
+sections and a search box; F1 in a tool window opens that tool's section. **Help ▸ About**
+shows the version (`<Version>` in `Directory.Build.props`, raised with every change: 0.1.0,
+0.1.1…; the mod manager has its own, shown in its Settings). The plan is in
 [PLAN.md](PLAN.md) and the road ahead in [ROADMAP.md](ROADMAP.md).
 
 ## Downloads

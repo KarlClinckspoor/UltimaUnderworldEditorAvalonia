@@ -6,6 +6,7 @@
   <ScrollViewer>
     <StackPanel Spacing="8" MaxWidth="760" HorizontalAlignment="Left">
       <TextBlock Classes="h1" Text="Settings" />
+      <TextBlock Classes="dim" FontSize="12" Text="{Binding Version}" />
       <TextBlock Classes="h2" Text="Appearance" />
       <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="The editor's colours and layouts. The editor's View menu has the same choices." />
       <StackPanel Orientation="Horizontal" Spacing="16">

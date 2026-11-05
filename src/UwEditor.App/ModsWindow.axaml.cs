@@ -83,6 +83,21 @@ namespace UwEditor.App
             Status = "Written: " + path;
         }
 
+        /// <summary>The changed files, whole, in a .zip at their folders (for one's own copy of the game, not to share).</summary>
+        public void WriteZip(string path)
+        {
+            if (UseFolder && !Directory.Exists(referenceFolder)) { Status = "Choose the folder of an untouched copy of the game."; return; }
+            try
+            {
+                var changes = EditorMods.Collect(Session.GameFolder, Session.Kind, UseFolder ? referenceFolder : null);
+                if (changes.Changed.Count == 0) { Status = "No changes found: save your edits first (only saved files are compared)."; return; }
+                var files = EditorMods.WriteZip(changes, path, Session.IsUw2 ? "Ultima Underworld II" : "Ultima Underworld");
+                Status = files.Count + " changed file(s) written to " + path + ". Not for sharing in public (it holds game data) nor for the mod manager: unzip it over your own copy of the game." +
+                    (changes.Problems.Count > 0 ? " (" + changes.Problems.Count + " change(s) that a mod could not hold are not in it: see Collect the changes.)" : "");
+            }
+            catch (Exception ex) { Status = "Could not write the .zip: " + ex.Message; }
+        }
+
         public void Load(string path)
         {
             try
@@ -189,6 +204,19 @@ namespace UwEditor.App
             if (p == null) return;
             try { Model.Write(p); }
             catch (Exception ex) { Model.Status = "Could not write the mod: " + ex.Message; }
+        }
+
+        async void OnWriteZip(object sender, RoutedEventArgs e)
+        {
+            string a = await MessageWindow.Ask(this, "Changed files as a .zip", EditorMods.ZipWarning + (hasUnsaved != null && hasUnsaved() ? "\n\nThere are unsaved edits: only what is saved goes in." : ""), "Choose where…", "Cancel");
+            if (a != "Choose where…") return;
+            var f = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Save the changed files", SuggestedFileName = (Model.Session.IsUw2 ? "uw2" : "uw1") + "-changed-files.zip", DefaultExtension = "zip",
+                FileTypeChoices = new[] { new FilePickerFileType("Zip") { Patterns = new[] { "*.zip" } } },
+            });
+            var p = f?.TryGetLocalPath();
+            if (p != null) Model.WriteZip(p);
         }
 
         async void OnOpenMod(object sender, RoutedEventArgs e)

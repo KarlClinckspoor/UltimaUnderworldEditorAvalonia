@@ -784,7 +784,8 @@ namespace UwEditor.App
         void OnAbout(object sender, RoutedEventArgs e)
         {
             _ = MessageWindow.Show(this, "About",
-                "Underworld Editor (Avalonia), a level editor for Ultima Underworld I and II.\n\n" +
+                "Underworld Editor (Avalonia), a level editor for Ultima Underworld I and II.\n" +
+                "Version " + UwEditor.Look.AppVersion.Text(typeof(MainWindow).Assembly) + "\n\n" +
                 "The file formats come from the Unity editor's Formats library, and their meaning from underworld-exhumed, " +
                 "the reconstructed source code of both games.\n\n" +
                 "OpenGL: " + (View.GlInfo ?? "not started"));

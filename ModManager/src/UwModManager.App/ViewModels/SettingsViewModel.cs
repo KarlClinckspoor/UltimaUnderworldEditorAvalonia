@@ -42,6 +42,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     }
 
     public string Folder => main.Manager.Paths.Root;
+    public string Version => "Ultima Underworlds Mod Manager " + AppVersion.Text(typeof(SettingsViewModel).Assembly);
     public string Credits => Hacks.Credit + "\n\nThe file formats and mod packages (format 2) come from the Ultima Underworld Editor (KarlClinckspoor/UltimaUnderworldEditorAvalonia). " +
         "The ports are Underworld Exhumed (abedegno/underworld-exhumed); a moved start square and executable patches need the fork's modding branch.";
     public string HackLicense => Hacks.License();

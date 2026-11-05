@@ -6,6 +6,7 @@ changes can be packed into mods. Nothing it overwrites is lost: it keeps the pre
 `NAME.EXT.BKP` and, the first time it writes a file, the untouched original as `NAME.EXT.ORIG`.
 
 Press **F1** or use **Help ▸ Manual** to open this manual. **Help ▸ Controls** lists the keys.
+**Help ▸ About** shows the editor's version and the commit it was built from.
 
 ## Opening a game
 
@@ -2315,6 +2316,12 @@ the files themselves, so it can be shared without the game's data:
   only to the exact originals (their SHA-256), and the files it writes are then the same, byte
   for byte, as the ones its author saved. Loading a mod then opens the game again. Mods made by earlier versions (format 1)
   are not read.
+- **Changed files as a .zip…** (on Make a mod) puts the saved files that differ from the
+  originals (the same comparison as **Collect the changes**), whole, into a `.zip` at their
+  folders (`DATA\LEV.ARK`, `SOUND\12.VOC`…), with a `README-CHANGED-FILES.txt` listing them.
+  Unzip it over your own copy of the game, keeping the folders, to get your changes there.
+  It is **not for the mod manager**, which takes `.uwmod` files, and **not for sharing in
+  public**: it holds the game's own data. Share a `.uwmod` instead.
 
 ## Keys and mouse
 

@@ -58,6 +58,8 @@ was brought in with its history from `KarlClinckspoor/UltimaUnderworldsModManage
 - **Capture**: changes made to a DOS folder by hand (or by the editor) can be turned into a mod.
 - **The editor's look** (`src/UwEditor.Look`): its Light and Dark colours and its Compact and
   Comfortable layouts, chosen in **Settings ▸ Appearance** (Light and Compact by default).
+- **Version:** shown at the top of **Settings** (`<Version>` in `ModManager/Directory.Build.props`,
+  raised with every change: 0.2.1, 0.2.2…), with the commit it was built from.
 
 ## Building
 

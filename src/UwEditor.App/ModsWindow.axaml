@@ -38,6 +38,8 @@
           <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
             <Button x:Name="CollectButton" Content="Collect the changes" Click="OnCollect" />
             <Button x:Name="WriteButton" Content="Write the .uwmod…" Click="OnWrite" IsEnabled="{Binding HasPackage}" />
+            <Button x:Name="ZipButton" Content="Changed files as a .zip…" Click="OnWriteZip"
+                    ToolTip.Tip="The changed files, whole, in their folders: to unzip over your own copy of the game. Not for the mod manager, and not to share in public (it holds game data)." />
           </StackPanel>
           <TextBox x:Name="PreviewBox" Text="{Binding Preview}" IsReadOnly="True" Classes="mono" FontSize="12" TextWrapping="Wrap" />
         </DockPanel>
