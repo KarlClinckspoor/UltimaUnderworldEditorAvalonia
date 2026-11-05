@@ -17,7 +17,7 @@
         <RadioButton GroupName="layout" Content="Comfortable" IsChecked="{Binding ComfortableLayout}" />
       </StackPanel>
       <TextBlock Classes="h2" Text="DOSBox" />
-      <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="If this is empty, the manager uses GOG's DOSBox in the game folder, or else dosbox-staging, dosbox or dosbox-x on the PATH. GOG's own setups (dosbox*.conf in the game folder) are used when the folder has them." />
+      <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="If this is empty, the manager uses GOG's DOSBox in the game folder, or else dosbox-staging, dosbox or dosbox-x on the PATH. GOG's own setups (dosbox*.conf in the game folder) are used when the folder has them; otherwise the manager writes one with GOG's settings for the game. Each game's Start options add a settings file and arguments of your own." />
       <DockPanel>
         <Button DockPanel.Dock="Right" Content="Browse…" Command="{Binding BrowseCommand}" Margin="8,0,0,0" />
         <TextBox Text="{Binding DosBox}" PlaceholderText="The DOSBox program" />

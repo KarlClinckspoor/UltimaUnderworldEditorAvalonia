@@ -41,6 +41,11 @@ Saved games (backed up before the manager changes them; not mods):
 
 Other:
   play TARGET [--print]               start the game (--print: only show the command)
+  start-options TARGET [--args TEXT] [--conf FILE]
+                                      show or set how the game starts: more arguments for
+                                      DOSBox or the port, and a settings file of your own
+                                      (DOS: a .conf read last; Exhumed: key=value lines put
+                                      into the home's settings); "" clears one
   hack uw1|uw2 IN.EXE OUT.EXE         apply UltimaHacks to the GOG executable
   recover                             undo a change that a crash interrupted
 
@@ -181,7 +186,22 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                 var t = m.Get(Arg(a, 0, "TARGET"));
                 var psi = m.LaunchInfo(t);
                 Console.WriteLine(Launcher.CommandLine(psi));
-                if (!Flag(a, "--print")) System.Diagnostics.Process.Start(psi);
+                if (Flag(a, "--print")) return 0;
+                if (t.Kind == TargetKind.Exhumed && t.PortExe != null && Launcher.MissingDlls(t.PortExe) is { Count: > 0 } missing)
+                    throw new InvalidOperationException(t.PortExe + " cannot start: it needs " + Launcher.WhichAre(missing) + " not beside it (copy the DLLs of an Exhumed release next to it)");
+                string? why = Launcher.EarlyExit(System.Diagnostics.Process.Start(psi), TimeSpan.FromSeconds(4)).GetAwaiter().GetResult();
+                if (why != null) { Console.Error.WriteLine("uwmod: the game stopped as soon as it started: " + why); return 1; }
+                return 0;
+            }
+            case "start-options":
+            {
+                var t = m.Get(Arg(a, 0, "TARGET"));
+                string? args = Take(a, "--args"), conf = Take(a, "--conf");
+                if (args != null) t.ExtraArguments = args.Trim();
+                if (conf != null) t.ExtraConfig = conf.Length == 0 ? "" : Path.GetFullPath(conf);
+                if (args != null || conf != null) m.Save();
+                Console.WriteLine("Arguments: " + (t.ExtraArguments.Length > 0 ? t.ExtraArguments : "(none)"));
+                Console.WriteLine("Settings file: " + (t.ExtraConfig.Length > 0 ? t.ExtraConfig : "(none)"));
                 return 0;
             }
             case "recover":

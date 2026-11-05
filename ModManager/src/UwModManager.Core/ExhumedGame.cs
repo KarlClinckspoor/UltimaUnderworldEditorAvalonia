@@ -188,7 +188,7 @@ public static class ExhumedGame
         string cfg = Path.Combine(normal, ConfigName(game));
         if (File.Exists(cfg))
         {
-            var keep = File.ReadAllLines(cfg).Where(l => !l.StartsWith("start-square=") && !l.StartsWith("exe-patch=")).ToList();
+            var keep = File.ReadAllLines(cfg).Where(l => !ModKeys.Any(k => l.StartsWith(k + "="))).ToList();
             File.WriteAllLines(Path.Combine(home, ConfigName(game)), keep);
         }
         var uwcfg = Underworld.Mods.GamePaths.Find(normal, "DATA/UW.CFG");
@@ -197,6 +197,24 @@ public static class ExhumedGame
             Directory.CreateDirectory(Path.Combine(home, "DATA"));
             File.Copy(uwcfg, Path.Combine(home, "DATA", "UW.CFG"), true);
         }
+    }
+
+    /// <summary>The settings-file keys a mod owns (set by <see cref="Prepare"/>), which a player's extra settings file does not change.</summary>
+    public static readonly IReadOnlySet<string> ModKeys = new HashSet<string>(StringComparer.Ordinal) { "start-square", "exe-patch" };
+
+    /// <summary>A settings file's key=value lines, in order (blank lines and # comments skipped).</summary>
+    public static List<(string Key, string Value)> ReadConfig(string path)
+    {
+        var r = new List<(string, string)>();
+        foreach (var raw in File.ReadAllLines(path))
+        {
+            string l = raw.Trim();
+            if (l.Length == 0 || l.StartsWith('#') || l.StartsWith(';')) continue;
+            int eq = l.IndexOf('=');
+            if (eq <= 0) continue;
+            r.Add((l[..eq].Trim(), l[(eq + 1)..].Trim()));
+        }
+        return r;
     }
 
     /// <summary>Sets (or removes, for null) a key of the home's settings file, as the port writes it.</summary>

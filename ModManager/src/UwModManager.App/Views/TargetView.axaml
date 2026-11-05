@@ -81,6 +81,18 @@
         <Button Content="Capture changes as a mod…" Command="{Binding CaptureCommand}" IsVisible="{Binding IsDos}" />
         <ProgressBar IsIndeterminate="True" Width="120" IsVisible="{Binding Busy}" VerticalAlignment="Center" />
       </StackPanel>
+      <Expander Header="Start options" Margin="0,8,0,0" HorizontalAlignment="Stretch">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="{Binding StartOptionsNote}" />
+          <Grid ColumnDefinitions="Auto,8,*,8,Auto" RowDefinitions="Auto,6,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Settings file" VerticalAlignment="Center" />
+            <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding ExtraConfig}" PlaceholderText="{Binding ConfigHint}" />
+            <Button Grid.Row="0" Grid.Column="4" Content="Browse…" Command="{Binding BrowseExtraConfigCommand}" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Arguments" VerticalAlignment="Center" />
+            <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding ExtraArguments}" PlaceholderText="{Binding ArgumentsHint}" />
+          </Grid>
+        </StackPanel>
+      </Expander>
 
       <TextBlock Classes="h2" Text="Saved games" />
       <ItemsControl ItemsSource="{Binding Slots}">

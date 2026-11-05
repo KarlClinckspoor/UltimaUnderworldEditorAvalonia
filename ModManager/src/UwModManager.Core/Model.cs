@@ -30,6 +30,11 @@ public sealed class Target
     public bool UltimaHacks { get; set; }
     /// <summary>Exhumed: the enhancements to start with (on top of a mod's recommendation, if taken).</summary>
     public List<string> Enhancements { get; set; } = new();
+    /// <summary>More arguments for DOSBox or the port, on one line as typed in a shell (after the manager's own).</summary>
+    public string ExtraArguments { get; set; } = "";
+    /// <summary>A settings file of the player's. DOS: a DOSBox .conf read after the others, so its
+    /// settings win. Exhumed: key=value lines copied into the home's settings file at each start.</summary>
+    public string ExtraConfig { get; set; } = "";
 
     /// <summary>DOS: the hash of every game file when the manager took the folder over (the originals, kept in the vault).</summary>
     public Dictionary<string, string> Baseline { get; set; } = new(StringComparer.Ordinal);

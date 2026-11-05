@@ -60,11 +60,34 @@ public sealed partial class TargetViewModel : ViewModelBase
     public bool HasLocalChanges => LocalChanges.Length > 0;
     public string UltimaHacksCredit => Hacks.Credit;
 
+    // ---- how the game is started: more arguments and a settings file of the player's
+
+    [ObservableProperty] private string _extraArguments;
+    [ObservableProperty] private string _extraConfig;
+    public string ArgumentsHint => IsDos ? "More DOSBox options, e.g. -fullscreen" : "More options for the port, e.g. --scale 4 --mouse lock --no-aspect";
+    public string ConfigHint => IsDos ? "A DOSBox .conf of your own, read last" : "A settings file of your own (key=value lines)";
+    public string StartOptionsNote => IsDos
+        ? "DOSBox gets the setups above, then your settings file (a .conf: DOSBox reads it last, so its settings win, e.g. [sdl] fullscreen=false), then these arguments."
+        : "Your settings file's key=value lines (as in uw1port.cfg, e.g. scale=4) are copied into the home's settings file at each start; start-square and exe-patch stay the mod's. The arguments come after the manager's.";
+
+    partial void OnExtraArgumentsChanged(string value) { Target.ExtraArguments = value.Trim(); M.Save(); }
+    partial void OnExtraConfigChanged(string value) { Target.ExtraConfig = value.Trim().Trim('"'); M.Save(); }
+
+    [RelayCommand]
+    async Task BrowseExtraConfig()
+    {
+        string? p = IsDos ? await main.Dialogs.PickFile("A DOSBox settings file", "DOSBox settings", "*.conf")
+                          : await main.Dialogs.PickFile("An Exhumed settings file", "Settings", "*.cfg", "*.txt");
+        if (p != null) ExtraConfig = p;
+    }
+
     public TargetViewModel(MainViewModel main, Target target)
     {
         this.main = main;
         Target = target;
         _ultimaHacks = target.UltimaHacks;
+        _extraArguments = target.ExtraArguments ?? "";
+        _extraConfig = target.ExtraConfig ?? "";
         Refresh();
     }
 
@@ -103,10 +126,15 @@ public sealed partial class TargetViewModel : ViewModelBase
             var local = DosGame.LocalChanges(Target);
             LocalChanges = local.Count == 0 ? "" : "Changed outside the manager: " + string.Join(", ", local.Take(8)) + (local.Count > 8 ? $" and {local.Count - 8} more" : "") +
                 ". Capture them as a mod before switching, or the manager will ask about them when you switch.";
+            var gog = Launcher.GogConfs(Target.Folder);
+            StatusLines.Add(gog.Count > 0 ? "DOSBox setup: GOG's (" + string.Join(", ", gog.Select(Path.GetFileName)) + ")."
+                : "DOSBox setup: the manager's, with GOG's settings for the game (written at each start to " + Launcher.ManagerConf(M.Paths, Target) + ").");
             foreach (var c in DosGame.CdImageConfs(Target.Folder)) StatusLines.Add($"{c} runs the game from GOG's CD image (game.gog), which never sees the folder's files.");
         }
         else
         {
+            var missing = Target.PortExe == null ? new List<string>() : Launcher.MissingDlls(Target.PortExe);
+            if (missing.Count > 0) StatusLines.Add("This program cannot start: it needs " + Launcher.WhichAre(missing) + " not beside it. Play offers to copy the DLLs from a release.");
             StatusLines.Add(Target.Features == null ? "This Exhumed build reports no mod features, so only mods that change data files play in it."
                 : $"Start square: {(Target.Features.StartSquare ? "yes" : "no")} · executable data patches: {(Target.Features.ExePatch ? "yes" : "no")}");
             StatusLines.Add("Home: " + ExhumedGame.HomeFor(M.Paths, Target, Target.ActiveMod));
@@ -174,11 +202,49 @@ public sealed partial class TargetViewModel : ViewModelBase
                 if (a == 2 || a < 0) return;
                 if (a == 0) { await Apply(); }
             }
+            if (IsExhumed && !await PortCanStart()) return;
             var psi = M.LaunchInfo(Target);
-            System.Diagnostics.Process.Start(psi);
+            var p = System.Diagnostics.Process.Start(psi);
             main.Status = "Started: " + Launcher.CommandLine(psi);
             Refresh();
+            // a program that cannot start (a missing DLL, a bad setting) ends at once and without a word
+            string? why = await Launcher.EarlyExit(p, TimeSpan.FromSeconds(4));
+            if (why != null)
+            {
+                main.Status = "Stopped at once: " + Launcher.CommandLine(psi);
+                await main.Dialogs.Tell("The game stopped", Path.GetFileName(psi.FileName) + " stopped as soon as it started: " + why + ".\n\nThe command was:\n" + Launcher.CommandLine(psi));
+            }
         });
+    }
+
+    /// <summary>
+    /// Whether the port's program has the DLLs it loads at start. A build made from the sources
+    /// comes without them (SDL3.dll and the others are beside a release's program), and Windows
+    /// then stops it before it runs, silently: offer to copy them from a release's folder.
+    /// </summary>
+    async Task<bool> PortCanStart()
+    {
+        if (Target.PortExe == null) return true;
+        var missing = Launcher.MissingDlls(Target.PortExe);
+        if (missing.Count == 0) return true;
+        int a = await main.Dialogs.Ask("Exhumed cannot start",
+            Path.GetFileName(Target.PortExe) + " needs " + Launcher.WhichAre(missing) + " not beside it (" + Path.GetDirectoryName(Target.PortExe) +
+            "), in Windows' folders or on the PATH, so Windows would stop it at once. A build made from the sources comes without its DLLs; an Exhumed release has them beside its program.\n\n" +
+            "Copy the DLLs from a release's folder?", "Copy them from a folder…", "Cancel");
+        if (a != 0) return false;
+        string? dir = await main.Dialogs.PickFolder("The folder of an Exhumed release (with SDL3.dll)");
+        if (dir == null) return false;
+        var copied = Launcher.CopyDlls(dir, Target.PortExe);
+        missing = Launcher.MissingDlls(Target.PortExe);
+        if (missing.Count > 0)
+        {
+            await main.Dialogs.Tell("Still missing", (copied.Count > 0 ? "Copied " + string.Join(", ", copied) + ", but " : "") + string.Join(", ", missing) + (missing.Count == 1 ? " is" : " are") + " still missing. Choose the folder of a release of the same game.");
+            return false;
+        }
+        main.Status = "Copied " + string.Join(", ", copied) + " beside " + Target.PortExe + ".";
+        if (Target.Features == null) { Target.Features = await Task.Run(() => ExhumedGame.Probe(Target.PortExe)); M.Save(); }
+        Refresh();
+        return true;
     }
 
     [RelayCommand]

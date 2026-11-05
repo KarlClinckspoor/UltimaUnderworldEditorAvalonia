@@ -37,6 +37,18 @@ was brought in with its history from `KarlClinckspoor/UltimaUnderworldsModManage
   (`exe-patch`) when they lie in the data the port reads. Both need a port built from the
   `modding` branch of [the fork](https://github.com/KarlClinckspoor/underworld-exhumed-enhanced);
   the manager asks the port what it supports (`--features`) and says when a mod needs more.
+- **Play** starts DOSBox on a DOS folder with GOG's own setups (`dosbox*.conf` in the folder).
+  A folder without them gets a setup with GOG's settings for the two games (an S3 SVGA machine
+  with 16 MB, EMS and XMS, maximum cycles, a Sound Blaster Pro at 220/7/1 and an MPU-401, full
+  screen at the desktop's size), written to the manager's `dosbox` folder at each start.
+  Exhumed starts on the mod's home. Each game's **Start options** add a settings file and
+  arguments of your own: for DOSBox a `.conf` read after the others, so its settings win (for
+  example `[sdl]` `fullscreen=false`), and for Exhumed `key=value` lines copied into the
+  home's settings file at each start (`start-square` and `exe-patch` stay the mod's). The
+  arguments follow the manager's (`uwmod start-options` sets both from the command line).
+  An Exhumed program built from the sources comes without its DLLs (SDL3.dll and the others),
+  and Windows stops it at once without a word: Play names the missing DLLs and offers to copy
+  them from a release's folder, and says so when a game stops as soon as it starts.
 - **Saved games are backed up**, not shared: a slot's files go into the vault before anything
   replaces them, and a backup can be restored. (Saved games are not mods.)
 - **Capture**: changes made to a DOS folder by hand (or by the editor) can be turned into a mod.
