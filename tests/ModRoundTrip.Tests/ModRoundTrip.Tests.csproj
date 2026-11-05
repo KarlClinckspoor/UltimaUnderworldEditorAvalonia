@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Round trips (docs/mod-format.md, "Testing"): an edit made with the editor's core, packaged
+       as a mod, installed by the mod manager into a clean copy, must give the same files byte
+       for byte; and the original game must come back. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- the game files, found the same way as the editor's tests -->
+    <Compile Include="../UwEditor.Core.Tests/GameData.cs" Link="GameData.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/UwEditor.Core/UwEditor.Core.csproj" />
+    <ProjectReference Include="../../ModManager/src/UwModManager.Core/UwModManager.Core.csproj" />
+  </ItemGroup>
+</Project>

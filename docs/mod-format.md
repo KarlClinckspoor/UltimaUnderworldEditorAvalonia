@@ -8,7 +8,8 @@ the editor and `ModManager/`.
 ## Rules
 
 1. **A mod changes files the game already has, and nothing else.** One game (UW1 or UW2), in
-   its folder: the executable and the files under `DATA`, `CRIT`, `CUTS` and `SOUND`. A mod never
+   its folder: the executable and the files under `DATA`, `CRIT`, `CUTS` and `SOUND`, but not
+   `UW.CFG`, the player's sound setup. A mod never
    deletes or renames a file, and never touches a `SAVEn` folder. The game reads only the
    files it knows, so a new music theme replaces the bytes of the `.XMI` it goes into (the
    themes' numbers are fixed in the game's code).
@@ -112,8 +113,11 @@ compressed and need only COPY and ADD.
 - **DOS (the manager's normal case):** the executable's delta is applied like any file.
 - **Underworld Exhumed (the ports):** the port never runs the executable. The manager applies
   the delta in memory and reads the start square from the result (`StartPosition.Read`), then
-  passes it to the port (`--features` says whether the port can take it). Any other change to
-  the executable is named as one the port cannot play.
+  passes it to the port (`--features` says whether the port can take it). Other changed bytes go
+  into the port's patch file when they lie in the data it reads; any others are named as ones
+  the port cannot play. A pending pull request to Underworld Exhumed adds a
+  `--starting-coordinates` option; once merged, only `ExhumedGame` changes (the manager already
+  passes the square as a setting, never as executable bytes).
 - **UltimaHacks:** the manager builds the hacked executable from GOG's. A delta made against
   GOG's original does not fit it, so the manager accepts a mod's executable change with hacks
   on only when every byte it changes belongs to the start square, which it then writes into the
@@ -132,13 +136,34 @@ was made by an older version.
 
 ## Testing (the reason for all this)
 
-For each kind of change: copy a clean game twice; make the change with the editor's core in one
-copy and save it; make a mod from it; install that mod with the manager's code (`DosGame`) into
-the other copy; every file of the two copies must be equal byte for byte, and going back to
-the original game must give back the clean files. The cases run from a few tiles and objects in
-`LEV.ARK` through scatters, swaps and challenges to `SHADES.DAT`, `COMOBJ.DAT`, strings,
-pictures, conversations, music, sounds and the start square, on UW1 and UW2 where they apply.
-Each also checks that the package holds no original block or file.
+`tests/ModRoundTrip.Tests` (`RoundTrip.cs` is the harness). For each kind of change, three
+copies of a clean game: the change is made in one with the editor's core and saved (SafeFile,
+so `.ORIG` copies are kept), then `RoundTrip.Check`:
+
+1. makes the mod as **Make a mod** does, compared both with the `.ORIG` copies and with the
+   clean game (the two must agree), and names the files it expects;
+2. checks the package carries nothing of the originals: no 32-byte run of what a delta adds is
+   found in the original file (for UW2's archives, in its blocks decompressed);
+3. imports it into the mod manager's library and installs it into the second copy (`DosGame`):
+   every game file must be the edited one, byte for byte, with no changes left over;
+4. switches back to the original game: every file must be the clean one again;
+5. applies it with the editor's **Load a mod** to the third copy: the same files again;
+6. prepares an Underworld Exhumed home over the clean game: the mod's files are there byte for
+   byte, and a moved start square is in the home's settings.
+
+The cases (UW1 and UW2 unless marked):
+
+| File | Cases |
+| --- | --- |
+| `LevelTests` | a few objects added and deleted and a tile raised; many tiles and objects on every level |
+| `RandomizerTests` | key item scatter (UW1; also with the start kit and explored maps), item shuffle, item swap (any, by kind), monster swap, named challenges (levels, automaps and the creature table) |
+| `TableTests` | SHADES.DAT; OBJECTS.DAT with COMOBJ.DAT; COMOBJ.DAT alone; SKILLS.DAT, TERRAIN.DAT and CMB.DAT; DL.DAT (UW2); schedules in SCD.ARK (UW2) |
+| `TextTests` | strings changed, lengthened and added |
+| `GameFileTests` | the start square (and its delta of a few bytes); the start square with UltimaHacks (the hacked executable with the mod's square); UW2's new trap sound, a replaced effect and SOUNDS.DAT; UW1 speech replaced and added; a music theme in both versions; a conversation; an object picture, a critter frame, a cutscene frame; everything at once (the package at most a fiftieth of the files it changes) |
+
+```sh
+UW_REQUIRE_GAMEDATA=1 dotnet test tests/ModRoundTrip.Tests     # about 10 minutes
+```
 
 ## Decided (2026-11-05)
 
@@ -154,8 +179,8 @@ Each also checks that the package holds no original block or file.
 
 ## Building it
 
-1. `src/Underworld.Mods` and its tests: the delta (with BLOCK), the package, the rules.
-2. The editor's Mods window on it; `Mods/ModPackage.cs` goes; the manual.
+1. `src/Underworld.Mods` and its tests: the delta (with BLOCK), the package, the rules. (Done.)
+2. The editor's Mods window on it; `Mods/ModPackage.cs` goes; the manual. (Done.)
 3. The manager on it: `Underworld.Shared` and the Unity checkout go, and so do save export and
-   install.
-4. The round-trip tests above.
+   install. (Done; the folder's originals are the editor's `.ORIG` first versions, not `.BKP`.)
+4. The round-trip tests above. (Done: 46 cases.)

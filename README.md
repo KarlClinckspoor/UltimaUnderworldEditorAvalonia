@@ -386,12 +386,15 @@ way, but it works.
 dotnet test
 ```
 
-There are three test projects:
+The test projects:
 
 | Project | What it tests | Needs |
 |---|---|---|
 | `tests/UwEditor.Core.Tests` | loading, levels, geometry, models, picking, the grid, on the shipped data of both games | the game files |
 | `tests/UwEditor.App.Tests` | the main window, the find window, the conversation editor, the global variables window, the player window and the graphics window in Avalonia's headless mode: typing, clicking chips, keys, selection, the properties panel, find and go to, saved games, editing and saving strings, scripts and values (on a copy of the game); plus pictures of the windows compared with baselines | the game files |
+| `tests/Underworld.Mods.Tests` | mod packages (format 2): deltas and their BLOCK op on UW2's compressed archives, damaged and hostile packages, which files a mod may change or add | the game files |
+| `tests/ModRoundTrip.Tests` | round trips: an edit made with the editor's core (levels, the randomizer's scatter, swaps and challenges, SHADES.DAT, OBJECTS.DAT and COMOBJ.DAT, the other tables, schedules, the start square, sounds, music, strings, conversations, pictures, all at once), packaged by Make a mod and installed by the mod manager, gives the same files byte for byte, and the original game comes back; see [docs/mod-format.md](docs/mod-format.md) | the game files |
+| `ModManager/tests/UwModManager.Tests`, `UwModManager.UiTests` | the mod manager: DOS folders (journal, recovery, outside changes, UltimaHacks), Exhumed homes, saved-game backups, its screens headless | the game files |
 | `tests/UwEditor.Screenshots` | the real program with its OpenGL view on a private virtual screen (Xvfb + Mesa): what it draws, clicking an object in the view, camera keys, the grid; pictures compared with baselines, facts read from the program's `--state-file` | Linux with `Xvfb`, `xdotool` and ImageMagick; skipped elsewhere |
 
 The game files come from `UW_GAMEDATA`, a folder holding `UW` and/or `UW2`, each with its
@@ -492,7 +495,7 @@ The core tests check, among other things:
 | `tests/Shared` | Picture comparison and baselines, shared by the two interface test projects. |
 | `src/Underworld.Mods` | Mod packages, format 2 ([docs/mod-format.md](docs/mod-format.md)): deltas from the game's own files, shared by the editor and the mod manager. No UI. |
 | `tests/Underworld.Mods.Tests` | Its tests, on the real game files. |
-| `ModManager/` | The Ultima Underworlds Mod Manager (app, `uwmod` command line, tests), brought in from its own repository. It still builds against the Unity editor's mod code and format; see its [README](ModManager/README.md). |
+| `ModManager/` | The Ultima Underworlds Mod Manager (app, `uwmod` command line, tests), brought in from its own repository: installs format 2 mods into DOS folders and Underworld Exhumed homes; see its [README](ModManager/README.md). |
 
 The meaning of the files comes from
 [underworld-exhumed](https://github.com/abedegno/underworld-exhumed), the reconstructed source

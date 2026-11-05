@@ -289,6 +289,34 @@ namespace Underworld.Mods
             }
         }
 
+        /// <summary>
+        /// The bytes a delta adds (its ADD ops), with the block they go into for those inside a
+        /// BLOCK (-1 outside): what a mod carries of its own. For checking that a package holds
+        /// nothing of the original files.
+        /// </summary>
+        public static List<(int Block, byte[] Bytes)> Added(byte[] delta)
+        {
+            var r = new Reader(delta);
+            for (int k = 0; k < Magic.Length; k++)
+                if (r.Byte() != Magic[k]) throw new InvalidDataException("Not a delta (UWD2).");
+            r.U(); r.U();
+            var list = new List<(int, byte[])>();
+            void Ops(int block)
+            {
+                while (true)
+                {
+                    byte op = r.Byte();
+                    if (op == OpEnd) return;
+                    if (op == OpCopy) { r.Z(); r.U(); }
+                    else if (op == OpAdd) list.Add((block, r.Take((int)r.U())));
+                    else if (op == OpBlock && block < 0) { int b = (int)r.U(); r.Byte(); Ops(b); }
+                    else throw new InvalidDataException("Unknown delta op 0x" + op.ToString("X2") + ".");
+                }
+            }
+            Ops(-1);
+            return list;
+        }
+
         /// <summary>A nested delta (COPY and ADD only) into a buffer of unknown length.</summary>
         static void RunInto(Reader r, byte[] src, GrowingOutput o)
         {
