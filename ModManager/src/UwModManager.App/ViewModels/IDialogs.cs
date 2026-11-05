@@ -1,4 +1,4 @@
-using UltimateEditor.Modding;
+using UwModManager.Core;
 
 namespace UwModManager.App.ViewModels;
 
@@ -12,5 +12,5 @@ public interface IDialogs
     Task<int> Ask(string title, string text, params string[] buttons);
     Task Tell(string title, string text);
     /// <summary>The details of a new mod (id, name, version, authors, description); null: cancelled.</summary>
-    Task<ModManifest?> AskDetails(string title, ModManifest defaults);
+    Task<ModDetails?> AskDetails(string title, ModDetails defaults);
 }

@@ -15,5 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/UwModManager.Core/UwModManager.Core.csproj" />
+    <!-- the editor's core: its writers make the changes the tests package (and, later, the round trips) -->
+    <ProjectReference Include="../../../src/UwEditor.Core/UwEditor.Core.csproj" />
   </ItemGroup>
 </Project>

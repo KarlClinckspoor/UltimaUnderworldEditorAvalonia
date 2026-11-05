@@ -3,7 +3,9 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Underworld.Shared/Underworld.Shared.csproj" />
+    <!-- the editor's file formats and mod packages (format 2, docs/mod-format.md) -->
+    <ProjectReference Include="../../../src/Underworld.Formats/Underworld.Formats.csproj" />
+    <ProjectReference Include="../../../src/Underworld.Mods/Underworld.Mods.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- UltimaHacks' compiled hacks (MIT, John Glassmyer), for the GOG executables -->

@@ -26,24 +26,35 @@ namespace Underworld.Mods
         /// </summary>
         public static FolderChanges Compare(string originalFolder, string editedFolder, GameKind game)
         {
+            return Compare(GamePaths.List(originalFolder, game), Read(originalFolder), GamePaths.List(editedFolder, game), Read(editedFolder), game);
+        }
+
+        /// <summary>
+        /// The same, from lists of game files (as a mod names them) and their readers: the mod
+        /// manager compares a folder with the originals in its vault this way.
+        /// </summary>
+        public static FolderChanges Compare(IEnumerable<string> originalFiles, Func<string, byte[]> readOriginal, IEnumerable<string> editedFiles, Func<string, byte[]> readEdited, GameKind game)
+        {
             var r = new FolderChanges { Game = game };
-            var a = GamePaths.List(originalFolder, game);
-            var b = GamePaths.List(editedFolder, game);
+            var a = new SortedSet<string>(originalFiles.Where(p => GamePaths.IsGameFile(p, game)), StringComparer.Ordinal);
+            var b = new SortedSet<string>(editedFiles.Where(p => GamePaths.IsGameFile(p, game)), StringComparer.Ordinal);
             foreach (var p in a.Except(b)) r.Problems.Add(p + " is missing from the edited game: a mod cannot remove files.");
             foreach (var p in b)
             {
-                byte[] e = File.ReadAllBytes(GamePaths.Find(editedFolder, p));
+                byte[] e = readEdited(p);
                 if (!a.Contains(p))
                 {
                     if (GamePaths.CanAdd(p, game)) r.Changed.Add((p, null, e));
                     else r.Problems.Add(NotReadable(p));
                     continue;
                 }
-                byte[] o = File.ReadAllBytes(GamePaths.Find(originalFolder, p));
+                byte[] o = readOriginal(p);
                 if (!o.AsSpan().SequenceEqual(e)) r.Changed.Add((p, o, e));
             }
             return r;
         }
+
+        static Func<string, byte[]> Read(string folder) { return rel => File.ReadAllBytes(GamePaths.Find(folder, rel)); }
 
         static string NotReadable(string p) { return p + " is not one of the game's files, and the game would never open it: a mod cannot add it."; }
 

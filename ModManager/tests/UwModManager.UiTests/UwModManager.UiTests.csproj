@@ -20,5 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/UwModManager.App/UwModManager.App.csproj" />
+    <!-- the shared fixture edits strings with the editor's own writer -->
+    <ProjectReference Include="../../../src/UwEditor.Core/UwEditor.Core.csproj" />
   </ItemGroup>
 </Project>

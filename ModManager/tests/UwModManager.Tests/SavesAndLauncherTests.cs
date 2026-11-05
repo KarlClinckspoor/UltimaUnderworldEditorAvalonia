@@ -1,6 +1,6 @@
 using System.Text;
 using UltimateEditor.Games;
-using UltimateEditor.Modding;
+using Underworld.Mods;
 using UwModManager.Core;
 using Xunit;
 
@@ -10,20 +10,19 @@ public class SavesAndLauncherTests
 {
     static void MakeSave(string folder, int n, string desc, GameKind kind)
     {
-        var g = new GameFolder(folder);
         string dir = Path.Combine(folder, "SAVE" + n);
         // the copy may come with saves of its own (tests/gamedata/UW2 has SAVE0-2): start the slot empty
         if (Directory.Exists(dir)) Directory.Delete(dir, true);
         Directory.CreateDirectory(dir);
-        File.Copy(g.Resolve("DATA/LEV.ARK"), Path.Combine(dir, "LEV.ARK"));
-        File.WriteAllBytes(Path.Combine(dir, "BGLOBALS.DAT"), BGlobals.Parse(File.ReadAllBytes(g.Resolve("DATA/BABGLOBS.DAT")), false).ToBytes(true));
+        File.Copy(GamePaths.Find(folder, "DATA/LEV.ARK"), Path.Combine(dir, "LEV.ARK"));
+        File.WriteAllBytes(Path.Combine(dir, "BGLOBALS.DAT"), BGlobals.Parse(File.ReadAllBytes(GamePaths.Find(folder, "DATA/BABGLOBS.DAT")), false).ToBytes(true));
         File.WriteAllBytes(Path.Combine(dir, "PLAYER.DAT"), new byte[PlayerDat.RecordSizeFor(kind) + 3]);
         File.WriteAllBytes(Path.Combine(dir, "DESC"), Encoding.ASCII.GetBytes(desc));
-        if (kind == GameKind.UW2) File.Copy(g.Resolve("DATA/SCD.ARK"), Path.Combine(dir, "SCD.ARK"));
+        if (kind == GameKind.UW2) File.Copy(GamePaths.Find(folder, "DATA/SCD.ARK"), Path.Combine(dir, "SCD.ARK"));
     }
 
     [Theory, MemberData(nameof(Env.Games), MemberType = typeof(Env))]
-    public void A_saved_game_is_exported_installed_backed_up_and_restored(string game)
+    public void A_saved_game_is_backed_up_and_restored(string game)
     {
         string folder = Env.Copy(game);
         if (folder == null) return;
@@ -36,19 +35,15 @@ public class SavesAndLauncherTests
         Assert.Equal(4, slots.Count);
         Assert.Equal("First", slots[0].Description);
         Assert.False(slots[2].Exists);
-        var pkg = Saves.Export(slots[0], m.GameFiles(t), kind, new ModManifest { Id = "karl.first", Name = "First save", Game = t.Game });
-        pkg = ModPackage.FromBytes(pkg.ToBytes());
-        Assert.Equal(ModClassifier.SavedGame, pkg.Manifest.Type);
-        // into slot 2, over "Second": backed up first
-        var problems = Saves.Install(m.Paths, m.Vault, pkg, slots[1], m.GameFiles(t), kind);
-        Assert.Empty(problems);
-        Assert.Equal("First", Saves.List(folder)[1].Description);
-        string backup = Saves.Backups(m.Paths, folder).Single();
+        // saves are not game files: no mod carries them, and the manager never counts them as changes
+        Assert.Empty(DosGame.LocalChanges(t));
+        string backup = Saves.Backup(m.Paths, m.Vault, slots[1], "test")!;
+        File.WriteAllBytes(Path.Combine(slots[1].Folder, "DESC"), Encoding.ASCII.GetBytes("Overwritten"));
+        Assert.Equal("Overwritten", Saves.List(folder)[1].Description);
         Saves.Restore(m.Paths, m.Vault, backup, Saves.List(folder)[1]);
         Assert.Equal("Second", Saves.List(folder)[1].Description);
-        // a saved-game mod is not applied to the game
-        m.Library.Add(pkg);
-        Assert.Contains(m.Problems(t, pkg.Manifest), p => p.Contains("slot"));
+        // the restore backed up what it replaced
+        Assert.Equal(2, Saves.Backups(m.Paths, folder, 2).Count);
     }
 
     [Fact]

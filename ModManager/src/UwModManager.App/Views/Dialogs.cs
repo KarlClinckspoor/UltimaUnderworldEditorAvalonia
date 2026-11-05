@@ -2,8 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Platform.Storage;
-using UltimateEditor.Modding;
 using UwModManager.App.ViewModels;
+using UwModManager.Core;
 
 namespace UwModManager.App.Views;
 
@@ -58,9 +58,9 @@ public sealed class Dialogs : IDialogs
 
     public async Task Tell(string title, string text) => await Ask(title, text, "OK");
 
-    public async Task<ModManifest?> AskDetails(string title, ModManifest d)
+    public async Task<ModDetails?> AskDetails(string title, ModDetails d)
     {
-        ModManifest? result = null;
+        ModDetails? result = null;
         var w = Small(title);
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("110,*"), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto,Auto"), Margin = new Thickness(20), MinWidth = 480 };
         TextBox Field(int row, string label, string value, string hint)
@@ -85,11 +85,12 @@ public sealed class Dialogs : IDialogs
         {
             if (string.IsNullOrWhiteSpace(name.Text)) return;
             var authorList = (authors.Text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-            result = new ModManifest
+            string author = authorList.FirstOrDefault() ?? "";
+            result = new ModDetails
             {
                 Name = name.Text.Trim(), Authors = authorList, Version = string.IsNullOrWhiteSpace(version.Text) ? "1.0.0" : version.Text.Trim(),
-                Description = desc.Text ?? "", Game = d.Game,
-                Id = string.IsNullOrWhiteSpace(id.Text) ? ModBuilder.IdFrom(authorList.FirstOrDefault() ?? "", name.Text) : id.Text.Trim(),
+                Description = desc.Text ?? "",
+                Id = string.IsNullOrWhiteSpace(id.Text) ? (author.Length > 0 ? Manager.IdFrom(author) + "." : "") + Manager.IdFrom(name.Text) : id.Text.Trim(),
             };
             w.Close();
         };

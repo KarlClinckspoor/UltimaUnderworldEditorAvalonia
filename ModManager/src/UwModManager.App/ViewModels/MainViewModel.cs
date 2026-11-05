@@ -57,7 +57,7 @@ public sealed partial class MainViewModel : ViewModelBase
     public void UpdateSubtitle(NavItem item)
     {
         var t = item.Target!;
-        string mod = t.ActiveMod == null ? "original" : Manager.Library.Find(t.ActiveMod)?.Manifest.Name ?? t.ActiveMod;
+        string mod = t.ActiveMod == null ? "original" : Manager.Library.Find(t.ActiveMod)?.Name ?? t.ActiveMod;
         item.Subtitle = (t.Kind == TargetKind.Dos ? "DOS" : "Exhumed") + " · " + mod + (t.UltimaHacks ? " · UltimaHacks" : "");
     }
 
@@ -92,11 +92,10 @@ public sealed partial class MainViewModel : ViewModelBase
         await Guard(async () =>
         {
             var t = Manager.AddDos(folder, null, asItIs);
-            var (gog, differ, missing) = Manager.CompareWithGog(t);
             var notes = new List<string> { t.Written.Count > 0
                 ? $"The manager took this folder over before; it has {t.ActiveMod} in place, and its originals are in the vault."
                 : $"{t.Baseline.Count} files are kept in the vault: the manager can always put the game back as it is now." };
-            notes.Add(gog ? "These are the GOG release's files." : $"These are not quite the GOG release's files ({differ.Count} differ, {missing.Count} missing); mods made from the GOG release may not install.");
+            notes.Add(Manager.HasGogExe(t) ? "The executable is the GOG release's." : "The executable is not the GOG release's: UltimaHacks and Underworld Exhumed need GOG's, and mods made from GOG's files will not install.");
             foreach (var c in DosGame.CdImageConfs(t.Folder))
                 notes.Add($"{c} runs the game from GOG's CD image (game.gog), which never sees files changed in the folder. Extract the image into the folder (7-Zip opens it) and change that setup to mount the folder instead.");
             RefreshGames(t);

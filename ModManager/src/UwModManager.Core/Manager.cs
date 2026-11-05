@@ -1,14 +1,14 @@
 using System.Diagnostics;
 using System.Text.Json;
 using UltimateEditor.Games;
-using UltimateEditor.Modding;
+using Underworld.Mods;
 
 namespace UwModManager.Core;
 
 /// <summary>
 /// The manager's operations, for the program and the command line: the targets (DOS folders and
-/// Exhumed builds), the library, using a mod (one at a time per target), saved games, capturing
-/// changes as a mod, and starting the game. Every change of a DOS folder goes through a journal,
+/// Exhumed builds), the library, using a mod (one at a time per target), backing saved games up,
+/// capturing changes as a mod, and starting the game. Every change of a DOS folder goes through a journal,
 /// so an interrupted change is finished at the next start.
 /// </summary>
 public sealed class Manager
@@ -115,11 +115,12 @@ public sealed class Manager
 
     public Target Get(string idOrName) => State.Find(idOrName) ?? throw new KeyNotFoundException("no target " + idOrName);
 
-    /// <summary>For a DOS target: whether its files are the GOG release's (and which are not).</summary>
-    public (bool gog, List<string> differ, List<string> missing) CompareWithGog(Target t)
+    /// <summary>For a DOS target: whether its original executable is the GOG release's (or GOG's with
+    /// UltimaHacks), which UltimaHacks and Underworld Exhumed need.</summary>
+    public bool HasGogExe(Target t)
     {
-        var differ = KnownFiles.Differences(t.GameKind, DosGame.Originals(t, Vault), out var missing);
-        return (differ.Count == 0 && missing.Count == 0, differ, missing);
+        byte[]? exe = DosGame.Original(t, Vault, t.ExeName);
+        return ExeIdentity.IsGogOriginal(exe, t.GameKind) || Hacks.For(t.GameKind).IsAppliedTo(exe);
     }
 
     // ---- mods on a target
@@ -134,7 +135,7 @@ public sealed class Manager
     {
         var plan = PlanDos(t, modKey, ultimaHacks);
         if (plan.OutsideChanges.Count > 0 && !overwrite)
-            throw new ModApplyException("these files changed since the manager last wrote them: " + string.Join(", ", plan.OutsideChanges) +
+            throw new ModException("these files changed since the manager last wrote them: " + string.Join(", ", plan.OutsideChanges) +
                 ". Capture them as a mod first, or overwrite them.");
         DosGame.Apply(plan, Vault, Paths.JournalFile, Save, overwrite);
         return plan;
@@ -166,7 +167,7 @@ public sealed class Manager
     {
         var dos = State.Targets.FirstOrDefault(d => d.Kind == TargetKind.Dos && SamePath(d.Folder, t.Folder));
         if (t.Kind == TargetKind.Dos || dos != null) { var d = t.Kind == TargetKind.Dos ? t : dos!; return rel => DosGame.Original(d, Vault, rel); }
-        var folder = new GameFolder(t.Folder);
+        var folder = new GameDir(t.Folder, t.GameKind);
         return rel => folder.Read(rel);
     }
 
@@ -186,41 +187,37 @@ public sealed class Manager
         return home;
     }
 
-    /// <summary>Why a mod cannot be used on a target, or empty.</summary>
-    public List<string> Problems(Target t, ModManifest m)
+    /// <summary>
+    /// Why a mod cannot be used on a target, or empty: another game, files that are not the ones
+    /// it was made from (a mod applies only to its exact originals), and for Exhumed what the
+    /// build cannot play.
+    /// </summary>
+    public List<string> Problems(Target t, ModPackage m)
     {
         var r = new List<string>();
-        if (m.Game != t.Game) r.Add("it is for " + m.GameName);
-        if (m.Components.Any(c => c is SaveComponent)) r.Add("it is a saved game: install it into a slot");
-        if (t.Kind == TargetKind.Exhumed) r.AddRange(ExhumedGame.Unsupported(m, t.Features, OriginalsFor(t)));
+        if (m.Game != t.GameKind) { r.Add("it is for " + m.GameName); return r; }
+        var orig = OriginalsFor(t);
+        foreach (var f in m.Files)
+        {
+            byte[]? b = orig(f.Path);
+            if (f.Added) { if (b != null) r.Add("the game already has a " + f.Path + ", which the mod adds"); }
+            else if (b == null) r.Add("the game has no " + f.Path);
+            else if (Files.Sha(b) != "sha256:" + f.BaseSha256) r.Add(f.Path + " is not the file the mod was made from (another release, or changed)");
+        }
+        if (r.Count == 0 && t.Kind == TargetKind.Exhumed) r.AddRange(ExhumedGame.Unsupported(m, t.Features, orig, t.GameKind));
         return r;
     }
 
-    /// <summary>Things to know before using a mod that do not stop it: files it was made from that
-    /// are not this game's (its changes still apply where the parts it changes are the same).</summary>
-    public List<string> Notes(Target t, ModManifest m)
-    {
-        var r = new List<string>();
-        Func<string, byte[]?> orig = OriginalsFor(t);
-        foreach (var kv in m.BaseFiles)
-        {
-            if (kv.Key == t.ExeName) continue;
-            if (Files.Sha(orig(kv.Key)) != kv.Value)
-                r.Add(kv.Key + " is not the one the mod was made from" + (m.BaseSet.StartsWith("gog") ? " (it was made from the GOG release)" : "") +
-                      ": the parts it changes must still be the same, or it will not install");
-        }
-        return r;
-    }
+    /// <summary>Things to know before using a mod that do not stop it.</summary>
+    public List<string> Notes(Target t, ModPackage m) => ModNotes.Warnings(m);
 
     // ---- starting the game
 
-    public ProcessStartInfo LaunchInfo(Target t, bool useRecommended = true)
+    public ProcessStartInfo LaunchInfo(Target t)
     {
         if (t.Kind == TargetKind.Dos) return Launcher.DosBox(Paths, State.Settings, t);
         string home = UseExhumed(t, t.ActiveMod);
-        var enh = new List<string>(t.Enhancements);
-        if (useRecommended && t.ActiveMod != null) enh.AddRange(Library.Find(t.ActiveMod)?.Manifest.ExhumedRecommended ?? new List<string>());
-        return Launcher.Exhumed(t, home, enh);
+        return Launcher.Exhumed(t, home, t.Enhancements);
     }
 
     public Process? Launch(Target t) => Process.Start(LaunchInfo(t));
@@ -230,32 +227,30 @@ public sealed class Manager
     /// <summary>Where a target's saved games are: the DOS folder, or the Exhumed home of its current mod.</summary>
     public string SavesFolder(Target t) => t.Kind == TargetKind.Dos ? t.Folder : ExhumedGame.HomeFor(Paths, t, t.ActiveMod);
 
-    public IFileSource GameFiles(Target t) => t.Kind == TargetKind.Dos ? new GameFolder(t.Folder) : new OverlaySource(SavesFolder(t), t.Folder);
-
-    /// <summary>The home over the game folder, as Exhumed reads files.</summary>
-    sealed class OverlaySource : IFileSource
-    {
-        readonly GameFolder home, data;
-        public OverlaySource(string home, string data) { this.home = new GameFolder(home); this.data = new GameFolder(data); }
-        public IEnumerable<string> List() => home.List().Concat(data.List()).Distinct().OrderBy(x => x, StringComparer.Ordinal).ToList();
-        public byte[]? Read(string rel) => home.Read(rel) ?? data.Read(rel);
-    }
-
     // ---- capturing changes
 
-    /// <summary>The changes of a DOS folder against its originals, as a package (not yet in the library).</summary>
-    public (ModPackage? pkg, ModDiffResult diff) Capture(Target t, ModManifest details)
+    /// <summary>
+    /// The changes of a DOS folder against its originals in the vault, as a mod (not yet in the
+    /// library); null with the problems when there are none or they cannot be a mod.
+    /// </summary>
+    public (ModPackage? pkg, FolderChanges changes) Capture(Target t, ModDetails details)
     {
         if (t.Kind != TargetKind.Dos) throw new InvalidOperationException("changes are captured from a DOS folder");
-        var original = DosGame.Originals(t, Vault);
-        var diff = ModDiff.Compare(original, new GameFolder(t.Folder), t.GameKind);
-        if (diff.Problems.Count > 0 || diff.Components.Count == 0) return (null, diff);
-        details.Game = t.Game;
-        if (string.IsNullOrEmpty(details.MadeWith)) details.MadeWith = "Ultima Underworlds Mod Manager (capture)";
-        var pkg = ModBuilder.FromDiff(diff, details, original);
-        var bad = ModBuilder.Verify(pkg, original, new GameFolder(t.Folder));
-        if (bad.Count > 0) { diff.Problems.AddRange(bad); return (null, diff); }
-        return (pkg, diff);
+        var dir = new GameDir(t.Folder, t.GameKind);
+        var changes = ModMaker.Compare(t.Baseline.Keys, rel => DosGame.Original(t, Vault, rel)!, dir.List(), rel => dir.Read(rel)!, t.GameKind);
+        if (changes.Problems.Count > 0 || changes.Changed.Count == 0) return (null, changes);
+        string id = string.IsNullOrWhiteSpace(details.Id) ? IdFrom(details.Name) : details.Id.Trim();
+        var pkg = ModMaker.Make(changes, id, details.Name.Trim(), details.Version.Trim(), details.Description, details.Authors, "Ultima Underworlds Mod Manager (capture)");
+        return (pkg, changes);
+    }
+
+    /// <summary>An id from a name: lower case, letters and digits, the rest dashes.</summary>
+    public static string IdFrom(string name)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (char c in name.Trim().ToLowerInvariant()) sb.Append(char.IsAsciiLetterOrDigit(c) ? c : '-');
+        string id = System.Text.RegularExpressions.Regex.Replace(sb.ToString(), "-+", "-").Trim('-');
+        return id.Length == 0 ? "my-mod" : id;
     }
 
     public static bool SamePath(string a, string b) =>

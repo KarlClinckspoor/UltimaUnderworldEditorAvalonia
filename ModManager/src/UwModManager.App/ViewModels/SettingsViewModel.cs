@@ -16,7 +16,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     }
 
     public string Folder => main.Manager.Paths.Root;
-    public string Credits => Hacks.Credit + "\n\nThe file formats and mod packages are the Ultima Underworld Editor's (KarlClinckspoor/UltimaUnderworldEditorUnity). " +
+    public string Credits => Hacks.Credit + "\n\nThe file formats and mod packages (format 2) are the Ultima Underworld Editor's (KarlClinckspoor/UltimaUnderworldEditorAvalonia). " +
         "The ports are Underworld Exhumed (abedegno/underworld-exhumed); the start square and executable patches need the fork's modding branch.";
     public string HackLicense => Hacks.License();
 

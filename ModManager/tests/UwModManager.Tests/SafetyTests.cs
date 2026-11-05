@@ -1,22 +1,31 @@
+using System.IO.Compression;
 using System.Text;
 using UltimateEditor.Games;
-using UltimateEditor.Modding;
-using UltimateEditor.Modding.Exe;
+using Underworld.Mods;
 using UwModManager.Core;
 using Xunit;
 
 namespace UwModManager.Tests;
 
 /// <summary>Packages are untrusted: what they name stays inside the game; and the smaller guards
-/// (save backups, executable patches, library names).</summary>
+/// (save backups, UltimaHacks on an executable that has it, library names).</summary>
 public class SafetyTests
 {
-    static ModPackage WithFile(string file, string game = "uw1")
+    /// <summary>A package naming <paramref name="file"/>, written by hand as an attacker would.</summary>
+    static byte[] Evil(string file, bool added = false)
     {
-        var pkg = new ModPackage { Manifest = new ModManifest { Id = "evil.mod", Name = "Evil", Version = "1", Game = game } };
-        pkg.Manifest.Components.Add(new FileComponent { File = file, Base = Hashing.Absent, Data = "payload/x" });
-        pkg.Files["payload/x"] = Encoding.ASCII.GetBytes("pwned");
-        return pkg;
+        byte[] delta = Encoding.ASCII.GetBytes("pwned");
+        string h = new string('a', 64);
+        string json = "{\"format\":2,\"game\":\"uw1\",\"id\":\"evil.mod\",\"name\":\"Evil\",\"version\":\"1\",\"files\":[{\"path\":\"" + file.Replace("\\", "\\\\") +
+            "\",\"base\":" + (added ? "null" : "{\"sha256\":\"" + h + "\",\"size\":1}") + ",\"target\":{\"sha256\":\"" + h + "\",\"size\":5},\"delta\":{\"path\":\"deltas/" +
+            file.Replace("\\", "\\\\") + ".uwd\",\"sha256\":\"" + ModPackage.Sha256(delta) + "\"}}]}";
+        var ms = new MemoryStream();
+        using (var z = new ZipArchive(ms, ZipArchiveMode.Create, true))
+        {
+            using (var s = z.CreateEntry("mod.json").Open()) { var b = Encoding.UTF8.GetBytes(json); s.Write(b, 0, b.Length); }
+            using (var s = z.CreateEntry("deltas/" + file + ".uwd").Open()) s.Write(delta, 0, delta.Length);
+        }
+        return ms.ToArray();
     }
 
     [Theory]
@@ -28,50 +37,46 @@ public class SafetyTests
     [InlineData("DATA/./LEV.ARK")]
     [InlineData("SAVE1/PLAYER.DAT")]
     [InlineData("UW.CFG")]
+    [InlineData("DATA/UW.CFG")]
     [InlineData("DOSBOX.CONF")]
     public void A_package_naming_a_path_outside_the_game_files_is_refused(string file)
     {
-        Assert.False(GameFolder.IsModFile(file));
-        var pkg = WithFile(file);
-        Assert.NotEmpty(pkg.Check());
-        Assert.Throws<InvalidDataException>(() => ModPackage.FromBytes(pkg.ToBytes()));
-        Assert.Throws<ModApplyException>(() => ModApply.Files(pkg, _ => null));
+        Assert.False(GamePaths.IsGameFile(file, GameKind.UW1));
+        byte[] pkg = Evil(file);
+        Assert.Throws<ModException>(() => ModPackage.FromBytes(pkg));
         string lib = Env.Temp("lib"), f = Path.Combine(Env.Temp("pkg"), "evil.uwmod");
-        File.WriteAllBytes(f, pkg.ToBytes());
-        Assert.Throws<InvalidDataException>(() => new Library(lib).Import(f));
+        File.WriteAllBytes(f, pkg);
+        Assert.Throws<ModException>(() => new Library(lib).Import(f));
+        Assert.Empty(new Library(lib).List());
+    }
+
+    [Theory]
+    [InlineData("DATA/NEW.DAT")]
+    [InlineData("SOUND/UW99.XMI")]
+    [InlineData("CUTS/CS999.N00")]
+    public void A_package_adding_a_file_the_game_never_opens_is_refused(string file)
+    {
+        Assert.Throws<ModException>(() => ModPackage.FromBytes(Evil(file, added: true)));
     }
 
     [Theory]
     [InlineData("DATA/LEV.ARK")]
-    [InlineData("data/new.dat")]
-    [InlineData("UW2.EXE")]
+    [InlineData("data/lev.ark")]
+    [InlineData("UW.EXE")]
     [InlineData("SOUND/UW01.XMI")]
+    [InlineData("CRIT/CR00PAGE.N00")]
     public void Game_files_are_allowed(string file)
     {
-        Assert.True(GameFolder.IsModFile(file));
-        Assert.Empty(WithFile(file).PathProblems());
+        Assert.True(GamePaths.IsGameFile(file, GameKind.UW1));
     }
 
     [Fact]
     public void Leftover_temporary_files_are_not_game_files()
     {
-        Assert.False(GameFolder.IsGameFile("DATA/LEV.ARK.uwmm-tmp"));
-        Assert.False(GameFolder.IsGameFile("DATA/LEV.ARK.UWMOD-TMP"));
-    }
-
-    [Fact]
-    public void A_saved_game_naming_another_file_is_refused()
-    {
-        var pkg = new ModPackage { Manifest = new ModManifest { Id = "evil.save", Name = "Evil", Version = "1", Game = "uw1" } };
-        var c = new SaveComponent { Slot = 1 };
-        c.Files.Add(new SaveComponent.SaveFile { Name = "../UW.EXE", Data = "payload/s" });
-        pkg.Manifest.Components.Add(c);
-        pkg.Files["payload/s"] = new byte[] { 1 };
-        Assert.NotEmpty(pkg.PathProblems());
-        Assert.Throws<InvalidDataException>(() => ModPackage.FromBytes(pkg.ToBytes()));
-        string slot = Path.Combine(Env.Temp("game"), "SAVE1");
-        Assert.Throws<ModApplyException>(() => SaveMods.Install(c, pkg, slot));
-        Assert.False(File.Exists(Path.Combine(slot, "..", "UW.EXE")));
+        Assert.False(GamePaths.IsGameFile("DATA/LEV.ARK.uwmm-tmp", GameKind.UW1));
+        Assert.False(GamePaths.IsGameFile("DATA/LEV.ARK.UWMOD-TMP", GameKind.UW1));
+        Assert.False(GamePaths.IsGameFile("DATA/LEV.ARK.BKP", GameKind.UW1));
+        Assert.False(GamePaths.IsGameFile("DATA/LEV.ARK.ORIG", GameKind.UW1));
     }
 
     [Fact]
@@ -107,45 +112,27 @@ public class SafetyTests
     }
 
     [Theory, MemberData(nameof(Env.Games), MemberType = typeof(Env))]
-    public void Executable_patches_must_replace_bytes_one_for_one(string game)
-    {
-        string folder = Env.Copy(game);
-        if (folder == null) return;
-        var kind = Env.Kind(game);
-        byte[] exe = Env.Read(folder, ExeIdentity.ExeName(kind));
-        var pkg = new ModPackage { Manifest = new ModManifest { Id = "t.exe", Name = "Exe", Version = "1", Game = kind == GameKind.UW2 ? "uw2" : "uw1" } };
-        var c = new ExeBytesComponent { File = ExeIdentity.ExeName(kind) };
-        c.Patches.Add(new ExeBytesComponent.Patch { Segment = -1, Offset = 0, FileOffset = 0, Base = Hashing.Hex(new[] { exe[0] }), Data = "4D5A90", Before = "", After = "" });
-        pkg.Manifest.Components.Add(c);
-        Assert.Throws<ModApplyException>(() => Hacks.BuildExe(exe, kind, false, pkg));
-        c.Patches[0].Base = ""; c.Patches[0].Data = "";
-        Assert.Throws<ModApplyException>(() => Hacks.BuildExe(exe, kind, false, pkg));
-    }
-
-    [Theory, MemberData(nameof(Env.Games), MemberType = typeof(Env))]
-    public void An_executable_that_already_has_UltimaHacks_keeps_it(string game)
+    public void An_executable_that_already_has_UltimaHacks_keeps_it_and_takes_a_start_square(string game)
     {
         string folder = Env.Copy(game);
         if (folder == null) return;
         var kind = Env.Kind(game);
         byte[] gog = Env.Read(folder, ExeIdentity.ExeName(kind));
+        Assert.True(ExeIdentity.IsGogOriginal(gog, kind));
         var hack = Hacks.For(kind);
         Assert.False(hack.IsAppliedTo(gog));
         byte[] hacked = hack.Apply(gog);
         Assert.True(hack.IsAppliedTo(hacked));
-        // taken as the original, it is used as it is, with or without the box ticked
-        Assert.Equal(hacked, Hacks.BuildExe(hacked, kind, true, null));
-        Assert.Equal(hacked, Hacks.BuildExe(hacked, kind, false, null));
-        // and a mod may not patch the hack's code
-        int s = hack.WrittenRanges()[0].Key;
-        var pkg = new ModPackage { Manifest = new ModManifest { Id = "t.exe", Name = "Exe", Version = "1", Game = kind == GameKind.UW2 ? "uw2" : "uw1" } };
-        var c = new ExeBytesComponent { File = ExeIdentity.ExeName(kind) };
-        byte[] old = hacked.Skip(s).Take(1).ToArray();
-        var loc = new MzExe(hacked).Locate(s);
-        c.Patches.Add(new ExeBytesComponent.Patch { Segment = loc.Segment, Offset = loc.Offset, FileOffset = s, Base = Hashing.Hex(old), Data = Hashing.Hex(new[] { (byte)(old[0] ^ 1) }), Before = "", After = "" });
-        pkg.Manifest.Components.Add(c);
-        var err = Assert.Throws<ModApplyException>(() => Hacks.BuildExe(hacked, kind, false, pkg));
-        Assert.Contains("UltimaHacks", err.Message);
+        // taken as the original, it is used as it is
+        Assert.Equal(hacked, Hacks.BuildExe(hacked, kind, null));
+        // the start square is found in the hacked executable too
+        byte[] moved = Hacks.BuildExe(gog, kind, (30, 4));
+        Assert.True(StartPosition.Read(moved, kind, out int x, out int y));
+        Assert.Equal((30, 4), (x, y));
+        Assert.Equal(hacked.Length, moved.Length);
+        // another executable is not hacked
+        byte[] other = (byte[])gog.Clone(); other[100] ^= 1;
+        Assert.Throws<ModException>(() => Hacks.BuildExe(other, kind, null));
     }
 
     [Fact]
@@ -154,9 +141,8 @@ public class SafetyTests
         var lib = new Library(Env.Temp("lib"));
         foreach (var id in new[] { "x-y", "x/y" })
         {
-            var pkg = new ModPackage { Manifest = new ModManifest { Id = id, Name = id, Version = "1", Game = "uw1" } };
-            pkg.Manifest.Components.Add(new FileComponent { File = "DATA/NEW.DAT", Base = Hashing.Absent, Data = "payload/x" });
-            pkg.Files["payload/x"] = new byte[] { 1 };
+            var pkg = new ModPackage { Id = id, Name = id, Version = "1", Game = GameKind.UW1 };
+            pkg.Add("DATA/LEV.ARK", new byte[] { 1, 2, 3 }, new byte[] { 1, 2, 4 });
             lib.Add(pkg);
         }
         Assert.Equal(new[] { "x-y@1", "x/y@1" }, lib.List().Select(e => e.Key).OrderBy(k => k, StringComparer.Ordinal));

@@ -67,7 +67,6 @@
         <CheckBox Content="UltimaHacks (mouse-look, WASD, rune keys…)" IsChecked="{Binding UltimaHacks}" ToolTip.Tip="{Binding UltimaHacksCredit}" />
       </StackPanel>
       <StackPanel Spacing="6" Margin="0,8,0,0" IsVisible="{Binding IsExhumed}">
-        <CheckBox Content="Also the mod's recommended enhancements" IsChecked="{Binding UseRecommended}" />
         <TextBlock Text="Enhancements" Classes="dim" FontSize="12" />
         <ItemsControl ItemsSource="{Binding Enhancements}">
           <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
@@ -90,8 +89,6 @@
             <Border Classes="card" Margin="0,0,0,6" Padding="10,8">
               <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
-                  <Button Content="Export as mod…" IsEnabled="{Binding Exists}" Command="{Binding $parent[ItemsControl].((vm:TargetViewModel)DataContext).ExportSaveCommand}" CommandParameter="{Binding}" />
-                  <Button Content="Install a saved game…" Command="{Binding $parent[ItemsControl].((vm:TargetViewModel)DataContext).InstallSaveCommand}" CommandParameter="{Binding}" />
                   <Button Content="Restore a backup…" Command="{Binding $parent[ItemsControl].((vm:TargetViewModel)DataContext).RestoreSaveCommand}" CommandParameter="{Binding}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">

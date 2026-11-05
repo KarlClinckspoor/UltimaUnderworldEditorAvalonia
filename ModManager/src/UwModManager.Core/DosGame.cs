@@ -1,5 +1,5 @@
 using UltimateEditor.Games;
-using UltimateEditor.Modding;
+using Underworld.Mods;
 
 namespace UwModManager.Core;
 
@@ -52,7 +52,8 @@ public sealed class FolderMarker
 
 /// <summary>
 /// The DOS game in its folder, changed in place. The first time the manager touches a folder it
-/// keeps every game file in the vault (the editor's .BKP backups count as the originals), and from
+/// keeps every game file in the vault (the first versions the editor kept, NAME.EXT.ORIG, count
+/// as the originals), and from
 /// then on the folder always holds either the originals or the originals with one mod applied.
 /// A file changed by something else (the editor, by hand) is never overwritten without asking.
 /// </summary>
@@ -61,11 +62,9 @@ public static class DosGame
     /// <summary>The game of a folder holding UW.EXE or UW2.EXE and DATA, else null.</summary>
     public static GameKind? Detect(string folder)
     {
-        var g = new GameFolder(folder);
-        string? data = g.Resolve("DATA");
-        if (data == null || !Directory.Exists(data)) return null;
-        if (g.Resolve("UW2.EXE") != null) return GameKind.UW2;
-        if (g.Resolve("UW.EXE") != null) return GameKind.UW1;
+        if (GameDir.FindDir(folder, "DATA") == null) return null;
+        if (GamePaths.Find(folder, "UW2.EXE") != null) return GameKind.UW2;
+        if (GamePaths.Find(folder, "UW.EXE") != null) return GameKind.UW1;
         return null;
     }
 
@@ -83,21 +82,34 @@ public static class DosGame
         return r;
     }
 
-    /// <summary>Takes the folder over: every game file's original into the vault (a .BKP the editor made counts as the original).</summary>
+    /// <summary>
+    /// Takes the folder over: every game file's original into the vault. Where the editor wrote a
+    /// file, its first version (NAME.EXT.ORIG) is the original; an empty .ORIG marks a file the
+    /// editor added, which is no original, and a .ORIG without its file one the editor removed.
+    /// </summary>
     public static void Adopt(Target t, Vault vault)
     {
-        var orig = new BackupBaseFolder(t.Folder);
+        var dir = new GameDir(t.Folder, t.GameKind);
         t.Baseline.Clear();
-        foreach (var rel in orig.List())
+        foreach (var rel in dir.List())
         {
-            var b = orig.Read(rel);
-            if (b != null) t.Baseline[rel] = vault.Put(b);
+            string? orig = dir.Resolve(rel + ".ORIG");
+            byte[] b = orig != null ? File.ReadAllBytes(orig) : dir.Read(rel)!;
+            if (orig != null && b.Length == 0) continue;
+            t.Baseline[rel] = vault.Put(b);
+        }
+        foreach (var orig in Directory.EnumerateFiles(t.Folder, "*.ORIG", SearchOption.AllDirectories))
+        {
+            string? rel = GamePaths.Normalize(Path.GetRelativePath(t.Folder, orig[..^5]));
+            if (rel == null || t.Baseline.ContainsKey(rel) || !GamePaths.IsGameFile(rel, t.GameKind)) continue;
+            byte[] b = File.ReadAllBytes(orig);
+            if (b.Length > 0) t.Baseline[rel] = vault.Put(b);
         }
     }
 
     public static byte[]? Original(Target t, Vault vault, string rel)
     {
-        rel = GameFolder.Normalize(rel);
+        rel = GamePaths.Normalize(rel) ?? rel;
         return t.Baseline.TryGetValue(rel, out var sha) ? vault.Get(sha) : null;
     }
 
@@ -117,38 +129,42 @@ public static class DosGame
         public byte[]? Read(string rel) => Original(t, v, rel);
     }
 
-    /// <summary>What the target must look like with <paramref name="mod"/> (null: the original game) and UltimaHacks or not.</summary>
+    /// <summary>
+    /// What the target must look like with <paramref name="mod"/> (null: the original game) and
+    /// UltimaHacks or not. Each file the mod changes is built from its original in the vault, which
+    /// must be the one the mod was made from (Underworld.Mods checks both hashes), so the folder
+    /// ends up byte for byte as the mod's author saved it.
+    /// </summary>
     public static ApplyPlan Plan(Target t, Vault vault, ModPackage? mod, bool ultimaHacks)
     {
         if (t.Baseline.Count == 0) throw new InvalidOperationException("the folder has not been taken over yet");
-        var plan = new ApplyPlan { Target = t, Mod = mod == null ? null : Library.KeyOf(mod.Manifest), UltimaHacks = ultimaHacks };
+        var plan = new ApplyPlan { Target = t, Mod = mod == null ? null : Library.KeyOf(mod), UltimaHacks = ultimaHacks };
         var desired = new Dictionary<string, byte[]?>(StringComparer.Ordinal);
         if (mod != null)
         {
-            if (mod.Manifest.Game != t.Game) throw new ModApplyException("the mod is for " + mod.Manifest.GameName + ", this is " + (t.Game == "uw2" ? "Ultima Underworld II" : "Ultima Underworld"));
-            if (mod.Manifest.Components.Any(c => c is SaveComponent))
-                throw new ModApplyException("a saved game is installed into a save slot, not applied to the game (Saves)");
-            foreach (var kv in ModApply.Files(mod, rel => Original(t, vault, rel))) desired[kv.Key] = kv.Value;
-            plan.Warnings.AddRange(ModClassifier.Warnings(mod.Manifest));
+            if (mod.Game != t.GameKind) throw new ModException("the mod is for " + mod.GameName + ", this is " + (t.Game == "uw2" ? "Ultima Underworld II" : "Ultima Underworld"));
+            foreach (var f in mod.Files)
+                if (f.Path != t.ExeName || !ultimaHacks) desired[f.Path] = mod.BuildOne(f, Original(t, vault, f.Path));
+            plan.Warnings.AddRange(ModNotes.Warnings(mod));
         }
-        if (ultimaHacks || (mod != null && ModApply.ChangesExe(mod.Manifest)))
+        if (ultimaHacks)
         {
-            byte[] exe = Original(t, vault, t.ExeName) ?? throw new ModApplyException(t.ExeName + " has no original in the vault");
-            desired[t.ExeName] = Hacks.BuildExe(exe, t.GameKind, ultimaHacks, mod);
+            byte[] exe = Original(t, vault, t.ExeName) ?? throw new ModException(t.ExeName + " has no original in the vault");
+            desired[t.ExeName] = Hacks.BuildExe(exe, t.GameKind, mod == null ? null : Hacks.StartOnly(mod, exe, t.GameKind));
         }
         // what an earlier mod wrote and this one does not: back to the original
         foreach (var rel in t.Written.Keys)
             if (!desired.ContainsKey(rel)) { string? u = UnmoddedSha(t, rel); desired[rel] = u == null ? null : vault.Get(u); }
-        var folder = new GameFolder(t.Folder);
+        var folder = new GameDir(t.Folder, t.GameKind);
         foreach (var kv in desired.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
             string want = Files.Sha(kv.Value);
-            if (!GameFolder.IsModFile(kv.Key)) throw new ModApplyException("refused to write " + kv.Key + ", which is not a game file");
+            if (!GamePaths.IsGameFile(kv.Key, t.GameKind)) throw new ModException("refused to write " + kv.Key + ", which is not a game file");
             string? unmodded = UnmoddedSha(t, kv.Key);
             bool isOriginal = unmodded != null ? unmodded == want : kv.Value == null;
             if (!isOriginal) plan.Result[kv.Key] = want;
             byte[]? cur = folder.Read(kv.Key);
-            if (Same(cur, kv.Value)) continue;
+            if (Files.Same(cur, kv.Value)) continue;
             string curSha = Files.Sha(cur);
             bool known = t.Written.TryGetValue(kv.Key, out var w) ? w == curSha
                 : t.Baseline.TryGetValue(kv.Key, out var b) ? b == curSha : cur == null;
@@ -170,13 +186,13 @@ public static class DosGame
     {
         var t = plan.Target;
         if (plan.OutsideChanges.Count > 0 && !overwrite)
-            throw new ModApplyException("these files changed since the manager last wrote them: " + string.Join(", ", plan.OutsideChanges) +
+            throw new ModException("these files changed since the manager last wrote them: " + string.Join(", ", plan.OutsideChanges) +
                 ". Keep the changes as a mod first (Capture), or overwrite them.");
-        var folder = new GameFolder(t.Folder);
+        var folder = new GameDir(t.Folder, t.GameKind);
         var j = new DosJournal { Target = t.Id, Stamp = Guid.NewGuid().ToString("N"), Mod = plan.Mod, UltimaHacks = plan.UltimaHacks };
         foreach (var kv in plan.Writes)
         {
-            if (!GameFolder.IsModFile(kv.Key)) throw new ModApplyException("refused to write " + kv.Key + ", which is not a game file");
+            if (!GamePaths.IsGameFile(kv.Key, t.GameKind)) throw new ModException("refused to write " + kv.Key + ", which is not a game file");
             byte[]? cur = folder.Read(kv.Key);
             j.Files.Add(new DosJournal.Entry { File = kv.Key, Before = cur == null ? null : vault.Put(cur), After = kv.Value == null ? null : Files.Sha(kv.Value) });
         }
@@ -230,7 +246,7 @@ public static class DosGame
 
     static void Rollback(Target t, Vault vault, DosJournal j)
     {
-        var folder = new GameFolder(t.Folder);
+        var folder = new GameDir(t.Folder, t.GameKind);
         foreach (var e in j.Files)
         {
             string path = PathOf(t, folder, e.File);
@@ -241,10 +257,10 @@ public static class DosGame
         }
     }
 
-    static string PathOf(Target t, GameFolder folder, string rel)
+    static string PathOf(Target t, GameDir folder, string rel)
     {
-        if (!GameFolder.IsModFile(rel)) throw new ModApplyException("refused to write " + rel + ", which is not a game file");
-        return GameFolder.Inside(t.Folder, folder.Resolve(rel) ?? folder.PathFor(rel));
+        if (!GamePaths.IsGameFile(rel, t.GameKind)) throw new ModException("refused to write " + rel + ", which is not a game file");
+        return GameDir.Inside(t.Folder, folder.Resolve(rel) ?? folder.PathFor(rel));
     }
 
     /// <summary>Temporary files an interrupted write left in the game folder.</summary>
@@ -293,7 +309,7 @@ public static class DosGame
     public static List<string> LocalChanges(Target t)
     {
         var r = new List<string>();
-        var folder = new GameFolder(t.Folder);
+        var folder = new GameDir(t.Folder, t.GameKind);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var rel in folder.List())
         {
@@ -306,6 +322,4 @@ public static class DosGame
             if (!seen.Contains(rel) && !t.Written.ContainsKey(rel)) r.Add(rel + " (removed)");
         return r;
     }
-
-    static bool Same(byte[]? a, byte[]? b) => a == null || b == null ? a == b : ModDiff.Equal(a, b);
 }

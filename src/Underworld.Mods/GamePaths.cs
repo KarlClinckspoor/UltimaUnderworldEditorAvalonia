@@ -39,6 +39,8 @@ namespace Underworld.Mods
             if (slash < 0) return false;
             string top = p.Substring(0, slash);
             if (!Folders.Contains(top)) return false;
+            // the player's sound setup (written by the game's install program), not the game's content
+            if (p.EndsWith("/UW.CFG")) return false;
             // the editor's and the manager's own files beside the game's
             return !IsWorkFile(p);
         }
@@ -76,7 +78,7 @@ namespace Underworld.Mods
         public static bool IsWorkFile(string rel)
         {
             string up = rel.ToUpperInvariant();
-            return up.EndsWith(".BKP") || up.EndsWith(".ORIG") || up.EndsWith(".TMP") || up.EndsWith(".UWMM-TMP") || up.EndsWith(".UWMOD");
+            return up.EndsWith(".BKP") || up.EndsWith(".ORIG") || up.EndsWith(".TMP") || up.EndsWith(".UWMM-TMP") || up.EndsWith(".UWMOD-TMP") || up.EndsWith(".UWMOD");
         }
 
         /// <summary>The game files present in a folder, as a mod names them.</summary>

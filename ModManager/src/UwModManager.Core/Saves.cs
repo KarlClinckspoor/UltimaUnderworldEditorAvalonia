@@ -1,6 +1,4 @@
 using System.Text;
-using UltimateEditor.Games;
-using UltimateEditor.Modding;
 
 namespace UwModManager.Core;
 
@@ -16,20 +14,20 @@ public sealed class SaveSlot
 
 /// <summary>
 /// Saved games: the SAVE1-SAVE4 folders of a DOS game folder, or of an Exhumed home. Before a slot
-/// is replaced, its files go into the vault and a backup record, so it can be put back.
+/// is replaced, its files go into the vault and a backup record, so it can be put back. Saved
+/// games are not mods (docs/mod-format.md): they are backed up and restored, not shared.
 /// </summary>
 public static class Saves
 {
     public static IReadOnlyList<SaveSlot> List(string folder)
     {
         var r = new List<SaveSlot>();
-        var g = new GameFolder(folder);
         for (int n = 1; n <= 4; n++)
         {
-            string? dir = g.Resolve("SAVE" + n);
+            string? dir = GameDir.FindDir(folder, "SAVE" + n);
             string path = dir ?? Path.Combine(folder, "SAVE" + n);
-            string? lev = dir == null ? null : new GameFolder(dir).Resolve("LEV.ARK");
-            string? desc = dir == null ? null : new GameFolder(dir).Resolve("DESC");
+            string? lev = dir == null ? null : Underworld.Mods.GamePaths.Find(dir, "LEV.ARK");
+            string? desc = dir == null ? null : Underworld.Mods.GamePaths.Find(dir, "DESC");
             r.Add(new SaveSlot
             {
                 Number = n, Folder = path, Exists = lev != null,
@@ -97,34 +95,6 @@ public static class Saves
         Directory.CreateDirectory(into.Folder);
         foreach (var f in Directory.GetFiles(into.Folder)) File.Delete(f);
         foreach (var (name, data) in files) Files.WriteAtomic(Path.Combine(into.Folder, name), data);
-    }
-
-    /// <summary>Installs a saved-game mod into a slot (backing the slot up first). Returns the
-    /// problems found against the game's files, which do not stop the install.</summary>
-    public static List<string> Install(AppPaths paths, Vault vault, ModPackage pkg, SaveSlot into, IFileSource game, GameKind kind)
-    {
-        var c = pkg.Manifest.Components.OfType<SaveComponent>().FirstOrDefault() ?? throw new ModApplyException("the mod is not a saved game");
-        var problems = SaveMods.Check(c, pkg, game, kind);
-        var bad = pkg.Check();
-        if (bad.Count > 0) throw new ModApplyException("the package is not usable: " + string.Join("; ", bad));
-        Backup(paths, vault, into, "before-" + pkg.Manifest.Id);
-        if (Directory.Exists(into.Folder)) foreach (var f in Directory.GetFiles(into.Folder)) File.Delete(f);
-        SaveMods.Install(c, pkg, into.Folder);
-        return problems;
-    }
-
-    /// <summary>A slot as a saved-game mod.</summary>
-    public static ModPackage Export(SaveSlot slot, IFileSource game, GameKind kind, ModManifest details)
-    {
-        var pkg = new ModPackage { Manifest = details };
-        var c = SaveMods.Export(slot.Folder, game, kind, slot.Number, pkg.Files);
-        details.Components.Clear();
-        details.Components.Add(c);
-        details.BaseFiles = new SortedDictionary<string, string>(c.DependsOn, StringComparer.Ordinal);
-        details.BaseSet = KnownFiles.SetOf(kind, details.BaseFiles);
-        if (string.IsNullOrEmpty(details.Created)) details.Created = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-        ModClassifier.Classify(details, null, pkg);
-        return pkg;
     }
 
     static string Safe(string s)

@@ -1,20 +1,19 @@
-using UltimateEditor.Modding;
+using Underworld.Mods;
 
 namespace UwModManager.Core;
 
-/// <summary>A mod in the library: its package file and manifest.</summary>
+/// <summary>A mod in the library: its package file and what it holds.</summary>
 public sealed class LibraryEntry
 {
     public required string Key { get; init; }
     public required string Path { get; init; }
-    public required ModManifest Manifest { get; init; }
+    public required ModPackage Package { get; init; }
     public long Size { get; init; }
-    // The manifest's members are fields, which bindings can't see.
-    public string Name => Manifest.Name;
-    public string Version => Manifest.Version;
-    public string Kind => Manifest.Type;
-    public string GameName => Manifest.GameName;
-    public override string ToString() => Manifest.Name + " " + Manifest.Version;
+    public string Name => Package.Name;
+    public string Version => Package.Version;
+    public string Game => Package.GameId;
+    public string GameName => Package.GameName;
+    public override string ToString() => Package.Name + " " + Package.Version;
 }
 
 /// <summary>The imported mods: .uwmod files in the library folder, one per id and version.</summary>
@@ -23,7 +22,7 @@ public sealed class Library
     readonly string root;
     public Library(string root) { this.root = root; Directory.CreateDirectory(root); }
 
-    public static string KeyOf(ModManifest m) => m.Id + "@" + m.Version;
+    public static string KeyOf(ModPackage m) => m.Id + "@" + m.Version;
 
     public IReadOnlyList<LibraryEntry> List()
     {
@@ -33,7 +32,7 @@ public sealed class Library
             try
             {
                 var pkg = ModPackage.Load(f);
-                r.Add(new LibraryEntry { Key = KeyOf(pkg.Manifest), Path = f, Manifest = pkg.Manifest, Size = new FileInfo(f).Length });
+                r.Add(new LibraryEntry { Key = KeyOf(pkg), Path = f, Package = pkg, Size = new FileInfo(f).Length });
             }
             catch (Exception) { /* not a package this version reads; left alone */ }
         }
@@ -45,24 +44,25 @@ public sealed class Library
     public ModPackage Load(string key)
     {
         var e = Find(key) ?? throw new KeyNotFoundException("the library has no mod " + key);
-        return ModPackage.Load(e.Path);
+        return e.Package;
     }
 
-    /// <summary>Copies a package into the library (after checking it); returns its entry.</summary>
+    /// <summary>Copies a package into the library (reading it checks it); returns its entry.</summary>
     public LibraryEntry Import(string path)
     {
         byte[] bytes = File.ReadAllBytes(path);
         var pkg = ModPackage.FromBytes(bytes);
-        var problems = pkg.Check();
-        if (problems.Count > 0) throw new InvalidDataException("the package is not usable: " + string.Join("; ", problems));
-        string dst = FileFor(KeyOf(pkg.Manifest));
+        string dst = FileFor(KeyOf(pkg));
         Files.WriteAtomic(dst, bytes);
-        return new LibraryEntry { Key = KeyOf(pkg.Manifest), Path = dst, Manifest = pkg.Manifest, Size = bytes.Length };
+        return new LibraryEntry { Key = KeyOf(pkg), Path = dst, Package = pkg, Size = bytes.Length };
     }
 
-    public void Add(ModPackage pkg)
+    public LibraryEntry Add(ModPackage pkg)
     {
-        Files.WriteAtomic(FileFor(KeyOf(pkg.Manifest)), pkg.ToBytes());
+        byte[] bytes = pkg.ToBytes();
+        string dst = FileFor(KeyOf(pkg));
+        Files.WriteAtomic(dst, bytes);
+        return new LibraryEntry { Key = KeyOf(pkg), Path = dst, Package = pkg, Size = bytes.Length };
     }
 
     public void Remove(string key)

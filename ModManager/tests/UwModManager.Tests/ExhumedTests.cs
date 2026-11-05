@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using UltimateEditor.Games;
-using UltimateEditor.Modding;
-using UltimateEditor.Modding.Exe;
+using Underworld.Mods;
 using UwModManager.Core;
 using Xunit;
 
@@ -45,27 +44,29 @@ public class ExhumedTests
         var kind = Env.Kind(game);
         var m = new Manager(Env.Temp("mgr"));
         var t = Exhumed(m, folder, game, ExhumedGame.ParseFeatures(FeaturesFor(game)));
-        string modded = null, removed = null;
+        string modded = null;
         var mod = Env.MakeMod(game, f =>
         {
             Env.EditLevel(f, kind, 1, 100, 1);
             Env.SetStart(f, kind, 30, 4);
-            removed = Directory.GetFiles(Path.Combine(f, "CUTS")).First();
-            File.Delete(removed);
+            Env.AddSound(f, game, new byte[] { 7, 7, 7 });
             modded = f;
         }, "test.ex");
         m.Library.Add(mod);
-        string key = Library.KeyOf(mod.Manifest);
-        Assert.Empty(m.Problems(t, mod.Manifest));
+        string key = Library.KeyOf(mod);
+        Assert.Empty(m.Problems(t, mod));
         string home = m.UseExhumed(t, key);
-        Assert.Equal(Env.Read(modded, "DATA/LEV.ARK"), File.ReadAllBytes(Path.Combine(home, "DATA", "LEV.ARK")));
+        Assert.Equal(Env.Read(modded, "DATA/LEV.ARK"), Env.Read(home, "DATA/LEV.ARK"));
+        Assert.Equal(new byte[] { 7, 7, 7 }, Env.Read(home, Env.NewSound(game)));
+        // the executable stays the port's business: the start square goes into the settings
+        Assert.Null(Env.Read(home, t.ExeName));
         string cfg = File.ReadAllText(Path.Combine(home, ExhumedGame.ConfigName(t.Game)));
         Assert.Contains("start-square=30,4", cfg);
         Assert.DoesNotContain("exe-patch=", cfg);
-        Assert.True(File.Exists(Path.Combine(home, "CUTS", ".wh." + Path.GetFileName(removed).ToUpperInvariant())));
         // the game folder is untouched
         string fresh = Env.Copy(game);
-        foreach (var rel in new GameFolder(fresh).List()) Assert.Equal(Env.Read(fresh, rel), Env.Read(folder, rel));
+        foreach (var rel in new GameDir(fresh, kind).List()) Assert.Equal(Env.Read(fresh, rel), Env.Read(folder, rel));
+        Assert.Null(Env.Read(folder, Env.NewSound(game)));
         // the original game: another home, without the mod's files or settings
         string orig = m.UseExhumed(t, null);
         Assert.NotEqual(home, orig);
@@ -87,30 +88,26 @@ public class ExhumedTests
         var f = ExhumedGame.ParseFeatures(FeaturesFor(game));
         var t = Exhumed(m, folder, game, f);
         byte[] exe = Env.Read(folder, t.ExeName);
-        var mz = new MzExe(exe);
-        var rel = mz.RelocatedWords();
-        int data = (int)f.ExePatchRanges[2][0] + 0x40;   // DGROUP
-        while (mz.TouchesRelocation(data, 2, rel)) data += 2;
-        int code = mz.LoadModuleStart + 0x200;            // seg000's code
-        while (mz.TouchesRelocation(code, 1, rel)) code++;
+        int data = (int)f.ExePatchRanges[2][0] + 0x40;        // DGROUP, which the port reads from the executable
+        int code = BitConverter.ToUInt16(exe, 8) * 16 + 0x200;  // seg000's code, past the MZ header
         var good = Env.MakeMod(game, g => Poke(g, t.ExeName, data, 0x33), "test.data");
         var bad = Env.MakeMod(game, g => Poke(g, t.ExeName, code, 0x01), "test.code");
         m.Library.Add(good); m.Library.Add(bad);
-        Assert.Empty(m.Problems(t, good.Manifest));
-        Assert.Contains(m.Problems(t, bad.Manifest), p => p.Contains("code"));
-        Assert.Throws<ModApplyException>(() => m.UseExhumed(t, Library.KeyOf(bad.Manifest)));
-        string home = m.UseExhumed(t, Library.KeyOf(good.Manifest));
+        Assert.Empty(m.Problems(t, good));
+        Assert.Contains(m.Problems(t, bad), p => p.Contains("code"));
+        Assert.Throws<ModException>(() => m.UseExhumed(t, Library.KeyOf(bad)));
+        string home = m.UseExhumed(t, Library.KeyOf(good));
         Assert.Contains("exe-patch=" + ExhumedGame.PatchFile, File.ReadAllText(Path.Combine(home, ExhumedGame.ConfigName(t.Game))));
         string line = File.ReadAllLines(Path.Combine(home, ExhumedGame.PatchFile)).Single(l => !l.StartsWith("#"));
-        Assert.Equal(string.Format("0x{0:X} {1:x2} {2:x2}", data, exe[data], exe[data] ^ 0x33), line);
+        Assert.Equal(string.Format("0x{0:X} {1:X2} {2:X2}", data, exe[data], exe[data] ^ 0x33), line);
         // and without the features (an upstream build), neither is playable
         t.Features = null;
-        Assert.NotEmpty(m.Problems(t, good.Manifest));
+        Assert.NotEmpty(m.Problems(t, good));
     }
 
     static void Poke(string folder, string exeName, int at, byte xor)
     {
-        string p = new GameFolder(folder).Resolve(exeName);
+        string p = GamePaths.Find(folder, exeName);
         byte[] e = File.ReadAllBytes(p); e[at] ^= xor; File.WriteAllBytes(p, e);
     }
 
@@ -124,7 +121,7 @@ public class ExhumedTests
         var dos = m.AddDos(folder);
         var mod = Env.MakeMod(game, g => { Env.EditLevel(g, kind, 1, 64, 3); Env.SetStart(g, kind, 10, 10); }, "test.dos");
         m.Library.Add(mod);
-        m.UseDos(dos, Library.KeyOf(mod.Manifest), true);   // with UltimaHacks: an executable Exhumed refuses
+        m.UseDos(dos, Library.KeyOf(mod), true);   // with UltimaHacks: an executable Exhumed refuses
         var t = Exhumed(m, folder, game, ExhumedGame.ParseFeatures(FeaturesFor(game)));
         string home = m.UseExhumed(t, null);
         Assert.Equal(DosGame.Original(dos, m.Vault, "DATA/LEV.ARK"), File.ReadAllBytes(Path.Combine(home, "DATA", "LEV.ARK")));
@@ -152,7 +149,7 @@ public class ExhumedTests
         Assert.True(t.Features.StartSquare);
         var mod = Env.MakeMod(game, g => Env.SetStart(g, kind, 33, 5), "test.square");
         m.Library.Add(mod);
-        t.ActiveMod = Library.KeyOf(mod.Manifest);
+        t.ActiveMod = Library.KeyOf(mod);
         var psi = m.LaunchInfo(t);
         string script = Path.Combine(AppContext.BaseDirectory, "TestData", game == "UW2" ? "newgame-uw2.script" : "newgame-uw1.script");
         foreach (var a in new[] { "--hidden", "--no-audio", "--no-recording", "--input-script", script, "--exit-after", game == "UW2" ? "62000" : "46000" }) psi.ArgumentList.Add(a);

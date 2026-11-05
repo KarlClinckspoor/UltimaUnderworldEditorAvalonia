@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using UltimateEditor.Modding;
 using UwModManager.Core;
 
 namespace UwModManager.App.ViewModels;
@@ -50,7 +49,6 @@ public sealed partial class TargetViewModel : ViewModelBase
 
     [ObservableProperty] private ModChoice? _selected;
     [ObservableProperty] private bool _ultimaHacks;
-    [ObservableProperty] private bool _useRecommended = true;
     [ObservableProperty] private string _localChanges = "";
     [ObservableProperty] private bool _busy;
 
@@ -75,16 +73,16 @@ public sealed partial class TargetViewModel : ViewModelBase
         Choices.Clear();
         Choices.Add(new ModChoice { Key = null, Title = "The original game", Detail = "no mod", InUse = Target.ActiveMod == null,
             Description = IsDos ? "Every file as it was when the manager took the folder over." : "The game as Exhumed plays it, in a home folder of its own." });
-        foreach (var e in M.Library.List().Where(e => e.Manifest.Game == Target.Game))
+        foreach (var e in M.Library.List().Where(e => e.Game == Target.Game))
         {
-            var mf = e.Manifest;
+            var mf = e.Package;
             Choices.Add(new ModChoice
             {
                 Key = e.Key, Title = mf.Name + "  " + mf.Version,
-                Detail = mf.Type + (mf.Authors.Count > 0 ? " · by " + string.Join(", ", mf.Authors) : ""),
+                Detail = "Mod" + (mf.Authors.Count > 0 ? " · by " + string.Join(", ", mf.Authors) : ""),
                 Description = mf.Description, InUse = Target.ActiveMod == e.Key,
                 Problems = M.Problems(Target, mf), Notes = M.Notes(Target, mf),
-                Warnings = ModClassifier.Warnings(mf), Changes = mf.Components.Select(c => c.Summary).ToList(),
+                Warnings = new List<string>(), Changes = ModNotes.Changes(mf),
             });
         }
         Selected = Choices.FirstOrDefault(c => c.InUse) ?? Choices[0];
@@ -101,8 +99,7 @@ public sealed partial class TargetViewModel : ViewModelBase
         StatusLines.Clear();
         if (IsDos)
         {
-            var (gog, differ, _) = M.CompareWithGog(Target);
-            StatusLines.Add(gog ? "Originals: the GOG release." : $"Originals: {differ.Count} file(s) differ from the GOG release.");
+            StatusLines.Add(M.HasGogExe(Target) ? "Executable: the GOG release's." : "Executable: not the GOG release's (UltimaHacks needs it).");
             var local = DosGame.LocalChanges(Target);
             LocalChanges = local.Count == 0 ? "" : "Changed outside the manager: " + string.Join(", ", local.Take(8)) + (local.Count > 8 ? $" and {local.Count - 8} more" : "") +
                 ". Capture them as a mod before switching, or they will be asked about.";
@@ -177,7 +174,7 @@ public sealed partial class TargetViewModel : ViewModelBase
                 if (a == 2 || a < 0) return;
                 if (a == 0) { await Apply(); }
             }
-            var psi = M.LaunchInfo(Target, UseRecommended);
+            var psi = M.LaunchInfo(Target);
             System.Diagnostics.Process.Start(psi);
             main.Status = "Started: " + Launcher.CommandLine(psi);
             Refresh();
@@ -187,52 +184,18 @@ public sealed partial class TargetViewModel : ViewModelBase
     [RelayCommand]
     async Task Capture()
     {
-        var d = await main.Dialogs.AskDetails("Keep this folder's changes as a mod", new ModManifest { Name = "My changes", Version = "1.0.0" });
+        var d = await main.Dialogs.AskDetails("Keep this folder's changes as a mod", new ModDetails { Name = "My changes", Version = "1.0.0" });
         if (d == null) return;
         await main.Guard(async () =>
         {
             var (pkg, diff) = await Task.Run(() => M.Capture(Target, d));
             if (pkg == null)
             {
-                await main.Dialogs.Tell("Nothing captured", diff.Components.Count == 0 && diff.Problems.Count == 0 ? "Nothing changed." : string.Join("\n", diff.Problems));
+                await main.Dialogs.Tell("Nothing captured", diff.Changed.Count == 0 && diff.Problems.Count == 0 ? "Nothing changed." : string.Join("\n", diff.Problems));
                 return;
             }
             M.Library.Add(pkg);
-            main.Status = $"Captured {pkg.Manifest.Components.Count} change(s) as {pkg.Manifest.Name} {pkg.Manifest.Version} ({pkg.Manifest.Type}), now in the library.";
-            Refresh();
-        });
-    }
-
-    [RelayCommand]
-    async Task ExportSave(SlotItem? slot)
-    {
-        if (slot == null || !slot.Exists) return;
-        var d = await main.Dialogs.AskDetails("Export SAVE" + slot.Slot.Number + " as a mod", new ModManifest { Name = slot.Slot.Description.Length > 0 ? slot.Slot.Description : "Saved game", Version = "1.0.0" });
-        if (d == null) return;
-        await main.Guard(async () =>
-        {
-            d.Game = Target.Game;
-            var pkg = Saves.Export(slot.Slot, M.GameFiles(Target), Target.GameKind, d);
-            string? path = await main.Dialogs.SaveFile("Save the package", pkg.Manifest.Id + "-" + pkg.Manifest.Version + ModPackage.Extension, "uwmod");
-            if (path == null) { M.Library.Add(pkg); main.Status = "Exported into the library."; }
-            else { pkg.Save(path); main.Status = "Exported to " + path; }
-        });
-    }
-
-    [RelayCommand]
-    async Task InstallSave(SlotItem? slot)
-    {
-        if (slot == null) return;
-        var saves = M.Library.List().Where(e => e.Manifest.Game == Target.Game && e.Manifest.Type == ModClassifier.SavedGame).ToList();
-        if (saves.Count == 0) { await main.Dialogs.Tell("No saved games in the library", "Import a saved-game mod into the Library first."); return; }
-        int which = await main.Dialogs.Ask("Install a saved game into SAVE" + slot.Slot.Number, (slot.Exists ? "The slot's game is backed up first (Restore a backup brings it back).\n\n" : "") + "Which one?", saves.Select(s => s.Manifest.Name + " " + s.Manifest.Version).ToArray());
-        if (which < 0) return;
-        await main.Guard(async () =>
-        {
-            var pkg = M.Library.Load(saves[which].Key);
-            var problems = Saves.Install(M.Paths, M.Vault, pkg, slot.Slot, M.GameFiles(Target), Target.GameKind);
-            main.Status = "Installed " + pkg.Manifest.Name + " into SAVE" + slot.Slot.Number + ".";
-            if (problems.Count > 0) await main.Dialogs.Tell("Installed, with warnings", string.Join("\n", problems));
+            main.Status = $"Captured {pkg.Files.Count} changed file(s) as {pkg.Name} {pkg.Version}, now in the library.";
             Refresh();
         });
     }

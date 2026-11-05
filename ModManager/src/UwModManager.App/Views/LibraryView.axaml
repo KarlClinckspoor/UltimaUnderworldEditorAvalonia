@@ -24,7 +24,7 @@
                 <Run Text="{Binding Name}" /><Run Text="  " /><Run Text="{Binding Version}" Classes="dim" />
               </TextBlock>
               <TextBlock FontSize="12" Classes="dim" TextTrimming="CharacterEllipsis">
-                <Run Text="{Binding GameName}" /><Run Text=" · " /><Run Text="{Binding Kind}" />
+                <Run Text="{Binding GameName}" /><Run Text=" · " /><Run Text="{Binding Key}" />
               </TextBlock>
             </StackPanel>
           </DataTemplate>
@@ -38,15 +38,11 @@
           <ItemsControl ItemsSource="{Binding Warnings}">
             <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Classes="warn" Text="{Binding StringFormat='! {0}'}" TextWrapping="Wrap" /></DataTemplate></ItemsControl.ItemTemplate>
           </ItemsControl>
-          <TextBlock Text="{Binding Exhumed}" Classes="dim" TextWrapping="Wrap" FontSize="12" />
           <TextBlock Classes="h2" Text="Changes" />
           <ItemsControl ItemsSource="{Binding Changes}">
             <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding StringFormat='• {0}'}" FontSize="12" TextWrapping="Wrap" /></DataTemplate></ItemsControl.ItemTemplate>
           </ItemsControl>
           <TextBlock Text="{Binding Origin}" Classes="dim" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
-          <Expander Header="README" Margin="0,8,0,0">
-            <SelectableTextBlock Text="{Binding Readme}" TextWrapping="Wrap" FontFamily="monospace" FontSize="12" />
-          </Expander>
         </StackPanel>
       </ScrollViewer>
     </Grid>

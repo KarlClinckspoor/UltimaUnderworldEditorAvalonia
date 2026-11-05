@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
-using UltimateEditor.Modding;
 using UwModManager.App.ViewModels;
 using UwModManager.App.Views;
 using UwModManager.Core;
@@ -25,13 +24,13 @@ public sealed class FakeDialogs : IDialogs
     public readonly List<string> Told = new();
     public Queue<int> Answers = new();
     public Queue<string> Paths = new();
-    public ModManifest Details;
+    public ModDetails Details;
     public Task<string> PickFolder(string title) => Task.FromResult(Paths.Count > 0 ? Paths.Dequeue() : null);
     public Task<string> PickFile(string title, string n, params string[] p) => Task.FromResult(Paths.Count > 0 ? Paths.Dequeue() : null);
     public Task<string> SaveFile(string title, string s, string e) => Task.FromResult(Paths.Count > 0 ? Paths.Dequeue() : null);
     public Task<int> Ask(string title, string text, params string[] buttons) { Told.Add(title + ": " + text); return Task.FromResult(Answers.Count > 0 ? Answers.Dequeue() : 0); }
     public Task Tell(string title, string text) { Told.Add(title + ": " + text); return Task.CompletedTask; }
-    public Task<ModManifest> AskDetails(string title, ModManifest d) => Task.FromResult(Details);
+    public Task<ModDetails> AskDetails(string title, ModDetails d) => Task.FromResult(Details);
 }
 
 public class UiTests
@@ -53,11 +52,10 @@ public class UiTests
         if (folder == null) return;
         var kind = Env.Kind("UW");
         var m = new Manager(Env.Temp("ui"));
-        var lvl = Env.MakeMod("UW", f => { Env.EditLevel(f, kind, 1, 100, 1); Env.SetStart(f, kind, 33, 5); }, "karl.gate-of-dawn", "1.2.0");
-        lvl.Manifest.Name = "Gate of Dawn"; lvl.Manifest.Description = "Rebuilds the first level around a new entrance and moves the start next to it.";
-        lvl.Manifest.ExhumedRecommended.Add("tidy-objects");
-        var txt = Env.MakeMod("UW", f => Env.EditString(f, 4, 3, "a gleaming sword"), "karl.better-names", "0.3.0");
-        txt.Manifest.Name = "Better item names"; txt.Manifest.Description = "Clearer names for weapons and armour.";
+        var lvl = Env.MakeMod("UW", f => { Env.EditLevel(f, kind, 1, 100, 1); Env.SetStart(f, kind, 33, 5); }, "karl.gate-of-dawn", "1.2.0",
+            "Gate of Dawn", "Rebuilds the first level around a new entrance and moves the start next to it.");
+        var txt = Env.MakeMod("UW", f => Env.EditString(f, 4, 3, "a gleaming sword"), "karl.better-names", "0.3.0",
+            "Better item names", "Clearer names for weapons and armour.");
         m.Library.Add(lvl); m.Library.Add(txt);
         var dialogs = new FakeDialogs();
         var vm = new MainViewModel(m, dialogs);
@@ -74,11 +72,11 @@ public class UiTests
         Assert.Equal(3, page.Choices.Count);
         Shot(w, "2-game");
 
-        page.Selected = page.Choices.First(c => c.Key == Library.KeyOf(lvl.Manifest));
+        page.Selected = page.Choices.First(c => c.Key == Library.KeyOf(lvl));
         page.UltimaHacks = true;
         await page.ApplyCommand.ExecuteAsync(null);
         var t = m.State.Targets[0];
-        Assert.Equal(Library.KeyOf(lvl.Manifest), t.ActiveMod);
+        Assert.Equal(Library.KeyOf(lvl), t.ActiveMod);
         Assert.True(t.UltimaHacks);
         Assert.Contains("Gate of Dawn", vm.Games[0].Subtitle);
         Shot(w, "3-game-with-mod");

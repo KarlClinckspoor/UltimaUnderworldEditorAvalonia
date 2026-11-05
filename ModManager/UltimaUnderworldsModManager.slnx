@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Underworld.Shared/Underworld.Shared.csproj" />
     <Project Path="src/UwModManager.App/UwModManager.App.csproj" />
     <Project Path="src/UwModManager.Cli/UwModManager.Cli.csproj" />
     <Project Path="src/UwModManager.Core/UwModManager.Core.csproj" />

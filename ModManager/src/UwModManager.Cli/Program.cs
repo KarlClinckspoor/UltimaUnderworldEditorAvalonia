@@ -1,6 +1,6 @@
 using System.Text;
 using UltimateEditor.Games;
-using UltimateEditor.Modding;
+using Underworld.Mods;
 using UwModManager.Core;
 
 namespace UwModManager.Cli;
@@ -33,10 +33,8 @@ Mods:
   capture TARGET --id ID --name NAME [--version V] [--author A] [-o FILE]
                                       a DOS folder's changes as a mod (into the library, or FILE)
 
-Saved games:
+Saved games (backed up before the manager changes them; not mods):
   saves TARGET                        the slots
-  save-export TARGET SLOT --id ID --name NAME [-o FILE]
-  save-install TARGET SLOT MOD        (the slot is backed up first)
 
 Other:
   play TARGET [--print]               start the game (--print: show the command only)
@@ -49,7 +47,7 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
     {
         Console.OutputEncoding = Encoding.UTF8;
         try { return Run(args.ToList()); }
-        catch (Exception e) when (e is ModApplyException || e is InvalidOperationException || e is IOException || e is KeyNotFoundException || e is InvalidDataException || e is ArgumentException)
+        catch (Exception e) when (e is ModException || e is InvalidOperationException || e is IOException || e is KeyNotFoundException || e is InvalidDataException || e is ArgumentException)
         {
             Console.Error.WriteLine("uwmod: " + e.Message);
             return 1;
@@ -77,8 +75,7 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                 bool asIs = Flag(a, "--as-is");
                 var t = m.AddDos(Arg(a, 0, "FOLDER"), name, asIs);
                 if (t.Written.Count > 0) Console.WriteLine($"The folder was taken over before and has {t.ActiveMod} in place; its originals are in the vault.");
-                var (gog, differ, missing) = m.CompareWithGog(t);
-                Console.WriteLine($"Added {t.Name} ({t.Id}): {t.Baseline.Count} files kept in the vault; " + (gog ? "the GOG release." : $"not the GOG release ({differ.Count} files differ, {missing.Count} missing)."));
+                Console.WriteLine($"Added {t.Name} ({t.Id}): {t.Baseline.Count} files kept in the vault; " + (m.HasGogExe(t) ? "the GOG release's executable." : "not the GOG release's executable (UltimaHacks and Exhumed need it)."));
                 foreach (var c in DosGame.CdImageConfs(t.Folder))
                     Console.WriteLine($"Note: {c} runs the game from GOG's CD image (game.gog), which never sees files changed in the folder. Extract the image into the folder and point that setup at it.");
                 return 0;
@@ -100,8 +97,7 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                 Console.WriteLine("Mod: " + (t.ActiveMod ?? "(original game)") + (t.UltimaHacks ? ", with UltimaHacks" : ""));
                 if (t.Kind == TargetKind.Dos)
                 {
-                    var (gog, differ, _) = m.CompareWithGog(t);
-                    Console.WriteLine("Originals: " + (gog ? "the GOG release" : differ.Count + " files differ from the GOG release"));
+                    Console.WriteLine("Executable: " + (m.HasGogExe(t) ? "the GOG release's" : "not the GOG release's"));
                     var local = DosGame.LocalChanges(t);
                     Console.WriteLine(local.Count == 0 ? "No changes made outside the manager." : "Changed outside the manager: " + string.Join(", ", local));
                     foreach (var o in t.Overwritten)
@@ -112,27 +108,24 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
             }
             case "library":
                 foreach (var e in m.Library.List())
-                    Console.WriteLine($"{e.Key,-36} {e.Manifest.Game}  {e.Manifest.Type,-17} {e.Manifest.Name}");
+                    Console.WriteLine($"{e.Key,-36} {e.Game}  {e.Name}");
                 return 0;
             case "import":
             {
                 var e = m.Library.Import(Arg(a, 0, "FILE"));
-                Console.WriteLine($"Imported {e.Manifest.Name} {e.Manifest.Version} as {e.Key}.");
+                Console.WriteLine($"Imported {e.Name} {e.Version} as {e.Key}.");
                 return 0;
             }
             case "info":
             {
                 string s = Arg(a, 0, "FILE|MOD");
                 var pkg = File.Exists(s) ? ModPackage.Load(s) : m.Library.Load(s);
-                var mf = pkg.Manifest;
-                Console.WriteLine($"{mf.Name} {mf.Version} ({mf.Id}) for {mf.GameName}: {mf.Type}");
-                if (mf.Authors.Count > 0) Console.WriteLine("By " + string.Join(", ", mf.Authors));
-                if (mf.Description.Length > 0) Console.WriteLine(mf.Description);
-                Console.WriteLine("Made from: " + mf.BaseSet + "; made with " + mf.MadeWith);
-                foreach (var c in mf.Components) Console.WriteLine("  " + c.Summary);
-                foreach (var w in ModClassifier.Warnings(mf)) Console.WriteLine("! " + w);
-                if (mf.ExhumedNeeds.Count > 0) Console.WriteLine("Exhumed needs: " + string.Join(", ", mf.ExhumedNeeds));
-                if (mf.ExhumedRecommended.Count > 0) Console.WriteLine("Recommended Exhumed enhancements: " + string.Join(", ", mf.ExhumedRecommended));
+                Console.WriteLine($"{pkg.Name} {pkg.Version} ({pkg.Id}) for {pkg.GameName}");
+                if (pkg.Authors.Count > 0) Console.WriteLine("By " + string.Join(", ", pkg.Authors));
+                if (pkg.Description.Length > 0) Console.WriteLine(pkg.Description);
+                if (pkg.MadeWith.Length > 0) Console.WriteLine("Made with " + pkg.MadeWith);
+                foreach (var c in ModNotes.Changes(pkg)) Console.WriteLine("  " + c);
+                foreach (var w in ModNotes.Warnings(pkg)) Console.WriteLine("! " + w);
                 return 0;
             }
             case "use":
@@ -142,7 +135,7 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                 string? key = original ? null : ModKey(m, Arg(a, 1, "MOD"));
                 if (key != null)
                 {
-                    var mf = m.Library.Find(key)!.Manifest;
+                    var mf = m.Library.Find(key)!.Package;
                     var problems = m.Problems(t, mf);
                     if (problems.Count > 0) { Console.Error.WriteLine("uwmod: the mod cannot be used here: " + string.Join("; ", problems)); return 1; }
                     foreach (var n in m.Notes(t, mf)) Console.WriteLine("Note: " + n);
@@ -169,37 +162,15 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                 string? output = Take(a, "-o");
                 var d = Details(a);
                 var (pkg, diff) = m.Capture(t, d);
-                foreach (var n in diff.Notes) Console.WriteLine("Note: " + n);
-                if (pkg == null) { Console.Error.WriteLine(diff.Components.Count == 0 && diff.Problems.Count == 0 ? "uwmod: nothing changed" : "uwmod: " + string.Join("; ", diff.Problems)); return 1; }
-                if (output != null) pkg.Save(output); else m.Library.Add(pkg);
-                Console.WriteLine($"Captured {pkg.Manifest.Components.Count} component(s) as {Library.KeyOf(pkg.Manifest)} ({pkg.Manifest.Type})" + (output != null ? " in " + output : " into the library") + ".");
+                if (pkg == null) { Console.Error.WriteLine(diff.Changed.Count == 0 && diff.Problems.Count == 0 ? "uwmod: nothing changed" : "uwmod: " + string.Join("; ", diff.Problems)); return 1; }
+                if (output != null) pkg.Write(output); else m.Library.Add(pkg);
+                Console.WriteLine($"Captured {pkg.Files.Count} changed file(s) as {Library.KeyOf(pkg)}" + (output != null ? " in " + output : " into the library") + ".");
                 return 0;
             }
             case "saves":
             {
                 var t = m.Get(Arg(a, 0, "TARGET"));
                 foreach (var s in Saves.List(m.SavesFolder(t))) Console.WriteLine(s);
-                return 0;
-            }
-            case "save-export":
-            {
-                var t = m.Get(Arg(a, 0, "TARGET"));
-                int n = int.Parse(Arg(a, 1, "SLOT"));
-                string? output = Take(a, "-o");
-                var d = Details(a); d.Game = t.Game;
-                var pkg = Saves.Export(Saves.List(m.SavesFolder(t))[n - 1], m.GameFiles(t), t.GameKind, d);
-                if (output != null) pkg.Save(output); else m.Library.Add(pkg);
-                Console.WriteLine($"Exported SAVE{n} as {Library.KeyOf(pkg.Manifest)}" + (output != null ? " in " + output : " into the library") + ".");
-                return 0;
-            }
-            case "save-install":
-            {
-                var t = m.Get(Arg(a, 0, "TARGET"));
-                int n = int.Parse(Arg(a, 1, "SLOT"));
-                var pkg = m.Library.Load(ModKey(m, Arg(a, 2, "MOD")));
-                var problems = Saves.Install(m.Paths, m.Vault, pkg, Saves.List(m.SavesFolder(t))[n - 1], m.GameFiles(t), t.GameKind);
-                foreach (var p in problems) Console.WriteLine("! " + p);
-                Console.WriteLine($"Installed {pkg.Manifest.Name} into SAVE{n} (the slot's earlier files are backed up).");
                 return 0;
             }
             case "play":
@@ -223,12 +194,12 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
     {
         var game = Arg(a, 0, "uw1|uw2") == "uw2" ? GameKind.UW2 : GameKind.UW1;
         byte[] exe = File.ReadAllBytes(Arg(a, 1, "IN.EXE"));
-        File.WriteAllBytes(Arg(a, 2, "OUT.EXE"), Hacks.BuildExe(exe, game, true, null));
+        File.WriteAllBytes(Arg(a, 2, "OUT.EXE"), Hacks.BuildExe(exe, game, null));
         Console.WriteLine(Hacks.Credit);
         return 0;
     }
 
-    static ModManifest Details(List<string> a) => new()
+    static ModDetails Details(List<string> a) => new()
     {
         Id = Take(a, "--id") ?? throw new ArgumentException("give --id"),
         Name = Take(a, "--name") ?? throw new ArgumentException("give --name"),
@@ -242,7 +213,7 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
     {
         if (File.Exists(s)) return m.Library.Import(s).Key;
         if (m.Library.Find(s) != null) return s;
-        var byId = m.Library.List().Where(e => e.Manifest.Id == s).ToList();
+        var byId = m.Library.List().Where(e => e.Package.Id == s).ToList();
         if (byId.Count == 1) return byId[0].Key;
         throw new KeyNotFoundException("no mod " + s + " in the library (uwmod library)");
     }

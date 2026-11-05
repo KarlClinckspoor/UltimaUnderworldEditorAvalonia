@@ -1,14 +1,15 @@
 using System.Reflection;
 using UltimateEditor.Games;
-using UltimateEditor.Modding;
-using UltimateEditor.Modding.Exe;
+using Underworld.Mods;
 
 namespace UwModManager.Core;
 
 /// <summary>
 /// UltimaHacks (github.com/JohnGlassmyer/UltimaHacks, MIT licence, John Glassmyer): its compiled
-/// hacks for the GOG executables, carried by the manager, and the executables built from the
-/// originals: original, then the hack if wanted, then the mod's settings and patches.
+/// hacks for the GOG executables, carried by the manager, and the executable built from the
+/// original: the hack if wanted, then the start square a mod moves (docs/mod-format.md, "The
+/// executable": a mod's delta is made against GOG's executable, so with the hack only a start
+/// square can follow it).
 /// </summary>
 public static class Hacks
 {
@@ -30,30 +31,38 @@ public static class Hacks
     }
 
     /// <summary>
-    /// The executable to run: <paramref name="original"/> (which must be the GOG release's when
-    /// UltimaHacks is wanted), with UltimaHacks' edits, then the mod's executable changes (they
-    /// follow an overlay UltimaHacks moved, and may not touch what the hack wrote).
+    /// The executable to run with UltimaHacks: <paramref name="original"/> hacked (it must be the
+    /// GOG release's, unless it came hacked already), then <paramref name="start"/>, the start
+    /// square a mod moved, written into it.
     /// </summary>
-    public static byte[] BuildExe(byte[] original, GameKind game, bool ultimaHacks, ModPackage? mod)
+    public static byte[] BuildExe(byte[] original, GameKind game, (int X, int Y)? start)
     {
-        byte[] exe = (byte[])original.Clone();
-        IList<KeyValuePair<int, int>>? written = null;
-        var already = For(game);
-        if (already.IsAppliedTo(original))
-        {
-            // the folder came with UltimaHacks already applied: that is its original, and the
-            // hack's code is protected from the mod's patches either way
-            written = already.WrittenRanges();
-        }
-        else if (ultimaHacks)
+        var hack = For(game);
+        byte[] exe;
+        if (hack.IsAppliedTo(original)) exe = (byte[])original.Clone();
+        else
         {
             if (!ExeIdentity.IsGogOriginal(original, game))
-                throw new ModApplyException(ExeIdentity.ExeName(game) + " is not the GOG release's, which UltimaHacks' hack is made for");
-            var hack = For(game);
+                throw new ModException(ExeIdentity.ExeName(game) + " is not the GOG release's, which UltimaHacks' hack is made for");
             exe = hack.Apply(original);
-            written = hack.WrittenRanges();
         }
-        if (mod != null && ModApply.ChangesExe(mod.Manifest)) ModApply.ApplyExe(mod, exe, written);
+        if (start != null && !StartPosition.Patch(exe, game, start.Value.X, start.Value.Y))
+            throw new ModException("the start square was not found in the executable UltimaHacks makes");
         return exe;
+    }
+
+    /// <summary>
+    /// The start square a mod's executable moves, when that is all it changes (null: it does not
+    /// change the executable, or does not move the start); throws when it changes more, which
+    /// cannot follow UltimaHacks.
+    /// </summary>
+    public static (int X, int Y)? StartOnly(ModPackage mod, byte[] originalExe, GameKind game)
+    {
+        var f = mod.Files.FirstOrDefault(x => x.Path == ExeIdentity.ExeName(game));
+        if (f == null) return null;
+        byte[] modded = mod.BuildOne(f, originalExe);
+        if (!ExeChanges.OnlyStart(originalExe, modded, game))
+            throw new ModException("the mod changes " + f.Path + " beyond the start square, which cannot be combined with UltimaHacks");
+        return ExeChanges.MovedStart(originalExe, modded, game, out int x, out int y) ? (x, y) : null;
     }
 }
