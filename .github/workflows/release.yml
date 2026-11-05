@@ -1,14 +1,19 @@
 name: Release
 
-# Builds self-contained single-file editors for Windows, Linux and macOS and publishes a
-# GitHub release. Run it from the Actions tab (Run workflow), or push a tag such as v0.2.0-beta.
+# Builds self-contained single-file programs for Windows, Linux and macOS (the editor, and the mod
+# manager with its uwmod command line) and publishes a GitHub release. Run it from the Actions tab
+# (Run workflow), or push a tag such as v0.1.2-beta.
+#
+# Each app keeps its own version: the editor's <Version> in Directory.Build.props, the manager's
+# in ModManager/Directory.Build.props. The tag (or the version typed) must be the editor's, with
+# an optional suffix such as -beta; the manager is released at its own number with the same suffix.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version (no v), e.g. 0.1.0-beta"
+        description: "The editor's version (no v), as in Directory.Build.props, with a suffix if wanted, e.g. 0.1.2-beta"
         required: true
-        default: "0.1.0-beta"
+        default: "0.1.2-beta"
       prerelease:
         description: "Mark as a pre-release"
         type: boolean
@@ -32,28 +37,46 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then V="${GITHUB_REF_NAME#v}"; PRE=$([[ "$V" == *-* ]] && echo true || echo false);
           else V="${{ inputs.version }}"; PRE="${{ inputs.prerelease }}"; fi
+          N="${V%%-*}"; SUFFIX="${V#"$N"}"
+          prop() { sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' "$1" | head -1; }
+          EN=$(prop Directory.Build.props); MN=$(prop ModManager/Directory.Build.props)
+          if [ "$N" != "$EN" ]; then echo "::error::$V is not the editor's version $EN (Directory.Build.props): raise it there, or tag v$EN$SUFFIX"; exit 1; fi
+          [ -n "$MN" ] || { echo "::error::no <Version> in ModManager/Directory.Build.props"; exit 1; }
           echo "version=$V" >> $GITHUB_OUTPUT
-          echo "number=${V%%-*}" >> $GITHUB_OUTPUT
+          echo "number=$N" >> $GITHUB_OUTPUT
+          echo "manager=$MN$SUFFIX" >> $GITHUB_OUTPUT
+          echo "managernumber=$MN" >> $GITHUB_OUTPUT
           echo "prerelease=$PRE" >> $GITHUB_OUTPUT
+          echo "Editor $V, mod manager $MN$SUFFIX"
       - name: Publish
         run: |
-          V=${{ steps.v.outputs.version }}
+          V=${{ steps.v.outputs.version }}; MV=${{ steps.v.outputs.manager }}
+          ONE="-c Release --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none"
+          pack() { (cd stage && if [ $2 = linux-x64 ]; then tar czf ../dist/$1-$2.tar.gz $1-$2; else zip -qr9 ../dist/$1-$2.zip $1-$2; fi); }
           mkdir -p dist
           for r in win-x64 linux-x64 osx-x64 osx-arm64; do
             d=stage/UwEditorAvalonia-$V-$r
-            dotnet publish src/UwEditor.App -c Release -r $r --self-contained true \
-              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none \
+            dotnet publish src/UwEditor.App -r $r $ONE \
               -p:Version=${{ steps.v.outputs.number }} -p:InformationalVersion=$V -o $d
             rm -f $d/*.pdb
             sed "s/VERSION/$V/" .github/release-readme.txt > $d/README.txt
-            (cd stage && if [ $r = linux-x64 ]; then tar czf ../dist/UwEditorAvalonia-$V-$r.tar.gz UwEditorAvalonia-$V-$r; else zip -qr9 ../dist/UwEditorAvalonia-$V-$r.zip UwEditorAvalonia-$V-$r; fi)
+            pack UwEditorAvalonia-$V $r
+
+            m=stage/UltimaUnderworldsModManager-$MV-$r
+            for p in ModManager/src/UwModManager.App ModManager/src/UwModManager.Cli; do
+              dotnet publish $p -r $r $ONE \
+                -p:Version=${{ steps.v.outputs.managernumber }} -p:InformationalVersion=$MV -o $m
+            done
+            rm -f $m/*.pdb
+            sed "s/VERSION/$MV/" .github/release-readme-modmanager.txt > $m/README.txt
+            pack UltimaUnderworldsModManager-$MV $r
           done
           ls -la dist
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          V=${{ steps.v.outputs.version }}
-          sed "s/0\.1\.0-beta/$V/g" .github/release-notes.md > notes.md
+          V=${{ steps.v.outputs.version }}; MV=${{ steps.v.outputs.manager }}
+          sed -e "s/MMVERSION/$MV/g" -e "s/VERSION/$V/g" .github/release-notes.md > notes.md
           PRE=""; [ "${{ steps.v.outputs.prerelease }}" = "true" ] && PRE="--prerelease"
-          gh release create "v$V" dist/* --target "${{ github.sha }}" --title "Underworld Editor $V" --notes-file notes.md $PRE
+          gh release create "v$V" dist/* --target "${{ github.sha }}" --title "Underworld Editor $V and Mod Manager $MV" --notes-file notes.md $PRE
