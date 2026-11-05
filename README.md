@@ -487,6 +487,7 @@ The core tests check, among other things:
 | `tests/UwEditor.App.Tests` | Headless interface tests of the Avalonia windows. |
 | `tests/UwEditor.Screenshots` | Screenshot tests of the program with its OpenGL view (Linux). |
 | `tests/Shared` | Picture comparison and baselines, shared by the two interface test projects. |
+| `ModManager/` | The Ultima Underworlds Mod Manager (app, `uwmod` command line, tests), brought in from its own repository. It still builds against the Unity editor's mod code and format; see its [README](ModManager/README.md). |
 
 The meaning of the files comes from
 [underworld-exhumed](https://github.com/abedegno/underworld-exhumed), the reconstructed source

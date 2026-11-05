@@ -12,6 +12,8 @@ public class SavesAndLauncherTests
     {
         var g = new GameFolder(folder);
         string dir = Path.Combine(folder, "SAVE" + n);
+        // the copy may come with saves of its own (tests/gamedata/UW2 has SAVE0-2): start the slot empty
+        if (Directory.Exists(dir)) Directory.Delete(dir, true);
         Directory.CreateDirectory(dir);
         File.Copy(g.Resolve("DATA/LEV.ARK"), Path.Combine(dir, "LEV.ARK"));
         File.WriteAllBytes(Path.Combine(dir, "BGLOBALS.DAT"), BGlobals.Parse(File.ReadAllBytes(g.Resolve("DATA/BABGLOBS.DAT")), false).ToBytes(true));

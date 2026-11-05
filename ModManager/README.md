@@ -5,6 +5,12 @@ Installs mods for **Ultima Underworld** and **Ultima Underworld II** made with t
 (Tools > Export as mod). A desktop app (Avalonia: Windows, macOS, Linux) and a command line
 tool, `uwmod`, over the same core.
 
+It lives in the Avalonia editor's repository (`ModManager/`, brought in with its history from
+`KarlClinckspoor/UltimaUnderworldsModManager`). It still reads the Unity editor's mod format:
+the Avalonia editor's own **Make a mod** writes a different `mod.json` (strings and executable
+changes are laid out otherwise), so its mods do not install here yet. Moving both onto one
+shared `Underworld.Modding` library is the next step.
+
 ## What it does
 
 - **Mods are packages of changes**, `.uwmod` files: a zip with `mod.json` and the changed
@@ -37,32 +43,39 @@ tool, `uwmod`, over the same core.
 ## Building
 
 The file formats and the mod packages are shared with the editor, whose `Underworld.Formats`
-and `Underworld.Modding` code is Unity-free. The manager compiles those sources from an editor
-checkout (branch `modding`), found, in order:
+and `Underworld.Modding` code is Unity-free. For now the manager compiles those sources from a
+Unity editor checkout (with `Assets/Scripts/Modding`), found, in order:
 
-1. next to this folder: `../UltimaUnderworldEditorUnity`;
-2. `external/UltimaUnderworldEditorUnity` (for instance as a git submodule);
+1. beside the Avalonia editor's repository: `../UltimaUnderworldEditorUnity`;
+2. `ModManager/external/UltimaUnderworldEditorUnity` (for instance as a git submodule);
 3. `dotnet build -p:EditorRoot=PATH`.
 
-With the .NET 10 SDK:
+`ModManager/Directory.Build.props` imports the repository's own (for `AvaloniaVersion`), then
+turns on nullable references and implicit usings for the manager's projects only. The projects
+are in the editor's `UltimaUnderworldEditorAvalonia.sln` (folder ModManager), and
+`UltimaUnderworldsModManager.slnx` here still builds the manager alone.
+
+From the repository's top, with the .NET 10 SDK:
 
 ```sh
-dotnet build                                   # everything
-dotnet run --project src/UwModManager.App      # the app
-dotnet run --project src/UwModManager.Cli -- help
-dotnet publish src/UwModManager.App -c Release -r win-x64 --self-contained
+dotnet build ModManager/UltimaUnderworldsModManager.slnx
+dotnet run --project ModManager/src/UwModManager.App      # the app
+dotnet run --project ModManager/src/UwModManager.Cli -- help
+dotnet publish ModManager/src/UwModManager.App -c Release -r win-x64 --self-contained
 ```
 
 ## Tests
 
 ```sh
-UW_GAMEDATA=/path/to/gamedata dotnet test
+UW_REQUIRE_GAMEDATA=1 dotnet test ModManager/tests/UwModManager.Tests
+UW_REQUIRE_GAMEDATA=1 dotnet test ModManager/tests/UwModManager.UiTests
 ```
 
-`UW_GAMEDATA` is a folder with `UW` and/or `UW2` subfolders holding the GOG releases (by
-default `../UltimaUnderworldEditorUnity/gamedata`); the tests copy them, put the editor's
-`.BKP` originals back in the copies and never write to the folder itself. A game that is not
-there is not tested (those tests pass without checking anything).
+The game files are the editor's: `UW_GAMEDATA` (a folder with `UW` and/or `UW2`), else the
+git-ignored `tests/gamedata` beside `UltimaUnderworldEditorAvalonia.sln`. The tests copy them,
+put any `.BKP` originals back in the copies and never write to the folder itself. A game that
+is not there is not tested (those tests pass without checking anything), unless
+`UW_REQUIRE_GAMEDATA=1`.
 `UWMM_TEST_UW1PORT` / `UWMM_TEST_UW2PORT`, set to built ports from the fork's `modding`
 branch, add tests that start a port and check the start square of a new game.
 `tests/UwModManager.UiTests` drives the app headless and writes screenshots to its

@@ -1,12 +1,14 @@
 <Project>
+  <!-- The editor's own settings first (AvaloniaVersion and the rest), then the manager's. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
   <PropertyGroup>
     <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
-    <!-- The shared file formats and mod packages live in the editor (UltimaUnderworldEditorUnity,
-         branch modding: Assets/Scripts/Formats and Assets/Scripts/Modding), Unity-free. The
-         manager compiles them from an editor checkout: by default the folder next to this one,
-         else external/UltimaUnderworldEditorUnity (a submodule), else EditorRoot given on the
-         command line (dotnet build -p:EditorRoot=PATH). -->
-    <EditorRoot Condition="'$(EditorRoot)' == '' and Exists('$(MSBuildThisFileDirectory)../UltimaUnderworldEditorUnity/Assets/Scripts/Modding')">$(MSBuildThisFileDirectory)../UltimaUnderworldEditorUnity</EditorRoot>
+    <!-- The shared file formats and mod packages still come from the Unity editor
+         (UltimaUnderworldEditorUnity, branch modding: Assets/Scripts/Formats and
+         Assets/Scripts/Modding), Unity-free, until they move into this repository
+         (src/Underworld.Modding). Found beside this repository, else in external/, else given on
+         the command line (dotnet build -p:EditorRoot=PATH). -->
+    <EditorRoot Condition="'$(EditorRoot)' == '' and Exists('$(MSBuildThisFileDirectory)../../UltimaUnderworldEditorUnity/Assets/Scripts/Modding')">$(MSBuildThisFileDirectory)../../UltimaUnderworldEditorUnity</EditorRoot>
     <EditorRoot Condition="'$(EditorRoot)' == '' and Exists('$(MSBuildThisFileDirectory)external/UltimaUnderworldEditorUnity/Assets/Scripts/Modding')">$(MSBuildThisFileDirectory)external/UltimaUnderworldEditorUnity</EditorRoot>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -9,8 +9,9 @@ using Xunit;
 namespace UwModManager.Tests;
 
 /// <summary>
-/// The game files: UW_GAMEDATA (a folder with UW and/or UW2), else ../UltimaUnderworldEditorUnity/gamedata.
-/// A game that is not there is skipped. Each test gets fresh copies (with the editor's .BKP
+/// The game files: UW_GAMEDATA (a folder with UW and/or UW2), else the editor's git-ignored
+/// tests/gamedata (found beside UltimaUnderworldEditorAvalonia.sln). A game that is not there is
+/// skipped, unless UW_REQUIRE_GAMEDATA=1. Each test gets fresh copies (with the editor's .BKP
 /// originals put back) and a manager folder of its own.
 /// </summary>
 public static class Env
@@ -22,23 +23,32 @@ public static class Env
             string e = Environment.GetEnvironmentVariable("UW_GAMEDATA");
             if (!string.IsNullOrEmpty(e)) return e;
             var d = new DirectoryInfo(AppContext.BaseDirectory);
-            while (d != null && !File.Exists(Path.Combine(d.FullName, "Directory.Build.props"))) d = d.Parent;
-            return d == null ? "" : Path.Combine(d.FullName, "..", "UltimaUnderworldEditorUnity", "gamedata");
+            while (d != null && !File.Exists(Path.Combine(d.FullName, "UltimaUnderworldEditorAvalonia.sln"))) d = d.Parent;
+            return d == null ? "" : Path.Combine(d.FullName, "tests", "gamedata");
         }
     }
+
+    static bool Required => Environment.GetEnvironmentVariable("UW_REQUIRE_GAMEDATA") == "1";
 
     public static IEnumerable<object[]> Games()
     {
         bool any = false;
         foreach (var g in new[] { "UW", "UW2" })
+        {
             if (Directory.Exists(Path.Combine(Root, g, "DATA"))) { any = true; yield return new object[] { g }; }
+            else if (Required) throw new InvalidOperationException("Game files for " + g + " not found under '" + Root + "' (UW_REQUIRE_GAMEDATA=1).");
+        }
         if (!any) yield return new object[] { "none" };
     }
 
     public static string Copy(string game)
     {
         string src = Path.Combine(Root, game);
-        if (!Directory.Exists(Path.Combine(src, "DATA"))) return null;
+        if (!Directory.Exists(Path.Combine(src, "DATA")))
+        {
+            if (Required && game != "none") throw new InvalidOperationException("Game files for " + game + " not found under '" + Root + "' (UW_REQUIRE_GAMEDATA=1).");
+            return null;
+        }
         string dst = Temp(game);
         CopyDir(src, dst);
         foreach (var bkp in Directory.GetFiles(dst, "*.BKP", SearchOption.AllDirectories))
