@@ -14,7 +14,9 @@ namespace UwEditor.App
 {
     /// <summary>
     /// Draws a ConversationGraph: nodes as boxes with their lines, edges with their conditions
-    /// and answers. Drag to pan, the wheel to zoom; a click on a node selects it.
+    /// and answers. Drag to pan, the wheel to zoom; a click on a node selects it. Laid out in
+    /// layers, or hanging from the start (HangingMode: the HangingLayout runs on a timer until it
+    /// settles; a node dragged stays where it is put, held, until a right-click lets it go).
     /// </summary>
     public sealed class GraphCanvas : Control
     {
@@ -34,6 +36,11 @@ namespace UwEditor.App
         Point? dragFrom;
         Vector dragOffset;
         bool dragged, needHome = true;
+        HangingLayout hanging;
+        bool hangingMode;
+        GraphNode dragNode;
+        Vector grab;
+        readonly Avalonia.Threading.DispatcherTimer timer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
 
         public ConversationGraph Graph { get; private set; }
         public GraphNode Selected { get; private set; }
@@ -43,11 +50,107 @@ namespace UwEditor.App
         /// <summary>The text a node shows for a line (the window puts the current strings in).</summary>
         public Func<GraphLine, string> LineText = l => l.Text;
         public bool ShowStatements = true;
+        /// <summary>The layered layout's choices (null: the best; tests draw the old layout with LayeredOptions.Before).</summary>
+        public LayeredOptions Options;
+
+        /// <summary>The hanging layout running, or null when laid out in layers.</summary>
+        public HangingLayout Hanging { get { return hanging; } }
+        /// <summary>The hanging layout is still moving the nodes.</summary>
+        public bool Moving { get { return timer.IsEnabled; } }
 
         public GraphCanvas()
         {
             ClipToBounds = true;
             Focusable = true;
+            timer.Tick += (o, e) => Tick();
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnDetachedFromVisualTree(e);
+            timer.Stop();
+        }
+
+        /// <summary>The graph hangs from its start (true) or stands in layers.</summary>
+        public bool HangingMode
+        {
+            get { return hangingMode; }
+            set
+            {
+                if (hangingMode == value) return;
+                hangingMode = value;
+                if (Graph == null) return;
+                if (value) StartHanging(null, null);
+                else { timer.Stop(); hanging = null; dragNode = null; Graph.Layout(36, 64, Options); }
+                InvalidateVisual();
+            }
+        }
+
+        /// <summary>Hangs the graph (laid out in layers just now) from its start; after an edit, the nodes start where they were in the graph before, held ones held again.</summary>
+        void StartHanging(ConversationGraph before, HangingLayout was)
+        {
+            var g = Graph;
+            if (before != null)
+            {
+                var old = new Dictionary<int, GraphNode>();
+                foreach (var n in before.Visible) old[n.Address] = n;
+                foreach (var n in g.Visible)
+                {
+                    GraphNode o;
+                    if (old.TryGetValue(n.Address, out o)) { n.X = o.X; n.Y = o.Y; }
+                }
+                // the beads of long edges evenly between their ends
+                foreach (var e in g.Edges)
+                {
+                    if (e.Bends.Count == 0) continue;
+                    var upper = e.Back ? e.To : e.From;
+                    var lower = e.Back ? e.From : e.To;
+                    for (int k = 0; k < e.Bends.Count; k++)
+                    {
+                        double t = (k + 1.0) / (e.Bends.Count + 1);
+                        var d = e.Bends[k];
+                        d.Height = 0;
+                        d.X = upper.CenterX + (lower.CenterX - upper.CenterX) * t - d.Width / 2;
+                        d.Y = upper.Y + upper.Height + (lower.Y - upper.Y - upper.Height) * t;
+                    }
+                }
+            }
+            hanging = new HangingLayout(g, 36, 64);
+            if (before != null && was != null)
+                foreach (var p in was.Pinned.ToList())
+                {
+                    var n = g.Visible.FirstOrDefault(x => x.Address == p.Address);
+                    if (n != null) hanging.Pin(n, true);
+                }
+            g.Route();
+            timer.Start();
+        }
+
+        void Tick()
+        {
+            if (hanging == null || Graph == null) { timer.Stop(); return; }
+            int n = Graph.Nodes.Count;
+            hanging.Step(n < 150 ? 6 : n < 400 ? 3 : 2);
+            InvalidateVisual();
+            if (hanging.Settled && dragNode == null) timer.Stop();
+        }
+
+        /// <summary>Lets go of every held node but the start.</summary>
+        public void LetGo()
+        {
+            if (hanging == null) return;
+            hanging.Unpin();
+            timer.Start();
+            InvalidateVisual();
+        }
+
+        /// <summary>Moves a node of the hanging layout and holds it there (what dragging it does).</summary>
+        public void MoveNode(GraphNode n, double x, double y)
+        {
+            if (hanging == null) return;
+            hanging.MoveTo(n, x, y);
+            timer.Start();
+            InvalidateVisual();
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -62,12 +165,18 @@ namespace UwEditor.App
         /// <summary>Takes a graph: measures its nodes and lays it out. The view stays where it was when keepView.</summary>
         public void SetGraph(ConversationGraph g, bool keepView)
         {
+            var before = Graph;
+            var was = hanging;
             Graph = g;
             looks.Clear();
             labels.Clear();
+            timer.Stop();
+            hanging = null;
+            dragNode = null;
             if (g == null) { InvalidateVisual(); return; }
             foreach (var n in g.Nodes.Where(x => !x.Dummy)) MeasureNode(n);
-            g.Layout(36, 64);
+            g.Layout(36, 64, Options);
+            if (hangingMode) StartHanging(keepView && was != null ? before : null, was);
             foreach (var e in g.Edges)
             {
                 string t = e.Kind == GraphEdgeKind.Choice ? Short(e.Choice, 44) + "\n" + Short(e.Label, 44)
@@ -147,7 +256,7 @@ namespace UwEditor.App
             if (Graph == null || Bounds.Width <= 0) { scale = 1; offset = new Vector(20, 20); return; }
             needHome = false;
             var first = Graph.Visible.FirstOrDefault();
-            scale = Math.Max(0.5, Math.Min(1, Bounds.Width / Math.Max(1, Graph.Width)));
+            scale = Math.Max(0.5, Math.Min(1, Bounds.Width / Math.Max(1, Graph.Width - Graph.Left)));
             offset = first == null ? new Vector(20, 20) : new Vector(Bounds.Width / 2 - first.CenterX * scale, 20 - first.Y * scale + 10);
             InvalidateVisual();
         }
@@ -156,8 +265,9 @@ namespace UwEditor.App
         public void Fit()
         {
             if (Graph == null || Bounds.Width <= 0 || Bounds.Height <= 0) return;
-            scale = Math.Max(0.05, Math.Min(1.5, Math.Min(Bounds.Width / Math.Max(1, Graph.Width), Bounds.Height / Math.Max(1, Graph.Height))));
-            offset = new Vector((Bounds.Width - Graph.Width * scale) / 2, (Bounds.Height - Graph.Height * scale) / 2);
+            double w = Graph.Width - Graph.Left, h = Graph.Height - Graph.Top;
+            scale = Math.Max(0.05, Math.Min(1.5, Math.Min(Bounds.Width / Math.Max(1, w), Bounds.Height / Math.Max(1, h))));
+            offset = new Vector((Bounds.Width - w * scale) / 2 - Graph.Left * scale, (Bounds.Height - h * scale) / 2 - Graph.Top * scale);
             InvalidateVisual();
         }
 
@@ -202,10 +312,22 @@ namespace UwEditor.App
         {
             base.OnPointerPressed(e);
             var p = e.GetPosition(this);
+            var props = e.GetCurrentPoint(this).Properties;
+            if (hanging != null && props.IsRightButtonPressed)
+            {
+                // a right-click lets a held node go
+                var held = NodeAt(p);
+                if (held != null && hanging.IsPinned(held)) { hanging.Pin(held, false); timer.Start(); InvalidateVisual(); }
+                e.Handled = true;
+                return;
+            }
             dragFrom = p;
             needHome = false;
             dragOffset = offset;
             dragged = false;
+            // in the hanging layout a node is dragged; elsewhere the view is
+            dragNode = hanging != null ? NodeAt(p) : null;
+            if (dragNode != null) { var w = (p - offset) / scale; grab = new Vector(w.X - dragNode.X, w.Y - dragNode.Y); }
             e.Pointer.Capture(this);
             Focus();
         }
@@ -217,6 +339,12 @@ namespace UwEditor.App
             var d = e.GetPosition(this) - dragFrom.Value;
             if (!dragged && Math.Abs(d.X) + Math.Abs(d.Y) < 4) return;
             dragged = true;
+            if (dragNode != null && hanging != null)
+            {
+                var w = (e.GetPosition(this) - offset) / scale;
+                MoveNode(dragNode, w.X - grab.X, w.Y - grab.Y);
+                return;
+            }
             offset = dragOffset + d;
             InvalidateVisual();
         }
@@ -227,6 +355,7 @@ namespace UwEditor.App
             var p = e.GetPosition(this);
             bool click = dragFrom != null && !dragged;
             dragFrom = null;
+            dragNode = null;
             e.Pointer.Capture(null);
             if (!click) return;
             var n = NodeAt(p);
@@ -271,6 +400,8 @@ namespace UwEditor.App
             }
             bool sel = n == Selected;
             dc.DrawRectangle(fill, new Pen(sel ? B("#F1D9A8", "#B85A00") : border, sel ? 3 : n.Entry ? 2 : 1), r, 6, 6);
+            // a held node of the hanging layout: a pin in its top right corner
+            if (hanging != null && hanging.IsPinned(n)) dc.DrawEllipse(border, null, new Point(r.Right - 9, r.Y + 9), 3.5, 3.5);
             NodeLook look;
             if (!looks.TryGetValue(n, out look)) return;
             dc.DrawText(look.Title, new Point(r.X + 7, r.Y + 4));
@@ -293,7 +424,7 @@ namespace UwEditor.App
                 for (int i = 1; i < e.Points.Count; i++)
                 {
                     var p1 = new Point(e.Points[i].X, e.Points[i].Y);
-                    if ((e.Back || e.From == e.To) && !e.Shared) c.LineTo(p1);
+                    if (e.Straight) c.LineTo(p1);
                     else
                     {
                         double dy = (p1.Y - p0.Y) / 2;
@@ -307,7 +438,7 @@ namespace UwEditor.App
             // the arrowhead
             var end = e.Points[e.Points.Count - 1];
             var before = e.Points[e.Points.Count - 2];
-            Vector dir = (e.Back || e.From == e.To) && !e.Shared ? new Vector(end.X - before.X, end.Y - before.Y) : new Vector(0, end.Y >= before.Y ? 1 : -1);
+            Vector dir = e.Straight ? new Vector(end.X - before.X, end.Y - before.Y) : new Vector(0, end.Y >= before.Y ? 1 : -1);
             double len = Math.Sqrt(dir.X * dir.X + dir.Y * dir.Y);
             if (len > 0.01)
             {
@@ -322,10 +453,7 @@ namespace UwEditor.App
             }
             FormattedText label;
             if (!detail || !labels.TryGetValue(e, out label)) return;
-            GraphPoint at;
-            if ((e.Back || e.From == e.To) && e.Points.Count >= 4) at = new GraphPoint(e.Points[1].X + 4, (e.Points[1].Y + e.Points[2].Y) / 2);
-            else if (e.Points.Count >= 3) at = e.Points[1];
-            else at = new GraphPoint((e.Points[0].X + e.Points[1].X) / 2, e.Points[0].Y + (e.Points[1].Y - e.Points[0].Y) * 0.45);
+            var at = e.LabelAt;
             var box = new Rect(at.X - label.Width / 2 - 3, at.Y - label.Height / 2 - 1, label.Width + 6, label.Height + 2);
             if (!box.Intersects(view)) return;
             dc.DrawRectangle(B("#15161AE0", "#F4F1EAE8"), null, box, 3, 3);
@@ -335,7 +463,8 @@ namespace UwEditor.App
 
     /// <summary>
     /// Conversations ▸ Graph: the shown conversation's flow as a node graph (ConversationGraph),
-    /// laid out in layers. A click on a node selects its first instruction in the script and shows
+    /// laid out in layers, or hanging from its start (HangingLayout), where nodes can be dragged
+    /// and stay where they are put. A click on a node selects its first instruction in the script and shows
     /// its strings beside the graph, where editing one edits the conversation's string (the
     /// conversation editor's Strings, marked changed; Revert conversation undoes it).
     /// </summary>
@@ -347,6 +476,8 @@ namespace UwEditor.App
         readonly TextBlock status = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
         readonly TextBlock zoomText = new TextBlock { Width = 50, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
         readonly CheckBox statements = new CheckBox { Content = "Statements", IsChecked = true };
+        readonly ComboBox layout = new ComboBox { Name = "GraphLayout", ItemsSource = new[] { "In layers", "Hanging" }, SelectedIndex = 0, Width = 110 };
+        readonly Button letGo = new Button { Content = "Let go", IsEnabled = false };
         Conversation conv;
         List<string> strings = new List<string>();
         int sideFor = -1;
@@ -354,6 +485,8 @@ namespace UwEditor.App
 
         public GraphCanvas Canvas { get { return canvas; } }
         public ConversationGraph Graph { get { return canvas.Graph; } }
+        /// <summary>The layout: 0 in layers, 1 hanging from the start.</summary>
+        public int LayoutChoice { get { return layout.SelectedIndex; } set { layout.SelectedIndex = value; } }
         /// <summary>The string boxes beside the graph for the selected node.</summary>
         public IEnumerable<TextBox> StringBoxes { get { return side.Children.OfType<StackPanel>().SelectMany(p => p.Children.OfType<TextBox>()); } }
 
@@ -380,20 +513,25 @@ namespace UwEditor.App
             statements.IsCheckedChanged += (o, e) => { canvas.ShowStatements = statements.IsChecked == true; Rebuild(true); };
             ToolTip.SetTip(statements, "Show the code's other statements in the nodes (assignments, calls)");
             canvas.PointerWheelChanged += (o, e) => Zoomed();
+            ToolTip.SetTip(layout, "In layers: tidy rows, the fewest crossings. Hanging: every node hangs from the start on springs, and can be dragged; a dragged node stays where it is put (a right-click lets it go)");
+            layout.SelectionChanged += (o, e) =>
+            {
+                canvas.HangingMode = layout.SelectedIndex == 1;
+                letGo.IsEnabled = canvas.HangingMode;
+                Hint2();
+            };
+            ToolTip.SetTip(letGo, "Lets go of every node you dragged in the hanging layout, so it hangs freely again");
+            letGo.Click += (o, e) => canvas.LetGo();
 
             var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
-            foreach (var c in new Control[] { home, fit, zout, zin, zoomText, statements }) bar.Children.Add(c);
+            foreach (var c in new Control[] { home, fit, zout, zin, zoomText, statements, layout, letGo }) bar.Children.Add(c);
             bar.Children.Add(Legend("#C9934C", "the NPC speaks"));
             bar.Children.Add(Legend("#6FA6DC", "a menu; blue lines are its answers"));
             bar.Children.Add(Legend("#D9A441", "a condition"));
             bar.Children.Add(Legend("#8E8B85", "a call (dashed)"));
 
             var top = new StackPanel { Spacing = 4 };
-            top.Children.Add(new TextBlock
-            {
-                FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6),
-                Text = "The conversation's flow, read from its code. Drag to move, the wheel to zoom. Click a node to see it in the script and edit its strings on the right.",
-            });
+            top.Children.Add(help);
             top.Children.Add(bar);
             DockPanel.SetDock(top, Dock.Top);
             var foot = new Border { Child = status, Padding = new Thickness(0, 6, 0, 0) };
@@ -409,11 +547,22 @@ namespace UwEditor.App
             var dock = new DockPanel { Margin = new Thickness(14) };
             dock.Children.Add(top); dock.Children.Add(foot); dock.Children.Add(grid);
             Content = dock;
+            Hint2();
             ManualWindow.Attach(this, "Conversation graph");
             cw.CurrentChanged += OnCurrentChanged;
             cw.StringsChanged += OnStringsChanged;
             Closed += (o, e) => { cw.CurrentChanged -= OnCurrentChanged; cw.StringsChanged -= OnStringsChanged; };
             Rebuild(false);
+        }
+
+        readonly TextBlock help = new TextBlock { FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6) };
+
+        /// <summary>What dragging does, for the layout shown.</summary>
+        void Hint2()
+        {
+            help.Text = canvas.HangingMode
+                ? "Hanging from the start. Drag a node: it stays where you put it (a dot marks it) until you right-click it or press Let go. Drag the background to move the view; click a node to see it in the script."
+                : "The conversation's flow, read from its code. Drag to move, the wheel to zoom. Click a node to see it in the script and edit its strings on the right. A loop goes up into the bottom of the node it goes back to.";
         }
 
         static Control Legend(string colour, string text)

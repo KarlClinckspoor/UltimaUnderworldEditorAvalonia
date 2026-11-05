@@ -573,13 +573,27 @@ node shows the readable view's lines of its piece of code.
   when the conversation ends or the function returns there.
 - Blue lines are a menu's answers: the answer's text over its condition (`local22 == 1`).
   Amber lines are other conditions, in the readable view's words. Dashed lines are calls of
-  the script's functions. Lines going back up (loops) run round the right side. Calls of a
-  function used from many places (the conversation's end, for one) are drawn only for the
-  selected node.
+  the script's functions. A line going back up (a loop) leaves the top of its node and goes
+  up into the bottom of the node it returns to, its arrow pointing up; a loop on one node goes
+  round its right side. Calls of a function used from many places (the conversation's end,
+  for one) are drawn only for the selected node.
 - Code that only passes on, tests a condition or calls a function is folded into the lines
   around it. Functions never called are left out.
 - Drag to move the view, the wheel to zoom; **Start** goes back to the top, **Fit** shows it
   all. **Statements** shows or hides the other statements in the nodes.
+- The layout, **In layers** or **Hanging**:
+  - **In layers** (the usual) puts every node in a row under the nodes that lead to it. Each
+    row's order is the one, of many tried, where the fewest lines cross, and a line that passes
+    a row goes straight down between its nodes, so no line is drawn over a node.
+  - **Hanging** hangs the graph from its start like a mobile, pinned at the top: each node
+    weighs according to its size and each line is a spring, stiffer for plain flow than for
+    conditions, answers and calls, and weak for loops. Nodes push each other apart sideways and
+    every node hangs below the ones that lead to it. It starts from the layers and moves until
+    it comes to rest. Drag a node to move it: it stays where you put it, marked with a dot,
+    and the rest hangs round it; right-click it, or press **Let go** for all of them, to let it
+    hang freely again. Lines are drawn straight. Over both games' conversations it crosses
+    about twice as many lines as **In layers** and draws some lines over nodes; use it to
+    pull a part of the graph apart by hand.
 - A click on a node selects its first instruction in the Script tab and shows the node on
   the right: its strings, its code, and where it leads (click one to go there).
 - Editing a string on the right edits that string of the conversation, as the Strings tab

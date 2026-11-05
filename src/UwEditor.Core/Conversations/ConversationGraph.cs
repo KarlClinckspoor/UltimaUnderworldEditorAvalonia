@@ -74,10 +74,16 @@ namespace UwEditor.Core.Conversations
         public string Label;
         /// <summary>For a menu's answer: the choice's text.</summary>
         public string Choice;
-        /// <summary>Goes back up (a loop): drawn round the side.</summary>
+        /// <summary>Goes back up (a loop): laid out as if it went down from To to From, and drawn going up into To's bottom.</summary>
         public bool Back;
         /// <summary>A call of a function called from three places or more (the conversation's end, say): left out of the layout, drawn only for a selected node.</summary>
         public bool Shared;
+        /// <summary>The layout's points it passes through, from its upper end to its lower end (for a loop: from To to From).</summary>
+        public readonly List<GraphNode> Bends = new List<GraphNode>();
+        /// <summary>Drawn in straight lines (a loop on one node, round its side); else a curve through the points that leaves and enters each one vertically.</summary>
+        public bool Straight;
+        /// <summary>Where its label goes (the label's middle).</summary>
+        public GraphPoint LabelAt;
         public readonly List<GraphPoint> Points = new List<GraphPoint>();
         public override string ToString() { return From.Title + " → " + To.Title + " " + Kind + (Label == null ? "" : " [" + Label + "]"); }
     }
@@ -95,8 +101,13 @@ namespace UwEditor.Core.Conversations
     {
         public readonly List<GraphNode> Nodes = new List<GraphNode>();
         public readonly List<GraphEdge> Edges = new List<GraphEdge>();
+        /// <summary>The drawing's extent: from (Left, Top) to (Width, Height), margins included.</summary>
         public double Width { get; private set; }
         public double Height { get; private set; }
+        public double Left { get; private set; }
+        public double Top { get; private set; }
+        /// <summary>Edges are drawn in straight lines through their points (the hanging layout), not curves leaving and entering each point vertically.</summary>
+        public bool StraightEdges { get; internal set; }
 
         /// <summary>The visible nodes (not the layout's points).</summary>
         public IEnumerable<GraphNode> Visible { get { return Nodes.Where(n => !n.Dummy); } }
@@ -466,19 +477,30 @@ namespace UwEditor.Core.Conversations
 
         // ----- layout -----
 
+        /// <summary>The bottom of each layer, while the nodes are in layers (null after the hanging layout moved them).</summary>
+        double[] bands;
+
         /// <summary>
         /// Lays the graph out in layers, top to bottom (each node's Width and Height must be set):
-        /// loops are found by a depth-first walk from the start and drawn back round the side,
-        /// layers are the longest path from the start, long edges get points in the layers they
-        /// cross, the order in each layer follows the neighbours' average (a few sweeps), and
-        /// each node then moves under its parents as far as its layer leaves room.
+        /// loops are found by a depth-first walk from the start; layers are the longest path from
+        /// the start; every edge, a loop turned round, gets a point in each layer it passes
+        /// through, as tall as the layer, so it goes past the layer's nodes and not over them;
+        /// the order in each layer follows the neighbours' average in sweeps up and down, with
+        /// neighbours swapped where that crosses fewer edges, and the order with the fewest
+        /// crossings seen is kept; each node then moves under its parents as far as its layer
+        /// leaves room. Loops are drawn going up into the bottom of the node they go back to.
         /// </summary>
-        public void Layout(double hgap = 40, double vgap = 70)
+        public void Layout(double hgap = 40, double vgap = 70) { Layout(hgap, vgap, null); }
+
+        public void Layout(double hgap, double vgap, LayeredOptions o)
         {
+            o = o ?? new LayeredOptions();
             Nodes.RemoveAll(n => n.Dummy);
-            foreach (var e in Edges) { e.Points.Clear(); e.Back = false; }
+            foreach (var e in Edges) { e.Points.Clear(); e.Back = false; e.Bends.Clear(); e.Straight = false; }
             var real = Nodes.ToList();
-            if (real.Count == 0) { Width = Height = 0; return; }
+            bands = null;
+            StraightEdges = false;
+            if (real.Count == 0) { Width = Height = Left = Top = 0; return; }
 
             // loops: a depth-first walk from the start, then from what is left
             var state = new Dictionary<GraphNode, int>();
@@ -516,58 +538,42 @@ namespace UwEditor.Core.Conversations
             while (queue.Count > 0)
             {
                 var n = queue.Dequeue();
-                foreach (var e in forward.Where(x => x.From == n))
+                foreach (var e in n.Out)
                 {
+                    if (e.Back || e.Shared || e.From == e.To) continue;
                     e.To.Layer = Math.Max(e.To.Layer, n.Layer + 1);
                     if (--indeg[e.To] == 0) queue.Enqueue(e.To);
                 }
             }
 
-            // points for edges crossing layers
-            var chains = new Dictionary<GraphEdge, List<GraphNode>>();
+            // points for edges crossing layers (a loop from its lower end's side: it goes up)
             var up = new Dictionary<GraphNode, List<GraphNode>>();
             var down = new Dictionary<GraphNode, List<GraphNode>>();
-            Action<GraphNode, GraphNode> join = (a, b) =>
+            foreach (var n in real) { up[n] = new List<GraphNode>(); down[n] = new List<GraphNode>(); }
+            Action<GraphNode, GraphNode> join = (a, b) => { down[a].Add(b); up[b].Add(a); };
+            var laid = o.TurnLoops ? Edges.Where(e => !e.Shared && e.From != e.To).ToList() : forward;
+            foreach (var e in laid)
             {
-                List<GraphNode> l;
-                if (!down.TryGetValue(a, out l)) down[a] = l = new List<GraphNode>();
-                l.Add(b);
-                if (!up.TryGetValue(b, out l)) up[b] = l = new List<GraphNode>();
-                l.Add(a);
-            };
-            foreach (var e in forward)
-            {
-                var chain = new List<GraphNode>();
-                var prev = e.From;
-                for (int L = e.From.Layer + 1; L < e.To.Layer; L++)
+                var upper = e.Back ? e.To : e.From;
+                var lower = e.Back ? e.From : e.To;
+                var prev = upper;
+                for (int L = upper.Layer + 1; L < lower.Layer; L++)
                 {
                     var dmy = new GraphNode { Dummy = true, Layer = L, Width = 8, Height = 0, Address = -1, End = -1 };
                     Nodes.Add(dmy);
-                    discovery[dmy] = discovery[e.From];
-                    chain.Add(dmy);
+                    up[dmy] = new List<GraphNode>(); down[dmy] = new List<GraphNode>();
+                    discovery[dmy] = discovery[upper];
+                    e.Bends.Add(dmy);
                     join(prev, dmy);
                     prev = dmy;
                 }
-                join(prev, e.To);
-                chains[e] = chain;
+                join(prev, lower);
             }
 
             int layers = Nodes.Max(n => n.Layer) + 1;
             var rows = new List<List<GraphNode>>();
             for (int L = 0; L < layers; L++) rows.Add(Nodes.Where(n => n.Layer == L).OrderBy(n => discovery[n]).ThenBy(n => n.Address).ToList());
-            Action renumber = () => { foreach (var r in rows) for (int i = 0; i < r.Count; i++) r[i].Order = i; };
-            renumber();
-            Func<GraphNode, Dictionary<GraphNode, List<GraphNode>>, double> bary = (n, map) =>
-            {
-                List<GraphNode> l;
-                if (!map.TryGetValue(n, out l) || l.Count == 0) return n.Order;
-                return l.Average(x => (double)x.Order);
-            };
-            for (int sweep = 0; sweep < 6; sweep++)
-            {
-                if (sweep % 2 == 0) for (int L = 1; L < layers; L++) { rows[L] = rows[L].OrderBy(n => bary(n, up)).ThenBy(n => n.Order).ToList(); for (int i = 0; i < rows[L].Count; i++) rows[L][i].Order = i; }
-                else for (int L = layers - 2; L >= 0; L--) { rows[L] = rows[L].OrderBy(n => bary(n, down)).ThenBy(n => n.Order).ToList(); for (int i = 0; i < rows[L].Count; i++) rows[L][i].Order = i; }
-            }
+            Order(rows, up, down, o);
 
             // heights of the layers
             double y = 20;
@@ -580,7 +586,12 @@ namespace UwEditor.Core.Conversations
                 if (layerH[L] == 0) layerH[L] = 10;
                 y += layerH[L] + vgap;
             }
-            foreach (var n in Nodes) n.Y = n.Dummy ? layerY[n.Layer] + layerH[n.Layer] / 2 : layerY[n.Layer];
+            foreach (var n in Nodes)
+            {
+                if (!n.Dummy) n.Y = layerY[n.Layer];
+                else if (o.TallBends) { n.Y = layerY[n.Layer]; n.Height = layerH[n.Layer]; }
+                else { n.Y = layerY[n.Layer] + layerH[n.Layer] / 2; n.Height = 0; }
+            }
 
             // x: packed, then pulled under the parents (and over the children)
             foreach (var r in rows) { double x = 20; foreach (var n in r) { n.X = x; x += n.Width + (n.Dummy ? hgap / 2 : hgap); } }
@@ -592,50 +603,87 @@ namespace UwEditor.Core.Conversations
                     int L = downward ? k : layers - 1 - k;
                     var r = rows[L];
                     var map = downward ? up : down;
-                    var want = r.Select(n =>
-                    {
-                        List<GraphNode> l;
-                        return map.TryGetValue(n, out l) && l.Count > 0 ? l.Average(x => x.CenterX) - n.Width / 2 : n.X;
-                    }).ToArray();
+                    var want = r.Select(n => map[n].Count > 0 ? map[n].Average(x => x.CenterX) - n.Width / 2 : n.X).ToArray();
                     Place(r, want, hgap);
                 }
             }
             double minX = Nodes.Min(n => n.X);
             foreach (var n in Nodes) n.X += 20 - minX;
 
-            // edge points
-            foreach (var e in Edges)
+            if (o.TallBends) bands = layerY.Select((t, L) => t + layerH[L]).ToArray();
+            if (o.TurnLoops) Route();
+            else RouteRoundTheSide();
+        }
+
+        /// <summary>The order in each layer: neighbours' averages in sweeps down and up, then (with Transpose) neighbours swapped while that crosses fewer edges; the order with the fewest crossings is kept (with KeepBest).</summary>
+        static void Order(List<List<GraphNode>> rows, Dictionary<GraphNode, List<GraphNode>> up, Dictionary<GraphNode, List<GraphNode>> down, LayeredOptions o)
+        {
+            int layers = rows.Count;
+            Action renumber = () => { foreach (var r in rows) for (int i = 0; i < r.Count; i++) r[i].Order = i; };
+            renumber();
+            Func<GraphNode, Dictionary<GraphNode, List<GraphNode>>, double> bary = (n, map) =>
             {
-                if (e.Shared && !e.Back)
+                var l = map[n];
+                return l.Count == 0 ? n.Order : l.Average(x => (double)x.Order);
+            };
+            // crossings between layer L and the next
+            Func<int, int> between = L =>
+            {
+                var pairs = new List<int[]>();
+                foreach (var u in rows[L]) foreach (var v in down[u]) if (v.Layer == L + 1) pairs.Add(new[] { u.Order, v.Order });
+                int c = 0;
+                for (int i = 0; i < pairs.Count; i++)
+                    for (int j = i + 1; j < pairs.Count; j++)
+                    {
+                        int a = pairs[i][0] - pairs[j][0], b = pairs[i][1] - pairs[j][1];
+                        if (a < 0 && b > 0 || a > 0 && b < 0) c++;
+                    }
+                return c;
+            };
+            Func<int> total = () => { int c = 0; for (int L = 0; L + 1 < layers; L++) c += between(L); return c; };
+            // crossings of u's and v's edges with the layers above and below, u left of v
+            Func<GraphNode, GraphNode, int> pair = (u, v) =>
+            {
+                int c = 0;
+                foreach (var map in new[] { up, down })
+                    foreach (var p in map[u])
+                        foreach (var q in map[v])
+                            if (p.Layer == q.Layer && p.Order > q.Order) c++;
+                return c;
+            };
+            Action transpose = () =>
+            {
+                for (int round = 0; round < 8; round++)
                 {
-                    e.Points.Add(new GraphPoint(e.From.CenterX, e.From.Y + e.From.Height));
-                    e.Points.Add(new GraphPoint(e.To.CenterX, e.To.Y));
-                    continue;
+                    bool better = false;
+                    foreach (var r in rows)
+                        for (int i = 0; i + 1 < r.Count; i++)
+                        {
+                            var u = r[i]; var v = r[i + 1];
+                            if (pair(v, u) < pair(u, v))
+                            {
+                                r[i] = v; r[i + 1] = u; v.Order = i; u.Order = i + 1;
+                                better = true;
+                            }
+                        }
+                    if (!better) break;
                 }
-                if (e.Back || e.From == e.To)
-                {
-                    var a = e.From; var b = e.To;
-                    int lo = Math.Min(a.Layer, b.Layer), hi = Math.Max(a.Layer, b.Layer);
-                    double right = Nodes.Where(n => n.Layer >= lo && n.Layer <= hi).Max(n => n.X + n.Width) + 24 + 6 * (Math.Abs(a.Address) % 5);
-                    double ay = a.Y + Math.Min(a.Height - 6, 14), by = b.Y + Math.Min(b.Height - 6, 10);
-                    e.Points.Add(new GraphPoint(a.X + a.Width, ay));
-                    e.Points.Add(new GraphPoint(right, ay));
-                    e.Points.Add(new GraphPoint(right, by));
-                    e.Points.Add(new GraphPoint(b.X + b.Width, by));
-                    continue;
-                }
-                var outs = e.From.Out.Where(x => !x.Back && !x.Shared && x.From != x.To).OrderBy(x => x.To.CenterX).ToList();
-                var ins = e.To.In.Where(x => !x.Back && !x.Shared && x.From != x.To).OrderBy(x => x.From.CenterX).ToList();
-                double sx = e.From.X + e.From.Width * (outs.IndexOf(e) + 1) / (outs.Count + 1);
-                double tx = e.To.X + e.To.Width * (ins.IndexOf(e) + 1) / (ins.Count + 1);
-                e.Points.Add(new GraphPoint(sx, e.From.Y + e.From.Height));
-                List<GraphNode> chain;
-                if (chains.TryGetValue(e, out chain)) foreach (var dmy in chain) e.Points.Add(new GraphPoint(dmy.CenterX, dmy.Y));
-                e.Points.Add(new GraphPoint(tx, e.To.Y));
+            };
+
+            var best = rows.Select(r => r.ToList()).ToList();
+            int bestCount = o.KeepBest ? total() : int.MaxValue, stale = 0;
+            for (int sweep = 0; sweep < o.Sweeps && stale < 8 && bestCount > 0; sweep++)
+            {
+                if (sweep % 2 == 0) for (int L = 1; L < layers; L++) { rows[L] = rows[L].OrderBy(n => bary(n, up)).ThenBy(n => n.Order).ToList(); for (int i = 0; i < rows[L].Count; i++) rows[L][i].Order = i; }
+                else for (int L = layers - 2; L >= 0; L--) { rows[L] = rows[L].OrderBy(n => bary(n, down)).ThenBy(n => n.Order).ToList(); for (int i = 0; i < rows[L].Count; i++) rows[L][i].Order = i; }
+                if (o.Transpose) transpose();
+                if (!o.KeepBest) continue;
+                int c = total();
+                if (c < bestCount) { bestCount = c; best = rows.Select(r => r.ToList()).ToList(); stale = 0; }
+                else stale++;
             }
-            Width = Nodes.Max(n => n.X + n.Width) + 20;
-            foreach (var e in Edges) foreach (var p in e.Points) Width = Math.Max(Width, p.X + 20);
-            Height = y;
+            if (o.KeepBest) for (int L = 0; L < layers; L++) rows[L] = best[L];
+            renumber();
         }
 
         /// <summary>Puts a layer's nodes as near the wanted x as their order and gaps allow.</summary>
@@ -657,6 +705,191 @@ namespace UwEditor.Core.Conversations
             }
             for (int i = 0; i < n; i++) r[i].X = x[i];
         }
+
+        /// <summary>The nodes no longer stand in layers (the hanging layout moves them freely).</summary>
+        internal void LeaveLayers() { bands = null; }
+
+        /// <summary>
+        /// The edges' points from where the nodes and the layout's points are now, and the
+        /// drawing's extent. An edge leaves the bottom of its upper end and enters the top of its
+        /// lower end (a loop the other way round: out of the top of the node it leaves, up into the
+        /// bottom of the one it goes back to), at places along the side in the order of where the
+        /// edges go next, so edges of one node do not cross each other there; in layers, an edge
+        /// passes each layer straight down beside its nodes.
+        /// </summary>
+        public void Route()
+        {
+            var bottom = new Dictionary<GraphNode, List<Tuple<GraphEdge, double>>>();
+            var top = new Dictionary<GraphNode, List<Tuple<GraphEdge, double>>>();
+            Action<Dictionary<GraphNode, List<Tuple<GraphEdge, double>>>, GraphNode, GraphEdge, GraphNode> port = (map, n, e, next) =>
+            {
+                List<Tuple<GraphEdge, double>> l;
+                if (!map.TryGetValue(n, out l)) map[n] = l = new List<Tuple<GraphEdge, double>>();
+                l.Add(Tuple.Create(e, next.CenterX));
+            };
+            foreach (var e in Edges)
+            {
+                e.Points.Clear();
+                if (e.Shared || e.From == e.To) continue;
+                var upper = e.Back ? e.To : e.From;
+                var lower = e.Back ? e.From : e.To;
+                port(bottom, upper, e, e.Bends.Count > 0 ? e.Bends[0] : lower);
+                port(top, lower, e, e.Bends.Count > 0 ? e.Bends[e.Bends.Count - 1] : upper);
+            }
+            var number = new Dictionary<GraphEdge, int>();
+            for (int i = 0; i < Edges.Count; i++) number[Edges[i]] = i;
+            var at = new Dictionary<GraphEdge, double>();   // x where it leaves its upper end
+            var into = new Dictionary<GraphEdge, double>(); // x where it enters its lower end
+            var rank = new Dictionary<GraphEdge, int>();     // its place among the edges leaving the same side of the node it leaves
+            foreach (var kv in bottom)
+            {
+                var l = kv.Value.OrderBy(t => t.Item2).ThenBy(t => number[t.Item1]).ToList();
+                for (int i = 0; i < l.Count; i++) { at[l[i].Item1] = kv.Key.X + kv.Key.Width * (i + 1) / (l.Count + 1); if (!l[i].Item1.Back) rank[l[i].Item1] = i; }
+            }
+            foreach (var kv in top)
+            {
+                var l = kv.Value.OrderBy(t => t.Item2).ThenBy(t => number[t.Item1]).ToList();
+                for (int i = 0; i < l.Count; i++) { into[l[i].Item1] = kv.Key.X + kv.Key.Width * (i + 1) / (l.Count + 1); if (l[i].Item1.Back) rank[l[i].Item1] = i; }
+            }
+            foreach (var e in Edges)
+            {
+                if (e.Shared)
+                {
+                    e.Straight = false;
+                    e.Points.Add(new GraphPoint(e.From.CenterX, e.From.Y + e.From.Height));
+                    e.Points.Add(new GraphPoint(e.To.CenterX, e.To.Y));
+                    e.LabelAt = Mid(e.Points[0], e.Points[1]);
+                    continue;
+                }
+                if (e.From == e.To)
+                {
+                    // round its right side
+                    var a = e.From;
+                    double right = a.X + a.Width + 18, ay = a.Y + Math.Max(12, a.Height - 10), by = a.Y + Math.Min(12, a.Height / 2);
+                    e.Straight = true;
+                    e.Points.Add(new GraphPoint(a.X + a.Width, ay));
+                    e.Points.Add(new GraphPoint(right, ay));
+                    e.Points.Add(new GraphPoint(right, by));
+                    e.Points.Add(new GraphPoint(a.X + a.Width, by));
+                    e.LabelAt = new GraphPoint(right + 4, (ay + by) / 2);
+                    continue;
+                }
+                e.Straight = StraightEdges;
+                var upper = e.Back ? e.To : e.From;
+                var lower = e.Back ? e.From : e.To;
+                var p = new List<GraphPoint>();
+                double sx = at[e];
+                p.Add(new GraphPoint(sx, upper.Y + upper.Height));
+                // straight down to the bottom of its layer, past the layer's taller nodes
+                if (bands != null && upper.Layer < bands.Length && bands[upper.Layer] > upper.Y + upper.Height + 0.5) p.Add(new GraphPoint(sx, bands[upper.Layer]));
+                int gap = p.Count - 1;
+                foreach (var d in e.Bends)
+                {
+                    p.Add(new GraphPoint(d.CenterX, d.Y));
+                    if (d.Height > 0.5) p.Add(new GraphPoint(d.CenterX, d.Y + d.Height));
+                }
+                p.Add(new GraphPoint(into[e], lower.Y));
+                // the label on the first stretch away from the node it leaves, near that node, where
+                // edges leaving together have parted; every other one a little further on
+                double along = rank[e] % 2 == 0 ? 0.3 : 0.62;
+                if (e.Back)
+                {
+                    p.Reverse();
+                    e.LabelAt = StraightEdges ? Along(p[0], p[1], along) : Curve(p[0], p[1], along);
+                }
+                else e.LabelAt = StraightEdges ? Along(p[gap], p[gap + 1], along) : Curve(p[gap], p[gap + 1], along);
+                e.Points.AddRange(p);
+            }
+            Bounds();
+        }
+
+        static GraphPoint Mid(GraphPoint a, GraphPoint b) { return Along(a, b, 0.5); }
+
+        static GraphPoint Along(GraphPoint a, GraphPoint b, double t) { return new GraphPoint(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t); }
+
+        /// <summary>The point at t of the curve drawn from a to b (leaving and entering vertically).</summary>
+        static GraphPoint Curve(GraphPoint a, GraphPoint b, double t)
+        {
+            double u = 1 - t, my = (a.Y + b.Y) / 2;
+            double k0 = u * u * u, k1 = 3 * u * u * t, k2 = 3 * u * t * t, k3 = t * t * t;
+            return new GraphPoint((k0 + k1) * a.X + (k2 + k3) * b.X, k0 * a.Y + (k1 + k2) * my + k3 * b.Y);
+        }
+
+        /// <summary>The drawing's extent, with a margin of 20.</summary>
+        void Bounds()
+        {
+            double x0 = double.MaxValue, y0 = double.MaxValue, x1 = double.MinValue, y1 = double.MinValue;
+            foreach (var n in Nodes)
+            {
+                x0 = Math.Min(x0, n.X); y0 = Math.Min(y0, n.Y);
+                x1 = Math.Max(x1, n.X + n.Width); y1 = Math.Max(y1, n.Y + n.Height);
+            }
+            foreach (var e in Edges)
+                foreach (var p in e.Points) { x0 = Math.Min(x0, p.X); y0 = Math.Min(y0, p.Y); x1 = Math.Max(x1, p.X); y1 = Math.Max(y1, p.Y); }
+            if (x0 > x1) { Left = Top = Width = Height = 0; return; }
+            Left = Math.Min(0, x0 - 20); Top = Math.Min(0, y0 - 20);
+            Width = x1 + 20; Height = y1 + 20;
+        }
+
+        /// <summary>The routing before 2026-11-05, for comparison: loops round the right of everything in the layers they span, at their ends' heights.</summary>
+        void RouteRoundTheSide()
+        {
+            foreach (var e in Edges)
+            {
+                e.Points.Clear();
+                if (e.Shared && !e.Back)
+                {
+                    e.Points.Add(new GraphPoint(e.From.CenterX, e.From.Y + e.From.Height));
+                    e.Points.Add(new GraphPoint(e.To.CenterX, e.To.Y));
+                    e.LabelAt = Mid(e.Points[0], e.Points[1]);
+                    continue;
+                }
+                if (e.Back || e.From == e.To)
+                {
+                    var a = e.From; var b = e.To;
+                    int lo = Math.Min(a.Layer, b.Layer), hi = Math.Max(a.Layer, b.Layer);
+                    double right = Nodes.Where(n => n.Layer >= lo && n.Layer <= hi).Max(n => n.X + n.Width) + 24 + 6 * (Math.Abs(a.Address) % 5);
+                    double ay = a.Y + Math.Min(a.Height - 6, 14), by = b.Y + Math.Min(b.Height - 6, 10);
+                    e.Straight = true;
+                    e.Points.Add(new GraphPoint(a.X + a.Width, ay));
+                    e.Points.Add(new GraphPoint(right, ay));
+                    e.Points.Add(new GraphPoint(right, by));
+                    e.Points.Add(new GraphPoint(b.X + b.Width, by));
+                    e.LabelAt = new GraphPoint(right + 4, (ay + by) / 2);
+                    continue;
+                }
+                var outs = e.From.Out.Where(x => !x.Back && !x.Shared && x.From != x.To).OrderBy(x => x.To.CenterX).ToList();
+                var ins = e.To.In.Where(x => !x.Back && !x.Shared && x.From != x.To).OrderBy(x => x.From.CenterX).ToList();
+                double sx = e.From.X + e.From.Width * (outs.IndexOf(e) + 1) / (outs.Count + 1);
+                double tx = e.To.X + e.To.Width * (ins.IndexOf(e) + 1) / (ins.Count + 1);
+                e.Points.Add(new GraphPoint(sx, e.From.Y + e.From.Height));
+                foreach (var d in e.Bends)
+                {
+                    e.Points.Add(new GraphPoint(d.CenterX, d.Y));
+                    if (d.Height > 0.5) e.Points.Add(new GraphPoint(d.CenterX, d.Y + d.Height));
+                }
+                e.Points.Add(new GraphPoint(tx, e.To.Y));
+                e.LabelAt = e.Points.Count >= 3 ? e.Points[1] : new GraphPoint((e.Points[0].X + e.Points[1].X) / 2, e.Points[0].Y + (e.Points[1].Y - e.Points[0].Y) * 0.45);
+            }
+            Bounds();
+        }
     }
 
+    /// <summary>The layered layout's choices (the defaults are the best; the others are there to compare).</summary>
+    public sealed class LayeredOptions
+    {
+        /// <summary>Sweeps of ordering the layers by the neighbours' averages.</summary>
+        public int Sweeps = 24;
+        /// <summary>Keep the order with the fewest crossings seen, not the last.</summary>
+        public bool KeepBest = true;
+        /// <summary>After each sweep, swap neighbours in a layer while that crosses fewer edges.</summary>
+        public bool Transpose = true;
+        /// <summary>An edge's point in a layer it passes is as tall as the layer (it goes straight down past the layer's nodes), not a point in the layer's middle.</summary>
+        public bool TallBends = true;
+        /// <summary>Loops take part in the layout turned round (points in the layers they pass) and are drawn going up; else they go round the right of everything.</summary>
+        public bool TurnLoops = true;
+
+        /// <summary>The layout as it was before 2026-11-05.</summary>
+        public static LayeredOptions Before { get { return new LayeredOptions { Sweeps = 6, KeepBest = false, Transpose = false, TallBends = false, TurnLoops = false }; } }
+    }
 }
