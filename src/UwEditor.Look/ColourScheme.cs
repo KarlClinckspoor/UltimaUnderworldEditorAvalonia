@@ -4,7 +4,7 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Styling;
 
-namespace UwEditor.App
+namespace UwEditor.Look
 {
     /// <summary>The light and dark colour schemes: Styles.axaml holds a dictionary for each; code-made brushes pick through here.</summary>
     public static class ColourScheme

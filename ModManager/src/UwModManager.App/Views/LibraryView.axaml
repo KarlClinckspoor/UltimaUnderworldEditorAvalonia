@@ -12,7 +12,7 @@
       </StackPanel>
       <StackPanel>
         <TextBlock Classes="h1" Text="Library" />
-        <TextBlock Classes="dim" Text="Mod packages (.uwmod), made with the editor's Tools > Export as mod, or captured here." />
+        <TextBlock Classes="dim" Text="Mod packages (.uwmod), made with the editor's Tools ▸ Mods, or captured here." />
       </StackPanel>
     </DockPanel>
     <Grid ColumnDefinitions="360,16,*">

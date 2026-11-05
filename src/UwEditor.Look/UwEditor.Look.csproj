@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The look the editor and the mod manager share: the Dark and Light colour schemes and the
+       styles (Styles.axaml), the Compact layout (Compact.axaml, Density), and the icons. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>UwEditor.Look</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/*.png" />
+  </ItemGroup>
+</Project>

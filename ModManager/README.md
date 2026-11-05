@@ -39,6 +39,8 @@ with its history from `KarlClinckspoor/UltimaUnderworldsModManager`.
 - **Saved games are backed up**, not shared: a slot's files go into the vault before anything
   replaces them, and a backup can be restored. (Saved games are not mods.)
 - **Capture**: changes made to a DOS folder by hand (or by the editor) can be turned into a mod.
+- **The editor's look** (`src/UwEditor.Look`): its Light and Dark colours and its Compact and
+  Comfortable layouts, chosen in **Settings ▸ Appearance** (Light and Compact at first).
 
 ## Building
 

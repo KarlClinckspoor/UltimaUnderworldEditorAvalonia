@@ -6,6 +6,16 @@
   <ScrollViewer>
     <StackPanel Spacing="8" MaxWidth="760" HorizontalAlignment="Left">
       <TextBlock Classes="h1" Text="Settings" />
+      <TextBlock Classes="h2" Text="Appearance" />
+      <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="The editor's colours and layout (its View menu has the same choices)." />
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <RadioButton GroupName="theme" Content="Light" IsChecked="{Binding LightTheme}" />
+        <RadioButton GroupName="theme" Content="Dark" IsChecked="{Binding DarkTheme}" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <RadioButton GroupName="layout" Content="Compact (classic, with borders)" IsChecked="{Binding CompactLayout}" />
+        <RadioButton GroupName="layout" Content="Comfortable" IsChecked="{Binding ComfortableLayout}" />
+      </StackPanel>
       <TextBlock Classes="h2" Text="DOSBox" />
       <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="Empty: GOG's DOSBox in the game folder, else dosbox-staging, dosbox or dosbox-x on the PATH. GOG's own setups (dosbox*.conf in the game folder) are used when there." />
       <DockPanel>

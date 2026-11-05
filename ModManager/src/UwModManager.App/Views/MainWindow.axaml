@@ -6,14 +6,14 @@
         Title="Ultima Underworlds Mod Manager"
         Width="1180" Height="780" MinWidth="900" MinHeight="560">
   <Grid ColumnDefinitions="270,*" RowDefinitions="*,Auto">
-    <Border Grid.Column="0" Background="{DynamicResource SystemControlBackgroundBaseLowBrush}" Padding="12">
+    <Border Grid.Column="0" Classes="sidebar" Padding="12">
       <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="4,4,4,14">
           <TextBlock Text="Ultima Underworlds" FontSize="18" FontWeight="SemiBold" />
           <TextBlock Text="Mod Manager" Classes="dim" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Spacing="6">
-          <TextBlock Text="MORE" Classes="dim" FontSize="11" Margin="4,10,0,0" />
+          <TextBlock Text="MORE" Classes="h" Margin="4,10,0,0" />
           <ListBox ItemsSource="{Binding Other}" SelectedItem="{Binding SelectedOther}" Background="Transparent">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:NavItem">
@@ -30,7 +30,7 @@
           <Button Content="Add Underworld Exhumed…" Command="{Binding AddExhumedCommand}" HorizontalAlignment="Stretch" />
         </StackPanel>
         <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Text="GAMES" Classes="dim" FontSize="11" Margin="4,0,0,4" />
+          <TextBlock DockPanel.Dock="Top" Text="GAMES" Classes="h" Margin="4,0,0,4" />
           <ListBox ItemsSource="{Binding Games}" SelectedItem="{Binding SelectedGame}" Background="Transparent">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:NavItem">
@@ -45,8 +45,8 @@
       </DockPanel>
     </Border>
     <ContentControl Grid.Column="1" Content="{Binding Page}" Margin="24,18,24,8" />
-    <Border Grid.Row="1" Grid.ColumnSpan="2" Padding="12,6" Background="{DynamicResource SystemControlBackgroundBaseLowBrush}">
-      <TextBlock Text="{Binding Status}" Classes="dim" FontSize="12" TextTrimming="CharacterEllipsis" />
+    <Border Grid.Row="1" Grid.ColumnSpan="2" Classes="status">
+      <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
     </Border>
   </Grid>
 </Window>

@@ -346,8 +346,9 @@ makes one undo step per level.
   numbers can be changed). Restoring loads one back as edits that can be undone.
 - **Crash recovery:** an unexpected error is logged and the unsaved work kept; the next start
   offers it back.
-- **Dark or Light, Comfortable or Compact:** a colour scheme and a classic, tighter layout,
-  remembered between runs.
+- **Light or Dark, Compact or Comfortable:** a colour scheme and a classic, tighter layout
+  (Light and Compact at first), remembered between runs. The mod manager shares the look
+  (`src/UwEditor.Look`).
 
 **Help ▸ Manual** (F1) opens [the manual](docs/MANUAL.md), built into the program with its
 sections and a search box; F1 in a tool window opens that tool's section. The plan is in
@@ -487,6 +488,7 @@ The core tests check, among other things:
 |---|---|
 | `src/Underworld.Formats` | The Unity editor's format code, copied (see its `SOURCE.md`). .NET Standard 2.0. |
 | `src/UwEditor.Core` | Opening games, levels, tiles and objects, the level mesh, the camera, picking, property rows; conversations (`Conversations/`: CNV.ARK, the assembler and readable view, STRINGS.PAK editing, global variables); the player record and inventory (`Player/`); pictures, critter art, cutscenes and PNG (`Graphics/`). No UI. |
+| `src/UwEditor.Look` | The look the editor and the mod manager share: the Light and Dark colour schemes and styles, the Compact layout (`Density`), the icons. |
 | `src/UwEditor.Render` | The OpenGL drawing (Silk.NET), GL 3.3 or GLES 3.0. No window toolkit. |
 | `src/UwEditor.App` | The Avalonia program: window, menus, panels, the GL view control, the find, conversation, global variables, player and graphics windows. |
 | `tests/UwEditor.Core.Tests` | xUnit tests on the real game files. |

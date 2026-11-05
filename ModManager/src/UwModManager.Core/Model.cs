@@ -73,6 +73,10 @@ public sealed class Settings
 {
     /// <summary>DOSBox's program; empty: GOG's in the game folder, else dosbox on the PATH.</summary>
     public string DosBox { get; set; } = "";
+    /// <summary>The editor's colour scheme: "Light" (the default) or "Dark".</summary>
+    public string Theme { get; set; } = "Light";
+    /// <summary>The editor's layout: "Compact" (the default, classic, with borders) or "Comfortable".</summary>
+    public string Layout { get; set; } = "Compact";
 }
 
 public sealed class ManagerState

@@ -6,6 +6,7 @@ using UwModManager.App.ViewModels;
 using UwModManager.App.Views;
 using UwModManager.Core;
 using UwModManager.Tests;
+using UwEditor.Look;
 using Xunit;
 
 [assembly: AvaloniaTestApplication(typeof(UwModManager.UiTests.TestApp))]
@@ -57,6 +58,11 @@ public class UiTests
         var txt = Env.MakeMod("UW", f => Env.EditString(f, 4, 3, "a gleaming sword"), "karl.better-names", "0.3.0",
             "Better item names", "Clearer names for weapons and armour.");
         m.Library.Add(lvl); m.Library.Add(txt);
+        // the look the app starts with (App.OnFrameworkInitializationCompleted): the settings' Light and Compact
+        Assert.Equal("Light", m.State.Settings.Theme);
+        Assert.Equal("Compact", m.State.Settings.Layout);
+        ColourScheme.Set(m.State.Settings.Theme);
+        Density.Set(m.State.Settings.Layout);
         var dialogs = new FakeDialogs();
         var vm = new MainViewModel(m, dialogs);
         var w = new MainWindow { DataContext = vm, Width = 1180, Height = 780 };
@@ -86,6 +92,18 @@ public class UiTests
         Shot(w, "4-library");
         vm.SelectedOther = vm.Other[1];
         Shot(w, "5-settings");
+        // the settings switch the colours and the layout, and remember them
+        var settings = Assert.IsType<SettingsViewModel>(vm.Page);
+        settings.DarkTheme = true;
+        settings.ComfortableLayout = true;
+        Assert.False(ColourScheme.IsLight);
+        Assert.False(Density.IsCompact);
+        Assert.Equal("Dark", new Manager(m.Paths.Root).State.Settings.Theme);
+        vm.SelectedGame = vm.Games[0];
+        Shot(w, "6-game-dark-comfortable");
+        settings.LightTheme = true;
+        settings.CompactLayout = true;
+        Assert.True(ColourScheme.IsLight && Density.IsCompact);
         w.Close();
     }
 }

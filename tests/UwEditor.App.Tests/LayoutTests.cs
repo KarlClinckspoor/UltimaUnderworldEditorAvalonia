@@ -16,6 +16,9 @@ namespace UwEditor.App.Tests
             string g = GameData.Game("UW"); if (g == null) return;
             var w = Ui.Open(g);
             w.AskBeforeDiscarding = false;
+            // Compact is the default: start from Comfortable, which this test switches away from and back to
+            w.SetLayout(Density.Comfortable);
+            Ui.Pump();
             var panel = w.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("panel"));
             var pad = panel.Padding;
             var sw = w.ShowMonsterSwap();

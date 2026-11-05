@@ -1,13 +1,14 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="UwEditor.App.App"
-             RequestedThemeVariant="Dark">
+             RequestedThemeVariant="Light">
   <Application.Styles>
     <FluentTheme />
-    <StyleInclude Source="avares://UwEditorAvalonia/Styles.axaml" />
+    <!-- the look shared with the mod manager (src/UwEditor.Look) -->
+    <StyleInclude Source="avares://UwEditor.Look/Styles.axaml" />
     <!-- every window carries the black sword (UW1 item 0x00C, from OBJECTS.GR) -->
     <Style Selector=":is(Window)">
-      <Setter Property="Icon" Value="avares://UwEditorAvalonia/Assets/icon-256.png" />
+      <Setter Property="Icon" Value="avares://UwEditor.Look/Assets/icon-256.png" />
     </Style>
   </Application.Styles>
 </Application>

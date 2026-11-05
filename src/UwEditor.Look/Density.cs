@@ -11,7 +11,7 @@ using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 
-namespace UwEditor.App
+namespace UwEditor.Look
 {
     /// <summary>
     /// View ▸ Layout: Comfortable (the Fluent look) or Compact (classic): Compact.axaml's
@@ -54,14 +54,22 @@ namespace UwEditor.App
                     if (IsCompact) Tighten(c);
                 }, RoutingStrategies.Direct);
             }
-            if (compact == IsCompact && (sheet != null) == compact) return;
+            // the sheet must be in this application's styles (a new Application, as each headless
+            // test gets, starts without it although the flag says compact)
+            bool present = sheet != null && app.Styles.Contains(sheet);
+            if (compact == IsCompact && present == compact) return;
             IsCompact = compact;
             if (compact)
             {
-                sheet = sheet ?? new StyleInclude(new Uri("avares://UwEditorAvalonia/")) { Source = new Uri("avares://UwEditorAvalonia/Compact.axaml") };
-                if (!app.Styles.Contains(sheet)) app.Styles.Add(sheet);
+                // a fresh sheet each time: one taken out of the application's styles keeps its owner
+                // and cannot be added again (Compact, Comfortable, Compact threw)
+                if (sheet == null || !app.Styles.Contains(sheet))
+                {
+                    sheet = new StyleInclude(new Uri("avares://UwEditor.Look/")) { Source = new Uri("avares://UwEditor.Look/Compact.axaml") };
+                    app.Styles.Add(sheet);
+                }
             }
-            else if (sheet != null) app.Styles.Remove(sheet);
+            else if (sheet != null) { app.Styles.Remove(sheet); sheet = null; }
             foreach (var w in Windows())
                 foreach (var c in w.GetSelfAndVisualDescendants().OfType<Control>())
                     if (compact) Tighten(c); else Restore(c);

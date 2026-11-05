@@ -21,10 +21,10 @@ namespace UwEditor.App
         /// <summary>Show ▸ Facing arrows.</summary>
         public bool Facing { get; set; }
         public bool TileOpen { get; set; } = true;
-        /// <summary>"Dark" or "Light".</summary>
-        public string Theme { get; set; } = "Dark";
-        /// <summary>View ▸ Layout: Comfortable or Compact (Density).</summary>
-        public string Layout { get; set; } = "Comfortable";
+        /// <summary>"Dark" or "Light" (Light by default).</summary>
+        public string Theme { get; set; } = "Light";
+        /// <summary>View ▸ Layout: Comfortable or Compact (Density; Compact by default).</summary>
+        public string Layout { get; set; } = "Compact";
         /// <summary>Minutes between checkpoints of unsaved edits (0: off).</summary>
         public int CheckpointMinutes { get; set; } = 5;
         /// <summary>How many checkpoints to keep (1-1000).</summary>

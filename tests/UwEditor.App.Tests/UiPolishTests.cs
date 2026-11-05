@@ -186,6 +186,9 @@ namespace UwEditor.App.Tests
         public void Six_question_buttons_wrap_inside_the_window_and_two_stay_on_one_line_at_the_right()
         {
             var w = Ui.Open(null);
+            // the margins measured below are Comfortable's (Compact, the default, halves them)
+            w.SetLayout(Density.Comfortable);
+            Ui.Pump();
             var six = new[] { "Exhumed slot 1", "Exhumed slot 2", "Exhumed slot 3", "Exhumed slot 4", "Another folder…", "Cancel" };
             AskAndLook(w, six, m =>
             {

@@ -37,7 +37,7 @@ public sealed partial class MainViewModel : ViewModelBase
         }
         catch (Exception e) { Status = "An interrupted change could not be finished: " + e.Message; }
         Other.Add(new NavItem { Title = "Library", Subtitle = "Imported mods", Page = () => new LibraryViewModel(this) });
-        Other.Add(new NavItem { Title = "Settings", Subtitle = "DOSBox, credits", Page = () => new SettingsViewModel(this) });
+        Other.Add(new NavItem { Title = "Settings", Subtitle = "Appearance, DOSBox, credits", Page = () => new SettingsViewModel(this) });
         RefreshGames();
         if (Games.Count > 0) SelectedGame = Games[0];
     }

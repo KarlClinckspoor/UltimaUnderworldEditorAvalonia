@@ -19,5 +19,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../UwModManager.Core/UwModManager.Core.csproj" />
+    <!-- the editor's look: colours, styles, the Compact layout, the icons -->
+    <ProjectReference Include="../../../src/UwEditor.Look/UwEditor.Look.csproj" />
   </ItemGroup>
 </Project>
