@@ -76,16 +76,48 @@ public class StartOptionsTests
         var t = new Target { Kind = TargetKind.Exhumed, Folder = Env.Temp("game"), Game = "uw1", PortExe = port, Name = "Exhumed", ExtraConfig = mine, ExtraArguments = "--no-aspect" };
         ExhumedGame.SetConfig(home, "uw1", "start-square", "30,4");
         ExhumedGame.SetConfig(home, "uw1", "scale", "2");
-        var psi = Launcher.Exhumed(t, home, new[] { "skip-intro" });
+        var psi = Launcher.Exhumed(t, home);
         Assert.Equal(new[] { "--data", t.Folder, "--home", home, "--no-aspect" }, psi.ArgumentList);
         var cfg = ExhumedGame.ReadConfig(Path.Combine(home, "uw1port.cfg"));
         Assert.Contains(("scale", "4"), cfg);
         Assert.DoesNotContain(("scale", "2"), cfg);
         Assert.Contains(("mouse", "lock"), cfg);
-        Assert.Contains(("enhance", "skip-intro"), cfg);
         // the start square is the mod's
         Assert.Contains(("start-square", "30,4"), cfg);
         Assert.DoesNotContain(("start-square", "1,1"), cfg);
+    }
+
+    [Fact]
+    public void Enhancements_chosen_in_the_game_survive_the_next_play()
+    {
+        var m = new Manager(Env.Temp("mgr"));
+        string port = Path.Combine(Env.Temp("port"), "uw1port");
+        File.WriteAllText(port, "not a program");
+        // a build whose --features could not be read (as one missing its DLLs): no boxes, nothing chosen in the manager
+        var t = new Target { Kind = TargetKind.Exhumed, Folder = Env.Temp("game"), Game = "uw1", PortExe = port, Name = "Exhumed" };
+        m.State.Targets.Add(t);
+        string home = ExhumedGame.EnsureHome(m.Paths, t, null);
+        // the game's settings menu saves its choice (exhume/runtime/port/sys/enhance.c enhance_save)
+        ExhumedGame.SetConfig(home, "uw1", "enhance", "skip-intro,mouse-look");
+        for (int i = 0; i < 2; i++)
+        {
+            Launcher.Exhumed(t, home);
+            Assert.Equal(new[] { "skip-intro", "mouse-look" }, ExhumedGame.Enhancements(home, "uw1"));
+        }
+        Assert.Equal(new[] { "skip-intro", "mouse-look" }, m.Enhancements(t));
+        // a box ticked in the manager changes the home's setting, as the menu would
+        m.SetEnhancements(t, new[] { "skip-intro" });
+        Assert.Contains(("enhance", "skip-intro"), ExhumedGame.ReadConfig(Path.Combine(home, "uw1port.cfg")));
+        m.SetEnhancements(t, Array.Empty<string>());
+        Assert.Contains(("enhance", ""), ExhumedGame.ReadConfig(Path.Combine(home, "uw1port.cfg")));
+        Assert.Empty(m.Enhancements(t));
+        // a mod's new home starts with the enhancements last chosen
+        m.SetEnhancements(t, new[] { "tidy-objects" });
+        t.ActiveMod = "someone.mod@1.0.0";
+        Assert.Equal(new[] { "tidy-objects" }, m.Enhancements(t));
+        string modHome = ExhumedGame.EnsureHome(m.Paths, t, t.ActiveMod);
+        Assert.NotEqual(home, modHome);
+        Assert.Equal(new[] { "tidy-objects" }, ExhumedGame.Enhancements(modHome, "uw1"));
     }
 
     /// <summary>A 64-bit Windows program of one section whose import table names <paramref name="dll"/>.</summary>

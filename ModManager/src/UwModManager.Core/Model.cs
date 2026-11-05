@@ -28,7 +28,8 @@ public sealed class Target
     public string? ActiveMod { get; set; }
     /// <summary>DOS: run with UltimaHacks' changes to the executable (built from the original).</summary>
     public bool UltimaHacks { get; set; }
-    /// <summary>Exhumed: the enhancements to start with (on top of a mod's recommendation, if taken).</summary>
+    /// <summary>Exhumed: the enhancements last seen in or set on the current home (whose settings file
+    /// holds the real ones: the game's settings menu changes them); a new home starts with these.</summary>
     public List<string> Enhancements { get; set; } = new();
     /// <summary>More arguments for DOSBox or the port, on one line as typed in a shell (after the manager's own).</summary>
     public string ExtraArguments { get; set; } = "";

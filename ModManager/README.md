@@ -37,6 +37,10 @@ was brought in with its history from `KarlClinckspoor/UltimaUnderworldsModManage
   (`exe-patch`) when they lie in the data the port reads. Both need a port built from the
   `modding` branch of [the fork](https://github.com/KarlClinckspoor/underworld-exhumed-enhanced);
   the manager asks the port what it supports (`--features`) and says when a mod needs more.
+  The **enhancements** are the home's own setting (`enhance=` in its settings file): the
+  manager's boxes and the game's settings menu both change it, Play leaves it as it is, and the
+  boxes show what the game saved once it closes. A mod's new home starts with the
+  enhancements last chosen.
 - **Play** starts DOSBox on a DOS folder with GOG's own setups (`dosbox*.conf` in the folder).
   A folder without them gets a setup with GOG's settings for the two games (an S3 SVGA machine
   with 16 MB, EMS and XMS, maximum cycles, a Sound Blaster Pro at 220/7/1 and an MPU-401, full

@@ -178,15 +178,16 @@ keyboardlayout=auto
     }
 
     /// <summary>
-    /// The port's command for a home. The game's extra settings file, if set, is copied into the
-    /// home's settings file first (key=value lines, as the port writes them; the mod's own keys,
-    /// start-square and exe-patch, are left to the mod), then the extra arguments follow the manager's.
+    /// The port's command for a home. The enhancements are the home's own (enhance= in its
+    /// settings file, which the game's settings menu changes), left as they are. The game's extra
+    /// settings file, if set, is copied into the home's settings file first (key=value lines, as
+    /// the port writes them; the mod's own keys, start-square and exe-patch, are left to the
+    /// mod), then the extra arguments follow the manager's.
     /// </summary>
-    public static ProcessStartInfo Exhumed(Target t, string home, IEnumerable<string> enhancements)
+    public static ProcessStartInfo Exhumed(Target t, string home)
     {
         if (string.IsNullOrEmpty(t.PortExe) || !File.Exists(t.PortExe)) throw new FileNotFoundException("the Exhumed program was not found", t.PortExe);
         var psi = new ProcessStartInfo(t.PortExe) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(t.PortExe)! };
-        ExhumedGame.SetConfig(home, t.Game, "enhance", enhancements.Any() ? string.Join(",", enhancements.Distinct()) : null);
         if (!string.IsNullOrWhiteSpace(t.ExtraConfig))
         {
             if (!File.Exists(t.ExtraConfig)) throw new FileNotFoundException("the game's extra Exhumed settings file was not found: " + t.ExtraConfig, t.ExtraConfig);

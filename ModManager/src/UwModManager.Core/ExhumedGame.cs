@@ -130,10 +130,7 @@ public static class ExhumedGame
     /// </summary>
     public static string Prepare(AppPaths paths, Target t, ModPackage? mod, Func<string, byte[]?> original, IEnumerable<string> shield)
     {
-        string home = HomeFor(paths, t, mod == null ? null : Library.KeyOf(mod));
-        bool fresh = !Directory.Exists(home);
-        Directory.CreateDirectory(home);
-        if (fresh) Seed(home, t.Game);
+        string home = EnsureHome(paths, t, mod == null ? null : Library.KeyOf(mod));
         var desired = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         string? startSquare = null;
         var patchLines = new List<string>();
@@ -181,8 +178,27 @@ public static class ExhumedGame
         return GameDir.Inside(home, Path.Combine(new[] { home }.Concat(rel.Split('/')).ToArray()));
     }
 
-    /// <summary>A new home starts with the player's settings and sound cards (not their saves or recordings).</summary>
-    static void Seed(string home, string game)
+    /// <summary>
+    /// The home of <paramref name="modKey"/> (null: the original game), made and seeded if it is
+    /// new, without a mod's files (<see cref="Prepare"/> writes those).
+    /// </summary>
+    public static string EnsureHome(AppPaths paths, Target t, string? modKey)
+    {
+        string home = HomeFor(paths, t, modKey);
+        if (!Directory.Exists(home))
+        {
+            Directory.CreateDirectory(home);
+            Seed(home, t.Game, t.Enhancements);
+        }
+        return home;
+    }
+
+    /// <summary>
+    /// A new home starts with the player's settings and sound cards (not their saves or
+    /// recordings), and with the enhancements last chosen for this game (<paramref name="enhancements"/>,
+    /// when any), so a mod's new home plays as the last one did.
+    /// </summary>
+    static void Seed(string home, string game, IReadOnlyCollection<string> enhancements)
     {
         string normal = NormalHome(game);
         string cfg = Path.Combine(normal, ConfigName(game));
@@ -191,6 +207,7 @@ public static class ExhumedGame
             var keep = File.ReadAllLines(cfg).Where(l => !ModKeys.Any(k => l.StartsWith(k + "="))).ToList();
             File.WriteAllLines(Path.Combine(home, ConfigName(game)), keep);
         }
+        if (enhancements.Count > 0) SetEnhancements(home, game, enhancements);
         var uwcfg = Underworld.Mods.GamePaths.Find(normal, "DATA/UW.CFG");
         if (uwcfg != null)
         {
@@ -198,6 +215,23 @@ public static class ExhumedGame
             File.Copy(uwcfg, Path.Combine(home, "DATA", "UW.CFG"), true);
         }
     }
+
+    /// <summary>
+    /// The enhancements a home plays with: its settings file's enhance= (comma-separated, as the
+    /// port's settings menu and --enhance save it: exhume/runtime/port/sys/enhance.c
+    /// enhance_save), empty when the key or the file is missing (the port then turns none on).
+    /// </summary>
+    public static List<string> Enhancements(string home, string game)
+    {
+        string path = Path.Combine(home, ConfigName(game));
+        if (!File.Exists(path)) return new List<string>();
+        var v = ReadConfig(path).LastOrDefault(kv => kv.Key == "enhance").Value ?? "";
+        return v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct().ToList();
+    }
+
+    /// <summary>Sets a home's enhancements as the port writes them (enhance=a,b; enhance= for none).</summary>
+    public static void SetEnhancements(string home, string game, IEnumerable<string> names) =>
+        SetConfig(home, game, "enhance", string.Join(",", names.Distinct()));
 
     /// <summary>The settings-file keys a mod owns (set by <see cref="Prepare"/>), which a player's extra settings file does not change.</summary>
     public static readonly IReadOnlySet<string> ModKeys = new HashSet<string>(StringComparer.Ordinal) { "start-square", "exe-patch" };

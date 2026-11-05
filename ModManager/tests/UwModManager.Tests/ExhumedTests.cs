@@ -72,10 +72,9 @@ public class ExhumedTests
         Assert.NotEqual(home, orig);
         Assert.False(File.Exists(Path.Combine(orig, "DATA", "LEV.ARK")));
         Assert.DoesNotContain("start-square=", File.ReadAllText(Path.Combine(orig, ExhumedGame.ConfigName(t.Game))));
-        // the launch: the game folder, the home, the enhancements in the home's settings
-        var psi = Launcher.Exhumed(t, home, new[] { "skip-intro", "tidy-objects" });
+        // the launch: the game folder and the home (the enhancements are the home's own setting)
+        var psi = Launcher.Exhumed(t, home);
         Assert.Equal(new[] { "--data", folder, "--home", home }, psi.ArgumentList);
-        Assert.Contains("enhance=skip-intro,tidy-objects", File.ReadAllText(Path.Combine(home, ExhumedGame.ConfigName(t.Game))));
     }
 
     [Theory, MemberData(nameof(Env.Games), MemberType = typeof(Env))]

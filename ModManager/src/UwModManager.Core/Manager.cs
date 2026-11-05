@@ -217,7 +217,27 @@ public sealed class Manager
     {
         if (t.Kind == TargetKind.Dos) return Launcher.DosBox(Paths, State.Settings, t);
         string home = UseExhumed(t, t.ActiveMod);
-        return Launcher.Exhumed(t, home, t.Enhancements);
+        return Launcher.Exhumed(t, home);
+    }
+
+    // ---- Exhumed's enhancements: the home's own setting (enhance=), which the game's settings menu also changes
+
+    /// <summary>The enhancements of the home the game plays in now (its current mod's), as its settings file has them.</summary>
+    public List<string> Enhancements(Target t)
+    {
+        string home = ExhumedGame.HomeFor(Paths, t, t.ActiveMod);
+        var e = Directory.Exists(home) ? ExhumedGame.Enhancements(home, t.Game) : t.Enhancements.ToList();
+        if (!e.SequenceEqual(t.Enhancements)) { t.Enhancements = e; Save(); }      // remembered for the next new home
+        return e;
+    }
+
+    /// <summary>Sets the enhancements of the home the game plays in now (made if it is new), and remembers them for new homes.</summary>
+    public void SetEnhancements(Target t, IEnumerable<string> names)
+    {
+        var list = names.Distinct().ToList();
+        ExhumedGame.SetEnhancements(ExhumedGame.EnsureHome(Paths, t, t.ActiveMod), t.Game, list);
+        t.Enhancements = list;
+        Save();
     }
 
     public Process? Launch(Target t) => Process.Start(LaunchInfo(t));

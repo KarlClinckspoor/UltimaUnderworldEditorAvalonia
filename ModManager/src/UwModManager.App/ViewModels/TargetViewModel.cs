@@ -110,11 +110,13 @@ public sealed partial class TargetViewModel : ViewModelBase
         }
         Selected = Choices.FirstOrDefault(c => c.InUse) ?? Choices[0];
 
+        // the home's own enhancements (its settings file, which the game's settings menu changes too)
         Enhancements.Clear();
+        var on = IsExhumed ? M.Enhancements(Target) : new List<string>();
         if (IsExhumed && Target.Features != null)
             foreach (var n in Target.Features.Enhancements)
             {
-                var ec = new EnhancementChoice { Name = n, On = Target.Enhancements.Contains(n) };
+                var ec = new EnhancementChoice { Name = n, On = on.Contains(n) };
                 ec.PropertyChanged += (_, _) => SaveEnhancements();
                 Enhancements.Add(ec);
             }
@@ -138,6 +140,7 @@ public sealed partial class TargetViewModel : ViewModelBase
             StatusLines.Add(Target.Features == null ? "This Exhumed build reports no mod features, so only mods that change data files play in it."
                 : $"Start square: {(Target.Features.StartSquare ? "yes" : "no")} · executable data patches: {(Target.Features.ExePatch ? "yes" : "no")}");
             StatusLines.Add("Home: " + ExhumedGame.HomeFor(M.Paths, Target, Target.ActiveMod));
+            if (Target.Features == null) StatusLines.Add("Enhancements (set in the game's settings): " + (on.Count > 0 ? string.Join(", ", on) : "none") + ".");
         }
         OnPropertyChanged(nameof(HasLocalChanges));
 
@@ -145,10 +148,12 @@ public sealed partial class TargetViewModel : ViewModelBase
         foreach (var s in Saves.List(M.SavesFolder(Target))) Slots.Add(new SlotItem { Slot = s });
     }
 
+    /// <summary>A box ticked: the home's settings file changes now (names the port knows but this build does not list are kept).</summary>
     void SaveEnhancements()
     {
-        Target.Enhancements = Enhancements.Where(e => e.On).Select(e => e.Name).ToList();
-        M.Save();
+        var listed = Enhancements.Select(e => e.Name).ToHashSet();
+        var keep = M.Enhancements(Target).Where(n => !listed.Contains(n));
+        M.SetEnhancements(Target, keep.Concat(Enhancements.Where(e => e.On).Select(e => e.Name)));
     }
 
     [RelayCommand]
@@ -214,7 +219,16 @@ public sealed partial class TargetViewModel : ViewModelBase
                 main.Status = "Stopped at once: " + Launcher.CommandLine(psi);
                 await main.Dialogs.Tell("The game stopped", Path.GetFileName(psi.FileName) + " stopped as soon as it started: " + why + ".\n\nThe command was:\n" + Launcher.CommandLine(psi));
             }
+            else if (IsExhumed && p != null) _ = RefreshWhenClosed(p);
         });
+    }
+
+    /// <summary>When the port closes, show what the game's settings menu changed (its enhancements) and the saves.</summary>
+    async Task RefreshWhenClosed(System.Diagnostics.Process p)
+    {
+        try { await p.WaitForExitAsync(); }
+        catch (InvalidOperationException) { return; }
+        Refresh();
     }
 
     /// <summary>
