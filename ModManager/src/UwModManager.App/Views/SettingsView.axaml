@@ -7,7 +7,7 @@
     <StackPanel Spacing="8" MaxWidth="760" HorizontalAlignment="Left">
       <TextBlock Classes="h1" Text="Settings" />
       <TextBlock Classes="h2" Text="Appearance" />
-      <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="The editor's colours and layout (its View menu has the same choices)." />
+      <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="The editor's colours and layouts. The editor's View menu has the same choices." />
       <StackPanel Orientation="Horizontal" Spacing="16">
         <RadioButton GroupName="theme" Content="Light" IsChecked="{Binding LightTheme}" />
         <RadioButton GroupName="theme" Content="Dark" IsChecked="{Binding DarkTheme}" />
@@ -17,14 +17,14 @@
         <RadioButton GroupName="layout" Content="Comfortable" IsChecked="{Binding ComfortableLayout}" />
       </StackPanel>
       <TextBlock Classes="h2" Text="DOSBox" />
-      <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="Empty: GOG's DOSBox in the game folder, else dosbox-staging, dosbox or dosbox-x on the PATH. GOG's own setups (dosbox*.conf in the game folder) are used when there." />
+      <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="If this is empty, the manager uses GOG's DOSBox in the game folder, or else dosbox-staging, dosbox or dosbox-x on the PATH. GOG's own setups (dosbox*.conf in the game folder) are used when the folder has them." />
       <DockPanel>
         <Button DockPanel.Dock="Right" Content="Browse…" Command="{Binding BrowseCommand}" Margin="8,0,0,0" />
-        <TextBox Text="{Binding DosBox}" PlaceholderText="DOSBox's program" />
+        <TextBox Text="{Binding DosBox}" PlaceholderText="The DOSBox program" />
       </DockPanel>
       <TextBlock Classes="h2" Text="The manager's folder" />
       <SelectableTextBlock Text="{Binding Folder}" FontSize="12" />
-      <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="The vault of original files, the library, Exhumed's homes for mods and the saved-game backups. UWMM_HOME changes it." />
+      <TextBlock Classes="dim" FontSize="12" TextWrapping="Wrap" Text="It holds the vault of original files, the library, Exhumed's homes for mods and the saved-game backups. Set UWMM_HOME to use another folder." />
       <TextBlock Classes="h2" Text="Credits" />
       <TextBlock Text="{Binding Credits}" TextWrapping="Wrap" />
       <Expander Header="UltimaHacks' licence">

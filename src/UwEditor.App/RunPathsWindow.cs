@@ -31,13 +31,13 @@ namespace UwEditor.App
             panel.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.8, Margin = new Thickness(0, 0, 0, 10),
-                Text = "The programs Run and Test starts. Leave a path empty to let the editor look for the program itself (DOSBox next to the game, as GOG installs it, or where it is usually installed; the ports next to the game, the editor or in Downloads).",
+                Text = "The programs that Run and Test starts. Leave a path empty to let the editor look for the program itself (DOSBox next to the game, as GOG installs it, or where it is usually installed; the ports next to the game, next to the editor or in Downloads).",
             });
 
             panel.Children.Add(Label("DOSBox (DOSBox, DOSBox-X or DOSBox Staging)"));
             panel.Children.Add(Row(dosbox, () => Pick(dosbox, "Choose DOSBox")));
             panel.Children.Add(dosboxFound);
-            panel.Children.Add(Label("More DOSBox arguments (optional, e.g. -noconsole)"));
+            panel.Children.Add(Label("More DOSBox arguments (optional, for example -noconsole)"));
             panel.Children.Add(dosboxArgs);
             panel.Children.Add(confFound);
             var showConf = new Button { Content = "Show the configuration a run uses", Margin = new Thickness(0, 0, 0, 12) };
@@ -98,7 +98,7 @@ namespace UwEditor.App
             main.DosBoxBaseConf(out from);
             confFound.Text = from != null
                 ? "A run uses GOG's configuration, " + from + ", with its [autoexec] replaced: C: is the folder being edited, and the game starts at once."
-                : "No GOG configuration next to the game: a run uses the editor's defaults (an SVGA machine with EMS, a Sound Blaster 16 at 220, IRQ 7, DMA 1, and an MPU-401 for the MT-32).";
+                : "There is no GOG configuration next to the game, so a run uses the editor's defaults (an SVGA machine with EMS, a Sound Blaster 16 at 220, IRQ 7, DMA 1, and an MPU-401 for the MT-32).";
         }
 
         static void Say(TextBlock t, string chosen, string resolved)

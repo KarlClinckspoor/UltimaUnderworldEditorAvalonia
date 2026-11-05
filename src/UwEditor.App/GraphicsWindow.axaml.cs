@@ -116,7 +116,7 @@ namespace UwEditor.App
         public PixelEditorWindow EditFrame()
         {
             if (Model.CritterImage == null) return null;
-            var w = new PixelEditorWindow(Model.CritterImage, (Model.Critter?.ToString() ?? "critter") + ", frame " + Model.FrameIndex, "A critter frame: its auxiliary palette's colours. The page must stay under 0x7FFF bytes.", Model.ReplaceFramePixels,
+            var w = new PixelEditorWindow(Model.CritterImage, (Model.Critter?.ToString() ?? "critter") + ", frame " + Model.FrameIndex, "A critter frame, drawn in its auxiliary palette's colours. The page must stay under 0x7FFF bytes.", Model.ReplaceFramePixels,
                 () => { try { Model.SaveCritter(); return null; } catch (Exception ex) { return ex.Message; } }, "the critter's pages");
             // a critter frame's colours are its auxiliary palette's entries, drawn in the 3D view with palette 0
             w.ShowCycles(PaletteCycles.InGame(Model.Session.IsUw2), Model.CritterColourMap, Model.Palettes.Get(0));
@@ -127,7 +127,7 @@ namespace UwEditor.App
         public PixelEditorWindow EditCutFrame()
         {
             if (Model.CutImage == null || Model.Lpf == null) return null;
-            var w = new PixelEditorWindow(Model.CutImage, Model.Lpf.Name + ", frame " + (Model.CutFrame + 1), "A cutscene frame: the animation's palette. The next frame's change is encoded again.", Model.ReplaceCutPixels,
+            var w = new PixelEditorWindow(Model.CutImage, Model.Lpf.Name + ", frame " + (Model.CutFrame + 1), "A cutscene frame, drawn in the animation's palette. The change to the next frame is encoded again.", Model.ReplaceCutPixels,
                 () => { try { Model.SaveCutscene(); return null; } catch (Exception ex) { return ex.Message; } }, Model.Lpf.Name);
             w.Show(this);
             return w;

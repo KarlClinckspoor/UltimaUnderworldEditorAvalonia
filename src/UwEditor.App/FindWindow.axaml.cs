@@ -100,7 +100,7 @@ namespace UwEditor.App
             }
             int levels = hits.Select(h => h.Level).Distinct().Count();
             Model.Status = hits.Count == 0 ? "Nothing found." :
-                string.Format("{0}{1} found on {2} level{3}. Double-click or Enter to go there.", hits.Count >= MaxHits ? "The first " : "", hits.Count, levels, levels == 1 ? "" : "s");
+                string.Format("{0}{1} found on {2} level{3}. Double-click or press Enter to go there.", hits.Count >= MaxHits ? "The first " : "", hits.Count, levels, levels == 1 ? "" : "s");
             if (Model.Hits.Count > 0) Model.Selected = Model.Hits[0];
         }
 

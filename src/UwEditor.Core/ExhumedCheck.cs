@@ -149,7 +149,7 @@ namespace UwEditor.Core
         /// <summary>What the report says about the level the port crashes on.</summary>
         public static string PortCrashNote(int level)
         {
-            return "Underworld Exhumed crashed on arriving at level " + level + ", as it does on the shipped game (with a new character, and after the talisman ritual's moongate): a bug of the port, not of the edits, so level " + level + " could not be checked. The DOSBox spot test can check it in the original game.";
+            return "Underworld Exhumed crashed on arriving at level " + level + ", as it does on the shipped game (with a new character, and after the talisman ritual's moongate). This is a bug in the port, not in the edits, so level " + level + " could not be checked. The DOSBox spot test can check it in the original game.";
         }
 
         /// <summary>
@@ -544,7 +544,7 @@ namespace UwEditor.Core
             if (from == null) throw new InvalidOperationException("A saved game holds the player as well as the levels, and this game has none to start from: save a game once (any slot) in the game, or open a SAVEn folder.");
             folder = Path.GetFullPath(folder);
             if (Path.GetFullPath(from).TrimEnd(Path.DirectorySeparatorChar).Equals(folder.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("That is the saved game open now: Save writes to it; export to another folder.");
+                throw new InvalidOperationException("That is the saved game that is open now, and Save writes to it. Export to another folder.");
             if (Directory.Exists(folder) && Directory.EnumerateFileSystemEntries(folder).Any() && GameProfile.Find(folder, "PLAYER.DAT") == null)
                 throw new InvalidOperationException(folder + " holds files and is not a saved game: choose an empty folder or a SAVEn folder.");
             if (Directory.Exists(folder))
@@ -595,7 +595,7 @@ namespace UwEditor.Core
         {
             var r = new ExhumedResult { ExitCode = exitCode, TimedOut = timedOut, Output = output ?? "" };
             var lines = r.Output.Replace("\r", "").Split('\n');
-            string why = timedOut ? "the port did not finish in time (it hung, or waits at a prompt)" : DescribeExit(exitCode);
+            string why = timedOut ? "the port did not finish in time (it hung, or is waiting at a prompt)" : DescribeExit(exitCode);
             if (why != null) r.Problems.Add(why);
             foreach (var raw in lines)
             {
@@ -619,7 +619,7 @@ namespace UwEditor.Core
                 if (nm.Success)
                 {
                     string after = r.Reached.Count > 0 ? " after going to " + (s.IsUw2 ? "slot " : "level ") + r.Reached[r.Reached.Count - 1] : " before the first level";
-                    r.Notes.Add("The game read through a null pointer at " + nm.Groups[1].Value + after + ". The port reads what DOS would have, so the game goes on; it can mean an object link that points nowhere, or a path the game itself gets wrong (a death, say).");
+                    r.Notes.Add("The game read through a null pointer at " + nm.Groups[1].Value + after + ". The port reads what DOS would have, so the game goes on; it can mean an object link that points nowhere, or a path the game itself gets wrong (a death, for example).");
                     continue;
                 }
                 if (line.Contains("host fault")) r.Problems.Add("the port crashed (" + line + ")");

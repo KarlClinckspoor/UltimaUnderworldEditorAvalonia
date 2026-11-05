@@ -87,14 +87,14 @@ namespace UwEditor.App
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
                 Text = "The existing objects trade places whole: item, quality, enchantment, quantity and (unless the spot keeps its own) owner. Nothing is made or removed, so every item keeps its count. " +
                        "Charged wands swap among themselves with their spells and charges. Caliburn" + (s.IsUw2 ? ", the jewelled dagger" : "") +
-                       ", talismans, quest items, Garamon's bones, the ignored objects and the starting equipment stay. The same seed gives the same result. " +
-                       "Uniform progression hands the weapons, armour, spell scrolls and wands out by strength, the weakest on the first level.",
+                       ", talismans, quest items, Garamon's bones, the ignored objects and the starting equipment stay where they are. The same seed gives the same result. " +
+                       "Uniform progression hands out the weapons, armour, spell scrolls and wands by strength, with the weakest on the first level.",
             });
 
             tabs.Items.Add(new TabItem { Header = "Settings", Content = new ScrollViewer { Content = SettingsTab(), Padding = new Thickness(4, 8, 16, 8) } });
             var ignTab = new TabItem { Header = "Ignored (" + set.Ignored.Count + ")" };
             ignTab.Content = new IgnoreListPanel(main, s, set.Ignored, ItemShuffle.Candidates(s, Level, true), () => { Save(); ignTab.Header = "Ignored (" + set.Ignored.Count + ")"; },
-                "The item swap leaves these objects alone (a wand's spell object goes with its wand). This list is the swap's own; it started as a copy of the shuffle's. Wands enchanted directly are ignored at first: Ultima Underworld's bullfrog wand, Underworld II's slightly worn wand of Telekinesis and wand of Light.",
+                "The item swap leaves these objects alone (a wand's spell object goes with its wand). This list is the swap's own; it started as a copy of the shuffle's. Wands enchanted directly start out ignored: Ultima Underworld's bullfrog wand, Underworld II's slightly worn wand of Telekinesis and wand of Light.",
                 "Objects the swap touches", "Ignored", "Ignore →", "← Stop ignoring", "Ignore the object selected in the editor", null);
             tabs.Items.Add(ignTab);
             var startTab = new TabItem { Header = "Starting equipment (" + set.Start.Count + ")" };
@@ -106,15 +106,15 @@ namespace UwEditor.App
                 var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(4, 6, 4, 0) };
                 top.Children.Add(Check("Keep the starting equipment where it is", set.KeepStart, x => set.KeepStart = x));
                 var reset = new Button { Content = "The game's list" };
-                ToolTip.SetTip(reset, "Sets the list to the objects found on the start tiles of level 1 now");
+                ToolTip.SetTip(reset, "Sets the list to the objects now found on the start tiles of level 1.");
                 reset.Click += (o, e) => { set.Start.Clear(); set.Start.AddRange(ItemShuffle.StartingEquipment(session, Level)); startChanged(); buildStart(); };
                 top.Children.Add(reset);
                 DockPanel.SetDock(top, Dock.Top);
                 panel.Children.Add(top);
                 panel.Children.Add(new IgnoreListPanel(main, s, set.Start, ItemShuffle.Candidates(s, Level, true), startChanged,
                     s.IsUw2
-                        ? "What the Avatar starts with on level 1: in the Avatar's quarters (the start square is (19, 48)) the sack, leather vest and boots on (20, 49), and the closet behind the secret door at (19, 50): the pack, the rune bag and runestones, the sling, a hand axe and a flute. Only what the swap could move is listed. While ticked, these stay, and nothing is put in their place."
-                        : "What the Avatar starts with on level 1: the sack on (33, 3), beside the start square (32, 2), with a dagger, bread, a fish, a torch and an apple (its map is not something the swap moves). While ticked, these stay, and nothing is put in their place.",
+                        ? "This is what the Avatar starts with on level 1. In the Avatar's quarters (the start square is (19, 48)), the sack, leather vest and boots lie on (20, 49), and the closet behind the secret door at (19, 50) holds the pack, the rune bag and runestones, the sling, a hand axe and a flute. Only what the swap could move is listed. While the box above is ticked, these stay where they are and nothing is put in their place."
+                        : "This is what the Avatar starts with on level 1: the sack on (33, 3), beside the start square (32, 2), holding a dagger, bread, a fish, a torch and an apple (the sack's map is not something the swap moves). While the box above is ticked, these stay where they are and nothing is put in their place.",
                     "Objects the swap touches", "Starting equipment", "Add →", "← Remove", "Add the object selected in the editor", null));
                 startTab.Content = panel;
             };
@@ -153,7 +153,7 @@ namespace UwEditor.App
             var prog = new RadioButton { Content = "Uniform progression: the weakest of each kind on the first level, the strongest on the last", GroupName = "swaprule", IsChecked = set.Rule == "progression" };
             progressionRadio = prog;
             p.Children.Add(random); p.Children.Add(prog);
-            var progNote = Note("Weapons by their highest damage plus the enchantment's level, armour by protection plus the enchantment's level, spell scrolls and wands by the spell's circle. " +
+            var progNote = Note("Weapons are ranked by their highest damage plus the enchantment's level, armour by protection plus the enchantment's level, and spell scrolls and wands by the spell's circle. " +
                 "They are sorted and handed out level by level, " + (session.IsUw2 ? "world by world (Britannia, Prison Tower, Killorn Keep, Ice Caverns, Talorus, Scintillus Academy, Pits of Carnage, Tomb of Praecor Loth, Ethereal Void). " : "from level 1 to level 9. ") +
                 "Each level keeps its number of objects of each kind; within a level they go to its spots at random. The other kinds are swapped at random over the whole game. " +
                 "This works within each kind across the whole game, so the two choices below do not apply.");
@@ -188,7 +188,7 @@ namespace UwEditor.App
                 scopePanel.Children.Add(scope("Within each world (Britannia, the Prison Tower, Killorn Keep…)", "world"));
                 scopePanel.Children.Add(scope("Across all the worlds", "game"));
             }
-            else scopePanel.Children.Add(scope("Within the world: Ultima Underworld has one, so every level", "game"));
+            else scopePanel.Children.Add(scope("Within the world (Ultima Underworld has only one, so across every level)", "game"));
             p.Children.Add(scopePanel);
             scopeControls = scopePanel;
             Action ruleChanged = () =>
@@ -201,8 +201,8 @@ namespace UwEditor.App
             ruleChanged();
 
             p.Children.Add(Heading("Options"));
-            p.Children.Add(Check("An item put in a spot takes the spot's owner (food belonging to a rat, replaced by a lantern, gives a lantern belonging to the rat)", set.SpotOwnership, x => set.SpotOwnership = x));
-            p.Children.Add(Note("Only where the owner field means \"belongs to\" on both items (the game's can-own bit); keys, bones and scrolls keep theirs. Off: every item carries its own owner."));
+            p.Children.Add(Check("An item put in a spot takes the spot's owner (if a lantern replaces a rat's food, the lantern belongs to the rat)", set.SpotOwnership, x => set.SpotOwnership = x));
+            p.Children.Add(Note("This applies only where the owner field means \"belongs to\" on both items (the game's can-own bit); keys, bones and scrolls keep theirs. When unticked, every item carries its own owner."));
 
             var kinds = new WrapPanel { Margin = new Thickness(0, 2) };
             void K(string text, bool v, Action<bool> a) { var c = Check(text, v, a); c.Width = 190; kinds.Children.Add(c); }
@@ -225,11 +225,11 @@ namespace UwEditor.App
             p.Children.Add(Heading("Enchantments"));
             p.Children.Add(Check("After the swap, swap the enchantments among objects of the same class", set.SwapEnchantments, x => set.SwapEnchantments = x));
             var cls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(24, 0, 0, 0) };
-            cls.Children.Add(Check("weapons (melee and launchers apart)", set.EnchantWeapons, x => set.EnchantWeapons = x));
-            cls.Children.Add(Check("armour", set.EnchantArmour, x => set.EnchantArmour = x));
-            cls.Children.Add(Check("spell scrolls", set.EnchantScrolls, x => set.EnchantScrolls = x));
+            cls.Children.Add(Check("Weapons (melee and launchers separately)", set.EnchantWeapons, x => set.EnchantWeapons = x));
+            cls.Children.Add(Check("Armour", set.EnchantArmour, x => set.EnchantArmour = x));
+            cls.Children.Add(Check("Spell scrolls", set.EnchantScrolls, x => set.EnchantScrolls = x));
             p.Children.Add(cls);
-            p.Children.Add(Note("Every weapon, piece of armour or spell scroll the swap may touch takes part, whether or not its kind is ticked above, plain ones included: an enchantment may move to an object that had none. The scope above applies."));
+            p.Children.Add(Note("Every weapon, piece of armour or spell scroll the swap may touch takes part, whether or not its kind is ticked above. Plain ones take part too, so an enchantment may move to an object that had none. The scope above applies."));
             return p;
         }
 
@@ -307,7 +307,7 @@ namespace UwEditor.App
             undoButton.IsEnabled = true;
             Save();
             report.Text = "Swapped. " + (applied.Count > 1 ? applied.Count + " swaps so far; Undo swap puts back all of them.\n\n" : "Undo swap puts everything back.\n\n") + r.Report;
-            main.RandomizerApplied("Items swapped; Edit ▸ Undo (per level) or the item swap window's Undo swap puts them back.");
+            main.RandomizerApplied("Items swapped. Edit ▸ Undo (per level) or Undo swap in the item swap window puts them back.");
         }
 
         /// <summary>The Undo swap button: every swap from this window, put back.</summary>
@@ -317,7 +317,7 @@ namespace UwEditor.App
             var skipped = new SortedSet<int>();
             for (int i = applied.Count - 1; i >= 0; i--) { skipped.UnionWith(ItemShuffle.Revert(applied[i], main.ViewModel.Edits)); n += applied[i].Changed; }
             report.Text = string.Format("Undone: {0} swap(s), {1} object changes put back as they were.", applied.Count, n)
-                + (skipped.Count == 0 ? "" : "\n\nLeft as they are, because they were edited since: level" + (skipped.Count == 1 ? " " : "s ") + string.Join(", ", skipped) + ". Edit ▸ Undo steps back there.");
+                + (skipped.Count == 0 ? "" : "\n\nLeft as they are because they were edited since: level" + (skipped.Count == 1 ? " " : "s ") + string.Join(", ", skipped) + ". Use Edit ▸ Undo to step back there.");
             applied.Clear();
             undoButton.IsEnabled = false;
             main.RandomizerApplied("Item swaps undone.");

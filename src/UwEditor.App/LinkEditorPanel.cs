@@ -38,7 +38,7 @@ namespace UwEditor.App
             Children.Add(from);
             Children.Add(new TextBlock { Text = "To", FontSize = 12 });
             Children.Add(to);
-            var two = new CheckBox { Content = "Two-way (also from the second zone back)", IsChecked = k.TwoWay };
+            var two = new CheckBox { Content = "Two-way (also from the second zone back to the first)", IsChecked = k.TwoWay };
             two.IsCheckedChanged += (s, e) => { k.TwoWay = two.IsChecked == true; z.LinkChanged(); };
             Children.Add(two);
             Children.Add(Btn("Swap the direction", () => { int t = k.From; k.From = k.To; k.To = t; z.LinkChanged(); reshow?.Invoke(); }));
@@ -48,7 +48,7 @@ namespace UwEditor.App
             Children.Add(kind);
             var conf = new ComboBox { ItemsSource = new[] { "certain", "todo" }, SelectedItem = k.Confidence == "todo" ? "todo" : "certain", HorizontalAlignment = HorizontalAlignment.Stretch };
             conf.SelectionChanged += (s, e) => { var v = conf.SelectedItem as string ?? "certain"; if (v != k.Confidence) { k.Confidence = v; z.LinkChanged(); } };
-            Children.Add(new TextBlock { Text = "Sure?", FontSize = 12 });
+            Children.Add(new TextBlock { Text = "Confidence", FontSize = 12 });
             Children.Add(conf);
 
             Children.Add(new TextBlock { Classes = { "h" }, Text = "REQUIREMENTS (ALL OF THEM)" });
@@ -61,7 +61,7 @@ namespace UwEditor.App
                 if (changed) k.RequirementList = terms.ToList();
                 string err;
                 Requirement.TryParse(k.Requires, out err);
-                check.Text = err == null ? (terms.Count == 0 ? "Free: nothing needed." : "As an expression: " + k.Requires) : "Not understood: " + err;
+                check.Text = err == null ? (terms.Count == 0 ? "Free: nothing is needed." : "As an expression: " + k.Requires) : "Not understood: " + err;
                 check.Bind(TextBlock.ForegroundProperty, check.GetResourceObservable(err == null ? "Muted" : "Error"));
                 if (changed) z.LinkChanged();
             };
@@ -74,7 +74,7 @@ namespace UwEditor.App
             {
                 List<DoorPassage> used;
                 string r = ZoneDoors.Suggest(z.Doors, k.From, k.To, out used);
-                if (r == null) { this.status("No door joins these two zones (walk, a drop, a lever or a conversation, maybe)."); return; }
+                if (r == null) { this.status("No door joins these two zones; the way may be a walk, a drop, a lever or a conversation."); return; }
                 terms.Clear();
                 foreach (var t in ZoneLink.SplitAnd(r)) terms.Add(t);
                 k.Notes = string.Join("; ", used.Select(u => string.Format("L{0} ({1}, {2}) {3}: {4}", u.Level, u.X, u.Y, u.Kind, u.Notes)));
@@ -97,7 +97,7 @@ namespace UwEditor.App
             Children.Add(new TextBlock
             {
                 FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap,
-                Text = "Each line must hold; a line with | holds when any of its parts does. key:N a key with owner N; pick:Z picking a lock of difficulty Z; bash breaking the door; item:, flag:, npc: something a zone grants; spell:NAME; zone:N reaching zone N (a lever there); talismans:N.",
+                Text = "Every line must hold; a line with | holds when any of its parts does. key:N is a key with owner N; pick:Z is picking a lock of difficulty Z; bash is breaking the door; item:, flag: and npc: are things a zone grants; spell:NAME is a spell; zone:N is reaching zone N (for a lever there); talismans:N is having N talismans.",
             });
             Children.Add(new TextBlock { Classes = { "h" }, Text = "NOTES" });
             var notes = new TextBox { Text = k.Notes, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 60 };

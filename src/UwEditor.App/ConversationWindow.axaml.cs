@@ -105,7 +105,7 @@ namespace UwEditor.App
                 r.Detail += n == 0 ? " · nobody in the levels" : string.Format(" · {0} creature{1}", n, n == 1 ? "" : "s");
             }
             if (Model.Selected != null) FillUsers(Model.Selected.Slot);
-            Model.Status = string.Format("{0} conversations. Strings and scripts can be edited; Save writes CNV.ARK and STRINGS.PAK.", Model.All.Count);
+            Model.Status = string.Format("{0} conversations. You can edit their strings and scripts; Save writes CNV.ARK and STRINGS.PAK.", Model.All.Count);
         }
 
         /// <summary>Shows a slot (and selects it in the list).</summary>
@@ -131,7 +131,7 @@ namespace UwEditor.App
             string name = lib.Name(slot);
             Model.Header = string.Format("{0}  ·  conversation {1}", name ?? "No name", slot);
             int imported = current.Imports.Count(i => !i.IsFunction && ImportedVariables.IsBound(i.Name, lib.Kind));
-            Model.Subheader = string.Format("Strings block 0x{0:X4} · {1} words of code · {2} variables ({3} the game fills in, the rest kept in BGLOBALS.DAT) · {4} built-ins imported",
+            Model.Subheader = string.Format("String block 0x{0:X4} · {1} words of code · {2} variables ({3} filled in by the game, the rest kept in BGLOBALS.DAT) · {4} built-in functions imported",
                 current.StringBlock, current.Code.Length, current.Variables, imported, current.Imports.Count(i => i.IsFunction));
             originalStrings = lib.Strings.Original(current.StringBlock);
             RefreshDialogue();
@@ -343,7 +343,7 @@ namespace UwEditor.App
             Model.ScriptChanged = false;
             Load(slot);
             MarkChanged();
-            Model.Status = "Conversation " + slot + " is as it was saved.";
+            Model.Status = "Conversation " + slot + " is back as it was last saved.";
             StringsChanged?.Invoke();
         }
 

@@ -15,7 +15,7 @@
         <TextBlock Text="{Binding Summary}" Classes="muted" TextTrimming="CharacterEllipsis" />
       </StackPanel>
       <Button Grid.Column="1" x:Name="AddMoreButton" Content="Add, keep open" Click="OnAddMore" IsVisible="False" IsEnabled="{Binding HasItem}" MinWidth="88" HorizontalContentAlignment="Center" Margin="0,0,8,0"
-              ToolTip.Tip="Adds this object and leaves the window open for the next one" />
+              ToolTip.Tip="Adds this object and leaves the window open for the next one." />
       <Button Grid.Column="2" x:Name="AddButton" Content="Add" Click="OnAdd" IsDefault="True" IsEnabled="{Binding HasItem}" MinWidth="88" HorizontalContentAlignment="Center" Margin="0,0,8,0" />
       <Button Grid.Column="3" Content="Cancel" Click="OnCancel" IsCancel="True" MinWidth="88" HorizontalContentAlignment="Center" />
     </Grid>
@@ -77,7 +77,7 @@
               <NumericUpDown Value="{Binding Charges}" Minimum="0" Maximum="63" Increment="1" FormatString="0" Width="120" />
             </StackPanel>
             <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
-                       Text="The wand holds a spell object (0x120): its link is the spell (flag 11 set), its quality the charges left." />
+                       Text="The wand holds a spell object (0x120): the wand's link is the spell (flag 11 set), and its quality is the number of charges left." />
           </StackPanel>
 
           <Border x:Name="Uw2WarningBox" IsVisible="{Binding ShowUw2Warning}" Background="{DynamicResource WarnBg}" BorderBrush="{DynamicResource Accent}" BorderThickness="1" CornerRadius="4" Padding="10,8">
@@ -102,7 +102,7 @@
               <NumericUpDown x:Name="LockBox" Value="{Binding LockNumber}" Minimum="0" Maximum="63" Increment="1" FormatString="0" Width="120" />
             </StackPanel>
             <TextBlock Text="{Binding KeyText}" TextWrapping="Wrap" FontSize="12" />
-            <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11" Text="A key's owner field is the lock it opens; its description is STRINGS.PAK block 5, 100 + the lock (Tools ▸ Keys and locks edits it)." />
+            <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11" Text="A key's owner field is the number of the lock it opens. Its description is STRINGS.PAK block 5, string 100 + the lock number (Tools ▸ Keys and locks edits it)." />
           </StackPanel>
 
           <!-- lock -->
@@ -113,7 +113,7 @@
               <NumericUpDown Value="{Binding LockNumber}" Minimum="0" Maximum="511" Increment="1" FormatString="0" Width="120" />
               <TextBlock Text="Lockpicking difficulty" VerticalAlignment="Center" Margin="12,0,0,0" />
               <NumericUpDown Value="{Binding PickDifficulty}" Minimum="0" Maximum="15" Increment="1" FormatString="0" Width="110"
-                             ToolTip.Tip="Z: 3 × this Picklock is needed; 15 can never be picked." />
+                             ToolTip.Tip="Stored in Z. Picking the lock needs a Picklock skill of 3 × this; 15 can never be picked." />
             </StackPanel>
             <CheckBox Content="Locked (flag 9)" IsChecked="{Binding Locked}" />
             <CheckBox Content="Stays after unlocking, can be locked again (flag 10)" IsChecked="{Binding Relockable}" />
@@ -125,7 +125,7 @@
             <TextBlock Grid.Row="0" Text="Hit points" VerticalAlignment="Center" />
             <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
               <NumericUpDown Value="{Binding Hp}" Minimum="0" Maximum="255" Increment="1" FormatString="0" Width="120" />
-              <TextBlock Text="0: like others of its kind (or OBJECTS.DAT's average)" Classes="muted" VerticalAlignment="Center" FontSize="11" />
+              <TextBlock Text="0: the same as others of its kind (or OBJECTS.DAT's average)" Classes="muted" VerticalAlignment="Center" FontSize="11" />
             </StackPanel>
             <TextBlock Grid.Row="1" Text="Attitude" VerticalAlignment="Center" />
             <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Attitudes}" SelectedIndex="{Binding AttitudeIndex}" Width="160" Margin="0,0,0,6" />

@@ -286,14 +286,14 @@ namespace UwEditor.Core.Randomizer
         /// <summary>Every challenge, alphabetically.</summary>
         public static readonly ChallengeInfo[] All =
         {
-            new ChallengeInfo(Challenge.AllergicToMagic, "Allergic to magic", "Weapons, armour, rings and scrolls lose their enchantments, wands their spells (but the plot's), and the runestones and the rune bag go."),
+            new ChallengeInfo(Challenge.AllergicToMagic, "Allergic to magic", "Weapons, armour, rings and scrolls lose their enchantments, and wands lose their spells (except the ones the plot needs). The runestones and the rune bag go."),
             new ChallengeInfo(Challenge.BonesRise, "Bones rise", "A skull and two bones lying within a 2 × 2 square of tiles rise as a skeleton."),
             new ChallengeInfo(Challenge.DmdMode, "DMD mode", "Creatures without a conversation turn hostile, and every creature becomes powerful (the special ones stay as they are)."),
             new ChallengeInfo(Challenge.Dystopia, "Dystopia", "Every weapon and piece of armour is badly worn (quality 1-15)."),
             new ChallengeInfo(Challenge.EternalDarkness, "Eternal darkness", "Every torch, candle, lantern and light sphere goes (Ultima Underworld keeps the Taper of Sacrifice)."),
             new ChallengeInfo(Challenge.Fasting, "Fasting", "Only part of the food stays, chosen at random. Drinks stay."),
-            new ChallengeInfo(Challenge.GhostTown, "Ghost town", "Every creature without a conversation goes (the special ones stay), templates in traps too; what they carried lies where they stood."),
-            new ChallengeInfo(Challenge.Hoarding, "Hoarding", "Food, weapons and armour leave the floors and chests: ordinary monsters and traders carry them."),
+            new ChallengeInfo(Challenge.GhostTown, "Ghost town", "Every creature without a conversation goes, including the templates in traps (the special ones stay). What they carried is left where they stood."),
+            new ChallengeInfo(Challenge.Hoarding, "Hoarding", "Food, weapons and armour leave the floors and chests; ordinary monsters and traders carry them instead."),
             new ChallengeInfo(Challenge.Illiterate, "Illiterate", "Books, scrolls and maps go, except the ones the plot needs."),
             new ChallengeInfo(Challenge.Lockdown, "Lockdown", "Every closed door that can be broken gets a lock no key opens: pick it or bash it."),
             new ChallengeInfo(Challenge.Merchant, "Merchant", "All food goes to the traders' inventories; the rest of the world has none."),
@@ -303,10 +303,10 @@ namespace UwEditor.Core.Randomizer
             new ChallengeInfo(Challenge.Peaceful, "Peaceful", "Every creature is friendly at the start."),
             new ChallengeInfo(Challenge.Precognition, "Precognition", "Every level's map is fully drawn from the start."),
             new ChallengeInfo(Challenge.Ranger, "Ranger", "Each melee weapon becomes a launcher or a stack of ammunition."),
-            new ChallengeInfo(Challenge.Starvation, "Starvation", "No food and no fishing poles; the Ylem runestones become other runes. The only exception: in Ultima Underworld, one piece of meat beside Zak, the least he takes for the Taper of Sacrifice."),
+            new ChallengeInfo(Challenge.Starvation, "Starvation", "No food and no fishing poles, and the Ylem runestones become other runes. The only exception is in Ultima Underworld: one piece of meat beside Zak, the least he takes for the Taper of Sacrifice."),
             new ChallengeInfo(Challenge.Utopia, "Utopia", "Every weapon and piece of armour is in excellent shape (quality 63)."),
-            new ChallengeInfo(Challenge.Vegetarian, "Vegetarian", "No meat, no fish, no fishing poles."),
-            new ChallengeInfo(Challenge.VowOfPoverty, "Vow of poverty", "No coins and no gems, and creatures carry no treasure. The only exception: in Ultima Underworld, a pile of 20 coins beside Shak, his price for the Sword of Justice."),
+            new ChallengeInfo(Challenge.Vegetarian, "Vegetarian", "No meat, fish or fishing poles."),
+            new ChallengeInfo(Challenge.VowOfPoverty, "Vow of poverty", "No coins and no gems, and creatures carry no treasure. The only exception is in Ultima Underworld: a pile of 20 coins beside Shak, his price for reforging the Sword of Justice."),
         };
 
         /// <summary>
@@ -632,8 +632,8 @@ namespace UwEditor.Core.Randomizer
         public static string SpecialDefaultsText(GameSession s)
         {
             return s.IsUw2
-                ? "At first: the brain creatures (the creature the monster swap leaves alone too) and the Ethereal Void's creatures without a name. The plot's characters all have a conversation, and creatures with a conversation are never made hostile."
-                : "At first: the fire elementals of level 8 (the creature the monster swap leaves alone too) and the Ethereal Void's creatures without a name. The plot's creatures (the golem, Garamon, the prisoners, Tybal…) all have a conversation, and creatures with a conversation are never made hostile.";
+                ? "By default, the list holds the brain creatures (which the monster swap also leaves alone) and the Ethereal Void's unnamed creatures. The plot's characters all have a conversation, and creatures with a conversation are never made hostile."
+                : "By default, the list holds the fire elementals of level 8 (which the monster swap also leaves alone) and the Ethereal Void's unnamed creatures. The plot's creatures (the golem, Garamon, the prisoners, Tybal…) all have a conversation, and creatures with a conversation are never made hostile.";
         }
     }
 }

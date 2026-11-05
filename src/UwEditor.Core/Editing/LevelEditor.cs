@@ -181,7 +181,7 @@ namespace UwEditor.Core.Editing
         /// <summary>Replaces the whole level (a checkpoint restored), as one undoable change.</summary>
         public void Replace(byte[] newData, byte[] newTex, string label)
         {
-            if (newData == null || newData.Length != data.Length) throw new InvalidOperationException("The level block has another size (" + (newData == null ? 0 : newData.Length) + " bytes, not " + data.Length + ").");
+            if (newData == null || newData.Length != data.Length) throw new InvalidOperationException("The level block has a different size (" + (newData == null ? 0 : newData.Length) + " bytes, not " + data.Length + ").");
             Change(label, () => { data = (byte[])newData.Clone(); if (newTex != null) tex = (byte[])newTex.Clone(); });
         }
 

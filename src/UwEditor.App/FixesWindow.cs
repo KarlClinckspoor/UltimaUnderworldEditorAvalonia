@@ -22,7 +22,7 @@ namespace UwEditor.App
         readonly MainWindow main;
         readonly GameSession session;
         readonly ComboBox scope = new ComboBox { ItemsSource = new[] { "This level", "Every level" }, SelectedIndex = 0, Width = 160 };
-        readonly CheckBox warnings = new CheckBox { Content = "Fix all fixes warnings too", IsChecked = false };
+        readonly CheckBox warnings = new CheckBox { Content = "Fix all includes warnings", IsChecked = false };
         readonly ListBox checks = new ListBox { Width = 270 };
         readonly ListBox findings = new ListBox();
         readonly TextBlock description = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.8, Margin = new Thickness(0, 0, 0, 6) };
@@ -65,7 +65,7 @@ namespace UwEditor.App
             var check = new Button { Content = "Check", FontWeight = FontWeight.SemiBold };
             check.Click += (o, e) => Run();
             var fixAll = new Button { Content = "Fix all" };
-            ToolTip.SetTip(fixAll, "Every finding with a fix, in the levels checked: one Edit ▸ Undo step a level");
+            ToolTip.SetTip(fixAll, "Fix every finding that has a fix, in the levels checked (one Edit ▸ Undo step per level).");
             fixAll.Click += (o, e) => FixAll();
             var cleaner = new Button { Content = "Item cleaner…" };
             cleaner.Click += (o, e) => main.ShowItemCleaner();
@@ -76,9 +76,9 @@ namespace UwEditor.App
             top.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
-                Text = "Checks what the game itself relies on, on the levels as edited: every object either free or reached from one tile exactly once (Obj_ListOkay), " +
-                       "the free stacks, the creatures on the active list, traps and their links, texts. List errors fail the game's own check; problems make the game misbehave; " +
-                       "warnings may be meant. Double-click a finding to go to it. Each fix is one Edit ▸ Undo step.",
+                Text = "Checks what the game itself relies on, in the levels as edited: that every object is either free or reached exactly once from one tile (Obj_ListOkay), " +
+                       "the free stacks, the creatures on the active list, traps and their links, and texts. List errors fail the game's own check, problems make the game misbehave, " +
+                       "and warnings may be intentional. Double-click a finding to go to it. Each fix is one Edit ▸ Undo step.",
             });
             var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             bar.Children.Add(scope); bar.Children.Add(check); bar.Children.Add(fixAll); bar.Children.Add(warnings); bar.Children.Add(cleaner);

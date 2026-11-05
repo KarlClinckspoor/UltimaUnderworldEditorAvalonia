@@ -89,14 +89,14 @@ namespace UwEditor.Core.Randomizer
         {
             var spec = new ObjectSpec { Item = 0xA0, Quality = 40, Link = ShakGold, IsQuantity = true };
             string at = PlaceException(x, ShakWhoami, spec, "Shak");
-            if (at != null) x.Sec.Notes.Add(string.Format("The only exception: a pile of {0} coins at {1}, beside Shak, who reforges the sword for them (conversation 2).", ShakGold, at));
+            if (at != null) x.Sec.Notes.Add(string.Format("The only exception is a pile of {0} coins at {1}, beside Shak, who reforges the sword for them (conversation 2).", ShakGold, at));
         }
 
         static void StarvationException(Ctx x)
         {
             var spec = new ObjectSpec { Item = ZakFood, Quality = 40, Link = 1, IsQuantity = true };
             string at = PlaceException(x, ZakWhoami, spec, "Zak");
-            if (at != null) x.Sec.Notes.Add(string.Format("The only exception: one {0} at {1}, beside Zak, the least food he takes for the Taper of Sacrifice (conversation 28; conv/BARTER.C do_offer).", x.S.Names.Get(ZakFood), at));
+            if (at != null) x.Sec.Notes.Add(string.Format("The only exception is one {0} at {1}, beside Zak: the least food he takes for the Taper of Sacrifice (conversation 28; conv/BARTER.C do_offer).", x.S.Names.Get(ZakFood), at));
         }
     }
 }

@@ -13,14 +13,14 @@
         <TextBlock Grid.Column="0" Text="Conversations" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0" />
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
           <Button x:Name="SimulateButton" Content="Simulate…" Click="OnSimulate" IsEnabled="{Binding HasSelection}"
-                  ToolTip.Tip="Run this conversation as the game would, with menus to choose from (Ctrl+R); nothing is written to the game" />
+                  ToolTip.Tip="Run this conversation as the game would, choosing from its menus (Ctrl+R). Nothing is written to the game." />
           <Button x:Name="GraphButton" Content="Graph…" Click="OnGraph" IsEnabled="{Binding HasSelection}"
-                  ToolTip.Tip="This conversation's flow as a graph: what the NPC says, the menus and where each answer leads" />
-          <Button x:Name="GlobalsButton" Content="Global variables…" Click="OnGlobals" ToolTip.Tip="The quest flags, game variables and private globals conversations read and write (Ctrl+G)" />
+                  ToolTip.Tip="Show this conversation's flow as a graph: what the NPC says, the menus, and where each answer leads." />
+          <Button x:Name="GlobalsButton" Content="Global variables…" Click="OnGlobals" ToolTip.Tip="Show the quest flags, game variables and private globals that conversations read and write (Ctrl+G)." />
           <Button x:Name="RevertButton" Content="Revert conversation" Click="OnRevert" IsEnabled="{Binding HasSelection}"
-                  ToolTip.Tip="Drop this conversation's unsaved changes (its script and its strings)" />
+                  ToolTip.Tip="Discard this conversation's unsaved changes to its script and its strings." />
           <Button x:Name="SaveButton" Content="Save" Click="OnSave" MinWidth="80" HorizontalContentAlignment="Center"
-                  ToolTip.Tip="Write CNV.ARK and STRINGS.PAK in DATA (Ctrl+S); the old files are kept as CNV.BKP and STRINGS.BKP" />
+                  ToolTip.Tip="Write CNV.ARK and STRINGS.PAK in DATA (Ctrl+S). The old files are kept as CNV.ARK.BKP and STRINGS.PAK.BKP." />
         </StackPanel>
       </Grid>
     </Border>
@@ -33,14 +33,14 @@
     <Grid x:Name="Columns" ColumnDefinitions="280,4,*">
       <!-- the list -->
       <DockPanel Grid.Column="0" Background="{DynamicResource Panel}">
-        <TextBox x:Name="FilterBox" DockPanel.Dock="Top" Margin="8" Text="{Binding Filter}" PlaceholderText="Filter: slot, name or text" />
+        <TextBox x:Name="FilterBox" DockPanel.Dock="Top" Margin="8" Text="{Binding Filter}" PlaceholderText="Filter by slot, name or text" />
         <ListBox x:Name="List" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}" Background="Transparent">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="app:ConversationRow">
               <StackPanel>
                 <StackPanel Orientation="Horizontal">
                   <TextBlock Text="{Binding Title}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                  <TextBlock Text="  ●" Classes="badge" IsVisible="{Binding Changed}" ToolTip.Tip="Changed, not saved" />
+                  <TextBlock Text="  ●" Classes="badge" IsVisible="{Binding Changed}" ToolTip.Tip="Changed but not saved." />
                 </StackPanel>
                 <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
               </StackPanel>
@@ -62,9 +62,9 @@
             <DockPanel>
               <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
                 <TextBlock Classes="muted" VerticalAlignment="Center"
-                           Text="What the script does, read from its code: say and respond lines, menus and their choices, the quests and variables it checks. Double-click a line to see its code; edit the text in Strings." />
-                <CheckBox Grid.Column="1" x:Name="HideUnusedBox" Content="Hide functions never called" IsChecked="True" Margin="12,0,0,0"
-                          IsCheckedChanged="OnHideUnusedChanged" ToolTip.Tip="The compiler adds a small library to every conversation; most of it is never called" />
+                           Text="What the script does, read from its code: the lines said and responded, the menus and their choices, and the quests and variables it checks. Double-click a line to see its code; edit the text on the Strings tab." />
+                <CheckBox Grid.Column="1" x:Name="HideUnusedBox" Content="Hide functions that are never called" IsChecked="True" Margin="12,0,0,0"
+                          IsCheckedChanged="OnHideUnusedChanged" ToolTip.Tip="The compiler adds a small library of functions to every conversation, and most of them are never called." />
               </Grid>
               <ListBox x:Name="DialogueList" ItemsSource="{Binding Lines}" Background="{DynamicResource Bg}" DoubleTapped="OnDialogueDoubleTapped"
                        FontFamily="{DynamicResource Mono}" FontSize="12">
@@ -90,7 +90,7 @@
             <DockPanel>
               <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
                 <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
-                           Text="The conversation's block of STRINGS.PAK. Edit a text in place; @ variables such as @GS8 are filled in by the game. A new string gets the next number, for the script to say." />
+                           Text="This conversation's block of STRINGS.PAK. Edit a string in place; the game fills in @ variables such as @GS8. A new string takes the next number, ready for the script to say." />
                 <Button Grid.Column="1" x:Name="AddStringButton" Content="Add string" Click="OnAddString" Margin="8,0,0,0" IsEnabled="{Binding HasSelection}" />
               </Grid>
               <ListBox x:Name="StringList" ItemsSource="{Binding Strings}" Background="{DynamicResource Bg}">
@@ -104,7 +104,7 @@
                     <Grid ColumnDefinitions="40,*">
                       <StackPanel Grid.Column="0" Margin="0,6,0,0">
                         <TextBlock Text="{Binding Number}" FontFamily="{DynamicResource Mono}" FontSize="11" Foreground="{DynamicResource Muted}" />
-                        <TextBlock Text="●" Classes="badge" Margin="0" IsVisible="{Binding Changed}" ToolTip.Tip="Changed, not saved" />
+                        <TextBlock Text="●" Classes="badge" Margin="0" IsVisible="{Binding Changed}" ToolTip.Tip="Changed but not saved." />
                       </StackPanel>
                       <StackPanel Grid.Column="1">
                         <TextBox Text="{Binding Text, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap" FontSize="12" MinHeight="28" />
@@ -122,9 +122,9 @@
             <DockPanel>
               <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,6">
                 <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
-                           Text="The code, one instruction a line (conv.h's opcodes). Apply assembles it into the conversation; the comments show addresses and strings." />
+                           Text="The code, one instruction per line (the opcodes of conv.h); the comments show addresses and strings. Apply assembles the text into the conversation." />
                 <Button Grid.Column="1" x:Name="ApplyScriptButton" Content="Apply" Click="OnApplyScript" Margin="8,0,0,0" IsEnabled="{Binding ScriptChanged}"
-                        ToolTip.Tip="Assemble the text into the conversation (Ctrl+Enter)" />
+                        ToolTip.Tip="Assemble the text into the conversation (Ctrl+Enter)." />
                 <Button Grid.Column="2" Content="Undo edits" Click="OnResetScript" Margin="8,0,0,0" IsEnabled="{Binding ScriptChanged}" />
               </Grid>
               <TextBlock DockPanel.Dock="Bottom" Text="{Binding ScriptError}" Foreground="{DynamicResource Warn}" IsVisible="{Binding HasScriptError}" Margin="0,6,0,0" TextWrapping="Wrap" />
@@ -137,7 +137,7 @@
           <TabItem Header="Who talks" x:Name="UsersTab">
             <DockPanel>
               <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="0,0,0,6"
-                         Text="The creatures in the levels that talk through this slot (whoami, or a generic slot for whoami 0). Double-click to go to one." />
+                         Text="The creatures in the levels that talk through this slot (by their whoami, or through a generic slot when whoami is 0). Double-click one to go to it." />
               <ListBox x:Name="UserList" ItemsSource="{Binding Users}" Background="{DynamicResource Bg}" DoubleTapped="OnUserDoubleTapped">
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="app:UserRow">

@@ -72,8 +72,8 @@ public sealed class Dialogs : IDialogs
             return t;
         }
         var name = Field(0, "Name", d.Name, "Gate of Dawn");
-        var authors = Field(1, "Author(s)", string.Join(", ", d.Authors), "comma separated");
-        var id = Field(2, "Id", d.Id, "karl.gate-of-dawn (from the author and name if empty)");
+        var authors = Field(1, "Author(s)", string.Join(", ", d.Authors), "comma-separated");
+        var id = Field(2, "Id", d.Id, "karl.gate-of-dawn (made from the author and name if empty)");
         var version = Field(3, "Version", d.Version, "1.0.0");
         var desc = Field(4, "Description", d.Description, "");
         desc.AcceptsReturn = true; desc.TextWrapping = Avalonia.Media.TextWrapping.Wrap; desc.Height = 80;

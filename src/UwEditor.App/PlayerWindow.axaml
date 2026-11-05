@@ -26,7 +26,7 @@
         <TextBlock Grid.Column="1" x:Name="FileText" Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
           <Button x:Name="SaveButton" Content="Save" Click="OnSave" MinWidth="80" HorizontalContentAlignment="Center"
-                  ToolTip.Tip="Write PLAYER.DAT (Ctrl+S); the old file is kept as PLAYER.BKP" />
+                  ToolTip.Tip="Write PLAYER.DAT (Ctrl+S). The old file is kept as PLAYER.DAT.BKP." />
         </StackPanel>
       </Grid>
     </Border>
@@ -40,7 +40,7 @@
         <StackPanel DockPanel.Dock="Top">
           <TextBlock Text="CHECKS" Classes="h first" />
           <TextBlock x:Name="SummaryText" Text="{Binding WarningSummary}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,8" />
-          <TextBlock Classes="muted" FontSize="11" Text="GAME DETECTS: UW2's end screen calls the character a cheat. NOT REACHABLE: creation and play never give it. NOTE: the game will change it, or it disagrees with another value." />
+          <TextBlock Classes="muted" FontSize="11" Text="GAME DETECTS: UW2's end screen calls the character a cheat. NOT REACHABLE: neither character creation nor play can produce the value. NOTE: the game will change the value, or it disagrees with another one." />
         </StackPanel>
         <ListBox x:Name="WarningList" ItemsSource="{Binding Warnings}" Background="Transparent" Margin="-4,8,-4,0">
           <ListBox.ItemTemplate>
@@ -95,7 +95,7 @@
                 <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding Mana, Mode=TwoWay}" Minimum="0" Maximum="255" Margin="0,0,0,4" />
                 <TextBlock Grid.Row="3" Classes="label" Text="Maximum mana" />
                 <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding MaxMana, Mode=TwoWay}" Minimum="0" Maximum="255" Margin="0,0,0,4" />
-                <TextBlock Grid.Row="4" Classes="label" Text="Hunger (255 full)" />
+                <TextBlock Grid.Row="4" Classes="label" Text="Hunger (255 is full)" />
                 <NumericUpDown Grid.Row="4" Grid.Column="1" Value="{Binding Hunger, Mode=TwoWay}" Minimum="0" Maximum="255" Margin="0,0,0,4" />
                 <TextBlock Grid.Row="5" Classes="label" Text="Fatigue" />
                 <NumericUpDown Grid.Row="5" Grid.Column="1" Value="{Binding Fatigue, Mode=TwoWay}" Minimum="0" Maximum="255" Margin="0,0,0,4" />
@@ -117,42 +117,42 @@
               <StackPanel IsVisible="{Binding HasStoryBits}" Spacing="2">
                 <TextBlock Text="STORY (NOT QUEST FLAGS)" Classes="h" />
                 <CheckBox x:Name="GaramonBuriedBox" Content="Garamon buried" IsChecked="{Binding GaramonBuried, Mode=TwoWay}"
-                          ToolTip.Tip="Byte 0x62 bit 3 (player-&gt;garamon). Set, with the next one, when Garamon's bones are used on his grave on level 5 (obj/USEITEMS.C UseBonesOn)." />
+                          ToolTip.Tip="Byte 0x62 bit 3 (player-&gt;garamon). Set, along with the next check box, when Garamon's bones are used on his grave on level 5 (obj/USEITEMS.C UseBonesOn)." />
                 <CheckBox x:Name="TalismansCanBurnBox" Content="Talismans can be destroyed in the lava" IsChecked="{Binding TalismansCanBurn, Mode=TwoWay}"
-                          ToolTip.Tip="Byte 0x62 bit 2 (player-&gt;talisman_ok). Without it a talisman thrown into the lava of the Slasher's chamber is not destroyed (motion/OBJPHYS.C). Set by burying Garamon, before his ghost speaks (the answers to his questions do not matter); cleared if his ghost is killed. Quest 5 is not it: nothing in the game sets quest 5." />
+                          ToolTip.Tip="Byte 0x62 bit 2 (player-&gt;talisman_ok). Without it, a talisman thrown into the lava of the Slasher's chamber is not destroyed (motion/OBJPHYS.C). Burying Garamon sets it before his ghost speaks (the answers to his questions do not matter); killing his ghost clears it. Quest 5 is not this flag: nothing in the game sets quest 5." />
                 <Grid ColumnDefinitions="*,120" Margin="0,2,0,0">
                   <TextBlock Classes="label" Text="Talismans left to destroy" />
                   <NumericUpDown Grid.Column="1" x:Name="TalismansLeftBox" Value="{Binding TalismansLeft, Mode=TwoWay}" Minimum="0" Maximum="255"
-                                 ToolTip.Tip="Byte 0x6D: 8 at the start, one less for each destroyed, 255 once the last is gone and the moongate has opened (game/SKILLS.C check_victory)." />
+                                 ToolTip.Tip="Byte 0x6D: 8 at the start and one less for each talisman destroyed; 255 once the last is gone and the moongate has opened (game/SKILLS.C check_victory)." />
                 </Grid>
                 <CheckBox x:Name="OrbDestroyedBox" Content="Tybal's orb destroyed" IsChecked="{Binding OrbDestroyed, Mode=TwoWay}"
-                          ToolTip.Tip="Byte 0x60 bit 5. While the orb stands, level 7 takes the mana away and puts the maze back (game/GAMEWRAP.C), and Tybal's guards act otherwise (critter/AI.C). Set when the orb is broken." />
+                          ToolTip.Tip="Byte 0x60 bit 5. While the orb stands, level 7 takes the player's mana away and puts the maze navigation spell back (game/GAMEWRAP.C), and Tybal's guards behave differently (critter/AI.C). Set when the orb is broken." />
                 <CheckBox x:Name="CupFoundBox" Content="Cup of Wonder found" IsChecked="{Binding CupFound, Mode=TwoWay}"
-                          ToolTip.Tip="Byte 0x60 bit 7. The flute's tune makes the Cup only while this is clear (sound/SOUND.C), and the shrine mantra pointing the way to it stops once it is set." />
+                          ToolTip.Tip="Byte 0x60 bit 7. Playing the tune on the flute produces the Cup only while this is clear (sound/SOUND.C), and once it is set the shrine mantra stops pointing the way to the Cup." />
                 <CheckBox x:Name="KeyOfTruthBox" Content="Key of Truth given" IsChecked="{Binding KeyOfTruthGiven, Mode=TwoWay}"
                           ToolTip.Tip="Byte 0x60 bit 6. The shrine mantra gives the Key of Truth only while this is clear, then sets it (game/SKILLS.C)." />
                 <Grid ColumnDefinitions="*,120" RowDefinitions="Auto,Auto" Margin="0,2,0,0">
                   <TextBlock Classes="label" Text="Moonstone on level (0: carried)" />
                   <NumericUpDown Grid.Column="1" x:Name="MoonstoneBox" Value="{Binding MoonstoneLevel, Mode=TwoWay}" Minimum="0" Maximum="15" Margin="0,0,0,4"
-                                 ToolTip.Tip="Byte 0x5E bits 0-3: where Gate Travel takes the player (combat/SPELLS.C). 2 at the start, 0 while carried, the level it is put down on." />
+                                 ToolTip.Tip="Byte 0x5E bits 0-3: where Gate Travel takes the player (combat/SPELLS.C). 2 at the start, 0 while the moonstone is carried, otherwise the level it was put down on." />
                   <TextBlock Grid.Row="1" Classes="label" Text="Silver tree on level (0: none)" />
                   <NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="SilverTreeBox" Value="{Binding SilverTreeLevel, Mode=TwoWay}" Minimum="0" Maximum="15"
-                                 ToolTip.Tip="Byte 0x5E bits 4-7: where a dead player comes back to life (game/SKILLS.C). 0 for no tree; Armageddon clears it." />
+                                 ToolTip.Tip="Byte 0x5E bits 4-7: where a dead player comes back to life (game/SKILLS.C). 0 means no tree; Armageddon clears it." />
                 </Grid>
-                <TextBlock Text="LESS ABOUT THE PLOT" Classes="h" />
-                <CheckBox x:Name="ArmageddonBox" Content="Armageddon cast (levels arrived on are emptied)" IsChecked="{Binding ArmageddonCast, Mode=TwoWay}"
+                <TextBlock Text="OTHER FLAGS" Classes="h" />
+                <CheckBox x:Name="ArmageddonBox" Content="Armageddon cast (levels are emptied on arrival)" IsChecked="{Binding ArmageddonCast, Mode=TwoWay}"
                           ToolTip.Tip="Byte 0x60 bit 4. While set, every level the player arrives on is cleared of objects (game/GAMEWRAP.C do_level_hacks)." />
                 <CheckBox x:Name="MazeSpellBox" Content="Maze navigation spell" IsChecked="{Binding MazeSpell, Mode=TwoWay}"
                           ToolTip.Tip="Byte 0x62 bit 4 (game/PLAYDATA.C). Level 7 puts it back on arrival while the orb stands." />
                 <Grid ColumnDefinitions="*,120" Margin="0,2,0,0">
                   <TextBlock Classes="label" Text="Dreams (bits)" />
                   <NumericUpDown Grid.Column="1" x:Name="DreamsBox" Value="{Binding Dreams, Mode=TwoWay}" Minimum="0" Maximum="65535"
-                                 ToolTip.Tip="Word 0x6E, a bit per dream (game/SKILLS.C dream): 1 and 2 the first two dreams seen; 4 Tybal's death and 8 a talisman thrown before the burial, each cleared once its dream has played; 16-512 the random dreams seen. No dream plays once Garamon is buried." />
+                                 ToolTip.Tip="Word 0x6E, one bit per dream (game/SKILLS.C dream). 1 and 2: the first two dreams, once seen. 4: Tybal's death, and 8: a talisman thrown before the burial, each cleared once its dream has played. 16-512: the random dreams seen. No dream plays once Garamon is buried." />
                 </Grid>
                 <TextBlock Text="{Binding DreamsText}" Classes="muted" FontSize="11" TextWrapping="Wrap" />
               </StackPanel>
               <Button x:Name="RecomputeButton" Content="Set the maxima as the game computes them" Click="OnRecompute" Margin="0,6,0,0"
-                      ToolTip.Tip="Maximum vitality, mana and carrying capacity from the attributes, level and Mana skill (game/SKILLS.C player_compute)" />
+                      ToolTip.Tip="Compute maximum vitality, maximum mana and carrying capacity from the attributes, level and Mana skill, as the game does (game/SKILLS.C player_compute)." />
             </StackPanel>
 
             <!-- skills -->
@@ -226,7 +226,7 @@
               <CheckBox Content="Invisible" IsChecked="{Binding Invisible, Mode=TwoWay}" />
               <TextBlock Classes="label" Text="Move to" Margin="0,4,0,2" />
               <ComboBox x:Name="MoveBox" ItemsSource="{Binding MoveTargets}" SelectedItem="{Binding MoveTarget, Mode=TwoWay}" HorizontalAlignment="Stretch"
-                        ToolTip.Tip="A slot (an object already there makes way) or a container; dragging in the list does the same" />
+                        ToolTip.Tip="Move the object to a slot (any object already there makes way) or into a container. Dragging it in the list does the same." />
               <Button x:Name="DeleteButton" Content="Remove from the inventory" Click="OnDelete" Margin="0,6,0,0" />
             </StackPanel>
             <TextBlock Text="ADD AN OBJECT" Classes="h" />
@@ -240,7 +240,7 @@
             <TextBlock Text="{Binding NewItemName}" FontSize="12" />
             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
               <Button x:Name="AddButton" Content="Add" Click="OnAdd" MinWidth="72" HorizontalContentAlignment="Center" />
-              <Button x:Name="AddDetailedButton" Content="Add…" Click="OnAddDetailed" ToolTip.Tip="Choose the item with a form for its kind: enchantments, wand spells, texts, keys; it can stay open to add several" />
+              <Button x:Name="AddDetailedButton" Content="Add…" Click="OnAddDetailed" ToolTip.Tip="Choose the item with a form suited to its kind (enchantments, wand spells, texts, keys). The form can stay open to add several." />
             </StackPanel>
           </StackPanel>
         </Grid>

@@ -28,7 +28,7 @@ namespace UwEditor.App
         readonly MainWindow main;
         readonly GameSession session;
         readonly TabControl tabs = new TabControl();
-        readonly TextBox filter = new TextBox { Watermark = "Filter: name or number (0x40)", Width = 260 };
+        readonly TextBox filter = new TextBox { Watermark = "Filter by name or number (0x40)", Width = 260 };
         readonly CheckBox changedOnly = new CheckBox { Content = "Changed rows only" };
         readonly TextBlock explain = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12, MinHeight = 34 };
         readonly TextBlock status = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
@@ -61,17 +61,17 @@ namespace UwEditor.App
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
                 Text = "The fixed properties of each kind of object, from DATA's OBJECTS.DAT (the class tables) and COMOBJ.DAT (the common properties). " +
-                       "Click a cell to edit it; Enter or Tab keeps the value, Escape drops it. Numbers are decimal, or hexadecimal with 0x. " +
+                       "Click a cell to edit it; Enter or Tab keeps the value, Escape discards it. Numbers are decimal, or hexadecimal with 0x. " +
                        (s.IsSave ? "A saved game has no copy of its own: these files apply to every saved game and to a new game." : "The game reads them at start-up; saved games use them too."),
             });
             DockPanel.SetDock(top, Dock.Top);
 
             var revertRow = new Button { Content = "Revert row" };
-            ToolTip.SetTip(revertRow, "Puts the selected row back as it is in the file");
+            ToolTip.SetTip(revertRow, "Put the selected row back as it is in the file.");
             revertRow.Click += (o, e) => RevertRow();
             var revertAll = new Button { Content = "Revert all" };
-            ToolTip.SetTip(revertAll, "Drops every unsaved change in both files");
-            revertAll.Click += (o, e) => { CommitEdit(); Tables?.RevertAll(); SetStatus("All changes dropped.", false); };
+            ToolTip.SetTip(revertAll, "Discard every unsaved change in both files.");
+            revertAll.Click += (o, e) => { CommitEdit(); Tables?.RevertAll(); SetStatus("All changes discarded.", false); };
             saveButton.Click += (o, e) => SaveAll();
             filter.TextChanged += (o, e) => ApplyFilter();
             changedOnly.IsCheckedChanged += (o, e) => ApplyFilter();
@@ -214,7 +214,7 @@ namespace UwEditor.App
             if (p == null || r == null) { SetStatus("Select a row first (click one of its cells).", true); return; }
             if (!Tables.IsRowChanged(p.Table, r.Row)) { SetStatus(r.Label + " has no changes.", false); return; }
             Tables.RevertRow(p.Table, r.Row);
-            SetStatus(r.Label + " is back as in " + p.Table.FileName + ".", false);
+            SetStatus(r.Label + " is back as it is in " + p.Table.FileName + ".", false);
         }
 
         // ---- the cell being edited
@@ -319,7 +319,7 @@ namespace UwEditor.App
             var ed = editing;
             if (ed == null) return;
             Close(ed);
-            SetStatus("Edit dropped.", false);
+            SetStatus("Edit discarded.", false);
         }
 
         void Close(CellEdit ed)

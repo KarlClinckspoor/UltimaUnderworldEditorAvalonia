@@ -89,7 +89,7 @@ namespace UwEditor.Core.Graphics
             {
                 bool inRange = true;
                 for (int k = 0; k < n; k++) { px[k] = img.Indices[k]; if (px[k] >= like.Colors.Length) inRange = false; }
-                if (inRange) { r.Pixels = px; r.Notes.Add("Read index for index (the PNG's palette is the picture's own)."); return r; }
+                if (inRange) { r.Pixels = px; r.Notes.Add("The pixels were read index for index (the PNG's palette is the picture's own)."); return r; }
             }
             int transparent = Array.FindIndex(like.Colors, c => (c >> 24) == 0);
             var exact = new Dictionary<uint, int>();

@@ -66,7 +66,7 @@ namespace UwEditor.App
             head.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.8,
-                Text = "The squares the Underworld Exhumed check stops at, played by you in the original game. Four at a time become saved games 1–4 in a copy of the game, " +
+                Text = "Here you play the squares the Underworld Exhumed check stops at, in the original game. Four at a time become saved games 1–4 in a copy of the game, " +
                        "all with your levels as they are now and a fresh tester standing on the square. DOSBox starts on the copy: restore each saved game in turn and look around. " +
                        "When you close DOSBox, this window asks for the next four. Nothing in your game folder is changed.",
             });
@@ -99,12 +99,12 @@ namespace UwEditor.App
             var th = main.ExhumedThoroughness;
             editsBox.IsChecked = th.VisitEdits; sweepBox.IsChecked = th.Sweep;
             foreach (var c in new[] { editsBox, sweepBox }) c.IsCheckedChanged += (o, e) => Estimate();
-            ToolTip.SetTip(editsBox, "As the Exhumed check: a square beside each edited spot, at most 12 a level, 5 squares apart.");
-            ToolTip.SetTip(sweepBox, "As the Exhumed check: a square in each 16 × 16 area of the level that has an open, flat, dry one.");
+            ToolTip.SetTip(editsBox, "As in the Exhumed check: a square beside each edited spot, at most 12 per level and 5 squares apart.");
+            ToolTip.SetTip(sweepBox, "As in the Exhumed check: a square in each 16 × 16 area of the level that has an open, flat, dry one.");
 
             var spots = new StackPanel { Spacing = 4 };
             spots.Children.Add(new TextBlock { Text = "Spots", FontWeight = FontWeight.SemiBold });
-            spots.Children.Add(new TextBlock { Text = "Each level's own square (the start square on the start level), and with the options below more, the same as the Underworld Exhumed check.", FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap });
+            spots.Children.Add(new TextBlock { Text = "Each level gets its own square (the start square on the start level), and the options below add more, the same as in the Underworld Exhumed check.", FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap });
             spots.Children.Add(editsBox); spots.Children.Add(sweepBox);
 
             var tester = new StackPanel { Spacing = 4, Margin = new Thickness(0, 10, 0, 0) };
@@ -235,7 +235,7 @@ namespace UwEditor.App
             if (!string.IsNullOrWhiteSpace(notes.Text)) SpotTest.FinishRound(Run, notes.Text);
             SpotTest.Log(Run, string.Format("Stopped with {0} of {1} spots tested.", Run.Tested, Run.Spots.Count));
             progressText.Text = string.Format("Stopped: {0} of {1} spots tested, {2} not.", Run.Tested, Run.Spots.Count, Run.Remaining);
-            stateText.Text = "The log of what was tested, with your notes: " + Path.Combine(Run.Folder, SpotTest.LogName) + ". Start the test again to begin from the first spot.";
+            stateText.Text = "The log of what was tested, with your notes, is at " + Path.Combine(Run.Folder, SpotTest.LogName) + ". Start the test again to begin from the first spot.";
             roundText.Text = "";
             SetButtons(false, false);
             notes.IsVisible = false;
@@ -248,7 +248,7 @@ namespace UwEditor.App
             progressText.Text = string.Format("Done: all {0} spots tested.", Run.Spots.Count);
             progress.Maximum = Math.Max(1, Run.Spots.Count); progress.Value = Run.Spots.Count;
             roundText.Text = "";
-            stateText.Text = "The log of the rounds, with your notes: " + Path.Combine(Run.Folder, SpotTest.LogName) + ".";
+            stateText.Text = "The log of the rounds, with your notes, is at " + Path.Combine(Run.Folder, SpotTest.LogName) + ".";
             notes.IsVisible = false;
             SetButtons(false, false);
             main.ViewModel.EditStatus = "DOSBox spot test finished: " + Run.Spots.Count + " spots.";
@@ -280,10 +280,10 @@ namespace UwEditor.App
             try { SpotTest.WriteRound(s, Run, first); }
             catch (Exception ex) { stateText.Text = "Could not write the saved games: " + ex.Message; SetButtons(true, false); return; }
             ShowProgress();
-            string howTo = "In the game: Journey Onward and the first saved game; for each next one, Options ▸ Restore Game. Each description names its spot: number of total, level, x,y and why.";
+            string howTo = "In the game, choose Journey Onward and the first saved game; for each of the others, use Options ▸ Restore Game. Each saved game's description names its spot: its number out of the total, the level, x,y and why.";
             if (!main.SpotTestLaunch)
             {
-                stateText.Text = "Saved games ready in " + Run.Folder + " (DOSBox not started). " + howTo;
+                stateText.Text = "The saved games are ready in " + Run.Folder + " (DOSBox was not started). " + howTo;
                 SetButtons(true, false);
                 return;
             }
@@ -325,7 +325,7 @@ namespace UwEditor.App
             if (Run == null) return;
             SetButtons(true, false);
             stateText.Text = quick
-                ? "DOSBox closed within seconds: if the game did not run, check DOSBox in Run and Test ▸ Programs and paths, then press These 4 again."
+                ? "DOSBox closed within seconds. If the game did not run, check DOSBox in Run and Test ▸ Programs and paths, then press These 4 again."
                 : "DOSBox is closed. Did these four look right? Write down anything wrong, then go on.";
             try { Activate(); } catch (Exception) { }
         }

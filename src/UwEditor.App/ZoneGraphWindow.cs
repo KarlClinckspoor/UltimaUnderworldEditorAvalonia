@@ -111,7 +111,7 @@ namespace UwEditor.App
             var fit = Btn("Fit", Fit);
             ToolTip.SetTip(fit, "Zooms and scrolls so that every label shows. The wheel zooms too, about the mouse; the middle button pans.");
             var check = Btn("Check the logic…", Solve);
-            ToolTip.SetTip(check, "The solve over time on this zoning, as Apply uses it. Zones it reaches keep their colour and show their step; the others fade, and links that stay closed turn red.");
+            ToolTip.SetTip(check, "Solves this zoning over time as Apply would. Zones it reaches keep their colour and show their step; the others fade, and links that stay closed turn red.");
             var reset = Btn("Reset graph appearance", ResetAppearance);
             ToolTip.SetTip(reset, "Takes away what Check the logic showed.");
             foreach (var c in new Control[] { Btn("Arrange by level", AutoLayout), allText, fit, check, reset, Btn("Zones window…", () => main.ShowZones()) })
@@ -122,7 +122,7 @@ namespace UwEditor.App
             attraction.ValueChanged += (s, e) => { attractionText.Text = attraction.Value.ToString("0.0#"); forceState.Reset(); };
             repulsion.ValueChanged += (s, e) => { repulsionText.Text = repulsion.Value.ToString("0.0#"); forceState.Reset(); };
             attractionText.Text = "1.0"; repulsionText.Text = "1.0";
-            ToolTip.SetTip(forceButton, "Lays the labels out by forces, live: links pull the zones they join together, every two zones push apart, and a weak pull keeps everything near the middle. Drag a label meanwhile to hold it. Press again to stop; the places are kept in the zoning.");
+            ToolTip.SetTip(forceButton, "Lays out the labels by forces, live: links pull the zones they join together, every two zones push apart, and a weak pull keeps everything near the middle. Drag a label while it runs to hold it in place. Press again to stop; the places are kept in the zoning.");
             ToolTip.SetTip(attraction, "How hard a link pulls the two zones it joins together.");
             ToolTip.SetTip(repulsion, "How hard every two zones push each other apart.");
             forceButton.Click += (s, e) => { if (forceButton.IsChecked == true) StartForces(); else StopForces(); };
@@ -155,7 +155,7 @@ namespace UwEditor.App
                 if (e.Key == Key.Escape) { SelectZone(-1); e.Handled = true; }
             }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             BuildLabels();
-            Status("A view of the Zones window's zoning: links are made and edited there. Drag the labels; click a label or a line to see it. The wheel zooms; drag with the middle button to pan.");
+            Status("This shows the Zones window's zoning; links are made and edited there. Drag the labels, and click a label or a line to see its details. The wheel zooms; drag with the middle button to pan.");
             ShowSide();
         }
 
@@ -449,7 +449,7 @@ namespace UwEditor.App
             forceButton.IsChecked = false;
             forceIds = null;
             if (forceMoved) z.PositionsChanged(true);
-            Status("Force layout stopped; the places are kept in the zoning (save it to keep them).");
+            Status("Force layout stopped. The new places are kept in the zoning; save the zoning to keep them for good.");
         }
 
         /// <summary>Steps of the layout (two a tick), the labels moved to match. Returns the largest move.</summary>
@@ -635,7 +635,7 @@ namespace UwEditor.App
             side.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12,
-                Text = string.Format("{0} zones, {1} links. Lines: one arrowhead one-way, two arrowheads two-way, dashed still to check; the colour is the kind (door, portcullis, secret, drop, lever…), and the text what the path needs. Links are made and edited in the Zones window; this window shows them as they change.", z.Set.Zones.Count(x => x.Id > 1), z.Set.Links.Count),
+                Text = string.Format("{0} zones, {1} links. A line with one arrowhead is a one-way link, one with two is a two-way link, and a dashed line is still to be checked. The colour shows the kind (door, portcullis, secret, drop, lever…), and the text what the link needs. Links are made and edited in the Zones window; this window shows them as they change.", z.Set.Zones.Count(x => x.Id > 1), z.Set.Links.Count),
             });
         }
 
@@ -665,7 +665,7 @@ namespace UwEditor.App
 
         void LinkPanel(ZoneLink k)
         {
-            side.Children.Add(new TextBlock { Classes = { "h", "first" }, Text = "PATH" });
+            side.Children.Add(new TextBlock { Classes = { "h", "first" }, Text = "LINK" });
             side.Children.Add(new TextBlock { FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Text = string.Format("{0} {1} {2}", z.Label(k.From), k.TwoWay ? "↔" : "→", z.Label(k.To)) });
             string state = LinkState(k);
             side.Children.Add(new TextBlock
@@ -782,7 +782,7 @@ namespace UwEditor.App
             finally { solving = false; }
             var sv = LastCheck?.Solve;
             Status((sv == null ? "The solve over time failed." : sv.GoalReached ? "Logic check: goal reached." : "Logic check: goal NOT reached.")
-                + (LastCheck?.Abilities.Auto.Given == null ? " The zoning has no zones yet, so nothing is shown on the graph." : string.Format(" {0} of {1} zones reached (numbers in brackets: the step); the others fade, and red lines lead from a zone reached to one not reached. Reset graph appearance takes this away.", reached.Count, labels.Count)));
+                + (LastCheck?.Abilities.Auto.Given == null ? " The zoning has no zones yet, so nothing is shown on the graph." : string.Format(" {0} of {1} zones reached (the number in brackets is the step); the others fade, and red lines lead from a zone reached to one not reached. Reset graph appearance takes this away.", reached.Count, labels.Count)));
             await MessageWindow.ShowReport(this, "The logic from the start", text);
         }
     }

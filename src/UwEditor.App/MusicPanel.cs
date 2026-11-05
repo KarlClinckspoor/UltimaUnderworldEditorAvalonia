@@ -110,10 +110,10 @@ namespace UwEditor.App
             var import = Btn("Import MIDI…", async () => await PickImport());
             import.FontWeight = FontWeight.SemiBold;
             var revert = Btn("Revert to the original", () => { Revert(); return Task.CompletedTask; });
-            ToolTip.SetTip(exportFm, "The selected theme's FM file as a standard MIDI file (format 0, 120 ticks a second, loops as loopStart/loopEnd markers)");
-            ToolTip.SetTip(exportMt, "The selected theme's MT-32 file as a standard MIDI file (its programs are MT-32 presets, not General MIDI)");
-            ToolTip.SetTip(exportAll, "Every theme, both files, into a folder (AW01.mid, UW01.mid...)");
-            ToolTip.SetTip(revert, "Both files of the selected theme as the game shipped them (from the .ORIG copies the editor keeps)");
+            ToolTip.SetTip(exportFm, "Export the selected theme's FM file as a standard MIDI file (format 0, 120 ticks a second, with loops as loopStart/loopEnd markers).");
+            ToolTip.SetTip(exportMt, "Export the selected theme's MT-32 file as a standard MIDI file. Its programs are MT-32 presets, not General MIDI.");
+            ToolTip.SetTip(exportAll, "Export both files of every theme into a folder (AW01.mid, UW01.mid...).");
+            ToolTip.SetTip(revert, "Restore both files of the selected theme as the game shipped them, from the .ORIG copies the editor keeps.");
             themeButtons.AddRange(new[] { exportFm, exportMt, import, revert });
             var buttons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 4) };
             foreach (var b in new[] { exportFm, exportMt, exportAll, import, revert }) { b.Margin = new Thickness(0, 0, 8, 4); buttons.Children.Add(b); }
@@ -126,11 +126,11 @@ namespace UwEditor.App
             opts.Children.Add(Label("MT-32 programs"));
             opts.Children.Add(mtFrom);
             foreach (var c in new[] { loopWhole, moveChannels, replaceDrums, cc111 }) { c.Margin = new Thickness(0, 0, 14, 0); c.FontSize = 12; opts.Children.Add(c); }
-            ToolTip.SetTip(mtFrom, "The MT-32 is not General MIDI: its program numbers name other instruments. A MIDI file made for General MIDI is mapped; one made for the MT-32 keeps its numbers; or give a second file for the MT-32 version.");
-            ToolTip.SetTip(loopWhole, "Adds an endless FOR/NEXT loop around the whole theme (when it has no loop marks). The game restarts or replaces most themes when they end anyway; the victory theme must not loop.");
-            ToolTip.SetTip(moveChannels, "The game plays channels 2 to 10 only (10 is the drums)");
-            ToolTip.SetTip(replaceDrums, "FM: a drum key bank 127 of UW.AD lacks plays the nearest drum it has; unchecked, such a theme is refused");
-            ToolTip.SetTip(cc111, "RPG Maker marks its loop start with controller 111; in the game's sequencer 111 is channel protection, so it is never kept");
+            ToolTip.SetTip(mtFrom, "The MT-32 is not General MIDI: its program numbers stand for other instruments. Map a MIDI file made for General MIDI, keep the numbers of one made for the MT-32, or give a second file for the MT-32 version.");
+            ToolTip.SetTip(loopWhole, "Add an endless FOR/NEXT loop around the whole theme when it has no loop marks. The game restarts or replaces most themes when they end anyway; the victory theme must not loop.");
+            ToolTip.SetTip(moveChannels, "The game plays only channels 2 to 10 (10 is the drums).");
+            ToolTip.SetTip(replaceDrums, "FM: a drum key that bank 127 of UW.AD lacks plays the nearest drum it has. When this is unticked, such a theme is refused.");
+            ToolTip.SetTip(cc111, "RPG Maker marks its loop start with controller 111. In the game's sequencer 111 means channel protection, so it is never kept.");
             make.SelectionChanged += (o, e) => mtFrom.IsEnabled = make.SelectedIndex != 1;
             Grid.SetRow(opts, 4); root.Children.Add(opts);
 
@@ -386,7 +386,7 @@ namespace UwEditor.App
             Refresh();
             list.SelectedIndex = sel;
             report.Text = sb.ToString();
-            status.Text = refused ? "Import refused: the theme has errors." : string.Format("Theme {0} imported; not saved yet.", t.Number);
+            status.Text = refused ? "Import refused: the theme has errors." : string.Format("Theme {0} imported (not saved).", t.Number);
             return !refused;
         }
 
@@ -435,7 +435,7 @@ namespace UwEditor.App
             bool a = Library.Revert(t, MusicVersion.Fm), b = Library.Revert(t, MusicVersion.Mt32);
             Refresh();
             ShowSelected();
-            status.Text = a || b ? string.Format("Theme {0} goes back to the original when you save.", t.Number) : "Theme " + t.Number + " is as the game shipped it.";
+            status.Text = a || b ? string.Format("Theme {0} goes back to the original when you save.", t.Number) : "Theme " + t.Number + " is already as the game shipped it.";
             return a || b;
         }
 

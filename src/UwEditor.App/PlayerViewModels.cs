@@ -172,14 +172,14 @@ namespace UwEditor.App
                 if ((d & 8) != 0) said.Add("talisman dream to come");
                 var random = Enumerable.Range(4, 6).Where(b => (d & (1 << b)) != 0).ToList();
                 if (random.Count > 0) said.Add("random dreams seen: " + string.Join(", ", random));
-                return said.Count == 0 ? "No dream bits set." : string.Join("; ", said) + ".";
+                return said.Count == 0 ? "No dream bits are set." : string.Join("; ", said) + ".";
             }
         }
         public string Derived
         {
             get
             {
-                return string.Format("The game derives: maximum vitality {0}, maximum mana {1}, carrying capacity {2}; the experience has earned level {3} and {4} skill points.",
+                return string.Format("As the game computes them: maximum vitality {0}, maximum mana {1}, carrying capacity {2}. The experience has earned level {3} and {4} skill points.",
                     Sheet.ExpectedMaxVitality, Sheet.ExpectedMaxMana, Sheet.ExpectedMaxWeight, Sheet.ExpectedLevel, Sheet.ExpectedPointsEarned);
             }
         }
@@ -206,8 +206,8 @@ namespace UwEditor.App
             var w = Sheet.Check();
             foreach (var x in w.OrderBy(x => x.Level)) Warnings.Add(new WarningRow { Warning = x });
             int det = w.Count(x => x.Level == WarningLevel.Detected), un = w.Count(x => x.Level == WarningLevel.Unreachable);
-            WarningSummary = det > 0 ? "The game will notice: " + det + (det == 1 ? " value" : " values") + " it calls cheating."
-                : un > 0 ? un + " value" + (un == 1 ? "" : "s") + " normal play cannot produce (the game does not check)."
+            WarningSummary = det > 0 ? "The game will notice " + det + (det == 1 ? " value" : " values") + " it calls cheating."
+                : un > 0 ? un + " value" + (un == 1 ? "" : "s") + " that normal play cannot produce (the game does not check)."
                 : w.Count > 0 ? "Nothing the game would notice; " + w.Count + " note" + (w.Count == 1 ? "." : "s.")
                 : "Nothing the game would notice.";
             Raise(nameof(Derived));
@@ -436,7 +436,7 @@ namespace UwEditor.App
             try
             {
                 if (target.Slot >= 0 && Sheet.Inventory.InSlot(target.Slot) != null)
-                    throw new InvalidOperationException(SlotLabel(target.Slot) + " is not empty any more: pick another place.");
+                    throw new InvalidOperationException(SlotLabel(target.Slot) + " is no longer empty; pick another place.");
                 var it = add(target.Container);
                 if (target.Slot >= 0) Sheet.Inventory.MoveToSlot(it, target.Slot);
                 if (target.Container != null) collapsed.Remove(target.Container);
@@ -511,7 +511,7 @@ namespace UwEditor.App
             Sheet.Inventory.Remove(it);
             Selected = null;
             BuildTree();
-            Status = string.Format("Removed 0x{0:X3} and what was in it (not saved).", it.ItemId);
+            Status = string.Format("Removed 0x{0:X3} and everything inside it (not saved).", it.ItemId);
             Check();
             Edited?.Invoke();
         }

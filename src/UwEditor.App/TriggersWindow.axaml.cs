@@ -86,7 +86,7 @@ namespace UwEditor.App
             {
                 var t = c.Trigger;
                 var n = new ChainNode { Header = string.Format("#{0} {1} {2}  →  runs on ({3}, {4})", t.Index, t.Name, Where(t), c.TargetX, c.TargetY), Icon = main.IconOf(t.Item), Level = m.Level, Index = t.Index };
-                if (c.Steps.Count == 0) n.Children.Add(new ChainNode { Header = "links to nothing: it does nothing" });
+                if (c.Steps.Count == 0) n.Children.Add(new ChainNode { Header = "links to nothing, so it does nothing" });
                 for (int i = 0; i < c.Steps.Count; i++)
                 {
                     var o = c.Steps[i];
@@ -105,7 +105,7 @@ namespace UwEditor.App
             var lone = Triggers.Unreached(m, chains).Where(o => !spawnerSet.Contains(o.Index)).ToList();
             if (spawners.Count > 0)
             {
-                var h = new ChainNode { Header = spawners.Count + " wandering-monster spawners: create-object traps the game runs by itself, no trigger needed (every " + (s.IsUw2 ? 10 : 8) + " game minutes with chance 1 in 4 while the player is more than 8 squares away, and when he sleeps)", IsExpanded = true };
+                var h = new ChainNode { Header = spawners.Count + " wandering-monster spawners: create-object traps that the game runs by itself, with no trigger (every " + (s.IsUw2 ? 10 : 8) + " game minutes with a 1 in 4 chance while the player is more than 8 squares away, and when the player sleeps)", IsExpanded = true };
                 foreach (var o in spawners)
                 {
                     var tmpl = m.Objects[o.Link];

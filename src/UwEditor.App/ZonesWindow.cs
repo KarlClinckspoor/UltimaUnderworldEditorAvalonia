@@ -141,7 +141,7 @@ namespace UwEditor.App
         {
             var col = new StackPanel { Spacing = 6, Margin = new Thickness(8, 10, 0, 0) };
             col.Children.Add(linksTitle);
-            col.Children.Add(new TextBlock { FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap, Text = "The ways from and to this zone, and what each needs. Click one to edit it; the zone graph shows them as you go. A new link takes its requirement from the doors between the zones when there are any." });
+            col.Children.Add(new TextBlock { FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap, Text = "These are the ways into and out of this zone, and what each needs. Click one to edit it; the zone graph shows your changes as you go. A new link takes its requirement from any doors between the two zones." });
             linkList.Bind(ListBox.BackgroundProperty, linkList.GetResourceObservable("Panel"));
             linkList.SelectionChanged += (s, e) =>
             {
@@ -191,7 +191,7 @@ namespace UwEditor.App
         void ShowLinkEditor()
         {
             linkHost.Content = selectedLink == null
-                ? (Control)new TextBlock { FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap, Text = "No link chosen." }
+                ? (Control)new TextBlock { FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap, Text = "No link chosen. Click one in the list above to edit it." }
                 : new LinkEditorPanel(main, z, selectedLink, t => status.Text = t, () => RefreshLinks(true), DeleteSelectedLink);
         }
 
@@ -304,7 +304,7 @@ namespace UwEditor.App
             head.Children.Add(new TextBlock
             {
                 FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap,
-                Text = "A zone is a part of the world that can be walked without meeting a requirement. Every tile has a zone id: 0 rock, 1 open but not in a zone yet (magenta), 2-255 the zones. The links between zones and what they need are made on the right; the zone graph shows them.",
+                Text = "A zone is a part of the world you can walk through without meeting a requirement. Every tile has a zone id: 0 is rock, 1 is open but not in a zone yet (magenta), and 2–255 are the zones. You make the links between zones, and say what they need, on the right; the zone graph shows them.",
             });
             var files = Row(B("New", () => Confirm(() => z.NewFile())), B("Open…", OpenFile), B("Save", () => SaveFile(false)), B("Save as…", () => SaveFile(true)),
                 // Import pictures… / Export pictures… (ImportPictures, ExportPictures) are kept in the code but no longer offered
@@ -314,11 +314,11 @@ namespace UwEditor.App
             head.Children.Add(fileText);
             splitBox.IsChecked = z.SplitByLevel;
             splitBox.IsCheckedChanged += (s, e) => { main.ZoneSplitByLevel = splitBox.IsChecked == true; RefreshSplit(); };
-            ToolTip.SetTip(splitBox, "For the solver only (Apply, Check the logic): each zone painted on several levels becomes one zone a level, the parts joined in level order by free two-way links, as a hand zoning takes the way between levels as given. The zoning here is not changed.");
+            ToolTip.SetTip(splitBox, "For the solver only (Apply, Check if solvable and the zone graph's Check the logic): each zone painted on several levels becomes one zone per level, with the parts joined in level order by free two-way links, since a hand-made zoning takes the way between levels as given. The zoning here does not change.");
             head.Children.Add(splitBox);
             head.Children.Add(splitText);
             var solveButton = B("Check if solvable…", async () => await CheckSolvableAsync());
-            ToolTip.SetTip(solveButton, "The solve over time on this zoning, as Apply uses it (unsaved changes and the split option included), with the Apply window's options when it is open (else the Automatic zones window's, else the defaults), and with the main option sets.");
+            ToolTip.SetTip(solveButton, "Solves this zoning over time as Apply would (unsaved changes and the split option included), with the Apply window's options when it is open (otherwise the Automatic zones window's, otherwise the defaults) and with the main option sets.");
             head.Children.Add(Row(solveButton, solveText));
             DockPanel.SetDock(head, Dock.Top);
             dock.Children.Add(head);
@@ -340,9 +340,9 @@ namespace UwEditor.App
             left.Children.Add(nameRow);
             left.Children.Add(Row(swatch, colorBox, B("Set colour", () => Try(() => z.SetColor(z.CurrentZone, colorBox.Text))), B("Glasbey default", () => z.SetColor(z.CurrentZone, ""))));
             var markStart = B("Mark as start", () => MarkStart());
-            ToolTip.SetTip(markStart, "Moves the new-game start to the square selected in the view (level 1 only), as the editor's start tool does: saved in UW.EXE at once, the original kept as UW.EXE.ORIG.");
+            ToolTip.SetTip(markStart, "Moves the new-game start to the square selected in the view (level 1 only), as the editor's start tool does. The change is saved in UW.EXE at once, and the original is kept as UW.EXE.ORIG.");
             var markGoal = B("Mark as goal", () => MarkGoal());
-            ToolTip.SetTip(markGoal, "Puts a square that ends the game on the square selected in the view: a move trigger and hack trap 0x3F, as on level 9 (52, 51), which stays. One undo step (Edit ▸ Undo).");
+            ToolTip.SetTip(markGoal, "Makes the square selected in the view end the game, with a move trigger and hack trap 0x3F as on level 9 (52, 51); level 9's square stays. This is one Edit ▸ Undo step.");
             left.Children.Add(Row(markStart, markGoal));
             left.Children.Add(startGoalText);
             left.Children.Add(H("PAINTING"));
@@ -354,7 +354,7 @@ namespace UwEditor.App
             left.Children.Add(new TextBlock
             {
                 FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap,
-                Text = "A fill moves left, right, up and down through the tiles of the start tile's zone. Walls, the wall side of diagonal tiles and tiles with a door (any kind, open or closed: they stay out) stop it, and so does going up more than the highest climb; going down is always fine, so a fill from above a drop reaches below it but not the other way.",
+                Text = "A fill spreads left, right, up and down through the tiles in the same zone as the tile it starts from. Walls, the wall side of diagonal tiles and tiles with a door (of any kind, open or closed; they stay out) stop it, and so does a rise higher than the highest climb. Going down is always allowed, so a fill from above a drop reaches below it, but not the other way round.",
             });
             left.Children.Add(Row(B("Undo painting", () => { z.Undo(); status.Text = "Undone."; }), overlayBox));
             left.Children.Add(levelInfo);
@@ -366,11 +366,11 @@ namespace UwEditor.App
             var right = new DockPanel { Margin = new Thickness(0, 10, 0, 0) };
             var rhead = new StackPanel { Spacing = 4 };
             rhead.Children.Add(itemsTitle);
-            rhead.Children.Add(new TextBlock { FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap, Text = "Keys, talismans, quest items, runestones, creatures that talk and those whose death the game checks; plants, bridges and furniture are left out. Double-click to go there." });
+            rhead.Children.Add(new TextBlock { FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap, Text = "This lists keys, talismans, quest items, runestones, creatures that talk and creatures whose death the game checks; plants, bridges and furniture are left out. Double-click an entry to go to it." });
             DockPanel.SetDock(rhead, Dock.Top);
             right.Children.Add(rhead);
             var rfoot = new StackPanel { Spacing = 6, Margin = new Thickness(0, 8, 0, 0) };
-            rfoot.Children.Add(Row(B("Go to", GoToItem), B("Mark the selected object as key", () => MarkSelected(true)), B("Not a key item", () => MarkSelected(false)), B("Unmark", () => MarkSelected(null))));
+            rfoot.Children.Add(Row(B("Go to", GoToItem), B("Mark the selected object as a key item", () => MarkSelected(true)), B("Not a key item", () => MarkSelected(false)), B("Unmark", () => MarkSelected(null))));
             rfoot.Children.Add(Row(B("Add them to the zone's grants", AddGrants)));
             rfoot.Children.Add(grantsText);
             DockPanel.SetDock(rfoot, Dock.Bottom);
@@ -416,7 +416,7 @@ namespace UwEditor.App
         Button AutozoneButton()
         {
             var b = B("Autozone…", () => main.ShowAutoZones());
-            ToolTip.SetTip(b, "Opens the Automatic zones window: Build and Use puts automatic zones here, in place of this zoning.");
+            ToolTip.SetTip(b, "Opens the Automatic zones window, where Build and Use replaces this zoning with automatic zones.");
             return b;
         }
 
@@ -506,7 +506,7 @@ namespace UwEditor.App
             {
                 int un = z.Unassigned(lv.Level);
                 levelInfo.Text = z.Set.Tiles[lv.Level - 1] == null
-                    ? string.Format("Level {0} has no zone map yet: painting starts one from its tiles.", lv.Level)
+                    ? string.Format("Level {0} has no zone map yet; painting starts one from its tiles.", lv.Level)
                     : string.Format("Level {0}: {1} open tile{2} not in a zone (magenta).", lv.Level, un, un == 1 ? "" : "s");
             }
             RefreshItems();
@@ -531,7 +531,7 @@ namespace UwEditor.App
             Try(() =>
             {
                 var zone = z.AddZone(nameBox.Text != null && nameBox.Text.Trim().Length > 0 && z.Set.GetZone(z.CurrentZone)?.Name != nameBox.Text ? nameBox.Text : null);
-                status.Text = "Zone " + zone.Id + " added; it is the zone painted now.";
+                status.Text = "Zone " + zone.Id + " added; it is now the zone being painted.";
             });
         }
 
@@ -540,10 +540,10 @@ namespace UwEditor.App
             var cur = z.Set.GetZone(z.CurrentZone);
             if (cur == null) return;
             int tiles = z.Set.TileCount(cur.Id), links = z.Set.Links.Count(k => k.From == cur.Id || k.To == cur.Id);
-            string r = await MessageWindow.Ask(this, "Remove a zone", string.Format("Remove zone {0} \"{1}\"? Its {2} tiles become unassigned, and its {3} links and its grants go.", cur.Id, cur.Name, tiles, links), "Remove", "Cancel");
+            string r = await MessageWindow.Ask(this, "Remove a zone", string.Format("Remove zone {0} \"{1}\"? Its {2} tiles become unassigned, and its {3} links and its grants are removed.", cur.Id, cur.Name, tiles, links), "Remove", "Cancel");
             if (r != "Remove") return;
             z.RemoveZone(cur.Id);
-            status.Text = "Zone " + cur.Id + " removed (Undo painting brings the tiles back, not the links).";
+            status.Text = "Zone " + cur.Id + " removed. Undo painting brings back its tiles, but not its links.";
         }
 
         void FillSelected()

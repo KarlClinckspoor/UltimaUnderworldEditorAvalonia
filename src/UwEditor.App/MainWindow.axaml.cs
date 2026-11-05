@@ -563,7 +563,7 @@ namespace UwEditor.App
             if (path == null)
             {
                 _ = MessageWindow.Show(this, "No saved player", s.IsSave ? "This saved game has no PLAYER.DAT."
-                    : "The player lives in a saved game's PLAYER.DAT. Open a SAVE folder (File ▸ Open game folder…); DATA's PLAYER.DAT is a 301-byte template the game never reads.");
+                    : "The player is stored in a saved game's PLAYER.DAT, so open a SAVE folder (File ▸ Open game folder…). The PLAYER.DAT in DATA is a 301-byte template that the game never reads.");
                 return null;
             }
             var sheet = PlayerSheetOf();
@@ -716,7 +716,7 @@ namespace UwEditor.App
             settings.Save();
             ComfortableItem.IsChecked = !Density.IsCompact;
             CompactItem.IsChecked = Density.IsCompact;
-            vm.EditStatus = Density.IsCompact ? "Compact layout: tighter controls, borders instead of space." : "Comfortable layout.";
+            vm.EditStatus = Density.IsCompact ? "Compact layout: tighter controls, with borders instead of spacing." : "Comfortable layout.";
         }
 
         void OnManual(object sender, RoutedEventArgs e) { ManualWindow.ShowAt(this); }
@@ -728,14 +728,14 @@ namespace UwEditor.App
                 "  Left click              select an object or tile\n" +
                 "  Left or right drag      turn round the point looked at\n" +
                 "  Middle or Shift+drag    move the point\n" +
-                "  Wheel, + and −          closer, farther\n" +
+                "  Wheel, + and −          move closer, farther away\n" +
                 "  W A S D or arrows       move while held (Shift: faster)\n" +
                 "  Q, E                    turn while held\n" +
-                "  R, V                    up, down a floor step\n" +
+                "  R, V                    move up, down a floor step\n" +
                 "  Double click            select and go to it\n" +
                 "  Ctrl+wheel              raise or lower the floor under the mouse\n\n" +
                 "Editing\n" +
-                "  Tool: Select            click picks\n" +
+                "  Tool: Select            click to select\n" +
                 "  Tool: Move              click a square: the selected object (or an arrow) goes there\n" +
                 "  Tool: Paint             drag over tiles: light flag, floor or wall texture, type, height\n" +
                 "  Insert, Del             add an object, delete the selected one\n" +
@@ -744,8 +744,8 @@ namespace UwEditor.App
                 "  Ctrl+C, X, V, D         copy, cut, paste, duplicate the selected objects\n" +
                 "  Ctrl+click, Ctrl+drag   add to the selection, select tiles in a rectangle\n" +
                 "  Drag a selected object  move it (to an eighth of a tile); drop it on a container to put it inside\n" +
-                "  Right click             the right-click menu\n" +
-                "  Tab                     the 2D map, and back\n" +
+                "  Right click             open the right-click menu\n" +
+                "  Tab                     switch to the 2D map and back\n" +
                 "  F5                      play-test from the selected tile\n" +
                 "  Ctrl+F5, Shift+F5       run in DOSBox, in Underworld Exhumed\n" +
                 "  Ctrl+S                  save the levels (and a moved player)\n" +
@@ -774,10 +774,10 @@ namespace UwEditor.App
                 "  PgUp, PgDn              previous, next level\n" +
                 "  F                       frame the selection\n" +
                 "  T                       look straight down\n" +
-                "  G                       ceiling on or off\n" +
-                "  H                       grid on or off\n" +
-                "  M                       3D models or pictures\n" +
-                "  Home                    back to the start or the player\n" +
+                "  G                       show or hide the ceiling\n" +
+                "  H                       show or hide the grid\n" +
+                "  M                       show 3D models or pictures\n" +
+                "  Home                    go back to the start or the player\n" +
                 "  Esc                     clear the selection");
         }
 
@@ -785,8 +785,8 @@ namespace UwEditor.App
         {
             _ = MessageWindow.Show(this, "About",
                 "Underworld Editor (Avalonia), a level editor for Ultima Underworld I and II.\n\n" +
-                "The file formats come from the Unity editor's Formats library; their meaning from underworld-exhumed, " +
-                "the reconstructed source of both games.\n\n" +
+                "The file formats come from the Unity editor's Formats library, and their meaning from underworld-exhumed, " +
+                "the reconstructed source code of both games.\n\n" +
                 "OpenGL: " + (View.GlInfo ?? "not started"));
         }
 

@@ -130,7 +130,7 @@ namespace UwEditor.App
                 {
                     case ItemForm.Enchantable: return "Weapon, armour or jewellery: can be enchanted";
                     case ItemForm.Wand: return "Wand: holds a spell with charges";
-                    case ItemForm.Text: return "Book or scroll: has a text";
+                    case ItemForm.Text: return "Book or scroll: holds a text";
                     case ItemForm.Key: return "Key: opens a lock";
                     case ItemForm.Lock: return "Lock: goes inside a door or chest";
                     case ItemForm.Container: return "Container: holds objects";
@@ -201,7 +201,7 @@ namespace UwEditor.App
         {
             get
             {
-                if (IsTrap) return "Quality, owner: see the description below.";
+                if (IsTrap) return "For the quality and owner, see the description below.";
                 if (Form == ItemForm.Wand) return "The wand's own quality is its condition; the charges are the spell object's.";
                 if (Form == ItemForm.Creature) return "A critter's quality and owner are its home (set from the square it is put on).";
                 return "Quality is the condition, 0-63 (the shipped objects use 40, 0x28).";

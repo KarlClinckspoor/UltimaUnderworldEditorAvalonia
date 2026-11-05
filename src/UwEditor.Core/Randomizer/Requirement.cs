@@ -324,7 +324,7 @@ namespace UwEditor.Core.Randomizer
 				if (Pos >= Text.Length)
 				{
 					if (Text.Trim().Length == 0) return new Leaf("free");
-					throw new FormatException("A term was expected after the operator at the end");
+					throw new FormatException("A term was expected after the operator at the end.");
 				}
 				if (Text[Pos] == '(')
 				{

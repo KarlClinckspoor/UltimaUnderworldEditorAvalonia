@@ -9,7 +9,7 @@
   <DockPanel Margin="16">
     <TextBlock DockPanel.Dock="Top" Text="Mods" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" />
     <TextBlock DockPanel.Dock="Top" Classes="muted" TextWrapping="Wrap" Margin="0,0,0,10"
-               Text="A mod (.uwmod) holds only the differences from the game's own files, never the files themselves. It changes files the game already has (it adds only speech, effect and trap sounds the game opens by number), and it names each original by its SHA-256 hash: it applies only to those exact files, and gives back, byte for byte, the files you saved." />
+               Text="A mod (.uwmod) holds only the differences from the game's own files, never the files themselves. It changes files the game already has (the only files it adds are speech, effect and trap sounds that the game opens by number). It names each original by its SHA-256 hash, so it applies only to those exact files and gives back, byte for byte, the files you saved." />
     <TextBlock DockPanel.Dock="Bottom" x:Name="StatusText" Text="{Binding Status}" Classes="muted" TextWrapping="Wrap" Margin="0,10,0,0" />
     <TabControl x:Name="Tabs">
       <TabItem Header="Make a mod">

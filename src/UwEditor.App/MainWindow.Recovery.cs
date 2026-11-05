@@ -95,7 +95,7 @@ namespace UwEditor.App
             var now = DateTime.UtcNow;
             if ((now - errorWindowStart).TotalSeconds > 60) { errorWindowStart = now; errorsInWindow = 0; }
             errorsInWindow++;
-            string kept = c != null ? "Your unsaved work was kept in a checkpoint (Level ▸ Checkpoints…, " + c.Time.ToLocalTime().ToString("HH:mm:ss") + ")." : "There was no unsaved work to keep.";
+            string kept = c != null ? "Your unsaved work was kept in a checkpoint (File ▸ Checkpoints…, " + c.Time.ToLocalTime().ToString("HH:mm:ss") + ")." : "There was no unsaved work to keep.";
             try { vm.EditStatus = "Error: " + ex.Message + " " + kept; } catch (Exception) { }
             if (showingError || errorsInWindow > 3 || !AskBeforeDiscarding) return;
             showingError = true;
@@ -148,7 +148,7 @@ namespace UwEditor.App
                 if (!hasCheckpoint)
                 {
                     await MessageWindow.Show(this, "The last run " + how, "The editor " + how + " (" + when + ") with unsaved work in " + m.Game + ": " + string.Join("; ", m.Unsaved) +
-                        ". No checkpoint was written since it was last saved, so that work could not be kept." + (m.CrashLog != null ? "\n\nThe error is described in " + m.CrashLog + "." : ""));
+                        ". No checkpoint had been written since it was last saved, so that work could not be kept." + (m.CrashLog != null ? "\n\nThe error is described in " + m.CrashLog + "." : ""));
                     said = "nothing to restore";
                     continue;
                 }
@@ -167,12 +167,12 @@ namespace UwEditor.App
         /// <summary>Opens the run's game and restores its checkpoint; returns what was done.</summary>
         public string RestoreLeftBehind(RunMarker m)
         {
-            if (!Directory.Exists(m.Game)) return m.Game + " is not there any more. The checkpoint stays in " + m.Checkpoint + ".";
+            if (!Directory.Exists(m.Game)) return m.Game + " no longer exists. The checkpoint stays in " + m.Checkpoint + ".";
             if (vm.Session == null || !string.Equals(Path.GetFullPath(vm.Session.SaveFolder ?? vm.Session.GameFolder).TrimEnd('/', '\\'), Path.GetFullPath(m.Game).TrimEnd('/', '\\'), StringComparison.OrdinalIgnoreCase))
                 OpenPathNow(m.Game);
             if (CheckpointStore == null) return "The game could not be opened.";
             var c = CheckpointStore.List().FirstOrDefault(k => string.Equals(Path.GetFullPath(k.Folder), Path.GetFullPath(m.Checkpoint), StringComparison.OrdinalIgnoreCase));
-            if (c == null) return "The checkpoint was not found among this game's (Level ▸ Checkpoints… lists them).";
+            if (c == null) return "The checkpoint is not among this game's checkpoints (File ▸ Checkpoints… lists them).";
             return RestoreCheckpoint(c);
         }
     }

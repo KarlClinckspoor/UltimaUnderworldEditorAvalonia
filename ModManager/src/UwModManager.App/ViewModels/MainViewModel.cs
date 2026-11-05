@@ -80,13 +80,13 @@ public sealed partial class MainViewModel : ViewModelBase
     [RelayCommand]
     async Task AddDos()
     {
-        string? folder = await Dialogs.PickFolder("The DOS game's folder (UW.EXE or UW2.EXE and DATA)");
+        string? folder = await Dialogs.PickFolder("The DOS game's folder (with UW.EXE or UW2.EXE and DATA)");
         if (folder == null) return;
         bool asItIs = false;
         string? foreign = Manager.ForeignMarker(folder);
         if (foreign != null)
         {
-            if (await Dialogs.Ask("Taken over before", foreign, "Take it as it is now", "Cancel") != 0) return;
+            if (await Dialogs.Ask("Taken over before", foreign, "Use its files as they are", "Cancel") != 0) return;
             asItIs = true;
         }
         await Guard(async () =>
@@ -94,8 +94,8 @@ public sealed partial class MainViewModel : ViewModelBase
             var t = Manager.AddDos(folder, null, asItIs);
             var notes = new List<string> { t.Written.Count > 0
                 ? $"The manager took this folder over before; it has {t.ActiveMod} in place, and its originals are in the vault."
-                : $"{t.Baseline.Count} files are kept in the vault: the manager can always put the game back as it is now." };
-            notes.Add(Manager.HasGogExe(t) ? "The executable is the GOG release's." : "The executable is not the GOG release's: UltimaHacks and Underworld Exhumed need GOG's, and mods made from GOG's files will not install.");
+                : $"{t.Baseline.Count} files are kept in the vault, so the manager can always put the game back as it is now." };
+            notes.Add(Manager.HasGogExe(t) ? "The executable is the GOG release's." : "The executable is not the GOG release's. UltimaHacks and Underworld Exhumed need GOG's, and mods made from GOG's files will not install.");
             foreach (var c in DosGame.CdImageConfs(t.Folder))
                 notes.Add($"{c} runs the game from GOG's CD image (game.gog), which never sees files changed in the folder. Extract the image into the folder (7-Zip opens it) and change that setup to mount the folder instead.");
             RefreshGames(t);
@@ -109,7 +109,7 @@ public sealed partial class MainViewModel : ViewModelBase
         string? exe = await Dialogs.PickFile("Underworld Exhumed's program (uw1port or uw2port)", "Programs", OperatingSystem.IsWindows() ? "*.exe" : "*");
         if (exe == null) return;
         string? folder = null;
-        int which = await Dialogs.Ask("The game folder", "Exhumed reads your copy of the game. Use the folder its own settings remember, or choose one?", "The remembered one", "Choose...");
+        int which = await Dialogs.Ask("The game folder", "Exhumed reads your copy of the game. Use the folder its own settings remember, or choose one?", "Use the remembered one", "Choose…");
         if (which < 0) return;
         if (which == 1) { folder = await Dialogs.PickFolder("The game folder Exhumed reads"); if (folder == null) return; }
         await Guard(async () =>
@@ -117,7 +117,7 @@ public sealed partial class MainViewModel : ViewModelBase
             var t = Manager.AddExhumed(exe, folder);
             RefreshGames(t);
             await Dialogs.Tell("Added " + t.Name, t.Features == null
-                ? "This build does not report mod features (--features). Mods of the game's data files play in it; a start square or patches of the executable need a build of the fork's modding branch."
+                ? "This build does not report its mod features (--features). Mods that change only the game's data files play in it, but a moved start square or patches to the executable need a build from the fork's modding branch."
                 : $"Start square: {(t.Features.StartSquare ? "yes" : "no")}. Executable data patches: {(t.Features.ExePatch ? "yes" : "no")}. Enhancements: {string.Join(", ", t.Features.Enhancements)}.");
         });
     }

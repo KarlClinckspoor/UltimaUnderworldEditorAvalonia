@@ -89,13 +89,13 @@ namespace UwEditor.Core.Editing
         public static readonly FixCheck LostContents = new FixCheck("contents", "Contents under is-quantity", FixSeverity.ListError,
             "A container, creature, door, switch or wand has Is quantity set, but its link names objects that nothing else reaches: its contents, cut off when the flag was set. The fix clears Is quantity, so the link is a list again.");
         public static readonly FixCheck Unreferenced = new FixCheck("lost", "Unreferenced objects", FixSeverity.ListError,
-            "An object that is neither on a free stack nor reached from any tile (with what it holds and what follows it). The game's check fails and the slot is lost. The fix frees it the way Obj_Free does (back on its free stack, off the active list, out of the animation list, and traps' links to it cleared); an object a trap or trigger names is put back on that trap's tile instead.");
+            "An object (with what it holds and what follows it) is neither on a free stack nor reached from any tile. The game's check fails and the slot is lost. The fix frees it the way Obj_Free does (back on its free stack, off the active list, out of the animation list, and traps' links to it cleared); an object a trap or trigger names is put back on that trap's tile instead.");
         public static readonly FixCheck FreeStacks = new FixCheck("free", "Free stacks", FixSeverity.ListError,
-            "The free stacks hold an object in use (the game would hand it out again), an index twice, an index of the wrong kind or out of range, or a count past the stack; or an empty slot is on no stack. The fix rebuilds both stacks: the good entries in their order (the game takes from the top), then the empty slots at the bottom.");
+            "The free stacks hold an object in use (the game would hand it out again), an index twice, an index of the wrong kind or out of range, or a count larger than the stack; or an empty slot is on no stack. The fix rebuilds both stacks: the good entries in their order (the game takes from the top), then the empty slots at the bottom.");
         public static readonly FixCheck ActiveList = new FixCheck("active", "Active mobile list", FixSeverity.Problem,
-            "A mobile on the map that is not on the active list never moves or acts; an entry that is free, twice, or a mobile inside a trap or container makes the game run it as a critter. The fix rebuilds the list from the mobiles lying on the map, keeping the order.");
+            "A mobile on the map that is not on the active list never moves or acts. An entry that is free, listed twice, or a mobile inside a trap or container makes the game run it as a critter. The fix rebuilds the list from the mobiles lying on the map, keeping the order.");
         public static readonly FixCheck HomeTile = new FixCheck("home", "Mobile's tile", FixSeverity.Problem,
-            "A mobile's tile (Home X and Y, bytes 0x16-0x17) is not the tile whose list holds it. The game finds a mobile's list by these (critter/PATHFIND.C move_me_joe, Obj_Punt): removing it from the wrong list leaves it in the real one, freed. The fix sets them to its tile.");
+            "A mobile's tile (Home X and Y, bytes 0x16-0x17) is not the tile whose list holds it. The game finds a mobile's list from these bytes (critter/PATHFIND.C move_me_joe, Obj_Punt), so removing it from the wrong list leaves it, freed, in the real one. The fix sets them to its tile.");
         public static readonly FixCheck DeadCreature = new FixCheck("hp", "Creatures with 0 hit points", FixSeverity.Problem,
             "A creature with 0 hit points is deleted the first time it moves (critter/PATHFIND.C move_me_joe, through Obj_Punt), unless its quality class is 3 or its kind's tenacity (COMOBJ.DAT) is above 10 (obj/OBJECTS.C Obj_Elem_Fate). The fix gives it its kind's average hit points (OBJECTS.DAT).");
         public static readonly FixCheck TriggerLink = new FixCheck("trigger", "Trap and trigger links", FixSeverity.Problem,
@@ -103,19 +103,19 @@ namespace UwEditor.Core.Editing
         public static readonly FixCheck DeleteTarget = new FixCheck("delete", "Delete-object traps", FixSeverity.Problem,
             "A delete object trap (0x18B) removes its linked object from the list of tile (quality, owner) (event/TRIGGER.C UseTrap). When the object does not lie on that tile, the game frees it while it stays in its real list. The fix points the trap at the object's tile.");
         public static readonly FixCheck Overlays = new FixCheck("anim", "Animation overlays", FixSeverity.Problem,
-            "UW2 keeps its animation list in the level block (0x7C08, 64 entries; map/MAP.C Anim_Load). An entry names an object that is free or on no tile, so the game animates whatever record is there. The fix drops the entry (rem_anim_from_list, obj/EFFECT.C).");
+            "UW2 keeps its animation list in the level block (0x7C08, 64 entries; map/MAP.C Anim_Load). When an entry names an object that is free or on no tile, the game animates whatever record is there. The fix drops the entry (rem_anim_from_list, obj/EFFECT.C).");
         public static readonly FixCheck OverlayTile = new FixCheck("animtile", "Animation overlay tiles", FixSeverity.Warning,
             "A UW2 animation entry's tile is not the tile its object lies on. When a limited animation ends, the game takes the object off that tile's list (obj/EFFECT.C), so it stays where it is. The fix sets the entry's tile.");
-        public static readonly FixCheck MissingText = new FixCheck("text", "Texts that are not there", FixSeverity.Problem,
-            "A book, scroll, gravestone, writing or text trap names a string that STRINGS.PAK does not have, so the game shows nothing or garbage. No automatic fix: pick another string in the object's properties.");
+        public static readonly FixCheck MissingText = new FixCheck("text", "Missing texts", FixSeverity.Problem,
+            "A book, scroll, gravestone, writing or text trap names a string that STRINGS.PAK does not have, so the game shows nothing or garbage. There is no automatic fix: pick another string in the object's properties.");
         public static readonly FixCheck TrapLoop = new FixCheck("loop", "Trap chains that loop", FixSeverity.Warning,
-            "A chain of traps (each trap's link names the next) comes back to itself. Unless a trap in it ends the chain, the game runs it for ever. No automatic fix.");
+            "A chain of traps (each trap's link names the next) comes back to itself. Unless a trap in it ends the chain, the game runs it for ever. There is no automatic fix.");
         public static readonly FixCheck SolidTile = new FixCheck("solid", "Objects in solid rock", FixSeverity.Warning,
             "An item or creature lies on a solid tile, where the player cannot reach it (traps, triggers and the objects they name are left out: they are often kept there). The fix moves it to the nearest open tile, on its floor.");
         public static readonly FixCheck BelowFloor = new FixCheck("floor", "Items under the floor", FixSeverity.Warning,
             "An item that can be picked up lies below the floor of its open tile. The fix puts it on the floor.");
         public static readonly FixCheck LockNoKey = new FixCheck("key", "Locks with no key", FixSeverity.Warning,
-            "A locked lock (other than lock 0, which no key opens) whose number no key in any level has. It may be meant (opened by a lever, a trap or a conversation), or the key is in the player's inventory. No automatic fix.");
+            "A lock is locked, and no key in any level has its number (lock 0, which no key opens, is left out). This may be intended (a lever, a trap or a conversation opens it), or the key may be in the player's inventory. There is no automatic fix.");
 
         /// <summary>Every check, in the order the fixes are applied by Fix all.</summary>
         public static readonly IReadOnlyList<FixCheck> Checks = new[]
@@ -204,7 +204,7 @@ namespace UwEditor.Core.Editing
             void ReadStack(int at, int topAt, int cap, int lo, int hi, List<int> keep, string kind)
             {
                 int top = (short)W(D, topAt);
-                if (top < -1 || top >= cap) { StackFaults.Add(string.Format("the {0} stack's count ({1}) is past the stack (it holds {2})", kind, top + 1, cap)); StackFaultObjects.Add(-1); }
+                if (top < -1 || top >= cap) { StackFaults.Add(string.Format("the {0} stack's count ({1}) is larger than the stack (it holds {2})", kind, top + 1, cap)); StackFaultObjects.Add(-1); }
                 int n = Math.Max(0, Math.Min(cap, top + 1));
                 for (int k = 0; k < n; k++)
                 {
@@ -408,7 +408,7 @@ namespace UwEditor.Core.Editing
                 else
                 {
                     bool mobile = root < LevelBlock.Mobiles;
-                    var f = add(Unreferenced, root, string.Format("{0}{1} is on no tile and in nothing, and not free{2}.", Name(session, d, root), more,
+                    var f = add(Unreferenced, root, string.Format("{0}{1} is on no tile, inside nothing and not free{2}.", Name(session, d, root), more,
                         mobile && IsCritter(ItemOf(d, root)) ? string.Format(" (its tile would be ({0}, {1}))", HomeX(d, root), HomeY(d, root)) : ""));
                     if (mobile) { f.X = HomeX(d, root); f.Y = HomeY(d, root); }
                     f.FixText = comp.Count > 1 ? "Free them" : "Free it";
@@ -443,7 +443,7 @@ namespace UwEditor.Core.Editing
                 var active = ReadActive(d);
                 var seenA = new HashSet<int>();
                 var faults = new List<KeyValuePair<int, string>>();
-                if (stored > LevelBlock.ActiveCountAt - LevelBlock.ActiveAt) faults.Add(new KeyValuePair<int, string>(-1, string.Format("The active list's count ({0}) is past its space.", stored)));
+                if (stored > LevelBlock.ActiveCountAt - LevelBlock.ActiveAt) faults.Add(new KeyValuePair<int, string>(-1, string.Format("The active list's count ({0}) is larger than the space for it.", stored)));
                 foreach (int v in active)
                 {
                     if (!seenA.Add(v)) { faults.Add(new KeyValuePair<int, string>(v, string.Format("#{0} is on the active list twice.", v))); continue; }

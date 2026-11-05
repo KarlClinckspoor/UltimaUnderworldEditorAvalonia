@@ -92,7 +92,7 @@ namespace UwEditor.App
             var foot = new StackPanel { Spacing = 4, Margin = new Thickness(0, 8, 0, 0) };
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
             buttons.Children.Add(make);
-            buttons.Children.Add(new TextBlock { Text = "One Edit ▸ Undo step; nothing is written to the game until you save.", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, FontSize = 12 });
+            buttons.Children.Add(new TextBlock { Text = "Each recipe made is one Edit ▸ Undo step; nothing is written to the game until you save.", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, FontSize = 12 });
             foot.Children.Add(buttons);
             foot.Children.Add(status);
             DockPanel.SetDock(foot, Dock.Bottom);
@@ -164,7 +164,7 @@ namespace UwEditor.App
                 SetStatus(label + ": " + Describe(Form.Places[key]) + ".");
             };
             var pick = new Button { Content = "Pick in view" };
-            ToolTip.SetTip(pick, needObject ? "Then click the object in the main view." : "Then click the square in the main view (another level: change level there first).");
+            ToolTip.SetTip(pick, needObject ? "Then click the object in the main view." : "Then click the square in the main view. For another level, change level there first.");
             pick.Click += (s, e) =>
             {
                 SetStatus(needObject ? "Click the object in the main view." : "Click the square in the main view.");
@@ -219,7 +219,7 @@ namespace UwEditor.App
                     leverPanel.Children.Add(Row(Label("Lever"), Combo(items.Select(i => string.Format("0x{0:X3} {1}", i, session.Names.Get(i))), Math.Max(0, items.IndexOf(Form.LeverItem)), i => Form.LeverItem = items[i])));
                     leverPanel.Children.Add(Row(Label("On the wall"), Combo(new[] { "First wall found (north, east, south, west)", "North (+y)", "East (+x)", "South (−y)", "West (−x)" }, (int)Form.Side, i => Form.Side = (WallSide)i)));
                 }
-                else leverPanel.Children.Add(PlaceRow("lever", "Lever", true, "A lever, switch, button or pull chain (0x170-0x17F) that holds no trigger yet."));
+                else leverPanel.Children.Add(PlaceRow("lever", "Lever", true, "A lever, switch, button or pull chain (0x170–0x17F) that holds no trigger yet."));
             };
             body.Children.Add(Row(Label("The lever"), Combo(new[] { "A new one on a wall", "One already in the level" }, Form.NewLever ? 0 : 1, i => { Form.NewLever = i == 0; fill(); })));
             fill();
@@ -228,19 +228,19 @@ namespace UwEditor.App
             body.Children.Add(Row(Label(""), Check("Unlock the door when it runs", Form.LeverUnlock, v => Form.LeverUnlock = v)));
             body.Children.Add(Note(session.IsUw2
                 ? "Underworld II's door trap leaves the lock alone unless told to remove it."
-                : "Ultima Underworld's door trap always takes the door's lock off and puts on the lock it carries: the recipe gives it a copy of the door's own lock, unless you choose to unlock."));
+                : "Ultima Underworld's door trap always removes the door's lock and fits the lock it carries instead, so the recipe gives the trap a copy of the door's own lock unless you choose to unlock."));
         }
 
         void BuildTeleport()
         {
             body.Children.Add(PlaceRow("from", "Step on", false, "The square that sends the player away (a move trigger and a teleport trap go there)."));
-            body.Children.Add(PlaceRow("to", "Arrive at", false, "Where he arrives. For another level, change level in the main window, then pick."));
+            body.Children.Add(PlaceRow("to", "Arrive at", false, "Where the player arrives. For another level, change level in the main window, then pick."));
             var back = new StackPanel { Spacing = 8 };
             Action fill = () =>
             {
                 back.Children.Clear();
                 if (!Form.Back) return;
-                back.Children.Add(PlaceRow("backFrom", "Back: step on", false, "A square on the arrival level, not the arrival square itself (he would be sent straight back)."));
+                back.Children.Add(PlaceRow("backFrom", "Back: step on", false, "A square on the arrival level, not the arrival square itself (the player would be sent straight back)."));
                 back.Children.Add(PlaceRow("backTo", "Back: arrive at", false, "A square on the first level, not the first square."));
             };
             body.Children.Add(Row(Label(""), Check("And a way back", Form.Back, v => { Form.Back = v; fill(); })));
@@ -267,7 +267,7 @@ namespace UwEditor.App
 
         void BuildSpawner()
         {
-            body.Children.Add(PlaceRow("spawn", "Spawner's square", false, "The open square the creatures appear on. The game does not run it while the player is within 8 squares, so it is not seen to happen."));
+            body.Children.Add(PlaceRow("spawn", "Spawner's square", false, "The open square the creatures appear on. The game does not run it while the player is within 8 squares, so the player never sees it happen."));
             var name = new TextBlock { VerticalAlignment = VerticalAlignment.Center, MinWidth = 200 };
             Action showName = () =>
             {
@@ -297,7 +297,7 @@ namespace UwEditor.App
             showPct();
             body.Children.Add(Row(Label("Chance"), chance, pct));
             body.Children.Add(Row(Label(""), Check("Hostile", Form.Hostile, v => Form.Hostile = v)));
-            body.Children.Add(Note("The shipped spawners make their creature 5 to 100 % of the runs; half of them between 20 and 50 %. A creature made goes away when the player sleeps, and none is made while one it made is within 4 squares."));
+            body.Children.Add(Note("The game's own spawners make their creature on 5 to 100 % of the runs, half of them on 20 to 50 %. A creature made this way goes away when the player sleeps, and no new one is made while an earlier one is within 4 squares."));
         }
 
         static readonly string[] Kinds = { "Damage", "Show a message", "Set a variable", "Create an object or creature", "Work a door", "Remove an object" };
@@ -312,23 +312,23 @@ namespace UwEditor.App
                 switch (Form.Kind)
                 {
                     case RecipeTrap.Damage:
-                        sub.Children.Add(Row(Label("Damage"), Number(Form.Damage, 1, 63, v => Form.Damage = v), Check("Poison instead (strength 1-15, the player only)", Form.Poison, v => Form.Poison = v)));
+                        sub.Children.Add(Row(Label("Damage"), Number(Form.Damage, 1, 63, v => Form.Damage = v), Check("Poison instead (strength 1–15; affects the player only)", Form.Poison, v => Form.Poison = v)));
                         break;
                     case RecipeTrap.Message:
                     {
                         var t = new TextBox { Text = Form.Text, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Height = 70, Width = 420 };
                         t.TextChanged += (s, e) => Form.Text = t.Text ?? "";
                         sub.Children.Add(Row(Label("Message"), t));
-                        sub.Children.Add(Note("Added to STRINGS.PAK block 9 (the text traps' messages). Save it in Tools ▸ Strings: Save levels does not write it. Undo removes the trap, not the string."));
+                        sub.Children.Add(Note("The message is added to STRINGS.PAK block 9 (the text traps' messages). Save it in Tools ▸ Strings, because Save levels does not write it. Undo removes the trap, but not the string."));
                         break;
                     }
                     case RecipeTrap.SetVariable:
-                        if (!session.IsUw2) sub.Children.Add(Row(Label(""), Check("A quest bit (0-31) instead of a game variable (1-63)", Form.QuestBit, v => Form.QuestBit = v)));
+                        if (!session.IsUw2) sub.Children.Add(Row(Label(""), Check("A quest bit (0–31) instead of a game variable (1–63)", Form.QuestBit, v => Form.QuestBit = v)));
                         sub.Children.Add(Row(Label("Variable"), Number(Form.Variable, 0, session.IsUw2 ? 0x19F : 63, v => Form.Variable = v),
-                            Note(session.IsUw2 ? "0-255 variables, 256-383 quest flags 0-127, 384-399 quests 128-143, 400-415 X clocks." : "A game variable 1-63, or with the box ticked a quest bit 0-31.")));
+                            Note(session.IsUw2 ? "0–255 are variables, 256–383 quest flags 0–127, 384–399 quests 128–143 and 400–415 X clocks." : "A game variable (1–63), or a quest bit (0–31) when the box is ticked.")));
                         sub.Children.Add(Row(Label("Operation"), Combo(new[] { "Add", "Subtract", "Set to", "And", "Or", "Xor", "Shift left" }, Math.Min(6, Form.Operation), i => Form.Operation = i, 160),
-                            Label("value", 50), Number(Form.Value, 0, session.IsUw2 ? 4095 : 255, v => Form.Value = v)));
-                        sub.Children.Add(Note(session.IsUw2 ? "A quest flag is set to (value > 0) whatever the operation, except subtract (unchanged) and xor (toggles)." : "A quest bit is set, cleared by subtract, toggled by xor. A variable keeps 6 bits."));
+                            Label("Value", 50), Number(Form.Value, 0, session.IsUw2 ? 4095 : 255, v => Form.Value = v)));
+                        sub.Children.Add(Note(session.IsUw2 ? "A quest flag is set to (value > 0) whatever the operation, except subtract (unchanged) and xor (toggles)." : "Any operation sets a quest bit, except subtract, which clears it, and xor, which toggles it. A variable keeps 6 bits."));
                         break;
                     case RecipeTrap.CreateObject:
                     {
@@ -344,8 +344,8 @@ namespace UwEditor.App
                         showName();
                         sub.Children.Add(Row(Label("Object (item id)"), item, name));
                         sub.Children.Add(Row(Label(""), Check("A creature is hostile", Form.Hostile, v => Form.Hostile = v)));
-                        sub.Children.Add(PlaceRow("createAt", "Appears on", false, "Leave it unchosen for the trigger's own square."));
-                        sub.Children.Add(Note("The object is a template kept inside the trap; each time the trap runs, a copy appears. A creature is not made while another created one is within four squares."));
+                        sub.Children.Add(PlaceRow("createAt", "Appears on", false, "Leave this unchosen to use the trigger's own square."));
+                        sub.Children.Add(Note("The object is a template kept inside the trap; each time the trap runs, a copy appears. No creature is made while another creature it created is within four squares."));
                         break;
                     }
                     case RecipeTrap.Door:
@@ -398,7 +398,7 @@ namespace UwEditor.App
                     var at = Form.Place("createAt");
                     if (at != null)
                     {
-                        if (at.Level != level) throw new InvalidOperationException("Where the object appears must be on level " + level + ".");
+                        if (at.Level != level) throw new InvalidOperationException("The square where the object appears must be on level " + level + ".");
                         a.X = at.X; a.Y = at.Y;
                     }
                     break;

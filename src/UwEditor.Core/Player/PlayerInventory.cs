@@ -249,9 +249,9 @@ namespace UwEditor.Core.Player
             var p = new List<string>();
             foreach (var t in Top)
                 if (t.Slot < 0) p.Add(string.Format("Object 0x{0:X3} is at the top of the inventory but in no slot: the game shows it nowhere.", t.ItemId));
-            if (Unreached > 0) p.Add(Unreached + " object(s) in the file are on no list (the cursor's, say); saving the inventory drops them.");
+            if (Unreached > 0) p.Add(Unreached + " object(s) in the file are on no list (the cursor's, for example); saving the inventory drops them.");
             int count = All().Count();
-            if (count > 0x3FE) p.Add("More objects than a link can number (1023).");
+            if (count > 0x3FE) p.Add("There are more objects than a link can number (1023).");
             return p;
         }
 

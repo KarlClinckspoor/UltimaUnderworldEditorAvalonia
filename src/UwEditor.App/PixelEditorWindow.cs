@@ -172,7 +172,7 @@ namespace UwEditor.App
             var grid = new CheckBox { Content = "Grid", IsChecked = true };
             grid.IsCheckedChanged += (s, e) => { canvas.Grid = grid.IsChecked == true; canvas.InvalidateVisual(); };
             toolPanel.Children.Add(grid);
-            toolPanel.Children.Add(new TextBlock { Text = "Left button: the first colour; right button: the second. Alt+click picks a colour. Ctrl+Z, Ctrl+Y undo and redo; [ and ] change the width; + and − zoom.", TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7, Margin = new Thickness(0, 8, 0, 0) });
+            toolPanel.Children.Add(new TextBlock { Text = "The left button draws with the first colour, the right button with the second; X swaps them. Alt+click picks a colour. Ctrl+Z and Ctrl+Y undo and redo; [ and ] change the brush width; + and − zoom.", TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7, Margin = new Thickness(0, 8, 0, 0) });
 
             // the preview: under the drawing, at the picture's size and twice it (a wide picture only at a fitting size)
             RenderOptions.SetBitmapInterpolationMode(preview1, BitmapInterpolationMode.None);
@@ -334,7 +334,7 @@ namespace UwEditor.App
             Animate(false);
             this.cycles = cycles; paletteMap = map; fullPalette = palette;
             int n = Enumerable.Range(0, Doc.Colors.Length).Count(i => CycleOf(i) != null);
-            cycleNote.Text = n == 0 ? "" : string.Format("A striped corner marks the {0} colour{1} the game cycles (water, lava, fire): what is drawn with them changes colour in the game.", n, n == 1 ? "" : "s");
+            cycleNote.Text = n == 0 ? "" : string.Format("A striped corner marks the {0} colour{1} the game cycles (water, lava, fire): anything drawn with them changes colour in the game.", n, n == 1 ? "" : "s");
             cycleNote.IsVisible = animate.IsVisible = n > 0;
             animate.IsChecked = false;
             FillSwatches();
@@ -414,7 +414,7 @@ namespace UwEditor.App
         {
             if (!Apply(false)) return false;
             string err = save == null ? "nothing to save to" : save();
-            status.Text = err == null ? "Applied and saved in " + (saveWhat ?? "the file") + " (the old file kept as .BKP)." : "Applied, but not saved: " + err;
+            status.Text = err == null ? "Applied and saved in " + (saveWhat ?? "the file") + " (the old file is kept as .BKP)." : "Applied, but not saved: " + err;
             return err == null;
         }
 
@@ -426,7 +426,7 @@ namespace UwEditor.App
             applied = (int[])Doc.Pixels.Clone();
             if (close) { AskOnClose = false; Close(); return true; }
             Redraw();
-            status.Text += " Applied to the picture (not saved yet: save its file).";
+            status.Text += " Applied to the picture, but its file is not saved yet.";
             return true;
         }
 

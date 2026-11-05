@@ -21,7 +21,7 @@ namespace UwEditor.App
             if (vm.Session == null) return null;
             if (!vm.Session.IsUw2)
             {
-                _ = MessageWindow.Show(this, "Schedules", "Schedules belong to Ultima Underworld II. Its SCD.ARK holds the events that move NPCs about by the time of day and carry the plot along as the X clocks advance. Ultima Underworld has no schedules.");
+                _ = MessageWindow.Show(this, "Schedules", "Schedules belong to Ultima Underworld II. Its SCD.ARK holds the events that move NPCs about by the time of day and carry the plot along as the X clocks advance. Ultima Underworld I has no schedules.");
                 return null;
             }
             if (scheduleWindow != null)
@@ -68,7 +68,7 @@ namespace UwEditor.App
             }
             string a = await MessageWindow.Ask(this, "Make this slot a level",
                 "Slot " + level.Level + " holds no level, and the game cannot enter it. Make it a new, empty level? " +
-                "It gets no objects, a texture map " + (vm.Session.IsUw2 ? "copied from its world" : "") + " and either a small open room in the middle (5 by 5 tiles at (30, 30)-(34, 34)) or nothing but rock. " +
+                "It gets no objects, a texture map" + (vm.Session.IsUw2 ? " copied from its world" : "") + " and either a small open room in the middle (5 by 5 tiles at (30, 30)-(34, 34)) or nothing but rock. " +
                 "It is one Edit ▸ Undo step, written when you save the levels.",
                 "With a room", "All rock", "Cancel");
             if (a == "Cancel") return;

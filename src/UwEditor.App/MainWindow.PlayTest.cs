@@ -38,7 +38,7 @@ namespace UwEditor.App
                 if (p == null) return null;
                 settings.DosBoxPath = p;
                 settings.Save();
-                vm.EditStatus = "Play tests run " + p + ".";
+                vm.EditStatus = "Play tests will use " + p + ".";
                 return p;
             }
             catch (Exception ex) { vm.EditStatus = ex.Message; return null; }
@@ -73,7 +73,7 @@ namespace UwEditor.App
                 var psi = new ProcessStartInfo(dosbox) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(dosbox) ?? plan.Folder };
                 foreach (var arg in DosBoxConfig.Arguments(conf, settings.DosBoxArgs)) psi.ArgumentList.Add(arg);
                 Process.Start(psi);
-                vm.EditStatus = "Play test started. " + plan.Note + " (A copy in " + plan.Folder + "; the game folder is untouched.)";
+                vm.EditStatus = "Play test started. " + plan.Note + " (It runs in a copy in " + plan.Folder + "; the game folder is untouched.)";
                 if (plan.Slot != null) _ = MessageWindow.Show(this, "Play test", plan.Note + "\n\nThe test runs in a copy of the game with the unsaved levels; your game folder is not changed.");
             }
             catch (Exception ex) { await MessageWindow.Show(this, "Play test", "DOSBox did not start (" + dosbox + "): " + ex.Message); }

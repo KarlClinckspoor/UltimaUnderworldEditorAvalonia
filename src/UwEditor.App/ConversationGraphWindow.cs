@@ -501,26 +501,26 @@ namespace UwEditor.App
             canvas.PropertyChanged += (o, e) => { if (e.Property == BoundsProperty) Zoomed(); };
 
             var fit = new Button { Content = "Fit" };
-            ToolTip.SetTip(fit, "The whole conversation in the window");
+            ToolTip.SetTip(fit, "Fit the whole conversation in the window.");
             fit.Click += (o, e) => { canvas.Fit(); Zoomed(); };
             var home = new Button { Content = "Start" };
-            ToolTip.SetTip(home, "Back to the start of the conversation, at full size");
+            ToolTip.SetTip(home, "Go back to the start of the conversation at full size.");
             home.Click += (o, e) => { canvas.Home(); Zoomed(); };
             var zin = new Button { Content = "+" };
             zin.Click += (o, e) => { canvas.ZoomTo(canvas.Scale * 1.25); Zoomed(); };
             var zout = new Button { Content = "−" };
             zout.Click += (o, e) => { canvas.ZoomTo(canvas.Scale / 1.25); Zoomed(); };
             statements.IsCheckedChanged += (o, e) => { canvas.ShowStatements = statements.IsChecked == true; Rebuild(true); };
-            ToolTip.SetTip(statements, "Show the code's other statements in the nodes (assignments, calls)");
+            ToolTip.SetTip(statements, "Show the code's other statements, such as assignments and calls, in the nodes.");
             canvas.PointerWheelChanged += (o, e) => Zoomed();
-            ToolTip.SetTip(layout, "In layers: tidy rows, the fewest crossings. Hanging: every node hangs from the start on springs, and can be dragged; a dragged node stays where it is put (a right-click lets it go)");
+            ToolTip.SetTip(layout, "In layers: tidy rows with the fewest crossings. Hanging: every node hangs from the start on springs and can be dragged; a dragged node stays where you put it until you right-click it.");
             layout.SelectionChanged += (o, e) =>
             {
                 canvas.HangingMode = layout.SelectedIndex == 1;
                 letGo.IsEnabled = canvas.HangingMode;
                 Hint2();
             };
-            ToolTip.SetTip(letGo, "Lets go of every node you dragged in the hanging layout, so it hangs freely again");
+            ToolTip.SetTip(letGo, "Let go of every node you dragged in the hanging layout, so that they all hang freely again.");
             letGo.Click += (o, e) => canvas.LetGo();
 
             var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
@@ -561,8 +561,8 @@ namespace UwEditor.App
         void Hint2()
         {
             help.Text = canvas.HangingMode
-                ? "Hanging from the start. Drag a node: it stays where you put it (a dot marks it) until you right-click it or press Let go. Drag the background to move the view; click a node to see it in the script."
-                : "The conversation's flow, read from its code. Drag to move, the wheel to zoom. Click a node to see it in the script and edit its strings on the right. A loop goes up into the bottom of the node it goes back to.";
+                ? "The nodes hang from the start. A node you drag stays where you put it (a dot marks it) until you right-click it or press Let go. Drag the background to move the view; click a node to see it in the script."
+                : "The conversation's flow, read from its code. Drag to move the view and use the wheel to zoom. Click a node to see it in the script and to edit its strings on the right. A loop runs up into the bottom of the node it goes back to.";
         }
 
         static Control Legend(string colour, string text)
@@ -625,7 +625,7 @@ namespace UwEditor.App
             var v = g.Visible.ToList();
             status.Text = string.Format("{0}  ·  conversation {1}: {2} nodes ({3} with menus, {4} where the NPC speaks), {5} edges, {6} answers{7}.",
                 name ?? "No name", conv.Slot, v.Count, v.Count(n => n.Kind == GraphNodeKind.Menu), v.Count(n => n.Kind == GraphNodeKind.Say), g.Edges.Count,
-                g.Edges.Count(e => e.Kind == GraphEdgeKind.Choice), cw.ScriptPending ? "  ·  the script has edits not applied: this is the applied code" : "");
+                g.Edges.Count(e => e.Kind == GraphEdgeKind.Choice), cw.ScriptPending ? "  ·  the script has unapplied edits, so this shows the applied code" : "");
             Zoomed();
         }
 
@@ -670,7 +670,7 @@ namespace UwEditor.App
                 var err = new TextBlock { FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = ColourScheme.Pick("#E07060", "#B03A2A"), DataContext = row };
                 err.Bind(TextBlock.TextProperty, new Binding("Error"));
                 err.Bind(IsVisibleProperty, new Binding("HasError"));
-                var mark = new TextBlock { Text = "Changed, not saved (Revert conversation undoes it)", FontSize = 10, Opacity = 0.7, DataContext = row };
+                var mark = new TextBlock { Text = "Changed but not saved (Revert conversation undoes this).", FontSize = 10, Opacity = 0.7, DataContext = row };
                 mark.Bind(IsVisibleProperty, new Binding("Changed"));
                 p.Children.Add(box); p.Children.Add(err); p.Children.Add(mark);
                 side.Children.Add(p);

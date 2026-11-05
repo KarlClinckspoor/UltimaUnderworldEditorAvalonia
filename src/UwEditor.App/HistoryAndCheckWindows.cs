@@ -86,7 +86,7 @@ namespace UwEditor.App
                 for (int i = 0; i < redo.Count; i++) Rows.Add(new Row { Text = "↷ " + redo[i], Back = -(redo.Count - i), Done = false });
                 for (int i = undo.Count - 1; i >= 0; i--) Rows.Add(new Row { Text = (i == undo.Count - 1 ? "● " : "   ") + undo[i], Back = undo.Count - 1 - i, Done = true });
                 Rows.Add(new Row { Text = (undo.Count == 0 ? "● " : "   ") + "As opened (or the oldest step kept)", Back = undo.Count, Done = true });
-                status.Text = string.Format("{0} step(s) to undo, {1} to redo. Click a step to go to the level as it was after it; ↷ steps redo. Up to {2} steps are kept.", undo.Count, redo.Count, LevelEditor.UndoDepth);
+                status.Text = string.Format("{0} step(s) to undo, {1} to redo. Click a step to put the level back as it was after that step; ↷ marks steps to redo. Up to {2} steps are kept.", undo.Count, redo.Count, LevelEditor.UndoDepth);
             }
             else status.Text = "Nothing edited on this level yet.";
             list.ItemsSource = Rows;
@@ -123,7 +123,7 @@ namespace UwEditor.App
             head.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
-                Text = "Across every level, with the unsaved edits: locked locks no key opens (keys count on the floor, in containers, carried by creatures, made by traps, and in a saved game's inventory), keys whose lock is nowhere, and how full each level's object lists are. Double-click a line to go there.",
+                Text = "Checks every level, unsaved edits included, for locked locks that no key opens (keys count on the floor, in containers, carried by creatures, made by traps, and in a saved game's inventory) and keys whose lock is nowhere, and shows how full each level's object lists are. Double-click a line to go there.",
             });
             head.Children.Add(status);
             var dock = new DockPanel { Margin = new Thickness(14) };

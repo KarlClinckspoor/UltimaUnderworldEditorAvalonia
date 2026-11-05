@@ -52,7 +52,7 @@ namespace UwEditor.App
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75, Margin = new Thickness(0, 0, 0, 10),
                 Text = "While there are unsaved changes, a copy of them is kept every few minutes: the changed levels and automaps, and STRINGS.PAK or PLAYER.DAT when they have unsaved edits. " +
-                       "Restoring loads a checkpoint back as unsaved edits that can be undone; the game folder is not touched until you save. Kept in " + (main.CheckpointStore?.Root ?? "the settings folder") + ".",
+                       "Restoring loads a checkpoint back as unsaved edits that can be undone; the game folder is not touched until you save. Checkpoints are kept in " + (main.CheckpointStore?.Root ?? "the settings folder") + ".",
             };
             var dock = new DockPanel { Margin = new Thickness(16) };
             var head = new StackPanel();

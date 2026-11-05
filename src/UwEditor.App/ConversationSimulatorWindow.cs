@@ -47,8 +47,8 @@ namespace UwEditor.App
             {
                 if (!Set(ref this.value, value ?? "")) return;
                 int v;
-                if (!int.TryParse(this.value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out v)) { Error = "A number."; return; }
-                string e = Put == null ? "Read only." : Put(v);
+                if (!int.TryParse(this.value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out v)) { Error = "Enter a number."; return; }
+                string e = Put == null ? "This value is read-only." : Put(v);
                 Error = e ?? "";
                 if (e == null) last = v;
             }
@@ -101,7 +101,7 @@ namespace UwEditor.App
         readonly ObservableCollection<SimVarRow> startVars = new ObservableCollection<SimVarRow>();
         readonly ObservableCollection<string> log = new ObservableCollection<string>();
         readonly ListBox logList = new ListBox();
-        readonly CheckBox allValues = new CheckBox { Content = "Every quest, variable and skill (not only the ones this conversation uses)" };
+        readonly CheckBox allValues = new CheckBox { Content = "Show every quest, variable and skill, not only those this conversation uses" };
         readonly CheckBox logInstructions = new CheckBox { Content = "Log every instruction", IsChecked = true };
         readonly CheckBox follow = new CheckBox { Content = "Follow in the script" };
         readonly CheckBox runOn = new CheckBox { Content = "Run on after a choice", IsChecked = true };
@@ -164,13 +164,13 @@ namespace UwEditor.App
         Control Build()
         {
             var reset = new Button { Content = "Reset" };
-            ToolTip.SetTip(reset, "Start again from the start-up values");
+            ToolTip.SetTip(reset, "Start again from the start-up values.");
             reset.Click += (o, e) => Reset();
             var step = new Button { Content = "Step" };
-            ToolTip.SetTip(step, "Run one instruction (F10)");
+            ToolTip.SetTip(step, "Run one instruction (F10).");
             step.Click += (o, e) => Step();
             var run = new Button { Content = "Run", FontWeight = FontWeight.SemiBold };
-            ToolTip.SetTip(run, "Run until a menu, a question, the end, a stop address or the instruction limit (F5)");
+            ToolTip.SetTip(run, "Run until a menu, a question, the end, a stop address or the instruction limit (F5).");
             run.Click += (o, e) => Run();
             logInstructions.IsCheckedChanged += (o, e) => { if (sim != null) sim.LogInstructions = logInstructions.IsChecked == true; };
             var bar = new WrapPanel { Orientation = Orientation.Horizontal };
@@ -180,8 +180,8 @@ namespace UwEditor.App
                 c.VerticalAlignment = VerticalAlignment.Center;
                 bar.Children.Add(c);
             }
-            ToolTip.SetTip(stopAt, "Code addresses (hex, as the script shows them) where Run stops");
-            ToolTip.SetTip(limit, "Run stops after this many instructions (a loop that waits for nothing)");
+            ToolTip.SetTip(stopAt, "The code addresses (in hex, as the script shows them) where Run stops.");
+            ToolTip.SetTip(limit, "Run stops after this many instructions, in case of a loop that waits for nothing.");
 
             transcriptList.ItemsSource = transcript;
             transcriptList.Bind(ListBox.BackgroundProperty, transcriptList.GetResourceObservable("Bg"));
@@ -272,7 +272,7 @@ namespace UwEditor.App
         {
             allValues.IsCheckedChanged += (o, e) => { BuildRows(); };
             var top = new StackPanel { Spacing = 4, Margin = new Thickness(0, 6, 0, 6) };
-            top.Children.Add(new TextBlock { FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap, Text = "The values now. Script memory first (the imported variables and the conversation's private globals), then the game's values it reads and writes. A change counts from the next instruction." });
+            top.Children.Add(new TextBlock { FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap, Text = "The current values: script memory first (the imported variables and the conversation's private globals), then the game values it reads and writes. A change takes effect from the next instruction." });
             top.Children.Add(allValues);
             var d = new DockPanel();
             DockPanel.SetDock(top, Dock.Top);
@@ -296,7 +296,7 @@ namespace UwEditor.App
             apply.Click += (o, e) => Reset();
             p.Children.Add(Row("", apply));
             p.Children.Add(Section("The talker's inventory"));
-            p.Children.Add(Note("One object a line: the item number (decimal or 0x hex), then x and a quantity, q and a quality; # starts a comment."));
+            p.Children.Add(Note("One object per line: the item number (decimal, or hex with 0x), then x followed by a quantity and q followed by a quality; # starts a comment."));
             p.Children.Add(npcInventory);
             p.Children.Add(Section("The player's trade slots"));
             p.Children.Add(Note("The items the player has put up for trade (" + "up to four in UW1, six in UW2" + "); \"selected\" marks the ones offered, as clicking a slot does."));
@@ -459,7 +459,7 @@ namespace UwEditor.App
                 var l = new List<Tuple<int, int, int, bool>>();
                 string err = ParseObjects(playerTrade.Text, l);
                 if (err != null) return "The player's trade slots: " + err;
-                if (l.Count > start.TradeSlots) return "The player has " + start.TradeSlots + " trade slots.";
+                if (l.Count > start.TradeSlots) return "The player has only " + start.TradeSlots + " trade slots.";
                 for (int i = 0; i < start.TradeSlots; i++) { if (start.PlayerSlots[i] != 0) start.Objects.Remove(start.PlayerSlots[i]); start.PlayerSlots[i] = 0; start.PlayerSelected[i] = false; }
                 for (int i = 0; i < l.Count; i++)
                 {
@@ -498,7 +498,7 @@ namespace UwEditor.App
             BuildRows();
             Refresh();
             if (sim.State == SimState.Running)
-                stateText.Text = "Ready. Run (F5) runs to the first menu; Step (F10) runs one instruction." + (cw.ScriptPending ? " The script has edits not applied yet: this runs the applied code." : "");
+                stateText.Text = "Ready. Run (F5) runs to the first menu; Step (F10) runs one instruction." + (cw.ScriptPending ? " The script has unapplied edits, so this runs the applied code." : "");
         }
 
         public void Step()
@@ -676,28 +676,28 @@ namespace UwEditor.App
                 if (n < flags)
                     rows.Add(new SimVarRow { Kind = "Quest", Name = "quest " + n + " (flag)", Tip = "get_quest/set_quest " + n, Get = () => w.QuestFlag(n), Put = v => { if (v < 0 || v > 1) return "A flag is 0 or 1."; w.SetQuestFlag(n, v); return null; } });
                 else if (n < flags + bytes)
-                    rows.Add(new SimVarRow { Kind = "Quest", Name = "quest " + n + " (byte)", Tip = "get_quest/set_quest " + n, Get = () => w.QuestBytes[n - flags], Put = v => { if (v < 0 || v > 255) return "0-255."; w.QuestBytes[n - flags] = v; return null; } });
+                    rows.Add(new SimVarRow { Kind = "Quest", Name = "quest " + n + " (byte)", Tip = "get_quest/set_quest " + n, Get = () => w.QuestBytes[n - flags], Put = v => { if (v < 0 || v > 255) return "Must be 0 to 255."; w.QuestBytes[n - flags] = v; return null; } });
                 else
-                    rows.Add(new SimVarRow { Kind = "Quest", Name = "quest " + n + "+ (" + (uw2 ? "record byte 0xF6" : "talismans left") + ")", Tip = "What get_quest returns above " + (n - 1), Get = () => w.QuestTop, Put = v => { if (v < 0 || v > 255) return "0-255."; w.QuestTop = v; return null; } });
+                    rows.Add(new SimVarRow { Kind = "Quest", Name = "quest " + n + "+ (" + (uw2 ? "record byte 0xF6" : "talismans left") + ")", Tip = "What get_quest returns above " + (n - 1), Get = () => w.QuestTop, Put = v => { if (v < 0 || v > 255) return "Must be 0 to 255."; w.QuestTop = v; return null; } });
             }
             foreach (int x in pick(GlobalKind.GameVariable, Enumerable.Range(0, w.GameVariables.Length)))
             {
                 int n = x;
                 if (n < 0 || n >= w.GameVariables.Length) continue;
-                rows.Add(new SimVarRow { Kind = "Game variable", Name = "variable " + n, Tip = "x_traps " + n, Get = () => w.GameVariables[n], Put = v => { if (v < 0 || v > (uw2 ? 0xFF : 0x3F)) return "0-" + (uw2 ? 255 : 63) + "."; w.GameVariables[n] = v; return null; } });
+                rows.Add(new SimVarRow { Kind = "Game variable", Name = "variable " + n, Tip = "x_traps " + n, Get = () => w.GameVariables[n], Put = v => { if (v < 0 || v > (uw2 ? 0xFF : 0x3F)) return "Must be 0 to " + (uw2 ? 255 : 63) + "."; w.GameVariables[n] = v; return null; } });
             }
             if (uw2)
                 foreach (int x in pick(GlobalKind.XClock, Enumerable.Range(0, 16)))
                 {
                     int n = x;
                     if (n < 0 || n >= 16) continue;
-                    rows.Add(new SimVarRow { Kind = "X clock", Name = "clock " + n, Tip = "x_clock " + n, Get = () => w.XClocks[n], Put = v => { if (v < 0 || v > 255) return "0-255."; w.XClocks[n] = v; return null; } });
+                    rows.Add(new SimVarRow { Kind = "X clock", Name = "clock " + n, Tip = "x_clock " + n, Get = () => w.XClocks[n], Put = v => { if (v < 0 || v > 255) return "Must be 0 to 255."; w.XClocks[n] = v; return null; } });
                 }
             foreach (int x in pick(GlobalKind.Skill, Enumerable.Range(0, 20)))
             {
                 int n = x;
                 if (n < 0 || n >= 20) continue;
-                rows.Add(new SimVarRow { Kind = "Skill", Name = n < PlayerDat.SkillNames.Length ? PlayerDat.SkillNames[n] : "skill " + n, Tip = "x_skills " + n, Get = () => w.Skills[n], Put = v => { if (v < 0 || v > 30) return "0-30."; w.Skills[n] = v; return null; } });
+                rows.Add(new SimVarRow { Kind = "Skill", Name = n < PlayerDat.SkillNames.Length ? PlayerDat.SkillNames[n] : "skill " + n, Tip = "x_skills " + n, Get = () => w.Skills[n], Put = v => { if (v < 0 || v > 30) return "Must be 0 to 30."; w.Skills[n] = v; return null; } });
             }
             return rows;
         }

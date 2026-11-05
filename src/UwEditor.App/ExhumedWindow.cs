@@ -31,8 +31,8 @@ namespace UwEditor.App
         readonly Button untick = new Button { Content = "Untick the levels with nowhere to stand", IsVisible = false };
         readonly CheckBox editsBox = new CheckBox { Content = "Also stop beside every edit (tiles and objects changed), so what is near them is drawn and runs" };
         readonly CheckBox sweepBox = new CheckBox { Content = "Sweep each level: also one stop in every 16 × 16 area with room to stand" };
-        readonly CheckBox lookBox = new CheckBox { Content = "Look around at each stop (turn round once, about 3.5 s more a stop)" };
-        readonly CheckBox level9Box = new CheckBox { Content = "This port crashes on UW1's level 9 (Underworld Exhumed v1.0.2): leave it out, or last" };
+        readonly CheckBox lookBox = new CheckBox { Content = "Look around at each stop (turn round once, about 3.5 s more per stop)" };
+        readonly CheckBox level9Box = new CheckBox { Content = "This port crashes on UW1's level 9 (Underworld Exhumed v1.0.2): leave it out, or check it last" };
         readonly CheckBox shownBox = new CheckBox { Content = "Show the game's window while it runs (to watch what happens; leave its keys and mouse alone)" };
         CancellationTokenSource stopper;
         Process portProcess;
@@ -109,10 +109,10 @@ namespace UwEditor.App
             openFolder.Click += (o, e) => { if (LastPlan != null) OpenInShell(LastPlan.Folder); };
             buttons.Children.Add(run); buttons.Children.Add(openFolder);
             var top = new StackPanel { Spacing = 4 };
-            ToolTip.SetTip(aliveBox, "Underworld Exhumed has no god mode. The check's saved game makes the player experience level 16 (a new character, with no saved game to start from, stays level 1), the port's test cheat sets strength and defense (the maximum hit points follow: 254 at level 16 with strength 70, as more would wrap round in the game's byte), and fills the hit points before each level, so monsters waiting on a level don't end the check.");
+            ToolTip.SetTip(aliveBox, "Underworld Exhumed has no god mode. The check's saved game makes the player experience level 16 (a new character, with no saved game to start from, stays level 1), the port's test cheat sets strength and defense (the maximum hit points follow: 254 at level 16 with strength 70, as more would wrap round in the game's byte), and the hit points are filled before each level, so monsters waiting on a level do not end the check.");
             shownBox.IsChecked = main.ExhumedShowWindow;
             shownBox.IsCheckedChanged += (o, e) => main.ExhumedShowWindow = shownBox.IsChecked == true;
-            ToolTip.SetTip(shownBox, "Runs the port with its window, so you can see where the player is and what the game draws when something goes wrong. The input script still plays the keys at set times: a key pressed or a click in that window can upset it. The run takes as long as hidden.");
+            ToolTip.SetTip(shownBox, "Runs the port with its window, so you can see where the player is and what the game draws when something goes wrong. The input script still plays the keys at set times: a key pressed or a click in that window can upset it. The run takes as long as a hidden one.");
             untick.Click += (o, e) =>
             {
                 foreach (var b in boxes) if (nowhere.Contains((int)b.Tag)) b.IsChecked = false;
@@ -123,13 +123,13 @@ namespace UwEditor.App
             var th = main.ExhumedThoroughness;
             editsBox.IsChecked = th.VisitEdits; sweepBox.IsChecked = th.Sweep; lookBox.IsChecked = th.LookAround; level9Box.IsChecked = th.PortCrashesOnLevel9;
             level9Box.IsVisible = s != null && !s.IsUw2;
-            ToolTip.SetTip(level9Box, "Underworld Exhumed crashes on arriving at level 9, even on the shipped game. On: level 9 is left out of Edited and All, comes last after the save when ticked, and its crash is a note. Turn it off once a release of the port fixes level 9, so a crash there counts as a problem again.");
+            ToolTip.SetTip(level9Box, "Underworld Exhumed crashes on arriving at level 9, even on the shipped game. While this is ticked, level 9 is left out of Edited and All; if you tick level 9 itself, it comes last, after the save, and its crash is reported as a note. Untick this once a release of the port fixes level 9, so that a crash there counts as a problem again.");
             level9Box.IsCheckedChanged += (o, e) => RelabelLevels();
             foreach (var c in new[] { editsBox, sweepBox, lookBox, level9Box })
                 c.IsCheckedChanged += (o, e) => { main.ExhumedThoroughness = Thoroughness; Estimate(); };
             foreach (var b in boxes) b.IsCheckedChanged += (o, e) => Estimate();
-            ToolTip.SetTip(editsBox, "Creatures more than 10 squares from the player stand frozen, triggers fire only when walked on, and only what is in view is drawn: a stop beside each edited spot makes the game run and draw what changed. At most 12 such stops a level, 5 squares apart.");
-            ToolTip.SetTip(sweepBox, "A stop in each 16 × 16 area of the level that has an open, flat, dry square: up to 16 a level, about 5 s each.");
+            ToolTip.SetTip(editsBox, "Creatures more than 10 squares from the player stand frozen, triggers fire only when walked on, and only what is in view is drawn: a stop beside each edited spot makes the game run and draw what changed. At most 12 such stops per level, 5 squares apart.");
+            ToolTip.SetTip(sweepBox, "A stop in each 16 × 16 area of the level that has an open, flat, dry square: up to 16 per level, about 5 s each.");
             ToolTip.SetTip(lookBox, "Holds the turn-left key for one full turn at each stop, so the game draws everything around (bad textures and models show only when drawn).");
             top.Children.Add(saveBox); top.Children.Add(aliveBox); top.Children.Add(editsBox); top.Children.Add(sweepBox); top.Children.Add(lookBox); top.Children.Add(level9Box); top.Children.Add(shownBox); top.Children.Add(estimate); top.Children.Add(buttons);
 
@@ -150,7 +150,7 @@ namespace UwEditor.App
             Closing += OnClosing;
             Closed += (o, e) => Stop();
             ShowPort();
-            report.Text = "Tick the levels, then Run the check. A stop takes about " + ExhumedCheck.VisitMs / 1000 + " seconds.";
+            report.Text = "Tick the levels, then press Run the check. A stop takes about " + ExhumedCheck.VisitMs / 1000 + " seconds.";
             Estimate();
         }
 
@@ -174,7 +174,7 @@ namespace UwEditor.App
             {
                 bool c = (int)b.Tag == crash;
                 b.Content = labels[b] + (c ? "  (the port crashes here)" : "");
-                ToolTip.SetTip(b, c ? "Underworld Exhumed crashes on arriving at this level, even on the shipped game and after the talisman ritual's moongate: a bug of the port. Left out of Edited and All; when ticked it comes last, after the save, and its crash is reported as a note. Check it with the DOSBox spot test." : null);
+                ToolTip.SetTip(b, c ? "Underworld Exhumed crashes on arriving at this level, even on the shipped game and after the talisman ritual's moongate; this is a bug in the port. The level is left out of Edited and All; when ticked, it comes last, after the save, and its crash is reported as a note. Check it with the DOSBox spot test instead." : null);
             }
         }
 
@@ -222,7 +222,7 @@ namespace UwEditor.App
         {
             var s = main.ViewModel.Session;
             string p = s == null ? null : main.ExhumedPort(s.Kind);
-            portText.Text = p != null ? p : "Not found: choose " + (s == null ? "the port" : ExhumedCheck.ProgramName(s.Kind)) + " (unpack a release of Underworld Exhumed).";
+            portText.Text = p != null ? p : "Not found. Choose " + (s == null ? "the port" : ExhumedCheck.ProgramName(s.Kind)) + " from an unpacked release of Underworld Exhumed.";
             portText.Opacity = p != null ? 0.8 : 1;
         }
 
@@ -264,13 +264,13 @@ namespace UwEditor.App
                 catch (Exception ex) { report.Text = "Could not set the check up: " + ex.Message; return null; }
                 LastPlan = plan;
                 openFolder.IsEnabled = true;
-                if (!main.ExhumedLaunch) { report.Text = "Ready in " + plan.Folder + " (not run).\n" + plan.Note; return null; }
-                report.Text = "Running Underworld Exhumed " + (plan.Shown ? "in its window" : "with no window") + ": " + plan.Note + "\nThis takes about " + (plan.ExitAfterMs / 1000 + 5) + " seconds. Stop the check ends it.";
+                if (!main.ExhumedLaunch) { report.Text = "The check is ready in " + plan.Folder + " (not run).\n" + plan.Note; return null; }
+                report.Text = "Running Underworld Exhumed " + (plan.Shown ? "in its window" : "with no window") + ": " + plan.Note + "\nThis takes about " + (plan.ExitAfterMs / 1000 + 5) + " seconds; Stop the check ends it.";
                 var (code, output, timedOut, stopped) = await RunPort(port, plan, stopper.Token, p => portProcess = p);
                 portProcess = null;
                 if (stopped)
                 {
-                    report.Text = "Stopped before the end: the port was closed, nothing was checked.\nThe check's files: " + plan.Folder + "\n\nThe port's output:\n" + (string.IsNullOrWhiteSpace(output) ? "(nothing)" : output.TrimEnd());
+                    report.Text = "Stopped before the end: the port was closed and nothing was checked.\nThe check's files: " + plan.Folder + "\n\nThe port's output:\n" + (string.IsNullOrWhiteSpace(output) ? "(nothing)" : output.TrimEnd());
                     vm.EditStatus = "Underworld Exhumed check stopped.";
                     return null;
                 }

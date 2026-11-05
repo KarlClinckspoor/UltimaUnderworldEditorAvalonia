@@ -21,7 +21,7 @@ namespace UwEditor.App
         {
             Session = s;
             foreach (var m in ModelLibrary.Of(s)) Models.Add(m);
-            Status = s.ExeModels == null ? "No " + (s.IsUw2 ? "UW2.EXE" : "UW.EXE") + " next to DATA: the models live in the executable."
+            Status = s.ExeModels == null ? "No " + (s.IsUw2 ? "UW2.EXE" : "UW.EXE") + " next to DATA, and the models are stored in the executable."
                 : string.Format("{0} models in {1}, table at 0x{2:X}.", Models.Count, Path.GetFileName(s.ExePath ?? ""), s.ExeModels.TableOffset);
         }
 
@@ -29,9 +29,9 @@ namespace UwEditor.App
         {
             get
             {
-                return "The models built into " + (Session.IsUw2 ? "UW2.EXE" : "UW.EXE") + ": bytecode for the renderer's model interpreter (3d/INTERP.ASM), " +
-                    "drawn for furniture, doors, boulders, the shrine and the like. Drag to turn, wheel to zoom. OBJ files come with an MTL of the palette colours; " +
-                    "1.0 is one tile, y up.";
+                return "The models built into " + (Session.IsUw2 ? "UW2.EXE" : "UW.EXE") + " are bytecode for the renderer's model interpreter (3d/INTERP.ASM), " +
+                    "drawn for furniture, doors, boulders, the shrine and the like. Drag to turn and use the wheel to zoom. Exported OBJ files come with an MTL file of the palette colours; " +
+                    "1.0 is one tile, and y is up.";
             }
         }
         public string Info { get { return info; } set { Set(ref info, value); } }

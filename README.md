@@ -16,10 +16,10 @@ Point it at your own copy of the game (GOG's works) and go.
 - **It reads the game the way the game reads itself.** Every file format and rule comes from
   [underworld-exhumed](https://github.com/abedegno/underworld-exhumed), the reconstructed
   source of both games, and the tooltips name the routine each field comes from.
-- **It does not break your game.** Every file it writes keeps a `.BKP`, and the first
-  version a `.ORIG`. It runs the game's own consistency checks, and refuses files the game
-  could not load. Unsaved work is kept in checkpoints and survives a crash.
-- **Both games, one editor.** UW1 and UW2, the shipped data and saved games.
+- **It does not break your game.** Every file it writes keeps its previous version as a
+  `.BKP` and its first version as a `.ORIG`. It runs the game's own consistency checks, and
+  refuses files the game could not load. Unsaved work is kept in checkpoints and survives a crash.
+- **Both games, one editor.** It edits UW1 and UW2, both the shipped data and saved games.
 - **Proven on the real data.** Every shipped conversation and picture of both games, and the
   string and conversation archives, are read and written back to the same bytes in the tests.
 
@@ -58,9 +58,9 @@ Point it at your own copy of the game (GOG's works) and go.
 Fly over any level, or walk through it at eye height.
 - **Drawn as the game draws it:** floors, walls, slopes and diagonal walls through the
   level's texture map, and the ceiling (G) seen only from below. Doors sit in their frames
-  (open ones swung, the portcullis raised, the secret door in the wall), levers and writings
-  on their walls, furniture, pillars and bridges as the 3D models built into the
-  executable, and everything else as its picture facing the camera.
+  (open ones swung, the portcullis raised, the secret door in the wall), and levers and
+  writings sit on their walls. Furniture, pillars and bridges are drawn as the 3D models built
+  into the executable, and everything else as its picture facing the camera.
 - **The game's own light:** full light, or any of its eight light levels, from no light and
   a candle up to a light sphere and Wizard Eye. Each square gets one of LIGHT.DAT's shading
   maps by its distance, as in the game.
@@ -68,7 +68,7 @@ Fly over any level, or walk through it at eye height.
   floors more than two steps up stop you.
 - **2D map** (Tab): the level straight down, exportable as a PNG.
 - **Where things start:** the camera opens over the new-game start, read from `UW.EXE` /
-  `UW2.EXE` (a red arrow), or over the player in a saved game (a green arrow).
+  `UW2.EXE` and marked by a red arrow, or over the player in a saved game, marked by a green arrow.
 - A labelled grid every N tiles (H), invisible objects and traps on request, and PgUp / PgDn
   to step through the levels. UW2's worlds and their slots are picked from a list.
 
@@ -141,8 +141,8 @@ weapons, food, monsters, keys, traps, triggers or enchanted objects. **Find in a
 </table>
 
 Read, change and run every conversation in CNV.ARK (Ctrl+Shift+C).
-- **Dialogue:** what the script does, rebuilt from its code: what the NPC says, each menu
-  with its numbered answers, and the checks on quests, variables and the talker's state.
+- **Dialogue:** what the script does, rebuilt from its code. It shows what the NPC says, each
+  menu with its numbered answers, and the checks on quests, variables and the talker's state.
 - **Strings:** the conversation's text, edited in place, each string showing where the
   script uses it.
 - **Script:** the code as readable assembly, with labels, named imports and comments.
@@ -159,7 +159,8 @@ Saving rewrites only the changed blocks of CNV.ARK and STRINGS.PAK (compressed a
 
 ![The global variables: quest flags with the conversations that read and write them](docs/images/globals.png)
 
-Every piece of game state a conversation can read or change (Ctrl+Shift+G): quest flags and
+The global variables window (Ctrl+Shift+G) shows every piece of game state a conversation can
+read or change: quest flags and
 bytes, the variables traps share, UW2's X clocks, skills, the talker's and player's variables,
 and each conversation's private globals. Each one lists the conversations that read and write
 it; double-click to open the script at that line. With a saved game open, the values come from
@@ -248,9 +249,9 @@ as MIDI, and import MIDI files as new themes in both their FM and MT-32 versions
 
 - **Object tables:** OBJECTS.DAT (weapons, armour, creatures, containers, lights, food and
   more) and COMOBJ.DAT in grids, with range checks and what each field means.
-- **Item slots:** what uses each item id (levels, conversations, the game's code, loot,
-  combinations, quest items) and which slots are free, to make a new item from one: name,
-  picture, stats and placing.
+- **Item slots:** shows what uses each item id (levels, conversations, the game's code, loot,
+  combinations, quest items) and which slots are free, and makes a new item in a free slot:
+  its name, picture, stats and placement.
 - **Game tables:** each texture's terrain, class skills, item combinations and light levels.
   **Schedules** (UW2) lists SCD.ARK's events, and **File ▸ Saved games** renames, copies and opens saves.
 
@@ -258,7 +259,7 @@ as MIDI, and import MIDI files as new themes in both their FM and MT-32 versions
 
 ![The player's map of level 1, painted as the game marks it](docs/images/automap.png)
 
-Paint the player's map tiles seen or unseen as the game would mark them, and add, move or
+Paint the player's map tiles as seen or unseen, as the game would mark them, and add, move or
 delete the map notes (Ctrl+Shift+A). **Check and repair the saved game** fixes notes the game
 would read from the wrong level (its own crash bug), broken automap blocks and objects lost
 from the lists.
@@ -312,12 +313,12 @@ Turn the game into a fresh run every time, and keep it beatable.
 - **Swap items:** existing objects trade places within their kind or across kinds, within a
   level, a range of levels or the whole game, and take their spot's owner (the rat's food
   becomes the rat's lantern).
-- **Uniform progression:** things sorted by strength and handed out level by level, the
+- **Uniform progression:** things are sorted by strength and handed out level by level, the
   weakest first.
 - **Named challenges:** 21 whole-game rules (Monk, Lockdown, Hoarding, Ghost town, Bones
   rise…) with a preview and an exact Undo. Quest items and conversations are never touched.
 
-The shuffles and swaps show their math as a live formula and write a world report; every tool
+The shuffles and swaps show their maths as a live formula and write a world report. Every tool
 makes one undo step per level.
 
 ## Testing in the real game
@@ -335,20 +336,22 @@ makes one undo step per level.
 
 ![Make a mod: only what changed, checked by SHA-256](docs/images/mods.png)
 
-- **Mods** (Ctrl+Shift+M): **Make a mod** writes a `.uwmod` holding only the differences from
-  the game's own files, never the files themselves (UW2's compressed blocks are compared
-  uncompressed), with the SHA-256 of each original. It changes files the game has, and adds
+- **Mods** (Ctrl+Shift+M): **Make a mod** writes a `.uwmod` that holds only the differences
+  from the game's own files, never the files themselves, with the SHA-256 of each original.
+  UW2's compressed blocks are compared uncompressed. A mod changes files the game has, and adds
   only sounds the game opens by number. **Load a mod** applies it to those exact originals,
   giving back the saved files byte for byte. The format is in
   [docs/mod-format.md](docs/mod-format.md).
-- **Backups:** every file written keeps `.BKP`, and the first version `.ORIG`.
-- **Checkpoints:** while there are unsaved changes, a copy is kept every 5 minutes (both
-  numbers can be changed). Restoring loads one back as edits that can be undone.
-- **Crash recovery:** an unexpected error is logged and the unsaved work kept; the next start
-  offers it back.
-- **Light or Dark, Compact or Comfortable:** a colour scheme and a classic, tighter layout
-  (Light and Compact at first), remembered between runs. The mod manager shares the look
-  (`src/UwEditor.Look`).
+- **Backups:** every file written keeps its previous version as `.BKP`, and its first version
+  as `.ORIG`.
+- **Checkpoints:** while there are unsaved changes, a copy is taken every 5 minutes and the
+  newest 20 are kept (both numbers can be changed). Restoring loads one back as edits that can
+  be undone.
+- **Crash recovery:** an unexpected error is logged and the unsaved work is kept; the next
+  start offers it back.
+- **Light or Dark, Compact or Comfortable:** a colour scheme, and either the classic, tighter
+  Compact layout or the roomier Comfortable one. Light and Compact are the defaults, and the
+  choice is remembered between runs. The mod manager shares the look (`src/UwEditor.Look`).
 
 **Help ▸ Manual** (F1) opens [the manual](docs/MANUAL.md), built into the program with its
 sections and a search box; F1 in a tool window opens that tool's section. The plan is in
@@ -403,8 +406,7 @@ The game files come from `UW_GAMEDATA`, a folder holding `UW` and/or `UW2`, each
 come from `tests/gamedata/` (`tests/gamedata/UW`, `tests/gamedata/UW2`), which git ignores; a
 `gamedata/` folder at the top is still read when `tests/gamedata/` is missing. Use an unchanged
 install there: tests that compare against a clean game fail on one with saved games or edited
-levels. Tests whose game is missing
-pass without checking anything. Set `UW_REQUIRE_GAMEDATA=1` to make them fail instead.
+levels. Tests whose game is missing pass without checking anything. Set `UW_REQUIRE_GAMEDATA=1` to make them fail instead.
 
 **Picture baselines.** The first run of a picture test records its baseline under
 `tests/<project>/baselines/` and reports the test as skipped. Look at the pictures; later runs
@@ -456,7 +458,7 @@ The core tests check, among other things:
   - UW2 saves read with their inventories;
   - rewriting an inventory numbers it as the game does;
   - adding and removing objects keeps links and slots right;
-  - UW2's cheat detection is warned;
+  - values UW2's cheat detection would catch are warned about;
   - creation limits come from SKILLS.DAT;
   - UW1 records (made in the test) keep their appearance bits;
 - graphics:
@@ -497,7 +499,7 @@ The core tests check, among other things:
 | `tests/Shared` | Picture comparison and baselines, shared by the two interface test projects. |
 | `src/Underworld.Mods` | Mod packages, format 2 ([docs/mod-format.md](docs/mod-format.md)): deltas from the game's own files, shared by the editor and the mod manager. No UI. |
 | `tests/Underworld.Mods.Tests` | Its tests, on the real game files. |
-| `ModManager/` | The Ultima Underworlds Mod Manager (app, `uwmod` command line, tests), brought in from its own repository: installs format 2 mods into DOS folders and Underworld Exhumed homes; see its [README](ModManager/README.md). |
+| `ModManager/` | The Ultima Underworlds Mod Manager (app, `uwmod` command line, tests), brought in from its own repository. It installs format 2 mods into DOS folders and Underworld Exhumed homes; see its [README](ModManager/README.md). |
 
 The meaning of the files comes from
 [underworld-exhumed](https://github.com/abedegno/underworld-exhumed), the reconstructed source

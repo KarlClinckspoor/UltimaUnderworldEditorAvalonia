@@ -42,8 +42,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
     }
 
     public string Folder => main.Manager.Paths.Root;
-    public string Credits => Hacks.Credit + "\n\nThe file formats and mod packages (format 2) are the Ultima Underworld Editor's (KarlClinckspoor/UltimaUnderworldEditorAvalonia). " +
-        "The ports are Underworld Exhumed (abedegno/underworld-exhumed); the start square and executable patches need the fork's modding branch.";
+    public string Credits => Hacks.Credit + "\n\nThe file formats and mod packages (format 2) come from the Ultima Underworld Editor (KarlClinckspoor/UltimaUnderworldEditorAvalonia). " +
+        "The ports are Underworld Exhumed (abedegno/underworld-exhumed); a moved start square and executable patches need the fork's modding branch.";
     public string HackLicense => Hacks.License();
 
     partial void OnDosBoxChanged(string value)
@@ -55,7 +55,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     async Task Browse()
     {
-        string? p = await main.Dialogs.PickFile("DOSBox's program", "Programs", OperatingSystem.IsWindows() ? "*.exe" : "*");
+        string? p = await main.Dialogs.PickFile("The DOSBox program", "Programs", OperatingSystem.IsWindows() ? "*.exe" : "*");
         if (p != null) DosBox = p;
     }
 }

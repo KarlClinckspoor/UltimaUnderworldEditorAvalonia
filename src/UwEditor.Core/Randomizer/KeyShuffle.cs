@@ -497,7 +497,7 @@ namespace UwEditor.Core.Randomizer
         {
             opt = opt.Clone();
             var r = new KeyShuffleResult { Options = opt };
-            if (s.IsUw2) { r.Refused = "The key item shuffle works on Ultima Underworld 1 only (its facts and solver)."; r.Log.AppendLine(r.Refused); return r; }
+            if (s.IsUw2) { r.Refused = "The key item shuffle works on Ultima Underworld 1 only: its facts and solver cover no other game."; r.Log.AppendLine(r.Refused); return r; }
             var w0 = levels.W.Copy();
             foreach (int l in w0.Levels) { r.Before[l] = (byte[])w0.Data[l].Clone(); r.Textures[l] = w0.Tex[l]; }
             var w = w0.Copy();
@@ -665,7 +665,7 @@ namespace UwEditor.Core.Randomizer
             foreach (var kv in r.After)
             {
                 var e = edits.For(kv.Key);
-                if (!e.Data.AsSpan().SequenceEqual(r.Before[kv.Key])) throw new InvalidOperationException("Level " + kv.Key + " changed since the shuffle was computed: preview again.");
+                if (!e.Data.AsSpan().SequenceEqual(r.Before[kv.Key])) throw new InvalidOperationException("Level " + kv.Key + " has changed since the shuffle was computed. Preview it again.");
             }
             r.AppliedAids.Clear();
             r.MapsBefore.Clear();
@@ -694,7 +694,7 @@ namespace UwEditor.Core.Randomizer
                 if (r.Options.ExploreMaps)
                 {
                     foreach (var kv in StartAids.ExploreMaps(edits.Session, edits, "Key item scatter: maps explored")) r.MapsBefore[kv.Key] = kv.Value;
-                    r.AppliedAids.Add(r.MapsBefore.Count == 0 ? "Every map was explored already." : "The maps of levels " + string.Join(", ", r.MapsBefore.Keys.OrderBy(k => k)) + " explored.");
+                    r.AppliedAids.Add(r.MapsBefore.Count == 0 ? "Every map was already explored." : "The maps of levels " + string.Join(", ", r.MapsBefore.Keys.OrderBy(k => k)) + " were explored.");
                 }
             },
             // Edit ▸ Undo took the whole apply back: the maps too, and the result is no longer applied; Redo brings both again

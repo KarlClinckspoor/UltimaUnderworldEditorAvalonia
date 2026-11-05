@@ -187,7 +187,7 @@ namespace UwEditor.Core.Randomizer
                     zs.Links.Add(new ZoneLink { Id = lid++, From = a, To = b, Kind = k.Kind, Requires = string.IsNullOrWhiteSpace(k.Requires) ? "free" : k.Requires, TwoWay = k.TwoWay, Notes = "drawn by hand" + (string.IsNullOrEmpty(k.Notes) ? "" : ": " + k.Notes), Confidence = k.Confidence, Level = k.Level, X = k.X, Y = k.Y, Hand = true });
                     hand++;
                 }
-                if (hand > 0) res.Warnings.Add(string.Format("{0} link(s) drawn by hand added to those the levels give.", hand));
+                if (hand > 0) res.Warnings.Add(string.Format("{0} link(s) drawn by hand were added to those the levels give.", hand));
             }
             // placements
             var items = KeyItems.Find(s, level, zs);
@@ -324,7 +324,7 @@ namespace UwEditor.Core.Randomizer
             if (merged.Count > 0)
                 res.Warnings.Add(string.Format("{0} zone(s) of the zoning share their walkable area with another (no wall, door or step between them), so they are one: {1}.", merged.Count, Cap(merged)));
             if (made.Count > 0)
-                res.Warnings.Add(string.Format("{0} zone(s) made for open areas outside the zoning's zones and for doorways closed behind the player: {1}.", made.Count, Cap(made.OrderBy(x => x).Select(x => x.ToString()).ToList())));
+                res.Warnings.Add(string.Format("{0} zone(s) were made for open areas outside the zoning's zones and for doorways closed behind the player: {1}.", made.Count, Cap(made.OrderBy(x => x).Select(x => x.ToString()).ToList())));
             // zones whose parts have no free way between them, either way (door squares left out; an automatic zoning made them by its own rules)
             if (IsAutomatic(given)) return;
             var parent = Enumerable.Range(0, n).ToArray();

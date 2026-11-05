@@ -71,9 +71,9 @@ namespace UwEditor.App
             globals = g;
             var s = lib.Session;
             Title = "Global variables — " + s.Title;
-            SourceText.Text = !s.IsSave ? "DATA is open: a new game, where these start at 0. Open a SAVE folder to see and change a saved game's values."
+            SourceText.Text = !s.IsSave ? "DATA is open: in a new game these all start at 0. Open a SAVE folder to see and change a saved game's values."
                 : g.Player == null ? Path.GetFileName(s.SaveFolder) + " has no readable PLAYER.DAT."
-                : "Values from " + Path.GetFileName(s.SaveFolder) + "'s PLAYER.DAT and BGLOBALS.DAT; edit them, then Save values.";
+                : "Values from " + Path.GetFileName(s.SaveFolder) + "'s PLAYER.DAT and BGLOBALS.DAT. Edit them, then click Save values.";
             SaveButton.IsEnabled = g.CanEdit;
             Model.All.Clear();
             foreach (var v in g.All)
@@ -90,7 +90,7 @@ namespace UwEditor.App
             }
             Model.Apply();
             int used = g.All.Count(v => v.Uses.Count > 0);
-            Model.Status = string.Format("{0} globals conversations use, of {1}. Hover a row for where it is kept.", used, g.All.Count);
+            Model.Status = string.Format("Conversations use {0} of the {1} globals. Hover over a row to see where it is kept.", used, g.All.Count);
         }
 
         static string Slots(IEnumerable<int> slots)
@@ -134,7 +134,7 @@ namespace UwEditor.App
             Model.Rows.Clear();
             foreach (var r in Model.All)
                 if (r.Variable.Uses.Any(u => u.Slot == slot)) Model.Rows.Add(r);
-            Model.Status = string.Format("The {0} globals conversation {1} uses. Change the filter to see the others.", Model.Rows.Count, slot);
+            Model.Status = string.Format("Showing the {0} globals that conversation {1} uses. Change the filter to see the others.", Model.Rows.Count, slot);
         }
 
         void ShowSelected()
@@ -155,7 +155,7 @@ namespace UwEditor.App
                     Text = string.Format("{0} {1}: {2}{3} ({4}, at {5:X4})", u.Slot, name ?? "", what, val, u.Via, u.Address),
                 });
             }
-            if (v.Uses.Count == 0) Model.Uses.Add(new UseRow { Text = "No conversation uses it with a constant number. (Traps and the game's code may.)" });
+            if (v.Uses.Count == 0) Model.Uses.Add(new UseRow { Text = "No conversation uses it by a constant number. Traps and the game's own code may still use it." });
         }
 
         void OnUseDoubleTapped(object sender, TappedEventArgs e)
@@ -171,11 +171,11 @@ namespace UwEditor.App
         public List<string> Save()
         {
             if (globals == null) return null;
-            if (!globals.CanEdit) { Model.Status = "DATA holds a new game's values; open a SAVE folder to change a saved game."; return null; }
+            if (!globals.CanEdit) { Model.Status = "DATA holds a new game's values. Open a SAVE folder to change a saved game's values."; return null; }
             try
             {
                 var done = globals.Save();
-                Model.Status = done.Count == 0 ? "Nothing to save." : "Saved " + string.Join(" and ", done.Select(Path.GetFileName)) + " (the old files kept as .BKP).";
+                Model.Status = done.Count == 0 ? "Nothing to save." : "Saved " + string.Join(" and ", done.Select(Path.GetFileName)) + " (the old files are kept as .BKP).";
                 return done;
             }
             catch (Exception ex) { Model.Status = "Not saved: " + ex.Message; return null; }

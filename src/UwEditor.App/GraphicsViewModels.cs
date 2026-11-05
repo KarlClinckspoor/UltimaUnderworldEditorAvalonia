@@ -297,7 +297,7 @@ namespace UwEditor.App
             CritterPreview = Pictures.ToBitmap(CritterImage);
             if (f == null) { CritterInfo = ""; return; }
             var fr = f.Item1.Frames[f.Item2];
-            CritterInfo = string.Format("{0}, frame {1}: {2} × {3}, hot spot ({4}, {5}), {6} · the page is {7} bytes; the game reads at most {8}",
+            CritterInfo = string.Format("{0}, frame {1}: {2} × {3}, hot spot ({4}, {5}), {6} · the page is {7} bytes, and the game reads at most {8}",
                 f.Item1.Name, f.Item2, fr.Width, fr.Height, fr.HotX, fr.HotY, fr.Format == 6 ? "5-bit run-length, 32 colours" : "4-bit run-length, 16 colours",
                 f.Item1.Data.Length, CritterPage.MaxBytes);
         }

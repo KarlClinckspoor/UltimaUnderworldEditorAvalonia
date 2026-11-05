@@ -66,15 +66,15 @@ namespace UwEditor.App
             top.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
-                Text = "Moves the key items to new places so that the game stays beatable with the logic chosen below. The zones (the Zones window's zoning, or automatic ones when there is none) and the time-aware solver decide what is reachable: " +
-                       "the key items are placed one by one, each where the solver reaches while the ones not placed yet are counted as held (assumed fill), and the other items fill the rest. " +
-                       "A fresh solve of the shuffled levels must reach level 9 with no one-way trap; otherwise the next seed is tried. Items trade places whole (keys keep their lock numbers). " +
-                       "Nothing is written until Apply, one undoable step a level, saved with the levels." + (s.IsUw2 ? " Ultima Underworld 1 only: its facts and solver." : ""),
+                Text = "Moves the key items to new places so that the game stays beatable with the logic chosen below. The zones (the Zones window's zoning, or automatic zones when there is none) and the time-aware solver decide what is reachable. " +
+                       "The key items are placed one by one, each somewhere the solver can reach while it counts the items not yet placed as held (assumed fill); the other items fill the rest. " +
+                       "A fresh solve of the shuffled levels must then reach level 9 without a one-way trap, or the next seed is tried. Items trade places whole (keys keep their lock numbers). " +
+                       "Nothing is written until you press Apply, which makes one undoable step per level; the changes are saved with the levels." + (s.IsUw2 ? " This works for Ultima Underworld 1 only, whose facts and solver it uses." : ""),
             });
             // the zoning: the Zones window's, or Quick autozone when there is none
             zoning = main.Zoning();
             quickButton.Click += async (o, e) => await QuickAutozoneAsync();
-            ToolTip.SetTip(quickButton, "Makes automatic zones with the movement options below and puts them in the Zones window (to look at and change there); Apply then uses them. Only when there is no zoning yet.");
+            ToolTip.SetTip(quickButton, "Makes automatic zones with the movement options below and puts them in the Zones window, where you can look at and change them; Apply then uses them. Available only when there is no zoning yet.");
             var zonesButton = new Button { Content = "Zones window…" };
             zonesButton.Click += (o, e) => main.ShowZones();
             var head = new OptionGrid(1);
@@ -92,7 +92,7 @@ namespace UwEditor.App
             newSeed.Click += (o, e) => seed.Value = new Random().Next(1, int.MaxValue);
             retries.Value = opt.Retries;
             retries.ValueChanged += (o, e) => { opt.Retries = (int)(retries.Value ?? 20); };
-            head.AddRow("Seed", LogicOptionsPanel.Row(seed, newSeed, LogicOptionsPanel.Label("Retries", 60), retries, LogicOptionsPanel.Note("further seeds tried when a fill fails the check")));
+            head.AddRow("Seed", LogicOptionsPanel.Row(seed, newSeed, LogicOptionsPanel.Label("Retries", 60), retries, LogicOptionsPanel.Note("How many further seeds to try when a fill fails the check.")));
             // the logic options, as the Automatic zones window has them
             top.Children.Add(new LogicOptionsPanel(opt.Nav, opt.Logic, true));
             // what moves, three to a row, lined up with the options above
@@ -108,7 +108,7 @@ namespace UwEditor.App
             for (int i = 0; i < boxes.Count; i += 3) moves.AddRow(i == 0 ? "Move" : "", boxes.Skip(i).Take(3).Concat(Enumerable.Repeat<Control>(null, Math.Max(0, 3 - (boxes.Count - i)))).ToArray());
             var creatures = new CheckBox { Content = "Creature inventories (creatures without a conversation)", IsChecked = opt.CreatureInventories };
             creatures.IsCheckedChanged += (o, e) => opt.CreatureInventories = creatures.IsChecked == true;
-            var filler = new CheckBox { Content = "Everything else as filler (weapons, armour, food, coins, lights …)", IsChecked = opt.Filler };
+            var filler = new CheckBox { Content = "Everything else as filler (weapons, armour, food, coins, lights…)", IsChecked = opt.Filler };
             filler.IsCheckedChanged += (o, e) => opt.Filler = filler.IsChecked == true;
             top.Children.Add(moves);
             // the longer choices in a grid of their own, so that the categories' columns stay close
@@ -116,10 +116,10 @@ namespace UwEditor.App
             more.AddRow("Also", creatures, filler);
             kitBox.IsChecked = opt.StartKit;
             kitBox.IsCheckedChanged += (o, e) => opt.StartKit = kitBox.IsChecked == true;
-            ToolTip.SetTip(kitBox, "At Apply: a torch of quality 63 and the map lie beside the start square (the editor's, or the game's own with that option off). One found there is filled up or kept; a missing one is put on the floor beside the start.");
+            ToolTip.SetTip(kitBox, "At Apply, a torch of quality 63 and the map are placed beside the start square (the editor's, or the game's own when \"Consider the current starting square\" is off). A torch or map already there is filled up or kept; a missing one is put on the floor beside the start.");
             mapsBox.IsChecked = opt.ExploreMaps;
             mapsBox.IsCheckedChanged += (o, e) => opt.ExploreMaps = mapsBox.IsChecked == true;
-            ToolTip.SetTip(mapsBox, "At Apply: every level's map shows every square, as if the player had seen it all (the notes are kept).");
+            ToolTip.SetTip(mapsBox, "At Apply, every level's map shows every square, as if the player had seen it all; the map notes are kept.");
             more.AddRow("At the start", kitBox, mapsBox);
             top.Children.Add(more);
 
@@ -134,7 +134,7 @@ namespace UwEditor.App
             var actions = new StackPanel();
             actions.Children.Add(buttons);
             actions.Children.Add(summary);
-            if (s.IsUw2) { previewButton.IsEnabled = shuffleButton.IsEnabled = false; summary.Text = "Ultima Underworld 1 only."; }
+            if (s.IsUw2) { previewButton.IsEnabled = shuffleButton.IsEnabled = false; summary.Text = "This works for Ultima Underworld 1 only."; }
 
             // the settings scroll when the window is short; the buttons stay in sight, the log takes the rest
             var root = new Grid { Margin = new Thickness(16), RowDefinitions = new RowDefinitions("Auto,Auto,*") };
@@ -173,7 +173,7 @@ namespace UwEditor.App
             }
             else
             {
-                zoningText.Text = "No zoning yet: Apply makes automatic zones from the movement options below. Quick autozone makes them now and puts them in the Zones window.";
+                zoningText.Text = "There is no zoning yet, so Apply makes automatic zones from the movement options below. Quick autozone makes them now and puts them in the Zones window.";
                 quickButton.IsEnabled = !quickRunning && !session.IsUw2 && zoning != null;
             }
         }
@@ -214,7 +214,7 @@ namespace UwEditor.App
                 if (a != "Replace") { summary.Text = "The automatic zones were made, but the Zones window's zoning was kept."; RefreshZoning(); return false; }
             }
             zoning.Adopt(made,Path.Combine(session.DataFolder, AutoZones.DefaultFileName(session.IsUw2)));
-            summary.Text = string.Format("{0} automatic zones made and put in the Zones window (not saved; saving there asks for a name). Apply uses them now.", zoning.ZoneCount);
+            summary.Text = string.Format("{0} automatic zones made and put in the Zones window. They are not saved yet; saving there asks for a name. Apply now uses them.", zoning.ZoneCount);
             RefreshZoning();
             return true;
         }
@@ -268,7 +268,7 @@ namespace UwEditor.App
                 ? string.Format("Seed {0}{1}: {2} items move ({3} key items), {4} levels change; the shuffled game reaches level 9 in {5} spheres (the original in {6}).{7}",
                     r.UsedSeed, r.UsedSeed != r.Options.Seed ? " (after " + (r.Attempts - 1) + " failed)" : "", r.Moves.Count(m => m.Item != m.Place), r.Moves.Count(m => m.ByFill && m.Item != m.Place), r.After.Count,
                     r.SpheresAfter, r.SpheresBefore, r.Unlocked.Count > 0 ? " " + r.Unlocked.Count + " door(s) unlocked." : "")
-                : "No shuffle passed the check in " + r.Attempts + " attempts: see the log.");
+                : "No shuffle passed the check in " + r.Attempts + " attempts; see the log.");
         }
 
         /// <summary>Preview: computes a shuffle and shows its spoiler log; nothing changes.</summary>
@@ -342,7 +342,7 @@ namespace UwEditor.App
             var skipped = KeyShuffle.Undo(r, main.ViewModel.Edits);
             undoButton.IsEnabled = applied.Count > 0;
             summary.Text = skipped.Count == 0 ? "The shuffle of seed " + r.UsedSeed + " is undone." :
-                "Undone, except level(s) " + string.Join(", ", skipped) + ", edited since (use Edit ▸ Undo there).";
+                "Undone, except level(s) " + string.Join(", ", skipped) + ", which were edited since; use Edit ▸ Undo there.";
             Result = null;
             return skipped.Count == 0;
         }

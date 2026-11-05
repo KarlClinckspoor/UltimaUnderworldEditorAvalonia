@@ -33,9 +33,9 @@
               FontSize="11" Click="OnPick" ToolTip.Tip="Choose from a list" HorizontalAlignment="Left" />
       <TextBlock Grid.Column="2" Classes="hex" Text="{Binding Hex}" VerticalAlignment="Center" IsVisible="{Binding ShowHexColumn}" />
       <Button Grid.Column="2" x:Name="AddInsideButton" Content="+" IsVisible="{Binding CanAddInside}" Padding="7,0" Height="22" MinHeight="0"
-              FontSize="12" FontWeight="SemiBold" Click="OnAddInside" ToolTip.Tip="Add an object to its inventory or contents" HorizontalAlignment="Left" />
+              FontSize="12" FontWeight="SemiBold" Click="OnAddInside" ToolTip.Tip="Add an object to its inventory or contents." HorizontalAlignment="Left" />
       <Border Grid.Column="2" IsVisible="{Binding IsHeading}" Width="22" Height="22" CornerRadius="11" BorderThickness="1"
-              BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Left" ToolTip.Tip="The way it faces, seen from above with north up (heading × 45°, clockwise)">
+              BorderBrush="{DynamicResource Accent}" HorizontalAlignment="Left" ToolTip.Tip="The direction it faces, seen from above with north up (heading × 45°, clockwise).">
         <Path Data="M 10,2 L 15,11 L 11.5,11 L 11.5,18 L 8.5,18 L 8.5,11 L 5,11 Z" Fill="{DynamicResource Accent}" Width="20" Height="20"
               RenderTransformOrigin="50%,50%">
           <Path.RenderTransform>

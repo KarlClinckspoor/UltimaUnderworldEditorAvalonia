@@ -71,7 +71,7 @@ namespace UwEditor.Core.Editing
 
         /// <summary>OBJECTS.DAT food entry: one byte (obj/MISC.C Food[]).</summary>
         public static readonly RecordSchema Food = new RecordSchema("Food", 1, "obj/MISC.C Food",
-            F("Nutrition", 0, 0, 8, "How much eating it fills the player (UseFood: nutrition = Food[index]).", "obj/USEITEMS.C UseFood"));
+            F("Nutrition", 0, 0, 8, "How much eating it feeds the player (UseFood: nutrition = Food[index]).", "obj/USEITEMS.C UseFood"));
 
         /// <summary>OBJECTS.DAT trigger mode: one byte per trigger (event/TRIGGER.C Triggers[]).</summary>
         public static readonly RecordSchema Trigger = new RecordSchema("Trigger", 1, "event/TRIGGER.C Triggers",
@@ -79,16 +79,16 @@ namespace UwEditor.Core.Editing
 
         /// <summary>OBJECTS.DAT animated object class, 4 bytes (include/object.h struct AnimClass).</summary>
         public static readonly RecordSchema AnimClass = new RecordSchema("Animated object", 4, "include/object.h struct AnimClass",
-            F("Cycle", 0, 0, 1, "Steps to the next frame, wrapping (ANIMF_CYCLE).", "obj/EFFECT.C do_animobj"),
+            F("Cycle", 0, 0, 1, "Steps to the next frame, wrapping round after the last (ANIMF_CYCLE).", "obj/EFFECT.C do_animobj"),
             F("Random", 0, 1, 1, "Picks a random frame (ANIMF_RANDOM).", "obj/EFFECT.C do_animobj"),
             F("Door", 0, 2, 1, "A moving door: swings, or a portcullis rises (ANIMF_DOOR).", "obj/EFFECT.C do_animobj"),
             F("Flags 3-4", 0, 3, 2, "Unnamed flag bits.", "include/object.h struct AnimClass", U),
             F("Remove", 0, 5, 1, "Removed from the map when the animation ends (ANIMF_REMOVE).", "obj/EFFECT.C toast_animobj"),
             F("Flag 6", 0, 6, 1, "Unnamed flag bit.", "include/object.h struct AnimClass", U),
-            F("Finish", 0, 7, 1, "Plays the frames left before ending (ANIMF_FINISH).", "obj/EFFECT.C toast_animobj"),
-            F("Flags byte 1", 1, 0, 8, "The flags word's high byte; no flag is known there.", "include/object.h struct AnimClass", U),
-            F("Start frame", 2, 0, 8, "First frame (the object's owner field holds the frame); below 0 the frame is left as it is.", "obj/EFFECT.C add_animobj", C, true),
-            F("Frames", 3, 0, 8, "Number of frames; a new animation starts at start + a random frame below this.", "obj/EFFECT.C add_animobj"));
+            F("Finish", 0, 7, 1, "Plays the remaining frames before it ends (ANIMF_FINISH).", "obj/EFFECT.C toast_animobj"),
+            F("Flags byte 1", 1, 0, 8, "The high byte of the flags word. No flag is known there.", "include/object.h struct AnimClass", U),
+            F("Start frame", 2, 0, 8, "The first frame (the object's owner field holds the frame). Below 0, the frame is left as it is.", "obj/EFFECT.C add_animobj", C, true),
+            F("Frames", 3, 0, 8, "The number of frames. A new animation starts at the start frame plus a random number below this.", "obj/EFFECT.C add_animobj"));
 
         /// <summary>The tables, in file order (OBJECTS.DAT first, then COMOBJ.DAT). The same in both games.</summary>
         public static readonly ObjectTable[] Layout =
@@ -106,7 +106,7 @@ namespace UwEditor.Core.Editing
             new ObjectTable("Lights", ObjectsFile, 0xD62, 16, 0x90, Uw1Schemas.Light,
                 "Light sources, 0x90-0x97 (0-3 unlit, 4-7 lit), then the wands' entries (0x98-0x9F), 2 bytes each. A lit light carried gives its brightness and burns down by its burn rate.", "obj/MISC.C misc_init; game/PLAYTIME.C DegradeLights; game/PLAYDATA.C FixPlayerEquips"),
             new ObjectTable("Food", ObjectsFile, 0xD82, 16, 0xB0, Food,
-                "Food, 0xB0-0xBF, one byte each: the nourishment.", "obj/MISC.C misc_init; obj/USEITEMS.C UseFood"),
+                "Food, 0xB0-0xBF, one byte each: how much each item nourishes.", "obj/MISC.C misc_init; obj/USEITEMS.C UseFood"),
             new ObjectTable("Triggers", ObjectsFile, 0xD92, 16, 0x1A0, Trigger,
                 "Trigger modes, 0x1A0-0x1AF, one byte each (Underworld II's 0x1B0-0x1BF use the same entries).", "event/TRIGGER.C trap_init, trap_class_data"),
             new ObjectTable("Animations", ObjectsFile, 0xDA2, 16, 0x1C0, AnimClass,
@@ -284,7 +284,7 @@ namespace UwEditor.Core.Editing
             {
                 if (f.Name == "Render") return value == 0 ? "sprite" : value == 1 ? "critter" : value == 2 ? "3D model or door" : "texture-mapped model";
                 if (f.Name == "Fate")
-                    return value == 0 ? "stays where it lands" : value <= 8 ? value + " in 8 that it vanishes on landing" : value == 9 ? "runs its landing animation" : value == 10 ? "talisman (Ultima Underworld)" : null;
+                    return value == 0 ? "stays where it lands" : value <= 8 ? value + " in 8 chance that it vanishes on landing" : value == 9 ? "runs its landing animation" : value == 10 ? "talisman (Ultima Underworld)" : null;
                 if (f.Name == "Mass") return (value / 10.0).ToString("0.0", CultureInfo.InvariantCulture) + " stones";
                 if (f.Name == "Quality type" && Session.Strings != null)
                 {
@@ -302,7 +302,7 @@ namespace UwEditor.Core.Editing
         public static string Explain(ObjectTable t, FieldDef f)
         {
             string where = string.Format("{0}, byte {1} of each {2}-byte record", t.FileName, f.Location, t.Schema.Size);
-            string sure = f.Certainty == Certainty.Certain ? "" : f.Certainty == Certainty.Inferred ? " Inferred from how the code uses it." : " Its meaning is not known.";
+            string sure = f.Certainty == Certainty.Certain ? "" : f.Certainty == Certainty.Inferred ? " This is inferred from how the code uses it." : " Its meaning is not known.";
             return string.Format("{0}: {1}{2} Range {3} to {4}. {5}. Source: {6}.", f.Name, f.Description, sure, f.Min, f.Max, where, f.Source ?? t.Source);
         }
 

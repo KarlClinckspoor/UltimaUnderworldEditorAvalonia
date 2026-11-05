@@ -75,7 +75,7 @@ namespace UwEditor.App
             var rename = new Button { Content = "Rename", IsEnabled = s.Exists };
             rename.Click += (o, e) => Rename(s.Number, desc.Text);
             var openB = new Button { Content = "Open", IsEnabled = s.HasLevels && !open };
-            ToolTip.SetTip(openB, "Open this saved game in the editor (asks about unsaved work first)");
+            ToolTip.SetTip(openB, "Open this saved game in the editor (it asks about unsaved work first).");
             openB.Click += (o, e) => Open(s.Number);
             var target = new ComboBox { ItemsSource = slots.Where(x => x.Number != s.Number).Select(x => x.Name).ToList(), SelectedIndex = 0, Width = 100, IsEnabled = s.Exists };
             var copy = new Button { Content = "Copy to", IsEnabled = s.Exists };
@@ -87,7 +87,7 @@ namespace UwEditor.App
             };
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             foreach (var c in new Control[] { name, desc, rename, openB, copy, target }) row.Children.Add(c);
-            string info = !s.Exists ? "Not there yet: the game makes the folder when it saves here."
+            string info = !s.Exists ? "Not created yet: the game makes the folder when it first saves here."
                 : string.Format("{0}{1}{2}", s.HasLevels ? "LEV.ARK" : "no LEV.ARK", s.Used ? "" : ", no DESC (the menu shows <not used yet>)",
                     s.Written != DateTime.MinValue ? ", written " + s.Written.ToString("yyyy-MM-dd HH:mm") : "");
             var p = new StackPanel { Spacing = 2 };

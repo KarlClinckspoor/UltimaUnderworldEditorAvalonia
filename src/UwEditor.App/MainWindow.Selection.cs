@@ -100,7 +100,7 @@ namespace UwEditor.App
             var parts = new List<string>();
             if (selObjects.Count > 0) parts.Add(selObjects.Count + " object" + (selObjects.Count == 1 ? "" : "s"));
             if (selTiles.Count > 0) parts.Add(selTiles.Count + " tile" + (selTiles.Count == 1 ? "" : "s"));
-            vm.EditStatus = parts.Count == 0 ? "" : "Selected: " + string.Join(" and ", parts) + ". Ctrl+click adds or removes; Esc clears; the Paint tool's Paint selection paints the tiles.";
+            vm.EditStatus = parts.Count == 0 ? "" : "Selected: " + string.Join(" and ", parts) + ". Ctrl+click adds or removes, Esc clears, and the Paint tool's Paint selection paints the tiles.";
         }
 
         /// <summary>Selects tiles and their objects: every open tile whose middle lies in the rectangle (view coordinates).</summary>
@@ -208,7 +208,7 @@ namespace UwEditor.App
             string what = clip.Describe(vm.Session.Names);
             if (!vm.Edit(ed => made = ed.Paste(clip, x, y, container), "Pasted " + what + (container >= 0 ? " inside #" + container : string.Format(" on ({0}, {1})", x, y)) + "."))
                 return new List<int>();
-            if (clip.HasTalker) vm.EditStatus += " A creature with a conversation was copied: the game knows talkers by their conversation number, so there are two now.";
+            if (clip.HasTalker) vm.EditStatus += " A creature with a conversation was copied. The game knows talkers by their conversation number, so two creatures now share it.";
             vm.FlushRefresh();
             selObjects.Clear(); selTiles.Clear();
             if (made.Count > 1) foreach (int i in made) selObjects.Add(i);
@@ -517,7 +517,7 @@ namespace UwEditor.App
         void StartLinkPick(int trigger)
         {
             objectPick = new ObjectPick { Kind = "link", Index = trigger };
-            vm.EditStatus = "Click the trap #" + trigger + " should run (Esc cancels). The trap goes into its chain.";
+            vm.EditStatus = "Click the trap that #" + trigger + " should run (Esc cancels). The trap joins its chain.";
         }
 
         void StartInsidePick()

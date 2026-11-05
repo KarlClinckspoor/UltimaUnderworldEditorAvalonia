@@ -102,7 +102,7 @@ namespace UwEditor.Core.Graphics
                 else if (name == "IEND") break;
             }
             if (width <= 0 || height <= 0) throw new InvalidDataException("The PNG has no image header.");
-            if (interlace != 0) throw new InvalidDataException("Interlaced PNG files are not read; save it without interlacing.");
+            if (interlace != 0) throw new InvalidDataException("Interlaced PNG files cannot be read; save the picture without interlacing.");
             int channels = type == 0 ? 1 : type == 2 ? 3 : type == 3 ? 1 : type == 4 ? 2 : type == 6 ? 4 : 0;
             if (channels == 0) throw new InvalidDataException("Unknown PNG colour type " + type + ".");
             if (type == 3 && plte == null) throw new InvalidDataException("The indexed PNG has no palette.");

@@ -40,7 +40,7 @@ namespace UwEditor.App
             head.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
-                Text = "What makes the original game crash or complain on this saved game: map notes read from another level's automap (the game's own bug when all of a level's notes are erased; opening the map then crashes), notes with no end, automap blocks of the wrong size, and objects lost from the object lists (\"Problems in object list\"). " +
+                Text = "Finds what makes the original game crash or complain with this saved game: map notes read from another level's automap (the game's own bug when all of a level's notes are erased; opening the map then crashes), notes with no end, automap blocks of the wrong size, and objects lost from the object lists (\"Problems in object list\"). " +
                        "Repairs are unsaved edits: look them over, then Save. Nothing else in the save changes.",
             });
             head.Children.Add(status);

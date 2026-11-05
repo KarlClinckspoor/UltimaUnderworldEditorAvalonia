@@ -74,9 +74,9 @@ public sealed class Manager
         if (marker == null) return null;
         bool missing = marker.Baseline.Values.Concat(marker.Displaced.Values).Any(sha => !Vault.Has(sha));
         if (!missing) return null;
-        return "A mod manager took this folder over before, with originals this one does not have (another manager folder, or one that was lost)" +
-            (marker.Written.Count > 0 ? "; the folder has a mod in place (" + (marker.ActiveMod ?? "?") + ")" : "") +
-            ". Use the manager folder it was added with (UWMM_HOME), or take the folder's files as they are now as the originals.";
+        return "A mod manager took this folder over before, and this one does not have its originals (they are in another manager folder, or in one that was lost)" +
+            (marker.Written.Count > 0 ? ". The folder has a mod in place (" + (marker.ActiveMod ?? "?") + ")" : "") +
+            ". Use the manager folder the game was added with (UWMM_HOME), or use the folder's files as they are now as the originals.";
     }
 
     /// <summary>Adds an Exhumed build. The game folder is the one given, else the one the player's
@@ -89,7 +89,7 @@ public sealed class Manager
         {
             string cfg = Path.Combine(ExhumedGame.NormalHome(game), ExhumedGame.ConfigName(game));
             if (File.Exists(cfg)) folder = File.ReadAllLines(cfg).Where(l => l.StartsWith("data=")).Select(l => l[5..]).LastOrDefault();
-            if (folder == null) throw new InvalidOperationException("give the game folder (the port's own settings do not name one)");
+            if (folder == null) throw new InvalidOperationException("the port's own settings do not name a game folder: choose one (--data on the command line)");
         }
         folder = Path.GetFullPath(folder);
         var kind = DosGame.Detect(folder);
@@ -113,7 +113,7 @@ public sealed class Manager
         Save();
     }
 
-    public Target Get(string idOrName) => State.Find(idOrName) ?? throw new KeyNotFoundException("no target " + idOrName);
+    public Target Get(string idOrName) => State.Find(idOrName) ?? throw new KeyNotFoundException("there is no target " + idOrName);
 
     /// <summary>For a DOS target: whether its original executable is the GOG release's (or GOG's with
     /// UltimaHacks), which UltimaHacks and Underworld Exhumed need.</summary>
@@ -135,7 +135,7 @@ public sealed class Manager
     {
         var plan = PlanDos(t, modKey, ultimaHacks);
         if (plan.OutsideChanges.Count > 0 && !overwrite)
-            throw new ModException("these files changed since the manager last wrote them: " + string.Join(", ", plan.OutsideChanges) +
+            throw new ModException("these files have changed since the manager last wrote them: " + string.Join(", ", plan.OutsideChanges) +
                 ". Capture them as a mod first, or overwrite them.");
         DosGame.Apply(plan, Vault, Paths.JournalFile, Save, overwrite);
         return plan;
@@ -202,7 +202,7 @@ public sealed class Manager
             byte[]? b = orig(f.Path);
             if (f.Added) { if (b != null) r.Add("the game already has a " + f.Path + ", which the mod adds"); }
             else if (b == null) r.Add("the game has no " + f.Path);
-            else if (Files.Sha(b) != "sha256:" + f.BaseSha256) r.Add(f.Path + " is not the file the mod was made from (another release, or changed)");
+            else if (Files.Sha(b) != "sha256:" + f.BaseSha256) r.Add(f.Path + " is not the file the mod was made from (it is from another release, or it has been changed)");
         }
         if (r.Count == 0 && t.Kind == TargetKind.Exhumed) r.AddRange(ExhumedGame.Unsupported(m, t.Features, orig, t.GameKind));
         return r;
@@ -235,7 +235,7 @@ public sealed class Manager
     /// </summary>
     public (ModPackage? pkg, FolderChanges changes) Capture(Target t, ModDetails details)
     {
-        if (t.Kind != TargetKind.Dos) throw new InvalidOperationException("changes are captured from a DOS folder");
+        if (t.Kind != TargetKind.Dos) throw new InvalidOperationException("changes can only be captured from a DOS folder");
         var dir = new GameDir(t.Folder, t.GameKind);
         var changes = ModMaker.Compare(t.Baseline.Keys, rel => DosGame.Original(t, Vault, rel)!, dir.List(), rel => dir.Read(rel)!, t.GameKind);
         if (changes.Problems.Count > 0 || changes.Changed.Count == 0) return (null, changes);

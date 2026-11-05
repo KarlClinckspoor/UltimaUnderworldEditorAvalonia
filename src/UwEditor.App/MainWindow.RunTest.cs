@@ -176,7 +176,7 @@ namespace UwEditor.App
             try
             {
                 string data = s.GameFolder, home = s.GameFolder, note;
-                if (SaveInGameFolder(s)) note = s.IsSave ? "Journey Onward and slot " + Path.GetFileName(s.SaveFolder.TrimEnd('/', '\\')).Substring(4) + " is the save being edited." : "Journey Onward lists the game folder's saved games.";
+                if (SaveInGameFolder(s)) note = s.IsSave ? "In Journey Onward, slot " + Path.GetFileName(s.SaveFolder.TrimEnd('/', '\\')).Substring(4) + " is the save being edited." : "Journey Onward lists the game folder's saved games.";
                 else
                 {
                     home = Path.Combine(RunFolder, "exhumed-home-" + (s.IsUw2 ? "uw2" : "uw1"));

@@ -259,8 +259,8 @@ namespace UwEditor.Core.Randomizer
                 if (!all) whole++;
             }
             c.Zones.Sort((a, b) => a.Id.CompareTo(b.Id));
-            note = split == 0 ? "no zone lies on several levels" : string.Format("{0} zone(s) on several levels split into {1} more, one a level, joined by free two-way links", split, made)
-                + (whole > 0 ? string.Format("; {0} kept partly whole (no ids left)", whole) : "");
+            note = split == 0 ? "no zone lies on several levels" : string.Format("{0} zone(s) on several levels split into {1} more, one per level, joined by free two-way links", split, made)
+                + (whole > 0 ? string.Format("; {0} were kept partly whole (no ids were left)", whole) : "");
             return c;
         }
 

@@ -51,11 +51,11 @@ namespace UwEditor.App
             top.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
-                Text = "Groups each level's open tiles into regions where the player walks anywhere and back, joins them by drops, climbs, gap jumps, doors and the levels' teleports, " +
+                Text = "Groups each level's open tiles into regions where the player can walk anywhere and back, joins them by drops, climbs, gap jumps, doors and the levels' teleports, " +
                        "reads the levers and other trigger chains, and merges what is reachable both ways for free into zones. Movement is by rules of thumb; ceilings are ignored. " +
                        "The solver follows the world as it changes: when the player can set a mechanism off, its change (terrain, deleted walls, doors) is applied and that level rebuilt. " +
-                       "Doors closed behind the player are one way. A return check looks for zones he can enter but not leave. " +
-                       "The player logic says what the solver may expect of the player: where each ability comes from, picking, the Search skill. Bashing doors is always allowed." + (s.IsUw2 ? " Made for UW1; UW2's levels are read the same way but not checked." : ""),
+                       "Doors closed behind the player are one way. A return check looks for zones the player can enter but not leave. " +
+                       "The player logic says what the solver may expect of the player: where each ability comes from, lock picking and the Search skill. Bashing doors is always allowed." + (s.IsUw2 ? " This is made for UW1; UW2's levels are read the same way but not checked." : ""),
             });
             // the autozone movement and the player logic (shared with the Apply window)
             top.Children.Add(new LogicOptionsPanel(opt, abil, true));
@@ -65,7 +65,7 @@ namespace UwEditor.App
             ToolTip.SetTip(build, "Builds the zones and shows the solve over time: the timeline sphere by sphere, the changes set off, the doors closed behind, the return check and the goal with the main option sets.");
             var use = new Button { Content = "Build and Use" };
             use.Click += async (o, e) => await BuildAndUse();
-            ToolTip.SetTip(use, "Builds the zones, puts them in the Zones window (to look at, change and save there; Apply then uses them) and closes this window.");
+            ToolTip.SetTip(use, "Builds the zones, puts them in the Zones window, where you can look at, change and save them (Apply then uses them), and closes this window.");
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 4) };
             buttons.Children.Add(build); buttons.Children.Add(use);
             top.Children.Add(buttons);
@@ -154,7 +154,7 @@ namespace UwEditor.App
             if (z.Dirty)
             {
                 string r = await MessageWindow.Ask(this, "Unsaved zoning", "The Zones window's zoning has unsaved changes. Replace it with the automatic zones anyway?", "Replace", "Cancel");
-                if (r != "Replace") { summary.Text = "Built; the Zones window's zoning was kept."; return false; }
+                if (r != "Replace") { summary.Text = "Built, but the Zones window's zoning was kept."; return false; }
             }
             // a copy, so that editing it there leaves this window's result alone
             z.Adopt(ZoneSet.FromJson(Result.Set.ToJson(), session.Profile.LevelSlots), SuggestedPath);

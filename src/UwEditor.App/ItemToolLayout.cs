@@ -35,7 +35,7 @@ namespace UwEditor.App
             Grid.SetRow(header, 0); grid.Children.Add(header);
             Grid.SetRow(settings, 1); grid.Children.Add(settings);
             Grid.SetRow(buttons, 2); grid.Children.Add(buttons);
-            var fh = new TextBlock { Text = "Formula (the math these settings give)", FontWeight = FontWeight.SemiBold, FontSize = 12, Margin = new Thickness(0, 2, 0, 2) };
+            var fh = new TextBlock { Text = "Formula (the maths behind these settings)", FontWeight = FontWeight.SemiBold, FontSize = 12, Margin = new Thickness(0, 2, 0, 2) };
             Grid.SetRow(fh, 3); grid.Children.Add(fh);
             Grid.SetRow(formula, 4); grid.Children.Add(formula);
             var split = new GridSplitter { Height = 6, ResizeDirection = GridResizeDirection.Rows, Background = Brushes.Transparent, HorizontalAlignment = HorizontalAlignment.Stretch };

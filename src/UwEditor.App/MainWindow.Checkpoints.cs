@@ -139,7 +139,7 @@ namespace UwEditor.App
             if (c.Files.Contains("PLAYER.DAT") && playerSheet != null && playerSheet.Dirty) lost.Add("the player");
             if (lost.Count > 0 && AskBeforeDiscarding)
             {
-                string a = await MessageWindow.Ask(checkpointsWindow ?? (Avalonia.Controls.Window)this, "Restore the checkpoint", "The unsaved edits of " + string.Join(" and ", lost) + " will be replaced by the checkpoint's, and that cannot be undone. Restore?", "Restore", "Cancel");
+                string a = await MessageWindow.Ask(checkpointsWindow ?? (Avalonia.Controls.Window)this, "Restore the checkpoint", "The unsaved edits to " + string.Join(" and ", lost) + " will be replaced by the checkpoint's, and this cannot be undone. Restore?", "Restore", "Cancel");
                 if (a != "Restore") return "Not restored.";
             }
             return RestoreCheckpoint(c);
@@ -219,7 +219,7 @@ namespace UwEditor.App
                 vm.RaiseEditState();
             }
             catch (Exception ex) { return "Could not restore: " + ex.Message; }
-            string msg = said.Count == 0 ? "The checkpoint holds what is already here." : "Restored " + string.Join(", ", said) + " from " + c.Time.ToLocalTime().ToString("HH:mm:ss") + " as unsaved edits (Ctrl+Z undoes a level).";
+            string msg = said.Count == 0 ? "The checkpoint matches what is already here." : "Restored " + string.Join(", ", said) + " from " + c.Time.ToLocalTime().ToString("HH:mm:ss") + " as unsaved edits (Ctrl+Z undoes a level).";
             vm.EditStatus = msg;
             return msg;
         }

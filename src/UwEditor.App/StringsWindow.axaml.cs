@@ -36,7 +36,7 @@ namespace UwEditor.App
         {
             Editor = e;
             ReadBlocks();
-            Status = string.Format("{0} blocks. Changes are kept until you save; the first original is kept as STRINGS.PAK.ORIG.", all.Count);
+            Status = string.Format("{0} blocks. Changes are held until you save; the first original is kept as STRINGS.PAK.ORIG.", all.Count);
         }
 
         void ReadBlocks()

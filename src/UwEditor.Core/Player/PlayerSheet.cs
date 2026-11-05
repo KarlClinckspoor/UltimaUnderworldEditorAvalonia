@@ -289,7 +289,7 @@ namespace UwEditor.Core.Player
             else if (!uw2 && sum > 64)
                 add(WarningLevel.Note, "Attributes", string.Format("Strength + dexterity + intelligence is {0}. UW1 does not check, but UW2 calls more than 64 cheating.", sum));
             foreach (var a in new[] { Tuple.Create("Strength", Strength), Tuple.Create("Dexterity", Dexterity), Tuple.Create("Intelligence", Intelligence) })
-                if (a.Item2 > 30) add(WarningLevel.Unreachable, a.Item1, string.Format("{0} {1}: character creation stops attributes at 30, and nothing in the game raises them.", a.Item1, a.Item2));
+                if (a.Item2 > 30) add(WarningLevel.Unreachable, a.Item1, string.Format("{0} is {1}, but character creation stops attributes at 30, and nothing in the game raises them.", a.Item1, a.Item2));
             var cs = Class < Classes.Length ? Classes[Class] : null;
             if (cs != null)
             {
@@ -301,23 +301,23 @@ namespace UwEditor.Core.Player
             }
             for (int i = 0; i < 20; i++)
                 if (Skill(i) > 30) add(WarningLevel.Unreachable, "Skills", string.Format("{0} is {1}: skills stop at 30.", PlayerDat.SkillNames[i], Skill(i)));
-            if (Body > 4) add(WarningLevel.Unreachable, "Body", "Body " + Body + ": there are five portraits (0-4) for each sex; HEADS.GR has no picture for this one.");
+            if (Body > 4) add(WarningLevel.Unreachable, "Body", "Body is " + Body + ", but there are only five portraits (0-4) for each sex; HEADS.GR has no picture for this one.");
             if (Level < 1 || Level > 16) add(WarningLevel.Unreachable, "Level", "Levels run from 1 to 16.");
             else if (Level != ExpectedLevel)
-                add(WarningLevel.Note, "Level", string.Format("Level {0}, but the experience has earned level {1}. The game only raises the level as experience comes in, and never lowers it.", Level, ExpectedLevel));
+                add(WarningLevel.Note, "Level", string.Format("Level is {0}, but the experience has earned level {1}. The game only raises the level as experience comes in, and never lowers it.", Level, ExpectedLevel));
             if (ExperienceTenths > 0x17700 + 0x7FFF)
                 add(WarningLevel.Unreachable, "Experience", "Experience stops growing once it passes 9600 (player_get_exp).");
             if (SkillPointsEarned > ExpectedPointsEarned + 1)
-                add(WarningLevel.Note, "Skill points", string.Format("{0} skill points recorded as earned, but the experience gives {1}; the game gives no more until experience catches up.", SkillPointsEarned, ExpectedPointsEarned));
+                add(WarningLevel.Note, "Skill points", string.Format("{0} skill points are recorded as earned, but the experience gives {1}; the game gives no more until the experience catches up.", SkillPointsEarned, ExpectedPointsEarned));
             if (MaxVitality != Math.Min(255, ExpectedMaxVitality))
-                add(WarningLevel.Note, "Max vitality", string.Format("Maximum vitality {0}; the game computes {1} (30 + level × strength / 5) at the next level gain.", MaxVitality, ExpectedMaxVitality));
+                add(WarningLevel.Note, "Max vitality", string.Format("Maximum vitality is {0}, but the game computes {1} (30 + level × strength / 5) at the next level gain.", MaxVitality, ExpectedMaxVitality));
             if (MaxMana != Math.Min(255, ExpectedMaxMana))
-                add(WarningLevel.Note, "Max mana", string.Format("Maximum mana {0}; the game computes {1} ((mana skill + 1) × intelligence / 8) at the next level gain or mana skill increase.", MaxMana, ExpectedMaxMana));
+                add(WarningLevel.Note, "Max mana", string.Format("Maximum mana is {0}, but the game computes {1} ((mana skill + 1) × intelligence / 8) at the next level gain or mana skill increase.", MaxMana, ExpectedMaxMana));
             if (MaxWeight != ExpectedMaxWeight)
-                add(WarningLevel.Note, "Max weight", string.Format("Carrying capacity {0}; the game computes {1} from strength.", MaxWeight, ExpectedMaxWeight));
-            if (Vitality > MaxVitality) add(WarningLevel.Note, "Vitality", "Vitality above its maximum: the game lets it stand until it heals or is hurt.");
-            if (Mana > MaxMana) add(WarningLevel.Note, "Mana", "Mana above its maximum: it stays until spent.");
-            if (Vitality == 0) add(WarningLevel.Note, "Vitality", "Vitality 0: the player dies at the first check.");
+                add(WarningLevel.Note, "Max weight", string.Format("Carrying capacity is {0}, but the game computes {1} from strength.", MaxWeight, ExpectedMaxWeight));
+            if (Vitality > MaxVitality) add(WarningLevel.Note, "Vitality", "Vitality is above its maximum; the game lets it stand until the player heals or is hurt.");
+            if (Mana > MaxMana) add(WarningLevel.Note, "Mana", "Mana is above its maximum; it stays there until it is spent.");
+            if (Vitality == 0) add(WarningLevel.Note, "Vitality", "Vitality is 0: the player dies at the first check.");
             string n = Name;
             if (n.Length == 0) add(WarningLevel.Unreachable, "Name", "The name cannot be empty: its first letter is the record's cipher key.");
             if (n.Length > 29) add(WarningLevel.Unreachable, "Name", "Character creation takes at most 29 letters.");

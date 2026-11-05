@@ -55,22 +55,22 @@ namespace UwEditor.App
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
                 Text = (sc.Where == "DATA" ? "DATA/SCD.ARK: what a new game starts with (the game copies it into SAVE0). " : sc.Where + "/SCD.ARK: this saved game's own schedules. ") +
-                       "Block 0 runs by the time of day (72 steps a day, 0-71); block n by X clock n (0-255). A row runs once its block's clock passes its time, on the level it names, " +
-                       "while the player is there; a level the player is away from catches up when he comes back. Rows stay in time order: a new time moves the row. " +
-                       "A negative event is disabled: a test row (10) above it runs it when the test passes.",
+                       "Block 0 runs by the time of day (72 steps a day, 0-71); block n runs by X clock n (0-255). A row runs once its block's clock passes its time, on the level it names, " +
+                       "while the player is there; a level the player is away from catches up when the player comes back. Rows stay in time order, so giving a row a new time moves it. " +
+                       "A negative event is disabled: a test row (event 10) above it runs it when the test passes.",
             });
             var tools = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             tools.Children.Add(new TextBlock { Text = "Block", VerticalAlignment = VerticalAlignment.Center });
             tools.Children.Add(blockBox);
             var add = new Button { Content = "Add row" };
-            ToolTip.SetTip(add, "A new row after the selected one, with its time (event 0, any level)");
+            ToolTip.SetTip(add, "Add a new row after the selected one, with the same time (event 0, any level).");
             add.Click += (o, e) => AddRow(false);
             var copy = new Button { Content = "Copy row" };
             copy.Click += (o, e) => AddRow(true);
             var del = new Button { Content = "Delete row" };
             del.Click += (o, e) => DeleteRow();
             var up = new Button { Content = "▲" };
-            ToolTip.SetTip(up, "Before the row above (rows of the same time run in this order)");
+            ToolTip.SetTip(up, "Move the row up past the one above. Rows with the same time run in list order.");
             up.Click += (o, e) => MoveRow(-1);
             var down = new Button { Content = "▼" };
             down.Click += (o, e) => MoveRow(1);
@@ -157,7 +157,7 @@ namespace UwEditor.App
             var rows = sc.Blocks[block].Rows;
             if (row < 0 || row >= rows.Count)
             {
-                rowText.Text = rows.Count == 0 ? "This schedule has no rows. Add row makes one." : "Select a row.";
+                rowText.Text = rows.Count == 0 ? "This schedule has no rows; click Add row to make one." : "Select a row.";
                 return;
             }
             var r = rows[row];
@@ -254,7 +254,7 @@ namespace UwEditor.App
             try
             {
                 var written = sc.Save();
-                status.Text = written.Count == 0 ? "Nothing changed." : "Saved block" + (written.Count == 1 ? " " : "s ") + string.Join(", ", written) + " to " + sc.Path + " (the old file kept as SCD.ARK.BKP).";
+                status.Text = written.Count == 0 ? "Nothing changed." : "Saved block" + (written.Count == 1 ? " " : "s ") + string.Join(", ", written) + " to " + sc.Path + " (the old file is kept as SCD.ARK.BKP).";
                 UpdateState();
                 return true;
             }

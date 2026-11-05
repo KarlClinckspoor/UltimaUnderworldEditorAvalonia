@@ -2,36 +2,36 @@
 
 The editor opens Ultima Underworld I and II, shows their levels in 3D, and edits levels,
 conversations, strings, keys, the player, graphics and the executables' start square. Its
-changes can be packed into mods. Everything it writes is kept safe: the previous file as
-`NAME.EXT.BKP`, and the untouched original as `NAME.EXT.ORIG` the first time a file is written.
+changes can be packed into mods. Nothing it overwrites is lost: it keeps the previous file as
+`NAME.EXT.BKP` and, the first time it writes a file, the untouched original as `NAME.EXT.ORIG`.
 
 Press **F1** or use **Help ▸ Manual** to open this manual. **Help ▸ Controls** lists the keys.
 
 ## Opening a game
 
-**File ▸ Open game folder…** (Ctrl+O). Choose the game folder (the one with `DATA` in it),
-the `DATA` folder itself, or a saved game (`SAVE1`…). The game is recognised by its
-files. A saved game takes its levels and player from the save, and everything else from
+Use **File ▸ Open game folder…** (Ctrl+O) and choose the game folder (the one with `DATA` in
+it), the `DATA` folder itself, or a saved game (`SAVE1`…). The editor recognises the game by
+its files. A saved game takes its levels and player from the save, and everything else from
 `DATA`. A saved game is any folder with `LEV.ARK` and `PLAYER.DAT`, whatever its name (a copy
-called `Before the bug`, say). One kept outside a game folder is read with a game folder you
-choose once; the editor remembers it.
+called `Before the bug`, say). A saved game kept outside a game folder is read together with a
+game folder you choose once; the editor remembers that choice.
 
 **File ▸ Open recent** lists the last games opened. A long path shows its start (the drive
 or `/` and the first folder) and its end (the last folders), with `…` for the middle; the
-whole path is in the item's tip.
+item's tooltip shows the whole path.
 
-Opening a saved game checks it for problems that crash or upset the game; the status line
-names them, and **File ▸ Check and repair the saved game…** repairs them.
+When you open a saved game, the editor checks it for problems that crash or upset the game.
+The status line names them, and **File ▸ Check and repair the saved game…** repairs them.
 
 **Unsaved work.** Opening another game or closing the editor asks first when anything is
 unsaved: levels and their maps, the player, strings and conversations, global variables,
-pictures and zones. **Save** there writes all of them; Ctrl+S (Save the levels) writes the
-levels and the player. **File ▸ Save all changes** (Ctrl+Alt+S) writes everything unsaved at
-once, the tool windows' work included. **File ▸ Restore all…** drops every unsaved change and
-reads the game again from its files, keeping the level and the camera; a checkpoint of what
-was dropped is kept first, so **File ▸ Checkpoints…** can bring it back. The global variables and graphics windows also ask when they close
-with unsaved changes, since their edits live in the window. The tool windows of a game close
-when another game opens.
+pictures and zones. **Save** in that prompt writes all of them; Ctrl+S (Save the levels)
+writes the levels and the player. **File ▸ Save all changes** (Ctrl+Alt+S) writes everything
+unsaved at once, including the tool windows' work. **File ▸ Restore all…** drops every unsaved
+change and reads the game again from its files, keeping the level and the camera. It first
+keeps a checkpoint of what it drops, so **File ▸ Checkpoints…** can bring that back. The
+global variables and graphics windows also ask when they close with unsaved changes, since
+their edits are held in the window. A game's tool windows close when another game opens.
 
 **The camera starts over the start square of a new game.** The square is read from
 `UW.EXE` / `UW2.EXE`, so a patched start square shows too. In a saved game the camera
@@ -58,39 +58,39 @@ new-game start; in a saved game a **green arrow** marks the player.
 - M switches the models off. Invisible objects and traps or triggers can be shown too.
 - **Facing** (in the Show box) draws a white arrow on each object that faces a way:
   creatures, 3D models, doors, levers, writings and wall pictures (not the objects drawn as
-  pictures that always face the camera). It points the way the heading says, heading × 45°
-  clockwise from north; on levers and wall pictures, whose heading points into their wall,
-  it points out from the wall, the way their face looks.
-- A yellow grid every N tiles (H; N set in the Show box), laid on the floors. The view's
-  edges name each line, as `X: 30` or `Y: 45`.
+  pictures that always face the camera). It points in the heading's direction (heading × 45°
+  clockwise from north). On levers and wall pictures, whose heading points into their wall,
+  it points out of the wall, the way their face looks.
+- A yellow grid every N tiles, laid on the floors (H toggles it; N is set in the Show box).
+  The view's edges label each line, as `X: 30` or `Y: 45`.
 - **Light** (in the Show box): full light, or one of the game's eight light levels. These
   are no light, candle, torch, taper, lantern, night vision, light sphere or Wizard Eye, and
   the brightest. The view is then shaded as the game shades it. Each square gets one of the
   16 shading maps of LIGHT.DAT (MONO.DAT's greys for night vision), by its distance in
   squares and the level's row of SHADES.DAT. Squares beyond the level's range are not drawn.
-  The centre is the point looked at, or the eye in first person. In UW2, a level DL.DAT
-  never lets go darker shows at its minimum.
+  The centre is the point looked at, or the eye in first person. In UW2, a level for which
+  DL.DAT sets a minimum light level is never shown darker than that minimum.
 
 **Moving the camera.** Drag with the left or right button to turn round the point
 looked at. Drag with the middle button, or with Shift, to move that point. Use the wheel
-or + and − to come closer or go farther. W A S D or the arrows move and Q and E turn for as long as they are held, smoothly: the
-view picks up speed over a moment and slows down the same way when the key comes up. The
-speed grows with the distance from the point looked at, and Shift makes it three times
-faster (turning twice). R and V go up and down a floor step. F frames the selection, T looks
-straight down, and Home goes back to the start or the player. A double click selects
-something and moves the view to it. Going up or down a level keeps the camera over the same X and Y,
-at the new level's floor height.
+or + and − to move closer or farther away. W A S D or the arrows move, and Q and E turn, for
+as long as they are held. The motion is smooth: the view picks up speed over a moment and
+slows down the same way when the key is released. The speed grows with the distance from the
+point looked at, and Shift makes moving three times faster and turning twice as fast. R and V
+go up and down a floor step. F frames the selection, T looks straight down, and Home goes back
+to the start or the player. A double click selects something and moves the view to it. Going
+up or down a level keeps the camera over the same X and Y, at the new level's floor height.
 
 ## Finding and selecting
 
 **Finding objects:**
-- Creatures that talk show their name and unique objects their plot name in brackets,
+- Creatures that talk show their name in brackets, and unique objects their plot name,
   as in "fighter (Corby)" and "shiny sword (Caliburn, the Sword of Justice)".
   Enchanted objects show their enchantment.
 - The search box matches item names, NPC names ("human (Lord British)"), the text of
-  books, scrolls, writings, gravestones and text traps, `#index` and `0x` item ids.
+  books, scrolls, writings, gravestones and text traps, and `#index` or `0x` item ids.
 - The chips narrow the list to weapons, food, monsters, keys, traps or triggers (any of
-  those chosen), and Enchanted to enchanted objects.
+  the chosen kinds); Enchanted narrows it to enchanted objects.
 - Each line shows the object's picture as the game shows it.
 - Names are coloured by what the object is, in the list and at the top of the properties
   panel: creatures by their attitude (hostile red, upset brown, mellow green, friendly blue),
@@ -110,10 +110,10 @@ hex. The tooltip gives the field's meaning and its source in the reconstructed g
 Fields whose meaning is only inferred or unknown are marked. The tile panel also shows
 its wall and floor textures.
 
-Typing a value changes only that object's line in the list and the rows of the panel that
-changed: the list keeps the lines you opened and its place.
+Typing a value updates only that object's line in the list and the panel rows that changed,
+so the list keeps the lines you expanded and its scroll position.
 
-**Level ▸ Check the object lists:** runs the game's own consistency check (Obj_ListOkay).
+**Level ▸ Check the object lists** runs the game's own consistency check (Obj_ListOkay).
 
 ## Editing levels
 
@@ -121,36 +121,39 @@ Each level keeps its own undo history (Ctrl+Z, Ctrl+Y). A change made on several
 once (the key item scatter's Apply, the swaps, the item property shuffle, the named
 challenges, and their own undo buttons) is undone and redone on all of them together, from
 any of its levels. That way no level keeps items moved to or from another. If one of those
-levels was changed again after it, the undo is refused and the status line says which level:
-undo that change there first. It is refused too when one of its levels no longer holds its part
-(a change made there after undoing it drops the steps to redo, or the oldest steps were
-dropped after 200): it can then not be redone or undone whole. What such a change did besides
-the levels (the explored maps, the named challenges' maps, creature table and player) goes
-back and comes again with it. The **Undo history** window counts the steps of the level shown:
-going back into a change made with other levels takes all of it. **Save levels** (Ctrl+S) writes
-LEV.ARK and keeps `LEV.ARK.BKP`, plus `LEV.ARK.ORIG` the first time. The toolbar above the
-view chooses the tool:
+levels has been changed again since, the undo is refused and the status line names the level:
+undo that later change there first. The undo is also refused when one of the levels no longer
+holds its part of the change, either because a change made there after undoing it dropped the
+redo steps, or because the oldest steps were dropped after 200. The change can then no longer
+be undone or redone as a whole. Whatever such a change did outside the levels (the explored
+maps, the named challenges' maps, the creature table and the player) is undone and redone
+with it. The **Undo history** window counts the steps of the level shown; going back into a
+change made with other levels undoes all of it. **Save levels** (Ctrl+S) writes LEV.ARK and
+keeps `LEV.ARK.BKP`, plus `LEV.ARK.ORIG` the first time.
+
+The toolbar above the view chooses the tool:
 - **Select:** a click picks an object or tile; a double click also moves the view to it
   (so does double-clicking in the list).
 - **Move:** click a square and the selected object goes there, keeping its height above the
   floor. A critter's home moves with it.
 - **Paint:** drag over tiles to paint the light flag on or off (only that bit), a floor or
   wall texture from the level's texture list (shown with thumbnails), a tile type, a
-  floor height, or a **tile template**: a tile's type, height, floor and wall texture
-  together (the ticked parts), taken with **From the selected tile** or from the right-click
-  menu. **Fill** makes a click paint every tile the player can walk to from it, by the zone
-  fill's rules (no rock, no doors, climbs of at most two steps). **Paint selection** paints
-  the selected tiles. A stroke, a fill or a selection painted is one undo step.
-- **Ctrl+wheel** raises or lowers the floor under the mouse, and the objects on it with it.
-- **First person** (P): walk the level at eye height. W A S D walk, Q E or a drag turns,
-  R V look up and down, and Esc leaves. Rock and floors more than two steps up stop you.
+  floor height, or a **tile template**. A template is a tile's type, height, floor texture
+  and wall texture together (only the ticked parts), taken with **From the selected tile**
+  or from the right-click menu. With **Fill**, a click paints every tile the player can walk
+  to from the clicked tile, by the zone fill's rules (no rock, no doors, climbs of at most
+  two steps). **Paint selection** paints the selected tiles. Each stroke, fill or painted
+  selection is one undo step.
+- **Ctrl+wheel** raises or lowers the floor under the mouse, together with the objects on it.
+- **First person** (P): walk the level at eye height. W A S D walk, Q and E or a drag turn,
+  R and V look up and down, and Esc leaves. Rock and floors more than two steps up stop you.
 
-Any record field can be typed into in the properties panel (decimal or `0x` hex), except
-the list links, which the editor keeps. Small fields (fine X and Y, height, quality,
+You can type into any record field in the properties panel (decimal or `0x` hex), except
+the list links, which the editor maintains. Small fields (fine X and Y, height, quality,
 owner, heading) have − and + buttons; hold them down to repeat. One-bit flags (invisible,
 enchanted, is quantity and so on) are checkboxes. The heading shows as an arrow, with north
-up. An owner field has a list of the races to choose
-from. Each race is named by its creatures, from OBJECTS.DAT's race byte. A creature's
+up. An owner field has a list of races to choose from. Each race is named after its
+creatures, from OBJECTS.DAT's race byte. A creature's
 **Attitude**, **Goal** and **Saved goal** have lists too (▾), and the value's meaning shows
 beside the number (8: mill about near home). The **Link** of a creature or a container has
 a **+** that adds an object to its inventory or contents.
@@ -163,7 +166,7 @@ list's kinds (melee weapons, armour, containers and so on); a search opens the g
 match. The form changes with the kind of item:
 - a boulder or food gets quality, owner and quantity;
 - a weapon, armour or ring gets its enchantment, from the weapon/armour list (which names
-  what each really does) or the 64 spells, with how it is stored. In UW2 a warning says
+  what each really does) or the 64 spells, and how it is stored. In UW2 a warning says
   that the game's own names swap the Accuracy and Damage enchantments;
 - a wand gets its spell and charges, kept in a spell object inside it;
 - a book or scroll gets its text, previewed;
@@ -173,8 +176,8 @@ match. The form changes with the kind of item:
 - a trap or trigger gets its description.
 
 The new object goes on the selected tile or into the selected container. The player
-window's **Add…** uses the same form for the inventory. **Delete** (Del) frees the object
-and what it holds.
+window's **Add…** uses the same form for the inventory. **Delete** (Del) removes the object
+and everything it holds.
 
 **Traps and triggers:** selecting one shows what its kind does and what each field means,
 from event/TRIGGER.C. The square it acts on gets a **red bullseye**: a trigger's target, a
@@ -194,8 +197,8 @@ global variables window on the variable a set or check variable trap uses.
   the selected objects with everything inside them: a bag's contents, a wand's spell, a
   trigger's chain of traps. Paste puts them on the tile under the mouse (or the selected
   one), keeping their places relative to each other and their heights above the floor; it
-  works on any level of the same game. A creature with a conversation copied makes a second
-  creature with that conversation, which the status line points out.
+  works on any level of the same game. Copying a creature that has a conversation makes a
+  second creature with the same conversation; the status line points this out.
 - **Drag** a selected object to move it (and the others selected with it) to another tile or
   to another place in its own tile. While dragging, the object is drawn where it would land,
   a small yellow square marks the eighth of the tile under the mouse, and the status line
@@ -205,24 +208,24 @@ global variables window on the variable a set or check variable trap uses.
   drag.
 - Deleting several objects is one undo step.
 - **Objects on this tile** (in the right-click menu on a tile) lists every object there,
-  with what each holds under it, and selects the one clicked: the way to reach an object
+  with what each holds under it, and selects the one clicked. This is how to reach an object
   hidden behind another. Once selected, it can be dragged from anywhere on its tile, even
   where another object is in front of it.
 
-**The right-click menu** (a right click without dragging): on an object, copy, cut,
-duplicate, paste inside, add an object inside (to its inventory, for a creature), delete, choose a trap's target, go to a
-teleport's target, **Make it run a trap** (then click the trap: it joins the trigger's
-chain), **Put inside** (then click the container), frame it, select its tile; on a tile, the
-objects on it, add an object here, paste here, use it as the brush template, fill from here, paint the
-selection, select the tiles walkable from here, play-test from here, and move the new-game
-start or the player there.
+**The right-click menu** opens on a right click without dragging. On an object it offers
+copy, cut, duplicate, paste inside, add an object inside (to its inventory, for a creature),
+delete, choose a trap's target, go to a teleport's target, **Make it run a trap** (then click
+the trap: it joins the trigger's chain), **Put inside** (then click the container), frame it
+and select its tile. On a tile it offers the objects on it, add an object here, paste here,
+use it as the brush template, fill from here, paint the selection, select the tiles walkable
+from here, play-test from here, and move the new-game start or the player there.
 
 ### The 2D map
 
 **View ▸ 2D map** (Tab with the mouse over the view) looks straight down without
 perspective, north up. Left and right drags move the map, the wheel zooms; clicks, the
 right-click menu, Ctrl+drag selection and painting work as in 3D. The ceiling is hidden
-while it is on. Tab goes back to the 3D view as it was. **View ▸ Export the map as a
+while the map is shown. Tab goes back to the 3D view as it was. **View ▸ Export the map as a
 picture…** writes the level from above as a PNG (16 pixels a tile): floors with their
 textures, lighter where higher, rock dark, edges where the floor steps, and dots for
 objects (creatures red, traps and triggers purple, doors brown, the rest yellow).
@@ -240,9 +243,9 @@ Edit ▸ Undo does.
 **Level ▸ World check…** looks across every level, with the unsaved edits:
 - locked locks that no key opens. Keys count wherever they are: on the floor, in
   containers, carried by creatures, made by create-object traps, and in a saved game the
-  player's inventory. A lock numbered 0 is listed apart: no key opens it (a lockpick, a
-  spell or force does);
-- keys whose lock number no lock in the levels has;
+  player's inventory. A lock numbered 0 is listed separately: no key opens it (a lockpick,
+  a spell or force does);
+- keys whose lock number matches no lock in the levels;
 - each level's objects against the game's limits (255 mobile, 768 static): marked when 90%
   full, and when full (the game then cannot drop, throw or create objects there either).
 
@@ -254,11 +257,12 @@ The **Run and Test** menu starts the game on what you are editing.
 
 - **Run in DOSBox** (Ctrl+F5) runs the game in DOSBox on the game folder itself, not a copy,
   so the saved game being edited is the one the game restores (and games saved there stay).
-  DOSBox gets a configuration written for the run: GOG's own (the `dosbox….conf` next to the
-  game, so its CPU speed and sound settings are kept) or, without one, the editor's defaults
-  (an SVGA machine with EMS, a Sound Blaster 16 at 220, IRQ 7, DMA 1, and an MPU-401), with
-  its `[autoexec]` replaced: C: is the game folder and the game starts at once. Unsaved
-  changes are not in the files yet: the editor asks whether to save them first.
+  The editor writes a DOSBox configuration for the run. It starts from GOG's own (the
+  `dosbox….conf` next to the game, so its CPU speed and sound settings are kept) or, without
+  one, from the editor's defaults (an SVGA machine with EMS, a Sound Blaster 16 at 220, IRQ 7,
+  DMA 1, and an MPU-401). Its `[autoexec]` is replaced so that C: is the game folder and the
+  game starts at once. Unsaved changes are not in the files yet, so the editor asks whether to
+  save them first.
 - **Run in Underworld Exhumed** (Shift+F5) runs the native port on the game folder, with the
   folder as the port's home too, so Journey Onward lists the folder's saved games (the one
   being edited among them) and games saved in the port land there. The port also keeps its
@@ -273,16 +277,16 @@ The **Run and Test** menu starts the game on what you are editing.
 ### Play test
 
 **Run and Test ▸ Play-test from the selected tile** (F5, or Play-test from here in the right-click
-menu) runs the game in DOSBox with the unsaved levels, the player on that square. It works
+menu) runs the game in DOSBox with the unsaved levels and the player on that square. It works
 on a copy of the game folder, made afresh each time in the editor's settings folder (`Play
 test`); the game folder is never touched.
-- With `DATA` open and a square on level 1, the copy's executable gets the square as the
-  new-game start: start a new game.
-- Anywhere else the player needs a saved game: an open save's own, or with `DATA` open the
-  folder's first save, which then gets `DATA`'s levels as edited. Its `PLAYER.DAT` gets the
-  position: restore that game (the editor says which).
+- With `DATA` open and a square on level 1, the square is patched into the copy's executable
+  as the new-game start; start a new game.
+- Anywhere else, the player needs a saved game: the open save itself or, with `DATA` open,
+  the folder's first save, which then gets `DATA`'s levels as edited. The position is written
+  to its `PLAYER.DAT`; restore that game (the editor says which).
 
-DOSBox is looked for next to the game (GOG's `DOSBOX` folder) and where it is usually
+The editor looks for DOSBox next to the game (GOG's `DOSBOX` folder) and where it is usually
 installed; otherwise choose it in **Run and Test ▸ Programs and paths…**. It runs with the
 same configuration as Run in DOSBox, with C: on the copy. Unsaved strings and conversations
 are not in the copy.
@@ -294,22 +298,22 @@ are not in the copy.
 the original games, built from their decompiled source; get a release for your system
 (`uw1-…` releases for Ultima Underworld, `uw2-…` for Underworld II) and unpack it. The
 editor looks for `uw1port` / `uw2port` next to the game, in Downloads and next to the editor;
-otherwise **Choose the port…** once.
+if it finds neither, use **Choose the port…** once.
 
-Tick the levels to visit (**Edited** picks the levels with unsaved changes) and **Run the
-check**. The editor then:
+Tick the levels to visit (**Edited** picks the levels with unsaved changes) and press **Run
+the check**. The editor then:
 1. copies the game, with the unsaved levels (and player), into the editor's settings folder
    (`Exhumed check`); the game folder is never touched;
-2. puts a saved game holding them in the port's home there as slot I: an open save's own,
-   or with `DATA` open the folder's first save carrying `DATA`'s levels as edited. UW1 with no
+2. puts a saved game holding them in the port's home there as slot I: the open save itself
+   or, with `DATA` open, the folder's first save carrying `DATA`'s levels as edited. UW1 with no
    saved game at all starts a new character instead (every default, named "avatar");
 3. runs the port with no window, from an input script: Journey Onward and slot I (or the
    new character), then for each level the port's test cheat `goto LEVEL X Y`, which moves
    the player there as a teleport trap does, so the game loads the level itself. The square
-   is open, flat, dry and free, with open floor round it (the start square on the start
-   level when it is one): the game kills a player it cannot place. When some ticked levels
-   have no such square, the check names them all at once; **Untick the levels with nowhere
-   to stand** unticks them. A level takes about five seconds;
+   is open, flat, dry and unoccupied, with open floor round it (on the start level, the start
+   square when it qualifies), because the game kills a player it cannot place. When some
+   ticked levels have no such square, the check names them all at once; **Untick the levels
+   with nowhere to stand** unticks them. A level takes about five seconds.
    By default the player stops once on each level, on its own square, for about five
    seconds. That checks that the level loads and that the area round that square runs, but
    much happens only near the player: creatures more than 10 squares from him stand frozen,
@@ -318,7 +322,7 @@ check**. The editor then:
    stops (the window says how many, and about how long the run takes):
    - **Also stop beside every edit**: a stop near each spot the unsaved edits changed (tiles,
      and objects added, removed, moved or changed), at most 12 a level, 5 squares apart. When
-     the edit leaves no flat square near, any open, dry, empty square with room round it is
+     there is no flat square near the edit, any open, dry, empty square with room round it is
      used.
    - **Sweep each level**: a stop in every 16 × 16 area of the level that has room to stand,
      up to 16 a level.
@@ -327,49 +331,49 @@ check**. The editor then:
 
    The choices are remembered. Triggers still do not fire and nobody is talked to: the player
    is put down on empty squares and does not walk.
-   With **Keep the player alive** (on at first) the player is made sturdy first, since the
-   port has no god mode: the check's saved game makes the player experience level 16 (the
-   highest), and the port's `set` cheat raises defense to 30 and strength to the most the
-   hit points allow (the maximum hit points follow, 30 + level × strength / 5, as a level
-   gained does), then fills the hit points before each level, so monsters near the square
-   don't end the check. At level 16 that is strength 70 and 254 hit points: the game keeps the
-   maximum in one byte (`game/SKILLS.C` `player_compute`), so more strength would wrap round to
-   a few hit points. A new character (UW1 with no saved game to start from) stays level 1, as
-   no cheat sets the level: strength 99, 49 hit points;
+   With **Keep the player alive** (on at first) the player is toughened up first, since the
+   port has no god mode. The check's saved game puts the player at experience level 16 (the
+   highest). The port's `set` cheat raises defense to 30 and strength to the most the hit
+   points allow; the maximum hit points follow (30 + level × strength / 5), as they do when a
+   level is gained. The cheat then fills the hit points before each level, so monsters near
+   the square do not end the check. At level 16 that is strength 70 and 254 hit points: the
+   game keeps the maximum in one byte (`game/SKILLS.C` `player_compute`), so more strength
+   would wrap round to a few hit points. A new character (UW1 with no saved game to start
+   from) stays at level 1, as no cheat sets the level, and gets strength 99 and 49 hit points;
 4. in UW1, saves in slot I at the end (Ctrl+S, slot I, Enter), so the game writes every
    level it visited, and checks those levels again here (the object-list check and the list
    errors of **Level ▸ Fixes**).
 
 The report says what went wrong: a crash of the port ("host fault"), a halt, the game's own
 fatal error ("Underworld can no longer run"), a `goto` the game refused, a level never
-reached, or findings in the levels the game saved. A "far null pointer read" the port logs
-is listed with the level it came after: the game read through a null pointer, which DOS
-let it do, so it goes on; it can mean an object link pointing nowhere, or one of the game's
-own slips (after a death, say). It ends with everything the port printed,
-and shows the last screen. The check's folder keeps the script (`script.txt`), the saved game
+reached, or findings in the levels the game saved. When the port logs a "far null pointer
+read", the report lists it with the level it came after. The game read through a null
+pointer, which DOS allowed, so it carried on; this can mean an object link pointing nowhere,
+or one of the game's own slips (after a death, say). The report ends with everything the port
+printed and shows the last screen. The check's folder keeps the script (`script.txt`), the saved game
 (`home/SAVE1`) and the save as written (`before`), so a problem can be run again by hand:
 `uw1port --data game --home home --input-script script.txt` (with `EXHUME_TEST_CHEATS=1` set,
 which the port asks for before it runs a test cheat).
 
-**Show the game's window while it runs** runs the port with its window instead of hidden
-(remembered), to watch where the player is and what the game draws when something goes
-wrong. The script still plays the keys at set times, so leave the keyboard and mouse off that
-window; the run takes as long as hidden.
+**Show the game's window while it runs** runs the port with its window visible instead of
+hidden (the choice is remembered), so you can watch where the player is and what the game
+draws when something goes wrong. The script still plays the keys at set times, so do not use
+the keyboard or mouse in that window; the run takes as long as a hidden one.
 
 While a check runs, **Run the check** becomes **Stop the check**, which closes the port
 (nothing is then checked). Closing the window while a check runs asks first (**Stop and close**
 or **Keep running**); the port also stops when the editor closes.
 
 **Level 9 in UW1.** Underworld Exhumed crashes on arriving at level 9 (the void), whatever the
-levels hold: with a new character on the shipped game, after the `goto` cheat, and after the
-talisman ritual's moongate (the last talisman burnt in the Slasher's lava on level 8 with
-Garamon buried: `game/SKILLS.C` `check_victory` sends the player to level 9 (27, 23)). It is a
-bug of the port (UW1 v1.0.2, and a build of November 2026), so the check cannot test level 9.
-While **This port crashes on UW1's level 9** is ticked (on at first, remembered), its box says
-so and is left out of **Edited**, **All** and the first choice; ticked by hand,
-level 9 comes last, after the save in slot I, so the other levels are still checked and saved,
-and its crash is reported as a note ("PASSED for the rest; level 9 could not be checked")
-rather than a problem. The **DOSBox spot test** checks level 9 in the original game. Untick the
+levels hold. It crashes with a new character on the shipped game, after the `goto` cheat, and
+after the talisman ritual's moongate (the last talisman burnt in the Slasher's lava on level 8
+with Garamon buried: `game/SKILLS.C` `check_victory` sends the player to level 9 (27, 23)). It
+is a bug in the port (UW1 v1.0.2, and a build of November 2026), so the check cannot test
+level 9. While **This port crashes on UW1's level 9** is ticked (on at first, remembered),
+level 9's box says so and is left out of **Edited**, **All** and the first choice. If you tick
+level 9 by hand, it comes last, after the save in slot I, so the other levels are still
+checked and saved, and its crash is reported as a note ("PASSED for the rest; level 9 could
+not be checked") rather than a problem. The **DOSBox spot test** checks level 9 in the original game. Untick the
 option once a release of the port fixes level 9: a crash there is then a problem again.
 
 Underworld II is checked from a saved game and does not save at the end (its save menu is
@@ -383,33 +387,34 @@ and has you play them in the original game, four at a time. Tick the levels (**E
 **a spot beside every edit** and **a sweep of each level** (one in every 16 × 16 area with
 room to stand). The window says how many spots that makes and in how many rounds.
 
-The tester is a new character: level 1, no experience, quests, runes or skills, the game
-variables and clock of a new game (as `game/CHARGEN.C` `init_char` sets them), with the
-attributes and **Defense** you set (30 each at first), full hit points and mana as the game
-works them out (`game/SKILLS.C`: 30 + level × strength / 5 hit points), and with **Wear the
-best armour** the best piece for each body slot from `OBJECTS.DAT` (helmet, breastplate,
-plate gauntlets, plate leggings, plate boots, all in perfect condition; the unbreakable
-specials such as the dragon skin boots are left out) and a tower shield in the shield hand.
-He carries nothing else. The player object the game restores (`inv/INVSAVE.C`) is taken
-from a saved game of the game when there is one (the open save, or the folder's first);
-with none it is made from nothing as the game's own `InitPlayerRec` makes it.
+The tester is a new character: level 1, with no experience, quests, runes or skills, and the
+game variables and clock of a new game (as `game/CHARGEN.C` `init_char` sets them). The
+tester has the attributes and **Defense** you set (30 each at first), and full hit points and
+mana as the game works them out (`game/SKILLS.C`: 30 + level × strength / 5 hit points).
+With **Wear the best armour**, the tester also wears the best piece for each body slot from
+`OBJECTS.DAT` (helmet, breastplate, plate gauntlets, plate leggings, plate boots, all in
+perfect condition; the unbreakable specials such as the dragon skin boots are left out) and
+holds a tower shield in the shield hand. The tester carries nothing else. The player object
+the game restores (`inv/INVSAVE.C`) is taken from one of the game's saved games when there is
+one (the open save, or the folder's first); otherwise it is built from scratch, as the game's
+own `InitPlayerRec` builds it.
 
 **Start the test** copies the game into the editor's settings folder (`Spot test`; the
 game folder is never touched), with the levels as they are now (unsaved edits included).
-Every round uses those same levels. A round is saved games 1–4: each holds those levels,
+Every round uses those same levels. A round uses saved games 1–4. Each holds those levels,
 the tester standing on its spot, a new game's conversation globals (`BABGLOBS.DAT` with
 every global 0) and a description naming the spot (`5/37 L2 31,40 sweep`: its number, the
 level, the square and why). DOSBox then starts on the copy, with GOG's configuration (or the
-editor's) as **Run in DOSBox** uses. In the game choose **Journey Onward** and the first
+editor's), as **Run in DOSBox** does. In the game choose **Journey Onward** and the first
 saved game, look around, then **Options ▸ Restore Game** for the next.
 
-When you close DOSBox the window comes back with the prompt: how many spots are tested and
+When you close DOSBox, the window comes back and shows how many spots have been tested and
 how many are left, the four just played, and a box for notes. **Next 4 spots** counts the
 four as tested (the notes go in the test's log, `spot-test-log.txt`) and starts DOSBox on
 the next four; **These 4 again** starts DOSBox on the same four; **Stop the test** ends it
 there. If your DOSBox hands over to another program and closes at once, press **DOSBox is
 closed** when you are done. If DOSBox closes within seconds the window says so instead of
-asking. UW1 only for now.
+asking. The spot test works with UW1 only for now.
 
 ### New and cleared levels
 
@@ -445,11 +450,12 @@ afterwards, so the properties panel and the triggers window show its chain.
   wall of a tile: on the side you choose, or the first wall found. The lever holds a use
   trigger aimed at the door's square, and a door trap lies there. In Ultima Underworld the
   door trap always takes the door's lock off and puts on the lock it carries, so the
-  recipe gives it a copy of the door's own lock; **Unlock the door** leaves it without one.
+  recipe gives it a copy of the door's own lock; **Unlock the door** leaves the trap without
+  one.
   In Underworld II the lock is left alone unless you unlock it.
 - **Teleport:** stepping on a square sends the player to another square, on this level or
   another one (change level in the main window before picking). **And a way back** adds a
-  second pair; it must start and arrive on other squares than the first, or the player
+  second pair; it must start and arrive on different squares from the first, or the player
   would be sent straight back. Only the player is teleported.
 - **Pressure plate:** stepping on a square runs a trap. In Underworld II it can be a
   pressure plate, which fires when weight comes onto the square; otherwise a move trigger.
@@ -469,7 +475,7 @@ afterwards, so the properties panel and the triggers window show its chain.
   0x40 + row × 16 + column, with rows up to (the level's place in its world × 3 + the
   castle plot's progress) / 9 and columns up to the player's level + the castle plot's
   progress + 1, at most 16; a strong creature is kept only with chance 1 in its strength.
-  So deeper levels, the castle plot moving on and a stronger player bring stronger
+  So deeper levels, progress in the castle plot and a stronger player bring stronger
   monsters: this is how mages and worse turn up in Britannia's sewers late in the game.
   Ultima Underworld has no random monster; its spawners copy their creature as it is.
 
@@ -490,10 +496,10 @@ after it runs once. **Creatures set it off too** sets the trigger's enchanted bi
 
 ## Conversations
 
-**Tools ▸ Conversations…** (Ctrl+Shift+C): every conversation in CNV.ARK, by slot and the
-name the creature talks under. The list filter matches slots, names and any text a
-conversation says. Four tabs:
-- **Dialogue:** what the script does, rebuilt from its code by following the
+**Tools ▸ Conversations…** (Ctrl+Shift+C) lists every conversation in CNV.ARK, by slot and
+by the name the creature talks under. The list filter matches slots, names and any text a
+conversation says. The window has four tabs:
+- **Dialogue:** what the script does, rebuilt from its code by following the conversation
   machine's stack (conv/BABL.C). It shows the say and respond lines with their text, each
   menu with its numbered choices, and the checks on quests, variables and the talker's
   state. Simple `if` blocks are folded; other jumps stay as labels. Functions the script
@@ -512,7 +518,7 @@ conversation says. Four tabs:
   slot for whoami 0). Double-click one to go to it in the main window.
 **Save** (Ctrl+S) writes CNV.ARK and STRINGS.PAK in `DATA`, with only the changed blocks
 rewritten. UW2's blocks are compressed again. The old files are kept as `CNV.ARK.BKP` and
-`STRINGS.PAK.BKP`. Edits stay in memory when the window closes, until the game is closed.
+`STRINGS.PAK.BKP`. When the window closes, its edits stay in memory until the game is closed.
 
 Saving CNV.ARK also keeps the conversations' private globals in step. The game reads a
 conversation's private globals from its record in the save's `BGLOBALS.DAT` (at most as many
@@ -524,8 +530,8 @@ smaller. Other saved games are not changed.
 
 ### Conversation simulator
 
-**Simulate…** in the conversation window (Ctrl+R), or **Tools ▸ Conversation simulator…**:
-runs the shown conversation as the game does. It follows the conversation machine of
+**Simulate…** in the conversation window (Ctrl+R), or **Tools ▸ Conversation simulator…**,
+runs the conversation shown as the game does. It follows the conversation machine of
 conv/BABL.C and the game's built-in functions (conv/CONVERSE.C, BABLHACK.C, BARTER.C).
 Nothing is written to the game's files.
 - **Run** (F5) runs until a menu, a question, the end, a stop address or the instruction
@@ -536,10 +542,10 @@ Nothing is written to the game's files.
   on to the next menu. When the script asks for typed text (`babl_ask`), a box appears.
 - **Stop at:** code addresses (hex, as the Script tab shows them) where Run stops.
   **Follow in the script** selects the current instruction in the Script tab.
-- **Variables:** the values now. First the script's memory: the variables the game fills in
+- **Variables:** the current values. First the script's memory: the variables the game fills in
   (`npc_attitude`, `play_name`...) and the conversation's private globals. Then the quests,
   game variables, X clocks and skills the conversation uses (or all of them). Type a new
-  value to change it; it counts from the next instruction.
+  value to change it; it takes effect from the next instruction.
 - **Start-up:** what only the game knows, filled in from the open game:
   - the talker (one of the creatures that use the slot, from its level object: hit points,
     goal, attitude, home and inventory), or default values;
@@ -559,15 +565,15 @@ Nothing is written to the game's files.
   experience).
 
 Built-ins that act on the world outside the conversation (doors, teleports, attitudes of
-other creatures, pit fights) are only noted in the log. An object of the level the simulator
-was not given (index 1 is the player) gets a stand-in with every field 0. The simulator runs
+other creatures, pit fights) are only noted in the log. An object of the level that the
+simulator was not given (index 1 is the player) is replaced by a stand-in with every field 0. The simulator runs
 the applied code: apply the Script tab's edits first.
 
 ### Conversation graph
 
-**Graph…** in the conversation window, or **Tools ▸ Conversation graph…**: the shown
-conversation's flow as a graph, read from its code. The code is cut where it jumps; each
-node shows the readable view's lines of its piece of code.
+**Graph…** in the conversation window, or **Tools ▸ Conversation graph…**, shows the
+conversation's flow as a graph, read from its code. The code is split where it jumps; each
+node shows the readable view's lines for its piece of code.
 - Brown nodes are where the NPC speaks, blue ones show a menu with its numbered answers,
   grey ones are other code. A node's title is its label (`L02AE`) or its function; it says
   when the conversation ends or the function returns there.
@@ -579,20 +585,21 @@ node shows the readable view's lines of its piece of code.
   for one) are drawn only for the selected node.
 - Code that only passes on, tests a condition or calls a function is folded into the lines
   around it. Functions never called are left out.
-- Drag to move the view, the wheel to zoom; **Start** goes back to the top, **Fit** shows it
-  all. **Statements** shows or hides the other statements in the nodes.
-- The layout, **In layers** or **Hanging**:
-  - **In layers** (the usual) puts every node in a row under the nodes that lead to it. Each
-    row's order is the one, of many tried, where the fewest lines cross, and a line that passes
-    a row goes straight down between its nodes, so no line is drawn over a node.
+- Drag to move the view and use the wheel to zoom; **Start** goes back to the top, and
+  **Fit** shows the whole graph. **Statements** shows or hides the other statements in the
+  nodes.
+- There are two layouts, **In layers** and **Hanging**:
+  - **In layers** (the usual) puts every node in a row under the nodes that lead to it. Of
+    the many orders tried for each row, the one with the fewest crossing lines is kept. A line
+    that passes a row goes straight down between its nodes, so no line is drawn over a node.
   - **Hanging** hangs the graph from its start like a mobile, pinned at the top: each node
     weighs according to its size and each line is a spring, stiffer for plain flow than for
     conditions, answers and calls, and weak for loops. Nodes push each other apart sideways and
-    every node hangs below the ones that lead to it. It starts from the layers and moves until
-    it comes to rest. Drag a node to move it: it stays where you put it, marked with a dot,
+    every node hangs below the ones that lead to it. It starts from the layered layout and
+    moves until it comes to rest. Drag a node to move it: it stays where you put it, marked with a dot,
     and the rest hangs round it; right-click it, or press **Let go** for all of them, to let it
-    hang freely again. Lines are drawn straight. Over both games' conversations it crosses
-    about twice as many lines as **In layers** and draws some lines over nodes; use it to
+    hang freely again. Lines are drawn straight. Across both games' conversations it has about
+    twice as many line crossings as **In layers** and draws some lines over nodes; use it to
     pull a part of the graph apart by hand.
 - A click on a node selects its first instruction in the Script tab and shows the node on
   the right: its strings, its code, and where it leads (click one to go there).
@@ -602,8 +609,8 @@ node shows the readable view's lines of its piece of code.
 
 ## Global variables
 
-**Tools ▸ Global variables…** (Ctrl+Shift+G): the game state conversations can read and
-change, with the conversations that read and write each:
+**Tools ▸ Global variables…** (Ctrl+Shift+G) lists the game state that conversations can
+read and change, with the conversations that read and write each item:
 - quest flags and quest bytes (`get_quest`, `set_quest`);
 - the game variables traps share (`x_traps`; UW2's numbered variables);
 - UW2's X clocks (`x_clock`);
@@ -612,14 +619,14 @@ change, with the conversations that read and write each:
 - each conversation's own globals, kept in `BGLOBALS.DAT`.
 The uses come from the constant arguments of those calls. With a saved game open, the
 values come from its `PLAYER.DAT` and `BGLOBALS.DAT`; they can be changed and saved, and
-the old files are kept as `.BKP`. With `DATA` open, a new game, they read 0. Double-click a
+the old files are kept as `.BKP`. With `DATA` open (a new game), they read 0. Double-click a
 use to open its conversation at that line.
 
 ## Schedules
 
 **Tools ▸ Schedules…** (Underworld II only) edits `SCD.ARK`, the events that move NPCs about
 by the time of day and carry the plot along. With a saved game open it edits that save's
-own copy; otherwise `DATA`'s, which a new game copies into `SAVE0`. Ultima Underworld has
+own copy; otherwise it edits `DATA`'s, which a new game copies into `SAVE0`. Ultima Underworld has
 no schedules, so the item is disabled there.
 
 The file has 16 schedules (blocks). Block 0 runs by the time of day: 72 steps a day, times
@@ -641,13 +648,13 @@ up when he comes back.
   floors, close doors, Nystul, Gotha), 8 attitude, 9 set a variable, 10 test variables,
   11 remove. A negative event is disabled: a test row (10) runs the disabled rows after it
   when its test passes. An event of 12 or more stops the schedules each time it is reached.
-- A new time moves the row to its place; rows of the same time keep their order (▲ ▼ change
-  it). A test row takes its disabled rows along.
+- Changing a row's time moves the row to its place; rows with the same time keep their
+  order (▲ ▼ change it). A test row takes its disabled rows along.
 - **Add row** puts an empty row (event 0, any level) after the selected one, with its time;
-  **Copy row** a copy of it. **Delete row** removes it.
+  **Copy row** adds a copy of it. **Delete row** removes it.
 - **Save SCD.ARK** writes the changed blocks (`SCD.ARK.BKP` keeps the old file). Each level's
   place in a schedule moves with the rows, so rows already run are not run again.
-  **Revert** goes back to the file on disk. Unsaved changes are asked about when the window
+  **Revert** goes back to the file on disk. The window asks about unsaved changes when it
   closes.
 
 ## Player and inventory
@@ -656,46 +663,49 @@ up when he comes back.
 saved character in `PLAYER.DAT`:
 - name, class, sex, hand and portrait (the HEADS.GR picture shown);
 - attributes, vitality, mana, hunger, fatigue, carrying capacity;
-- level, experience, skill points and the twenty skills.
+- level, experience, skill points and the twenty skills;
 - UW1's story bits, which are not quest flags (**Story**): **Garamon buried** and **Talismans
   can be destroyed in the lava** (byte 0x62 bits 3 and 2), and the talismans left to destroy
   (byte 0x6D: 8, then 255 once the moongate has opened). Using Garamon's bones on his grave
   sets both bits before his ghost speaks (`obj/USEITEMS.C` `UseBonesOn`), so his questions do
-  not matter; killing the ghost clears the second again. Without it, talismans thrown into
-  the Slasher's lava are not destroyed. Quest 5 is not this flag: nothing in the game sets it.
-  The section also has **Tybal's orb destroyed**, **Cup of Wonder found** and **Key of Truth
-  given** (byte 0x60 bits 5, 7 and 6: level 7's mana and maze, the flute's tune and the shrine
-  mantra each give their item only once), the levels of the **moonstone** (where Gate Travel
-  goes; 0 while carried) and the **silver tree** (where a dead player comes back; 0 for none),
-  byte 0x5E, and, less about the plot, **Armageddon cast** (levels arrived on are emptied),
-  the **maze navigation spell** and the **dreams** (word 0x6E, a bit per dream, spelt out
-  under the box).
+  not matter; killing the ghost clears the second again. Without that bit, talismans thrown
+  into the Slasher's lava are not destroyed. Quest 5 is not this flag: nothing in the game
+  sets it. The section also has **Tybal's orb destroyed**, **Cup of Wonder found** and **Key
+  of Truth given** (byte 0x60 bits 5, 7 and 6: level 7's mana and maze, the flute's tune and
+  the shrine mantra each give their item only once). It also holds the levels of the
+  **moonstone** (where Gate Travel goes; 0 while carried) and the **silver tree** (where a dead
+  player comes back; 0 for none), in byte 0x5E. Less tied to the plot are **Armageddon cast**
+  (levels arrived on are emptied), the **maze navigation spell** and the **dreams** (word
+  0x6E, a bit per dream, spelt out under the box).
 
-**Checks** are listed beside it and update as you type:
+**Checks** are listed beside the fields and update as you type:
 - **Game detects:** in UW2, strength + dexterity + intelligence above 64 makes the
   end-of-game screen add "AND CHEATED ON THEIR CHARACTER" (game/SKILLS.C `game_stats`).
   UW1 has no such check.
-- **Not reachable:** values creation and play never give. Attributes over 30 or outside
-  the class's start in SKILLS.DAT, skills over 30, a sixth portrait, levels outside 1–16.
+- **Not reachable:** values that character creation and play never give: attributes over 30
+  or outside the class's start in SKILLS.DAT, skills over 30, a sixth portrait, and levels
+  outside 1–16.
 - **Notes:** maxima that disagree with what the game computes (`player_compute`), a level
   the experience has not earned, and the like. *Set the maxima as the game computes them*
   fixes those.
 
 The hand bit means right-handed in UW1 and left-handed in UW2: their creation menus list
 the choices the other way round, so the labels come from CHRGEN.DAT. The **Inventory** tab
-lists every slot, named on the left, top to bottom as on the paper doll (shoulders, head,
-torso, gloves, hands, rings, legs, feet), then the eight pack slots, with container contents
-under their container and icons; an empty slot says so:
+lists every slot, named on the left, from top to bottom as on the paper doll (shoulders,
+head, torso, gloves, hands, rings, legs, feet), then the eight pack slots. Objects show their
+icons, container contents hang under their container, and an empty slot says so:
 - each object's id, quality, owner, quantity or special and flags can be changed;
 - **Move to** puts the selected object in any slot (an object already there takes its old
   slot, or a free pack slot) or inside a container. Dragging in the list does the same:
-  drop onto a container to put it inside, onto an empty slot, onto an object in a container
-  to put it just before it, or onto an object in a slot to trade places;
+  drop the object onto a container to put it inside, onto an empty slot to move it there,
+  onto an object in a container to put it just before that object, or onto an object in a
+  slot to swap the two;
 - **Add to** says where new objects go: the first free pack slot, an empty slot or a
   container. Clicking a container or an empty slot in the list picks it, and it stays
-  picked while you add, so several objects go into the same bag in a row. **Add…**'s
-  **Add, keep open** adds one object after another from the form;
-- **Remove from the inventory** (Del) takes the object out, with what is inside it.
+  picked while you add, so several objects can go into the same bag one after another.
+  **Add…**'s **Add, keep open** adds one object after another from the form;
+- **Remove from the inventory** (Del) takes the object out, together with whatever is inside
+  it.
 
 Saving renumbers the objects depth first, as the game's `InvSaveNexts` does. Rewriting a
 shipped save's inventory unchanged gives the same bytes, except slots 19–27 (an open
@@ -706,7 +716,7 @@ bag's view, which the game rebuilds): those are cleared. The old file is kept as
 
 **Tools ▸ Graphics…** (Ctrl+Shift+R), with three tabs:
 - **Pictures:** every `.GR`, `.TR`, `.BYT` and UW2's `BYT.ARK` in DATA, as thumbnails.
-  Each is shown large with a palette of PALS.DAT; UW2's screens start in the palette the
+  Each is shown large in a palette from PALS.DAT; UW2's screens start in the palette the
   game shows them with.
 - **Critter animations:** the CRIT art files by the creatures that use them. Their
   animations come from the UW1 page headers or UW2's `CR.AN`. Pick an auxiliary palette;
@@ -731,23 +741,23 @@ auxiliary colours, or the 256 of the palette), so the indices survive a round tr
   - more than 256 pages;
   - texture and screen sizes are fixed.
 
-A replaced cutscene frame re-encodes only its own delta, the next frame's and the loop
-back to the first. Saving keeps each old file as `.BKP`.
+Replacing a cutscene frame re-encodes only its own delta, the next frame's delta and the loop
+back to the first frame. Saving keeps each old file as `.BKP`.
 
 ## Pixel editor
 
 **Edit pixels…** in the graphics window (pictures, critter frames, cutscene frames), or
 **Edit its picture…** in an object's right-click menu, opens a picture to draw on, enlarged
-with a grid, at its own size. The colours are the ones the picture can use: the palette's 256
-for 8-bit pictures (portraits, textures, screens), or for 4-bit pictures (most item pictures,
-critter frames) the 16 or 32 of its auxiliary palette; a dot marks the colours it uses now,
-and the transparent colour shows as ∅ over a checkerboard.
+with a grid, at its own size. The colours offered are the ones the picture can use: the
+palette's 256 for 8-bit pictures (portraits, textures, screens), or the 16 or 32 of its
+auxiliary palette for 4-bit pictures (most item pictures, critter frames). A dot marks the
+colours it uses now, and the transparent colour shows as ∅ over a checkerboard.
 
-**Cycling colours.** The games animate some palette entries by turning them round instead of
-redrawing pixels: water, lava and fire. A corner of black and white stripes marks those
-swatches, and the tooltip names the run of entries the colour turns through. Whatever is
-drawn with such a colour changes colour in the game. In play both games turn their runs one
-place four times a second (`gfx/COLCYCLE.C` cycle_colors, called every frame from
+**Cycling colours.** The games animate some palette entries by rotating their colours instead
+of redrawing pixels: water, lava and fire. A corner of black and white stripes marks those
+swatches, and the tooltip names the run of entries the colour rotates through. Whatever is
+drawn with such a colour changes colour in the game. During play, both games rotate each run
+by one place four times a second (`gfx/COLCYCLE.C` cycle_colors, called every frame from
 `ui/INTERACT.C`), in whatever palette is loaded:
 
 | Game | Entries | Direction |
@@ -757,47 +767,48 @@ place four times a second (`gfx/COLCYCLE.C` cycle_colors, called every frame fro
 | UW2 | 0xE0–0xEF, in four runs of four (blues) | each takes the next entry's colour |
 | UW2 | 0x03–0x07 and 0x08–0x0A (fire reds and yellows) | each takes the previous entry's colour |
 
-UW1's main menu (`OPSCR.BYT`) also turns 0x40–0x7F while it waits (`ui/MAINMENU.C`). A 4-bit
+UW1's main menu (`OPSCR.BYT`) also rotates 0x40–0x7F while it waits (`ui/MAINMENU.C`). A 4-bit
 picture's colour cycles when its auxiliary palette points at one of these entries. Cutscenes
-have their own cycles in each animation file, not marked. **Animate the cycling colours**
-shows the drawing and the preview as the game would, turning.
+have their own cycles in each animation file; these are not marked. **Animate the cycling
+colours** shows the drawing and the preview cycling as they would in the game.
 
 - **Tools:** pencil (B), eraser (E, the transparent colour), colour picker (I, or Alt+click),
   fill (G), line (L), rectangle (R) and filled rectangle (Shift+R).
 - **Brush width:** 1 pixel by default, up to 16 ([ and ] change it). The left button draws
   with the first colour, the right button with the second; X swaps them. Click a colour to make
   it the first, right-click it for the second.
-- **Zoom** (+ and −) and **Grid**. Under the drawing, a preview shows the picture at its
-  size and twice it (a large picture at a size that fits). The tool and colour columns
-  scroll when the window is too low for them.
+- **Zoom** (+ and −) and **Grid**. Under the drawing, a preview shows the picture at its own
+  size and at twice that (a large picture at a size that fits). The tool and colour columns
+  scroll when the window is too short for them.
 - **Undo** and **Redo** (Ctrl+Z, Ctrl+Y), and **Revert to the picture as opened**.
-- **Apply** puts the drawing into the picture (not saved yet: the file is saved from the
-  graphics window, the prompt on closing, or **Apply and save**, which writes the file at once,
-  keeping `NAME.EXT.BKP`). Closing with drawing not applied asks first.
+- **Apply** puts the drawing into the picture without saving it yet. The file is saved from
+  the graphics window, from the prompt on closing, or with **Apply and save**, which writes
+  the file at once, keeping `NAME.EXT.BKP`. Closing with unapplied drawing asks first.
 
 An item with no picture (UW1's nameless slots) gets a blank one to draw on, shaped as the
 nearest picture in `OBJECTS.GR`. A critter page must stay under 0x7FFF bytes, and a cutscene
-frame is encoded again with the next one; both say so when a drawing does not fit. After
+frame is encoded again with the next one; the editor says so when a drawing does not fit. After
 `OBJECTS.GR` or a texture file is saved, the 3D view and the object list show the new pictures.
 
 ## Keys and locks
 
-**Tools ▸ Keys and locks…** (Ctrl+Shift+K): every lock number with its keys and locks
-across all levels, where each lies, whether it is locked, and the keys' description
-(STRINGS.PAK block 5, 100 + the number), which can be edited. Double-click to go there.
+**Tools ▸ Keys and locks…** (Ctrl+Shift+K) lists every lock number with its keys and locks
+across all levels: where each lies, whether it is locked, and the keys' description
+(STRINGS.PAK block 5, 100 + the number), which can be edited. Double-click a line to go
+there.
 
 ## Triggers and traps
 
-**Tools ▸ Triggers and traps…** (Ctrl+Shift+T): every trigger of the level, where it
+**Tools ▸ Triggers and traps…** (Ctrl+Shift+T) lists every trigger of the level, where it
 lies, the square its chain runs on and each trap in the chain, then the wandering-monster
 spawners (create-object traps the game runs by itself; see Trap recipes ▸ Wandering
 monsters) with what each makes and how often, and last the other traps no trigger reaches.
-A line explains itself; double-click goes to it in the map.
+Each line explains itself; double-click one to go to it in the map.
 
 ## Fixes
 
 **Level ▸ Fixes…** checks what the game itself relies on, on the levels as edited, and
-repairs what it can. **This level** or **Every level**; **Check** runs it again. The list
+repairs what it can. Choose **This level** or **Every level**; **Check** runs the checks again. The list
 on the left has each check with its count; pick one to read what it looks for. Each finding
 says what is wrong, where, and what its fix does. Double-click it (or **Go to**) to open its
 level and select the object or tile.
@@ -820,13 +831,13 @@ There are three kinds of finding:
 - **Warnings** may be meant: trap chains that loop, items or creatures in solid rock, items
   under the floor, UW2 animation entries with another tile, locked locks no key opens.
 
-**Fix** repairs the selected finding; **Fix all of this kind** the ones listed; **Fix all**
-everything with a fix in the levels checked (warnings only when **Fix all fixes warnings
-too** is ticked). Links that arrive a second time are cut (nothing is lost: what follows was
-already reached); lost objects are freed as the game frees them (free stack, active list,
-animation list, and trap links to them cleared), or put back on the tile of the trap or
-trigger that names them; the free stacks and the active list are rebuilt keeping their good
-entries in order. Each fix, and each level's Fix all, is one **Edit ▸ Undo** step. Texts,
+**Fix** repairs the selected finding, **Fix all of this kind** repairs the ones listed, and
+**Fix all** repairs everything with a fix in the levels checked (warnings only when **Fix all
+includes warnings** is ticked). A link that reaches an object a second time is cut (nothing
+is lost: what follows was already reached). Lost objects are freed as the game frees them
+(free stack, active list, animation list, and trap links to them cleared), or put back on the
+tile of the trap or trigger that names them. The free stacks and the active list are rebuilt,
+keeping their good entries in order. Each fix, and each level's Fix all, is one **Edit ▸ Undo** step. Texts,
 non-trap links, loops and keyless locks have no automatic fix. UW1 keeps its animation list
 in a block of its own, which is not checked.
 
@@ -835,8 +846,8 @@ in a block of its own, which is not checked.
 **Level ▸ Item cleaner…** (also from the Fixes window) removes objects by kind from this
 level or every level: debris, bones, junk (broken weapons, blood stains), plants, food,
 weapons and armour, treasure, potions, lights, or every item that can be picked up. By
-default only what lies on the floor; tick **Also inside containers** or **Also what
-creatures carry** for more. **Tiles from … to** and **Name contains** narrow it down.
+default it removes only what lies on the floor; tick **Also inside containers** or **Also
+what creatures carry** to include more. **Tiles from … to** and **Name contains** narrow it down.
 
 **Preview** lists what would go, with counts by name, and what of those kinds is kept and
 why. Never removed: keys, locks, quest items, talismans, runestones, books and scrolls with a
@@ -862,15 +873,16 @@ level; UW2 0x9F + level and 0xEF + level). A saved game has its own; a new game 
   brush is 1, 3 × 3, 5 × 5 or 9 × 9 tiles; rock is never marked.
 - **Mark everything seen** / **Mark nothing seen** do the whole level.
 - **Notes**: click to add a note, drag one to move it, select it to change its text (one byte
-  a character, at most 49, the game's limit) or delete it. A level holds up to 100.
-- **Show the level under the map** draws the level faintly behind, to paint by.
+  a character, at most 49, the game's limit) or delete it. A level holds up to 100 notes.
+- **Show the level under the map** draws the level faintly behind the map, as a guide for
+  painting.
 - **Undo** steps back in the window; the changes are saved with the levels (Save levels)
   and count as unsaved work.
 
 ## Game tables
 
-**Tools ▸ Game tables…** edits the small tables in the game's `DATA` folder. They hold for
-the whole game, saved games too, so the `DATA` folder's copy is changed even when a saved
+**Tools ▸ Game tables…** edits the small tables in the game's `DATA` folder. They apply to
+the whole game, saved games included, so the `DATA` folder's copy is changed even when a saved
 game is open. Each tab saves its own file (**Save NAME.DAT**); the old file is kept as
 `NAME.DAT.BKP`, and the first version as `NAME.DAT.ORIG`. **Revert** goes back to the file
 as saved. Changed values are marked, and a changed row of a list starts with •. Closing the
@@ -889,14 +901,15 @@ window with unsaved tables asks first.
   - The automap's colours for water, lava and ice come from this table.
 - **Class skills** (`SKILLS.DAT`): each class's strength, dexterity, intelligence and
   bonus points, and its five skill entries. A new character gets the three attributes, then
-  the bonus points spread over them at random, none above 30. Then each entry in turn: an
-  empty one gives nothing, one skill is given, several make a menu to pick one. An empty
+  the bonus points spread over them at random, none above 30. Then each entry is taken in
+  turn: an empty entry gives nothing, an entry with one skill gives that skill, and an entry
+  with several makes a menu to pick one from. An empty
   entry also loses the entries after it (the game does not step past it); **Check** says so.
 - **Combinations** (`CMB.DAT`): ten rules, first item + second item → output. Drop one item
   on the other in the inventory (either order) to make the output; a source marked
   *used up* goes away. Neither item may be a stack or hold anything, and the first rule
-  naming both is used. In Underworld a rule needs a source used up or it is ignored; its
-  unused rules are zeros. Underworld II uses every rule; its unused ones are 0xFFFF.
+  naming both is used. In Underworld a rule is ignored unless at least one source is used
+  up; its unused rules are zeros. Underworld II uses every rule; its unused ones are 0xFFFF.
   **In use** adds or removes a rule.
 - **Light** (`SHADES.DAT`): a row for each of the eight light levels. The six values set
   how fast the light falls off with distance, how dark the nearest square is, where the
@@ -920,20 +933,20 @@ level's texture map says which texture each slot shows.
 - Underworld: 48 wall slots (`W64.TR`), 10 floor slots (`F32.TR`, the ceiling is slot 9)
   and 6 door slots (`DOORS.GR`).
 - Underworld II: 64 slots of `T64.TR`; the first 16 are also the floor slots (the ceiling is
-  slot 15). And 6 door slots.
+  slot 15), plus 6 door slots.
 
 Each slot shows its picture, the texture number, how many open tiles use it, and the
 texture's terrain (water, lava...). Choose a slot, then click another texture on the right
 to show it there; textures already in the list are marked •. Each change is one Edit ▸ Undo
-step, the 3D view and the paint brush's slots follow, and Save levels writes it with the
+step; the 3D view and the paint brush's slots follow it, and Save levels writes it with the
 level (only the level's texture map block changes).
 
 ## Strings
 
-**Tools ▸ Strings…** (Ctrl+Shift+S): every block of STRINGS.PAK, with the conversations
-named, searched in one block or all of them. Strings can be edited and added, and
+**Tools ▸ Strings…** (Ctrl+Shift+S) shows every block of STRINGS.PAK, with the conversations'
+blocks named; search one block or all of them. Strings can be edited and added, and
 characters the file cannot write are refused. Saving updates the names everywhere in the
-editor. It shares the conversation editor's copy of the file, so edits made in both are
+editor. The window shares the conversation editor's copy of the file, so edits made in both are
 never written over each other.
 
 ## 3D models
@@ -955,14 +968,14 @@ what that would take.
 
 ## Object tables
 
-**Tools ▸ Object tables…**: the fixed properties of each kind of object, from `DATA\OBJECTS.DAT`
-and `DATA\COMOBJ.DAT`, a tab per table:
+**Tools ▸ Object tables…** shows the fixed properties of each kind of object, from
+`DATA\OBJECTS.DAT` and `DATA\COMOBJ.DAT`, with a tab per table:
 - **Weapons** (0x00-0x0F): slash, bash and stab damage, swing charge and speed, skill
   (3 sword, 4 axe, 5 mace, 6 unarmed), durability (255 unbreakable). Entry 15 is the bare fist.
 - **Ranged** (0x10-0x1F): ammunition and launchers. A launcher names its ammunition
   (item - 0x10); ammunition has the damage done when it hits.
 - **Armour** (0x20-0x3F): protection, durability and the category, which decides the
-  paperdoll slot (0 shield, 1 body, 3 leggings, 4 gloves, 5 boots, 8 hat, 9 ring).
+  paper doll slot (0 shield, 1 body, 3 leggings, 4 gloves, 5 boots, 8 hat, 9 ring).
 - **Creatures** (0x40-0x7F): armour by hit zone, average hit points, attributes, race,
   movement, trading temper, the three attacks, senses, the weapons and loot they carry,
   experience and spells. New creatures and the monster swap read this table.
@@ -978,13 +991,13 @@ and `DATA\COMOBJ.DAT`, a tab per table:
   stone), value, the flags (solid, can be picked up, can be owned...), toughness and
   quality words, fate when thrown, resistances and how it is drawn.
 
-One row per item, with its picture and name. Click a cell to edit it; Enter or Tab keeps
-the value, Shift+Tab goes back, Escape drops it. Numbers are decimal, or hexadecimal with `0x`.
+Each table has one row per item, with its picture and name. Click a cell to edit it; Enter
+or Tab keeps the value, Shift+Tab goes back, and Esc drops it. Numbers are decimal, or hexadecimal with `0x`.
 A value outside the field's range is refused, and one the game cannot use (a weapon skill
 that is not a weapon skill, an armour category no slot takes) is kept with a warning; both
 show in the status line. Changed cells are marked and changed rows have a bar at the left.
-Below the grid is what the selected field means, where it is in the file, its range and
-the value on disk. Click a column heading to read about the field.
+Below the grid, the editor explains what the selected field means, where it is in the file,
+its range and the value on disk. Click a column heading to read about the field.
 
 **Filter** shows the rows whose name or number matches; *Changed rows only* shows what you
 edited. **Revert row** puts the selected row back as it is in the file; **Revert all** drops
@@ -994,27 +1007,27 @@ apply to every saved game.
 
 ## Item slots
 
-**Tools ▸ Item slots…** (or **Item slot…** in an object's right-click menu): every item id
-(weapons, missiles, armour, and the containers, lights, treasure, food, scenery and special
-items) with what uses it, to turn a slot into a new item. The game has 512 ids and decides
+**Tools ▸ Item slots…** (or **Item slot…** in an object's right-click menu) lists every item
+id (weapons, missiles, armour, and the containers, lights, treasure, food, scenery and special
+items) with what uses it, so that you can turn a slot into a new item. The game has 512 ids and decides
 how an object acts by its class (a weapon, food, a light…), so a new item is an existing id
 given a new name, picture and stats.
 
 For each id it lists:
-- objects of it in every level, as edited: on the floor, in containers, carried by
+- objects with that id in every level, as edited: on the floor, in containers, carried by
   creatures, or made by create-object traps;
 - **conversations** that create, take, look for or delete it (`do_inv_create`,
   `do_inv_delete`, `take_from_npc`, `take_id_from_npc`, `find_inv`, `find_barter`,
-  `find_barter_total`), with the line; a call that names its whole class (1000 + the class) is
-  marked so. Caliburn, for example, is made by Shak's conversation from the blade and the hilt;
+  `find_barter_total`), with the line; a call that names the id's whole class (1000 + the
+  class) is marked as such. Caliburn, for example, is made by Shak's conversation from the blade and the hilt;
 - the **game's own code**, when a source file of the game names the id (its use, its look, a
   combination, combat…): that behaviour stays with the id;
 - creature loot and arms in OBJECTS.DAT, and item combinations (CMB.DAT);
 - UW1's quest items by name.
 
 **Free slots only** shows the ids nothing uses. A free slot is safe to make into a new item of
-its class; one only objects use can be freed by moving or deleting them; one the code or a
-conversation uses keeps that behaviour whatever its name. For the selected id:
+its class. A slot used only by objects can be freed by moving or deleting them. A slot that
+the code or a conversation uses keeps that behaviour, whatever its name. For the selected id:
 - **Name:** article, name and plural, written to STRINGS.PAK block 4 as `a_name&plural`
   (**Save STRINGS.PAK**, or with the other string edits);
 - **Edit the picture…** opens the pixel editor on its `OBJECTS.GR` picture;
@@ -1022,8 +1035,8 @@ conversation uses keeps that behaviour whatever its name. For the selected id:
   (damage, protection, nourishment, brightness…; mass, value, size, flags);
 - **Place one on the selected tile** adds one to the level.
 
-Not checked: text that only mentions an item in a conversation's words, and UW2's
-`babl_hack` calls.
+Two things are not checked: text that only mentions an item in a conversation's words, and
+UW2's `babl_hack` calls.
 
 ## Sound and music
 
@@ -1032,21 +1045,21 @@ the effects list. The files are in the game folder's `SOUND` folder; a saved gam
 same ones. Nothing is written until **Save**; each file written keeps `NAME.EXT.BKP`, and
 the first version `NAME.EXT.ORIG`. Closing the window with unsaved files asks first.
 
-**Play** plays a file as it is now, unsaved imports too; **Stop** stops it. Sound goes out
+**Play** plays a file as it is now, including unsaved imports; **Stop** stops it. Sound goes out
 through OpenAL. Without a sound device the status line says so and nothing else happens.
 **Export WAV…** writes the sound as an 8-bit mono WAV file at the file's rate. **Import
 WAV…** replaces it. **Revert to the original** goes back to the file as shipped (its `.ORIG`
 copy), or removes a file the editor added; an unsaved import is simply dropped.
 
-**Importing.** Any WAV file is read: 8, 16, 24 or 32-bit PCM or 32-bit float, any rate,
+**Importing.** Any WAV file can be read: 8, 16, 24 or 32-bit PCM or 32-bit float, any rate,
 mono or stereo. It is mixed to mono, its silent start and end are cut (**Trim silence**),
 it is resampled (a windowed-sinc filter), raised to full volume (**Normalise**) and
 dithered down to 8 bits. It is written the way the game reads it: one plain block of 8-bit
 samples. The game skips the file's first 32 bytes and plays the rest as sound, so any other
 shape would click. **Import at** sets the rate: the game's own (12048 Hz in Underworld,
 11111 Hz in Underworld II), or 8000 to 22050 Hz. Lower rates fit longer clips. A clip over
-the file's limit is refused, or, as **Over the limit** says, shortened or written at a lower
-rate so it fits; the status line gives the length in seconds.
+the file's limit is refused or, depending on **Over the limit**, shortened or written at a
+lower rate so that it fits; the status line gives the length in seconds.
 
 The limits, from the games' code:
 
@@ -1059,33 +1072,33 @@ The limits, from the games' code:
 Underworld II's digitised effects share a cache of four 16 KB pages: a big one pushes the
 others out, so keep them short.
 
-- **Speech.** Each speech file with the cutscene and the subtitle line it goes with (STRINGS
-  block 0xC00 + the cutscene), its length, rate and size against the limit. In Underworld
-  all 42 files are the introduction's (cutscene 0), one a subtitle line. In Underworld II
+- **Speech.** Lists each speech file with the cutscene and the subtitle line it goes with
+  (STRINGS block 0xC00 + the cutscene), its length, rate and size against the limit. In
+  Underworld all 42 files belong to the introduction (cutscene 0), one subtitle line each. In Underworld II
   the eight `BSPnn.VOC` are spoken in cutscenes 4–7 and 24–27; the introduction has no
   speech. The cutscene's say command starts the file and the next one cuts it, so a new line
-  should take about as long as the old. Conversations have no speech in either game.
+  should take about as long as the old one. Conversations have no speech in either game.
   **Export all…** writes every file into a folder.
 - **Effects** (`SOUNDS.DAT`): every effect, with what plays it in the game, taken from the
   games' code, and the creatures whose footsteps or death cry it is. Select one to change
   its patch (a timbre of bank 1 in `UW.AD` and `UW.MT`), note, volume and length (in 1/256
   seconds). Underworld has 24 effects and Underworld II 49; the games hold no more.
   Underworld's effects are all notes played on the music card (FM or MT-32), which the
-  editor can't play. **Revert SOUNDS.DAT** goes back to the file as saved.
+  editor cannot play. **Revert SOUNDS.DAT** goes back to the file as saved.
   - Underworld II: an effect with **Digital** ticked plays `SOUND\SPnn.VOC` (nn its number)
     on the Sound Blaster; the others are music-card notes. Ticking **Digital** on any effect
     makes it digitised: import its `SPnn.VOC` (until there is one, the game plays the note).
     **Priority** decides which sound keeps the digital channel when two play at once.
   - Underworld II trap sounds: effects 100 to 163 are `UW00.VOC` to `UW63.VOC`. A
     special-effects trap (0x184) with quality 2 and owner nn plays `UWnn.VOC` when it is set
-    off. The list shows the ones there are, and the traps in the levels that play each (the
+    off. The list shows the existing ones, and the traps in the levels that play each (the
     game ships `UW00` and `UW01`, each played by traps in one level). **Add a trap sound
-    from WAV…** makes a new `UWnn.VOC`: then put a trap with that owner in a level. New voice
+    from WAV…** makes a new `UWnn.VOC`; then put a trap with that owner in a level. New voice
     lines can be added this way, as data alone.
 
-Make a mod (**Tools ▸ Mods**) carries the changed files of `SOUND` with the rest, and the new
-ones the game opens by number: UW1 speech `nn.VOC`, UW2 `SPnn.VOC`, `UWnn.VOC` and `BSPnn.VOC`.
-Any other new file keeps a mod from being made (see [Mods](#mods)).
+Make a mod (**Tools ▸ Mods**) carries the changed files in `SOUND` along with the rest, plus
+the new files the game opens by number: UW1 speech `nn.VOC`, UW2 `SPnn.VOC`, `UWnn.VOC` and
+`BSPnn.VOC`. Any other new file prevents a mod from being made (see [Mods](#mods)).
 
 ### Music
 
@@ -1118,7 +1131,7 @@ device, because MT-32 program numbers name other instruments.
   - Note-ons and note-offs become notes with durations; tempo changes are followed.
   - Drums are on channel 10. The FM file can only use the drum keys `UW.AD` has (24 in UW1,
     26 in UW2). **Replace drums UW.AD lacks** plays the nearest drum it has instead (the
-    report lists them); unchecked, such a theme is refused.
+    report lists them); when it is unticked, such a theme is refused.
   - The game plays channels 2 to 10 only. **Move channels 1 and 11–16 to free ones** moves
     them to unused channels from 2 to 9.
   - Loops: `loopStart`/`loopEnd` markers (a number after `loopStart` plays the loop that many times)
@@ -1145,14 +1158,14 @@ The checks follow the game and its sound drivers. Errors:
   128 presets (bank 0), as all the shipped themes do; `UW.MT` holds the effects' timbres.
 - **More than 32 notes at once.** The game's sequencer holds 32 sounding notes; the next one
   takes the first one's place and that note never stops.
-- **Loops nested more than 4 deep**, when a loop end then jumps back to the wrong place.
+- **Loops nested more than 4 deep**, where a loop's end then jumps back to the wrong place.
 - **An endless loop in a theme the game waits for** (the victory theme; UW1 theme 11), and a
   missing end.
 
 Warnings and notes: notes on channels the game does not play; programs or drum keys missing
 from the timbre list; MT-32 drum keys outside 35–76. The sound effects borrow channels from
-the music: up to 4 in UW1, 3 in UW2, each time the one of channels 2–9 with the fewest notes
-sounding (the highest on a tie). While an effect plays, the music's notes on its channel are
+the music: up to 4 in UW1 and 3 in UW2, each time taking whichever of channels 2–9 has the
+fewest notes sounding (the highest on a tie). While an effect plays, the music's notes on its channel are
 dropped. A theme that uses at most 4 (UW1) or 5 (UW2) of channels 2–9 leaves them free. FM
 cards have 9 voices (18 on an OPL3), shared with the effects.
 
@@ -1162,25 +1175,26 @@ UW1 theme 11 is never played: no call in the game asks for it.
 
 **File ▸ Checkpoints…** While there are unsaved changes, the editor keeps a copy of them
 every few minutes (5 by default; 0 turns it off). Each copy holds the changed levels and
-automaps, and STRINGS.PAK or PLAYER.DAT when they have unsaved edits. Only the newest copies are kept: 20
-by default, up to 1000. **Checkpoint now** takes one at once. **Restore** (or a double click)
-loads one back as unsaved edits: each level becomes one undo step, and nothing in the game
-folder changes until you save. Restoring the strings or the player cannot be undone, so the
-editor asks first when they have unsaved edits of their own. The copies live in the editor's settings folder, one folder
-per opened game. Unsaved conversation scripts are not included; their strings are.
+automaps, and STRINGS.PAK or PLAYER.DAT when they have unsaved edits. Only the newest copies
+are kept: 20 by default, up to 1000. **Checkpoint now** takes one at once. **Restore** (or a
+double click) loads one back as unsaved edits: each level becomes one undo step, and nothing
+in the game folder changes until you save. Restoring the strings or the player cannot be
+undone, so the editor asks first when they have unsaved edits of their own. The copies are
+kept in the editor's settings folder, one folder per opened game. Unsaved conversation
+scripts are not included; their strings are.
 
 ### When the editor crashes
 
 An error the editor does not expect is written to a crash log (`crashes` in the settings
-folder; the newest 20 are kept), and the unsaved work is kept in a checkpoint at once. Most
-errors happen in one command: the editor says so and goes on, and **Open the log folder**
-shows the log to attach to a bug report. If anything looks wrong after it, restore the
-checkpoint or save to a copy first.
+folder; the newest 20 are kept), and the unsaved work is saved in a checkpoint at once. Most
+errors affect only one command: the editor says so and carries on, and **Open the log
+folder** shows the log to attach to a bug report. If anything looks wrong after that, restore
+the checkpoint or save to a copy first.
 
-If the editor ends without closing normally (a crash, being killed, the computer turned off)
-while work was unsaved, the next start says so and offers to open that game and restore the
-newest checkpoint as unsaved edits. Work done after the last checkpoint is lost then, so the
-checkpoint interval is what you can lose at most. A running editor keeps a small file in the
+If the editor stops without closing normally (a crash, being killed, the computer turned off)
+while work was unsaved, it says so the next time it starts and offers to open that game and
+restore the newest checkpoint as unsaved edits. Work done after the last checkpoint is lost,
+so at most you lose one checkpoint interval's work. A running editor keeps a small file in the
 settings folder (`running-PID.json`) for this; a clean exit removes it.
 
 ## Saved games
@@ -1200,8 +1214,8 @@ maps and notes), `PLAYER.DAT`, `BGLOBALS.DAT`, `DESC` and, in Underworld II, `SC
 
 ### Check and repair a saved game
 
-**File ▸ Check and repair the saved game…** looks for what makes the original game crash or
-complain on a saved game, and repairs it as unsaved edits (look them over, then Save; nothing
+**File ▸ Check and repair the saved game…** looks for problems in a saved game that make the
+original game crash or complain, and repairs them as unsaved edits (look them over, then Save; nothing
 else in the save changes):
 - **Map notes read from another block.** UW1's `LEV.ARK` has no table of lengths: a block runs
   to the next one. When every note of a level is erased, the game writes that level's notes
@@ -1213,7 +1227,7 @@ else in the save changes):
 - **Notes with no end** within 50 bytes, notes blocks that are not whole notes or hold more
   than 100 (the game reads them into room for 100), and notes off the map screen. The repair
   keeps the whole notes that end and lie on the screen.
-- **Automap blocks** of another length than 4096 (the game copies the block before it checks
+- **Automap blocks** whose length is not 4096 (the game copies the block before it checks
   the length).
 - **Objects lost from the object lists**: in UW1, asking for part of a stack that then proves
   too heavy to pick up takes an object off the floor and never frees it, and the game says
@@ -1221,9 +1235,9 @@ else in the save changes):
   `tidy-objects` enhancement puts them back). The repair frees them, with the other list
   repairs of **Level ▸ Fixes**.
 
-**File ▸ Export as a saved game…** writes the unsaved levels (and player) as a saved game:
-the open save's files, or with `DATA` open the folder's first save carrying `DATA`'s levels,
-with `LEV.ARK` as edited and the description "Editor" and the time. Put it in one of
+**File ▸ Export as a saved game…** writes the unsaved levels (and player) as a saved game. It
+starts from the open save's files or, with `DATA` open, the folder's first save carrying
+`DATA`'s levels, and writes `LEV.ARK` as edited, with the description "Editor" and the time. Put it in one of
 Underworld Exhumed's slots (its home folder, `%APPDATA%\uw1port` on Windows, `~/.uw1port`
 elsewhere; `uw2port` for UW2), where Journey Onward or Ctrl+R finds it, or in a folder of
 your choice, such as a `SAVEn` folder of the original game for DOSBox. A slot already there is
@@ -1236,16 +1250,16 @@ window. The choice is remembered between runs. The 3D view and the pictures keep
 colours.
 
 **View ▸ Layout** chooses how much room the controls take, with either colour scheme.
-**Compact (classic, with borders)**, the default, is closer to
-Windows XP's dialogs: buttons, boxes, menus, tabs and list rows are shorter, the white space
-the windows put between things is halved, and borders take its place to guide the eye:
+**Compact (classic, with borders)**, the default, is closer to Windows XP's dialogs. Buttons,
+boxes, menus, tabs and list rows are shorter, the white space between things is halved, and
+borders take its place to guide the eye:
 framed side panels, lists, trees and tab pages, buttons with a raised face and an edge,
 classic tabs joined to their page, and section headings drawn as header bars. Font sizes do
 not change. **Comfortable** is the spacious modern look. The layout applies to every window at
 once, open or opened later, and is remembered between runs.
 
 The mod manager (`ModManager/`) has the same look and the same two choices, under its
-**Settings ▸ Appearance**, also Light and Compact at first.
+**Settings ▸ Appearance**, which also start as Light and Compact.
 
 ## What enchantments do
 
@@ -1254,7 +1268,7 @@ The mod manager (`ModManager/`) has the same look and the same two choices, unde
   - In UW1, effects 0–7 add (effect & 7) + 1 to hit, and effects 8–15 add it to damage.
   - In UW2, effects 0–3 add 2·effect + 1 damage, and effects 4–7 add 2·effect − 7 to hit
     (the names say the opposite). Effects 8–15 are the special weapons. Their power fires on
-    a critical hit, or on every hit for the sixth: it heals the player, repels the undead,
+    a critical hit, or, for the sixth of them, on every hit: it heals the player, repels the undead,
     casts a fireball, holds the target, or opens a door.
 - **Anything else on a weapon does nothing** while it is wielded. Only armour slots, rings
   and a shield in the off hand count as worn (INVDATA.C `ObjWorn`), and only enchantments
@@ -1272,8 +1286,9 @@ All of it is in the **Randomizer** menu:
   beatable.
 - **Item property shuffle**.
 - **Swap ▸ Swap items** and **Swap ▸ Swap monsters**.
-- **Named challenges**. How its logic works is explained in **How the
-randomizer's logic works** below.
+- **Named challenges**.
+
+The logic behind them is explained in **How the randomizer's logic works** below.
 
 **Randomizer ▸ Key item scatter ▸ Zones…** opens the zoning of the game. A zone is a part of the world
 that can be walked without meeting a requirement. Every tile has a zone id: 0 is rock, 1 is
@@ -1282,9 +1297,9 @@ open but not in a zone yet (magenta in the view), and 2–255 are the zones. The
 **Load the UW1 example** starts from Karl's UW1 zoning, built from his painted maps and
 notes: 91 zones, 139 links and 50 grants.
 
-- **Current zone:** the zone painted and listed. **Add zone**, **Rename**, **Remove zone**
-  (its tiles become unassigned; its links and grants go), and a colour. Colours default to a
-  Glasbey palette: each colour is as far as possible, in CIELAB, from all the ones before it.
+- **Current zone:** the zone being painted and listed, with **Add zone**, **Rename**,
+  **Remove zone** (its tiles become unassigned; its links and grants go) and a colour.
+  Colours default to a Glasbey palette: each colour is as far as possible, in CIELAB, from all the ones before it.
 - **Mark as start** and **Mark as goal** use the square selected in the view. The line under
   them says where the game starts and ends now, and the zone list marks those zones
   ("start", "ends the game").
@@ -1304,7 +1319,8 @@ notes: 91 zones, 139 links and 50 grants.
   kind, open or closed (portcullises and secret doors too); those tiles are not filled. It is
   also stopped by going up more than the **highest climb** (2 floor steps by default; a walk
   climbs 1), measured between the touching edges of the two tiles, so slopes count. Going down
-  is never limited: a fill from the top of a drop reaches the bottom, not the other way.
+  is never limited: a fill from the top of a drop reaches the bottom, but not the other way
+  round.
   Rock is never painted, and **Undo painting** steps back through the strokes. While the
   window is open, the view shows each tile's zone colour on its floor.
 - **Key items** of the current zone are listed on the right. The list holds keys (by the lock
@@ -1329,13 +1345,13 @@ notes: 91 zones, 139 links and 50 grants.
     else the defaults.
   - The line beside the button says whether the goal is reached and by what, and how many of
     the main option sets reach it. The report opens in a window of its own.
-  - The solve runs in the background, on a copy of the levels taken when it starts: the editor
-    keeps answering meanwhile (so do Check the logic in the zone graph and the Automatic zones
-    window's builds).
+  - The solve runs in the background, on a copy of the levels taken when it starts, so the
+    editor stays responsive meanwhile (as it does during the zone graph's Check the logic and
+    the Automatic zones window's builds).
   - The start is the one the solver uses: the new-game square in `UW.EXE`, or the game's own
     with **Consider the current starting square** off in the open Apply or Automatic zones window.
 - **Split multi-level zones by level for the solver** (remembered): Apply and Check the logic
-  get each zone painted on several levels as one zone a level, joined by free two-way links.
+  treat each zone painted on several levels as one zone a level, joined by free two-way links.
   The line under it lists the zones on several levels. See **How the randomizer's logic
   works**, Zones from a zoning.
 - **Autozone…** opens the Automatic zones window, whose **Build and Use** puts automatic zones
@@ -1343,8 +1359,8 @@ notes: 91 zones, 139 links and 50 grants.
 
 Apply and the zone graph's **Check the logic** use this zoning, unsaved changes included.
 
-The Zones window's **Zone graph…** button opens a view of the zoning. It shows the zoning as
-the Zones window edits it, as you go, so the two windows can sit side by side; links are made
+The Zones window's **Zone graph…** button opens a view of the zoning. It follows the Zones
+window's edits as you make them, so the two windows can sit side by side; links are made
 and edited in the Zones window, not here.
 
 Each zone has a label, placed in a column for the level it first appears on. Drag the labels
@@ -1381,7 +1397,7 @@ Lines are the links between zones:
   to move the view. The mouse wheel zooms in and out about the pointer, from 0.3 to 2, and
   **Fit** shows every label. The scroll bars still scroll.
 - **Force layout** lays the labels out live by forces: every link pulls the two zones it joins
-  together, every two zones push each other apart, and a weak pull keeps everything near the
+  together, every pair of zones pushes apart, and a weak pull keeps everything near the
   middle, until it settles. **Attraction** and **Repulsion** set how hard the links pull and
   the zones push (1 is the usual; change them while it runs). Drag a label meanwhile to hold
   it in place. Press **Force layout** again to stop; the new places are kept in the zoning
@@ -1391,7 +1407,7 @@ Lines are the links between zones:
 
 This section explains, in one place, how the editor decides what the player can reach and
 how **Key item scatter ▸ Apply** uses that to move items without making the game unbeatable. It
-covers Ultima Underworld 1, the only game with facts so far. The windows are described in
+covers Ultima Underworld 1, the only game whose facts have been written so far. The windows are described in
 **Automatic zones** and **Apply** below. The findings behind the rules, with their
 sources in the game's code, are in `docs/autozones-uw1.md` and `docs/facts/uw1-quests.md`.
 
@@ -1416,10 +1432,11 @@ requirement:
   jump ability; above that, levitation.
 - **jump**: two surfaces with 1 or 2 tiles of lower ground between them (a pit, water, lava)
   in a straight line, when the far side is no higher than the near side plus the highest
-  climb. 3 tiles need the jump ability. Diagonal jumps are an option (off).
+  climb. 3 tiles need the jump ability. Diagonal jumps are an option (off by default).
 - **door**: through a door tile. A locked door needs its key (`key:N`), picking (`pick:Z`,
   the lock's difficulty) or bashing (always allowed: fists break any door that can be
-  broken). An unlocked door is free. A door only a lever or a trap opens needs that lever.
+  broken). An unlocked door is free. A door that only a lever or a trap opens needs that
+  lever.
 - **stairs** and **teleport**: every trigger the player sets off whose chain reaches a
   teleport trap makes a one-way edge to where it lands. Stairs are the ones that change
   level.
@@ -1462,8 +1479,8 @@ own.) Whether a painted zoning should be split that way too is still open.
 **Split multi-level zones by level** (an option in the Zones window, remembered) gives the
 solver a copy of the zoning in which each zone painted on several levels becomes one zone a
 level.
-- **Ids and names:** the first level keeps the zone's id; the others get free ids, the name
-  with "(L3)" and so on added, and the same colour.
+- **Ids and names:** the first level keeps the zone's id; the others get free ids, the same
+  name with "(L3)" and so on added, and the same colour.
 - **Links:** the parts are joined in level order by free two-way links. A hand-made zoning
   takes the way between levels as given, and so does the solver.
 - **What changes:** the report's "no free way between them" list then shows only gaps within
@@ -1501,7 +1518,7 @@ locks as with skill 45), **telekinesis** (Ort Por Ylem; it counts wherever the p
 
 - **Cast** (`cast:X`), only with **Magic** on: the rune bag and the spell's runestones are
   held. Character level, mana and the casting roll are ignored.
-- **Used** (`use:X`): an item gives it. `worn:X` is an enchantment worn (the Ring of
+- **Used** (`use:X`): an item gives it. `worn:X` is a worn enchantment (the Ring of
   Levitation, the Ring of Leap, the dragon skin boots); it works everywhere. `perm:X` is an
   item that casts without charges. `once:X` is a scroll, a potion or a charged wand; these
   count only with **Single-use items count** on.
@@ -1528,10 +1545,10 @@ and 15 never opens. With **Lock picking in logic** off, no door is picked.
 What the levels do not say is written in the facts files (`docs/facts/uw1-facts.json` and
 `uw1-quests.json`, shipped with the editor, hand-editable). A fact can grant a token where its
 requirement holds (**craft**, **flag**), add a requirement to a token's placements (**trade**:
-an NPC hands it over only for something), count items (**count**: 20 coins), add a **link**
-between two places, a **warp** (Gate Travel to the moonstone; the silver sapling), the
-**goal**, mark lever chains as **free** once their zone is reached, or say what a world change
-**needs** besides its zone. Among them:
+an NPC hands it over only for something), or count items (**count**: 20 coins). It can also
+add a **link** between two places, a **warp** (Gate Travel to the moonstone; the silver
+sapling) or the **goal**, mark lever chains as **free** once their zone is reached, or say
+what a world change **needs** besides its zone. Among them:
 
 - **The goal**: reaching level 9. It needs the Slasher's chamber opened with the Key of
   Infinity, Garamon's bones buried on his grave, and the eight talismans thrown into the
@@ -1553,8 +1570,8 @@ between two places, a **warp** (Gate Travel to the moonstone; the silver sapling
 - **Puzzles counted as solved** once reached: the level 4 lever puzzle, all levers of
   level 5, the bullfrog puzzle (or levitation over it).
 - **The Ring of Levitation's area** on level 7: with **Ring of Levitation needs lava
-  protection** on (the default), it needs the lava ability; off, it is one zone with the
-  ledge at (59, 43), from which the player can jump there.
+  protection** on (the default), it needs the lava ability; with the option off, the area is
+  one zone with the ledge at (59, 43), from which the player can jump there.
 - **The damaging maze** on level 7: its trap tiles are walls.
 - **Items NPCs hold**: each needs its quest; with **Killing NPCs in logic** on, killing the
   NPC once its zone is reached also counts. What hostile creatures carry is always free.
@@ -1581,8 +1598,9 @@ sapling can be planted, no zone is a trap: dying takes the player back to it.
 #### 6. The solver
 
 The solver works in **spheres**. Sphere 0 is what the player reaches from the start with
-nothing. Each next sphere adds what the items, abilities, flags and world changes of the
-spheres before make reachable. It stops when nothing new comes; the goal is reached or not.
+nothing. Each following sphere adds what the items, abilities, flags and world changes of
+the earlier spheres make reachable. The solver stops when nothing new is added; the goal is
+then either reached or not.
 The report lists each sphere (zones reached, tokens gained, changes applied), what blocks the
 links still closed, the one-way traps, and a table of the main option sets. On the shipped
 game, with the default options, the goal is reached in 26 spheres.
@@ -1592,8 +1610,8 @@ game, with the default options, the goal is reached in 26 spheres.
 **Apply** uses **assumed fill**, the usual method of game randomizers:
 
 1. The levels are read as they are, and the solver's world is built.
-2. With lock picking off, a door only picking opens that blocks something needed and
-   unmoving is unlocked.
+2. With lock picking off, a door that only picking can open is unlocked if it blocks
+   something that is needed and does not move.
 3. The key items are put in a random order. Each is placed in turn: the solver runs with
    the items already placed where they now lie and every key item **not yet placed counted
    as held**, and one of the reachable empty places is chosen at random. Because every later
@@ -1607,9 +1625,9 @@ game, with the default options, the goal is reached in 26 spheres.
 Items trade places whole (item, quality, flags, quantity or link, owner, enchantment), so a
 key keeps its lock number. An item placed inside a locked chest needs what opens the chest.
 Items NPCs hand over in conversation, trap templates, objects a trap or trigger names, the
-moonstone and Tyball's orb stay where they are, but still count in the logic. With the
-**Vow of poverty** and **Starvation** challenges, the 20 coins beside Shak and the meat beside
-Zak are the only exceptions, and they stay too.
+moonstone and Tyball's orb stay where they are, but still count in the logic. The **Vow of
+poverty** and **Starvation** challenges spare only the 20 coins beside Shak and the meat
+beside Zak, and those stay where they are too.
 
 The spoiler log names each place by the zones of the hand-made zoning (the zone file in
 `DATA`, or else Karl's painted UW1 map), with its level and square.
@@ -1645,8 +1663,8 @@ The spoiler log names each place by the zones of the hand-made zoning (the zone 
 
 ### Automatic zones
 
-The Zones window's **Autozone…** button opens **Automatic zones**, which builds the zones from the levels instead of
-painting them. It reads the levels as they are in the editor, with unsaved edits. It is made
+The Zones window's **Autozone…** button opens **Automatic zones**, which builds the zones
+from the levels instead of painting them. It reads the levels as they are in the editor, with unsaved edits. It is made
 for UW1; UW2's levels are read the same way but nobody has checked the result.
 
 It works in steps:
@@ -1655,12 +1673,12 @@ It works in steps:
   player can walk from any tile to any other and back: no step climbs more than the
   **highest climb**, either way. Each tile holding a door (any door, portcullis or secret
   door) is a region of its own. Lava tiles make regions of their own. Water joins regions,
-  because swimming is normal movement in UW1, but the window counts it. Tiles where magic does
-  not work are counted too (all of level 9 counts).
+  because swimming is normal movement in UW1, but the window counts water tiles. Tiles where
+  magic does not work are counted too (all of level 9 counts).
 - **Edges** join the regions. A **drop** goes down more than the highest climb; it is free and
   one-way. A **climb** is the other way: it needs the jump spell up to the climb set **with the
   jump spell**, and levitation above that. A **jump** crosses a straight gap of lower ground:
-  free up to **Gap jumps** tiles (2), with the jump spell up to the next number (3). The far side
+  free up to **Gap jumps** tiles (2), and with the jump spell up to one tile more (3). The far side
   may be no higher than the near side plus the highest climb. **Diagonals too** also tries the
   diagonals; a diagonal tile counts as 1.4. A **door** edge needs what the door's lock needs
   (key, picking, bashing), or the lever that opens it. Walking into lava needs
@@ -1676,17 +1694,17 @@ It works in steps:
   created objects, special traps, variables and doors closed or opened by walking. Each gets a
   flag name, such as `flag:terrain_L3_971` (level 3, trigger 971). The solver applies them
   over time (see **The world over time** below).
-- **Zones.** Regions that reach each other for free (in both directions, maybe by a round
+- **Zones.** Regions that reach each other for free (in both directions, possibly by a round
   trip) become one zone. A door tile goes with a zone next to it. With **Cut at level
   changes** on, stairs never join zones, so each zone stays on one level. **Fold empty dead
   ends** puts a pit or ledge that has nothing in it and only one neighbour into that
   neighbour's zone. Zones are named by what they are (`L5 ledge at (2, 10)`). Key items become
   what each zone grants, as **Add them to the zone's grants** does. The goal is reaching level
-  9 (a fact), else the largest zone of the last level.
+  9 (a fact) or, failing that, the largest zone of the last level.
 - **Start.** With **Consider the current starting square in the editor** on (the default),
   the start is the new-game square the executable now holds: the game's own, or where the
-  editor's start tool moved it. Off, it is the game's own square, level 1 (32, 2), whatever
-  the executable says. The report's **Start** line says which square and zone were used.
+  editor's start tool moved it. With it off, the start is the game's own square, level 1
+  (32, 2), whatever the executable says. The report's **Start** line says which square and zone were used.
 
 The options come in two groups. **Autozone movement** says how tiles become regions and
 regions zones (climbs, gap jumps, the level cut, dead ends, the start). **Player logic (the
@@ -1694,17 +1712,17 @@ solver)** says what the solver may expect of the player. The Apply window has th
 groups.
 
 - **Build and Report** builds the zones and shows the report: the solve over time (the last
-  phase, which the others lead up to). It has the options, the start, the solver's result and
+  phase, which the others lead up to). The report covers the options, the start, the solver's result and
   a table of the main option sets, the timeline sphere by sphere with the changes set off and
   applied, the changes that close things and how each is treated, the one-way traps and the
   return check. The shuffle itself (Phase D) is **Apply**, which has its own spoiler log.
 - **Build and Use** builds the zones, puts them in the Zones window and closes this window.
-  It asks first if the Zones window's zoning has unsaved changes. Painting on those zones or
-  drawing a link there makes the zoning your own: after a change in the world the solver then
-  keeps its zones, as for a painted zoning, rather than regrouping them as automatic ones. There you can look at
-  them in the view, change them and save them; saving asks for a file name and suggests
-  `uw1-zones-auto.json`, and the painted `uw1-zones.json` is never written unless you choose
-  it. Apply then uses them.
+  It asks first if the Zones window's zoning has unsaved changes. In the Zones window you can
+  look at the zones in the view, change them and save them; saving asks for a file name and
+  suggests `uw1-zones-auto.json`, and the painted `uw1-zones.json` is never written unless you
+  choose it. Apply then uses them. Painting on those zones or drawing a link there makes the
+  zoning your own: after a change in the world the solver then keeps its zones, as for a
+  painted zoning, rather than regrouping them as automatic ones.
 
 The Zones window's **Autozone…** button opens this window.
 
@@ -1718,13 +1736,14 @@ solver)** rows:
 
 - **Magic.** Casting from runes counts. A spell can be cast once the rune bag and its runes
   are reached. Character level, mana and the casting roll are ignored.
-- **Single-use items count.** Scrolls, potions and wands with charges count. Off, only items
-  that keep working count: an enchantment worn, or an item enchanted to cast without charges.
+- **Single-use items count.** Scrolls, potions and wands with charges count. With it off,
+  only items that keep working count: a worn enchantment, or an item enchanted to cast without
+  charges.
 - **Lock picking in logic, skill.** The solver may pick locks with this Pick Lock skill, if a
   lock pick is reached. A lock of difficulty Z can be picked when skill − 3Z + 30 is above 15
   (with retries; the pick does not break). Difficulty 14 needs skill 31, and 15 never opens.
   The Open spell picks with skill 45.
-- **Search skill** and **Retry until found.** For walls that a look opens (below).
+- **Search skill** and **Retry until found.** These apply to walls that a look opens (below).
 
 The tiles of the damaging maze on level 7 that hold a move trigger hurting the player are
 always walls (a fact). Damage-trap tiles elsewhere are not: making every one a wall left the
@@ -1752,7 +1771,7 @@ secret door stands inside the rock. Such a wall becomes a `secret` link that nee
 `spell:reveal | search:Z`. Z is the height of the look trigger. A look at height 0 always
 works. Otherwise a look passes one time in 31 for each point the Search skill is above Z − 15
 (Search 0 against height 10: 5 in 31), and a failed look can be repeated. **Retry until found**
-counts any chance; off, the Search skill must be at least Z. Reveal works up to height 29.
+counts any chance; with it off, the Search skill must be at least Z. Reveal works up to height 29.
 Secret doors themselves open like any door: no search is needed once they can be reached.
 
 **The facts file.** `docs/facts/uw1-facts.json`, shipped with the editor, holds what the levels
@@ -1764,26 +1783,29 @@ damaging maze, and notes on some hidden gates. Each fact names its source in the
 **The damaging maze.** On level 7, every tile of the maze holding a move trigger that hurts
 the player is a wall.
 
-The **Report** now starts with the Phase B part: the solve with the chosen options and a table
+The **Report** starts with the Phase B part: the solve with the chosen options and a table
 of the main option sets (Magic, single-use items, picking and bashing, on and off); each
 ability's sources and the sphere where it first holds; the links that need each ability; the
 hidden gates and how they are passed; the walls; the dragon skin boots and where each part
 is; and, when picking or bashing is off, **the doors the shuffle must open**: doors that only
 picking or bashing opens, with what opening each would add.
 
-In **Logic**, bashing is no longer an option: fists bash any door that can be broken, so a
-breakable door is always open to the logic. **The doors the shuffle must open** are now only
-the doors that need picking, when lock picking is off. Two options are new:
+In **Logic**, bashing is not an option: fists bash any door that can be broken, so a
+breakable door is always open to the logic. **The doors the shuffle must open** are therefore
+only the doors that need picking, when lock picking is off. Three more options:
 
 - **Killing NPCs in logic.** An item that a named, non-hostile creature carries (a key, a
-  talisman, the crystal splinter) can be had by killing it once its zone is reached. Off, such
-  an item needs what a fact says (the quest that gets it); with no fact, it cannot be had. What
-  hostile creatures carry is always free: the player fights them anyway.
+  talisman, the crystal splinter) can be obtained by killing the creature once its zone is
+  reached. With it off, such an item needs what a fact says (the quest that gets it); with no
+  fact, it cannot be obtained. What hostile creatures carry is always free: the player fights
+  them anyway.
 - **Ring of Levitation needs lava protection** (on). The Ring of Levitation's area on level 7
-  can be reached from (59, 43) by jumping, but that is an ordeal. On, the area needs lava
-  protection (the dragon skin boots or Flameproof); off, it is one zone with that of (59, 43).
+  can be reached from (59, 43) by jumping, but that is an ordeal. With it on, the area needs
+  lava protection (the dragon skin boots or Flameproof); with it off, the area shares a zone
+  with (59, 43).
 - **Require breaking the orb** (off). The goal also needs Tyball's orb on level 7 broken (an
-  orb rock used on it). Off, the goal is reaching level 9 by the ritual, which ends the game.
+  orb rock used on it). With it off, the goal is reaching level 9 by the ritual, which ends
+  the game.
 
 The pole and the Telekinesis spell (Ort Por Ylem) count the same: a lever out of the hand's
 reach needs `item:pole | spell:telekinesis | spell:levitate`. A lever is only used from its
@@ -1792,7 +1814,7 @@ rock is opened.
 
 #### The world over time
 
-The solver now follows the world as it changes. When the player can set a mechanism off (its
+The solver follows the world as it changes. When the player can set a mechanism off (its
 trigger's zone is reached and its conditions hold: an item carried, a variable's value, a
 Search check for a look), its flag is gained. Its change is applied to its level: terrain
 rewritten, objects deleted, doors opened. That level alone is then rebuilt and the search goes
@@ -1819,14 +1841,14 @@ taking nothing from inside the traps. Once the silver sapling can be planted, no
 a trap: dying takes the player back to it.
 
 **The facts files.** Every `docs/facts/uw1-*.json` shipped with the editor is read:
-`uw1-facts.json` and the quest facts `uw1-quests.json`. Facts can now also add a **link**
+`uw1-facts.json` and the quest facts `uw1-quests.json`. Facts can also add a **link**
 between the zones of two places, a **warp** (Gate Travel, the silver sapling), the **goal** and
 what it needs, mark lever chains as **free** once their zone is reached (Karl: the level 4 lever
 puzzle and all levers on level 5), or say what a mechanism **needs** besides its zone (the
 Slasher's chamber needs the Key of Infinity). Facts can test the options as `option:magic`,
 `option:kill_npcs`, `option:ring_needs_lava` and so on. The file's `notes` describe the format.
 
-The **Report** now starts with the Phase C part: the solve and the goal, a table of the main
+The **Report** starts with the Phase C part: the solve and the goal, a table of the main
 option sets (Magic, single-use items, picking, killing NPCs, the ring), the timeline sphere by
 sphere (zones reached, items gained, changes set off and applied), the changes that close
 things and how each is treated, the changes that open things, the return check, the facts'
@@ -1840,15 +1862,16 @@ armour, food, lights, tools, runestones, wands, spell scrolls, potions and rings
 they lie (on the floor, in a container or a creature's inventory) but may become something
 else. Each object keeps its owner: food belonging to a rat that becomes a lantern is the rat's
 lantern. (The shuffle never moves objects from one spot to another, so it needs no ownership
-option; the item swap has one.) Choose the settings in the tabs, press **Preview** to see the report, then **Shuffle**.
-**Undo shuffle** puts back every object the shuffles from the window changed; each shuffle is
+option; the item swap has one.) Choose the settings in the tabs, press **Preview** to see the
+report, then **Shuffle**. **Undo shuffle** puts back every object changed by the shuffles
+made in this window; each shuffle is
 also one Edit ▸ Undo step per level, and nothing reaches the game until you save the levels.
 A level edited after the shuffle is left as it is (its old records could undo those edits
 halfway and break its object lists); the report names it, and Edit ▸ Undo steps back there.
 The same seed on the same levels gives the same result. The settings are kept between runs
 (`item-shuffle-uw1.json` / `-uw2.json` in the settings folder); the item swap keeps its own.
 
-**Formula** shows the math the settings give, in symbols, and follows every change: for
+**Formula** shows the maths the settings give, in symbols, and follows every change: for
 example `quality' = clamp(q + U{−10..10}, 1, 63)` for a quality spread of 10, or
 `p = clamp(8.5/100 × (1 + 30/100 × d), 0, 1)` for an enchantment's chance at depth d.
 `Cat(a 50, b 25)` is a weighted pick (a twice as often as b), `U{a..b}` an even pick of a whole
@@ -1865,8 +1888,8 @@ the game** does every tab. **World report** writes what the game's levels hold, 
 disk: the items by kind, the enchantments by kind and by level, the other effects and curses,
 the wand, scroll and potion spells, the rings, and the qualities.
 
-Weights are relative, from 0 to 100: a weight of 0 removes that kind. Never touched:
-Caliburn (UW1's shiny sword), Altara's jewelled dagger (UW2), talismans, crowns, dragon skin
+Weights are relative, from 0 to 100: a weight of 0 removes that kind. The shuffle never
+touches Caliburn (UW1's shiny sword), Altara's jewelled dagger (UW2), talismans, crowns, dragon skin
 boots, fraznium armour, UW2's Guardian signet rings, objects that are templates inside traps,
 and the ignored objects.
 
@@ -1889,8 +1912,8 @@ and the ignored objects.
   **cursed instead**, the curse strength bars, and a bar per effect. **Special armour** puts
   exactly that many Flameproof pieces on top.
 - **Food, lights, tools:** a weight per food and per light source (lit ones stay lit), and the
-  least number of threads (5), poles (3) and fishing poles (3). When there are fewer, random
-  food and lights lying on the floor become them.
+  minimum number of threads (5), poles (3) and fishing poles (3). When there are fewer, random
+  food and lights lying on the floor are turned into them.
 - **Runestones:** a weight and a minimum (1) per rune. Minimums are met by changing runestones
   of the kinds with the most to spare; the report says when there are too few runestones.
 - **Wands:** bars for the number of charges (1-30) and for the spell's circle. A spell is
@@ -1902,8 +1925,8 @@ and the ignored objects.
   its new spell, since the colours tell the effect. Readable scrolls, maps and potions with
   special effects stay.
 - **Rings:** a weight per ring, the chance a ring carries an effect, the share cursed instead,
-  and a bar per worn effect. A curse of strength N does N d8 damage, never taking the wearer
-  below 3 hit points, every time what is worn changes.
+  and a bar per worn effect. Every time what is worn changes, a curse of strength N does N d8
+  damage, never taking the wearer below 3 hit points.
 - **Ignored:** the objects the shuffle leaves alone: pick them from the list of everything it
   touches (with a filter), or ignore the object selected in the editor. Wands enchanted
   directly, which never run out, are ignored at first: UW1's bullfrog wand (it works the level
@@ -1950,7 +1973,7 @@ traps, Garamon's bones, the ignored objects and, while kept, the starting equipm
   enchantment's level. Spell scrolls and wands count the spell's circle (UW1's spells without
   runes count 9; a wand without a spell 0). An enchantment's level is its degree (Accuracy,
   Damage, Protection, Toughness: 1 to 8; UW2's weapon ones 1, 3, 5, 7), a spell's circle, or
-  4.5 for a curse or an effect without degrees. The levels are walked in order: UW1 from level
+  4.5 for a curse or an effect without degrees. The levels are visited in order: UW1 from level
   1 to level 9; UW2 world by world, Britannia, the Prison Tower, Killorn Keep, the Ice Caverns,
   Talorus, the Scintillus Academy, the Pits of Carnage, the Tomb of Praecor Loth and the
   Ethereal Void, levels in order within each world. UW2's slot 73, outside the worlds, keeps
@@ -1971,10 +1994,10 @@ traps, Garamon's bones, the ignored objects and, while kept, the starting equipm
 - **An item put in a spot takes the spot's owner** (on at first). On UW1's level 1 the cheese
   and the meat at (22, 8) belong to the giant rats; a lantern swapped into their place belongs
   to the rats, and the cheese, wherever it goes, takes the owner of its new spot. This only
-  happens where the owner field means "belongs to" on both items: the game reads it so only for
-  items whose can-own bit is set in COMOBJ.DAT. For other objects the same field is something
-  else (a key's lock, whose bones they are, a text number), and those keep their own. Off,
-  every object carries its own owner, as before.
+  happens where the owner field means "belongs to" on both items: the game reads it that way
+  only for items whose can-own bit is set in COMOBJ.DAT. For other objects the same field is
+  something else (a key's lock, whose bones they are, a text number), and those keep their
+  own. With it off, every object keeps its own owner.
 - **Kinds taking part:** weapons, armour, food, lights, tools, runestones, wands, spell
   scrolls, potions, rings, **bones and skulls** (off at first) and **other scenery** (off at
   first). Bones and skulls are the skulls, bones and piles of bones you can pick up; Garamon's
@@ -2001,7 +2024,7 @@ traps, Garamon's bones, the ignored objects and, while kept, the starting equipm
   water, bread, torch), the sling and its stones, the Ort, Bet, In, Jux and Sanct stones and a
   hand axe. Add or remove objects as for the ignore list; **The game's list** sets it back.
 
-**Formula** shows the math in use with the settings: the pool, the groups, the permutation
+**Formula** shows the maths the settings use: the pool, the groups, the permutation
 (`π ~ a uniform random permutation`; for ± N, the passes of trades that keep every object
 within N levels), the owner rule and the enchantment swap. It follows every change. When the
 window grows, the formula and the report get the room; the tabs keep their height and scroll.
@@ -2028,8 +2051,8 @@ item tools; each swap is one Edit ▸ Undo step per level.
   the next monster in the list that does; the one left over goes to the next level. The report
   counts these. Creatures with a conversation stay, level-bound ones (liches, guards, Tybal's
   men...) trade only within their level, and the ignore list and the brain creatures or fire
-  elementals option hold as before. A creature the game put on water or lava it could not be
-  put on keeps its spot. **Swap**, **Target** and **Spread** are greyed while Uniform
+  elementals option still apply. A creature that the game placed on water or lava it could not
+  otherwise stand on keeps its spot. **Swap**, **Target** and **Spread** are greyed while Uniform
   progression is chosen. The report lists, for each class and level, the count and the
   strengths before → after.
 - **Swap** within each level, within each world (UW2), or across all levels.
@@ -2040,7 +2063,7 @@ item tools; each swap is one Edit ▸ Undo step per level.
   8) × damage), so neither side outweighs the other), or none (uniform).
 - **Target**: at 0 each spot keeps its difficulty, taking a monster about as strong as the one
   that was there, which already follows the game's depth curve; at 100 stronger monsters go
-  deeper; between, a blend.
+  deeper; in between, a blend of the two.
 - **Spread**: at 0 the strongest monster goes to the hardest spot, strictly; at 100 the swap
   is uniform.
 - **Keep the hit points at the spot**: a golem put where a 5-hit-point worm was gets 5 hit
@@ -2050,7 +2073,7 @@ item tools; each swap is one Edit ▸ Undo step per level.
 - **Leave the fire elementals alone** (UW1) or **Leave the brain creatures alone** (UW2): on
   at first. Those creatures neither move nor take another's place.
 - **Powerful**: counted in every measure (armour × 5/3, +7..12 attack skill, +4..15 damage,
-  experience × 1.5..3). **Roll it again** gives each moved monster a chance, raised with depth.
+  experience × 1.5..3). **Roll it again** gives each moved monster a new chance of being powerful, higher with depth.
 - **Formula** shows how the swap works out with the settings as they are, and changes with
   them. N(μ, σ) is a normal distribution of mean μ and standard deviation σ; U(0, 1) is
   uniform. In short: each monster's strength gets a rank p from 0 (weakest) to 1 (strongest)
@@ -2069,8 +2092,8 @@ What stays, and why:
   (Goldthirst's quest) and UW2's Listener (Altara's dagger) are whitelisted at first.
 - Templates inside create-object traps, summoned creatures, creatures with no hit points, the
   Ethereal Void's nameless creatures, and the **Ignored** ones.
-- Within their level only: creatures the game calls by race (UW2's liches, the trilkhun (race 0xB),
-  level 1's guards, level 4's bloodworms; UW1's men on Tybal's level), creatures
+- Within their level only: creatures the game calls by race (UW2's liches, the trilkhun
+  (race 0xB), level 1's guards, level 4's bloodworms; UW1's men on Tybal's level), creatures
   whose goal targets another creature, and (when carried items go along) creatures carrying
   something.
 - Swimmers swap only with swimmers, and a monster only goes where its height fits under the
@@ -2134,8 +2157,8 @@ The challenges:
 - **Illiterate**: books, scrolls and maps go, except the ones the plot needs.
 - **Lockdown**: every closed door that can be broken gets a lock no key opens. Pick it
   (harder deeper down, never too hard to pick) or break the door. Portcullises, secret doors,
-  doors that cannot be broken, doors with a lock and doors a lever or trigger works are left
-  alone.
+  doors that cannot be broken, doors with a lock and doors that a lever or trigger works are
+  left alone.
 - **Merchant**: all food goes to the traders (the characters who barter), spread evenly.
   Creatures no longer get food as loot.
 - **Monk**: no weapons: swords, axes, maces, slings, bows, crossbows and their ammunition.
@@ -2148,25 +2171,26 @@ The challenges:
   them in the window). Ammunition is sling stones, bolts or arrows, 1 to 15 of them.
 - **Starvation**: no food and no fishing poles. The Ylem runestones become other runes, so
   Create Food cannot be cast. One piece of meat is placed beside Zak (level 3, (48, 38)), the
-  least he takes for the taper; it is the only exception.
+  least he accepts for the taper; it is the only exception.
 - **Utopia**: every weapon and piece of armour is in excellent shape (quality 63).
 - **Vegetarian**: no meat, no fish, no fishing poles.
 - **Vow of poverty**: no coins and no gems, and creatures carry no treasure. Ultima
-  Underworld's emeralds stay (a puzzle needs them). One pile of 20 coins is placed beside Shak (level 2,
-  (60, 4)), since reforging the sword needs it; it is the only exception.
+  Underworld's emeralds stay (a puzzle needs them). One pile of 20 coins is placed beside
+  Shak (level 2, (60, 4)), since reforging the sword needs it; it is the only exception.
 
 Some pairs cannot go together: Monk and Ranger, Monk and Hoarding, Utopia and Dystopia,
-Peaceful and DMD mode, Merchant and Hoarding. The others are applied in this order: Ghost
+Peaceful and DMD mode, Merchant and Hoarding. The challenges are applied in this order: Ghost
 town, Bones rise, Peaceful, DMD mode, Vow of poverty, Allergic to magic, Illiterate, Old
 school, Eternal darkness, Naked, Monk, Ranger, Vegetarian, Starvation, Fasting, Utopia,
 Dystopia, Merchant, Hoarding, Lockdown, Precognition.
 
 The **Special creatures** tab lists the creatures Ghost town keeps, DMD mode leaves alone
-and Hoarding gives nothing. At first it holds the fire elementals (Ultima Underworld) or the
+and Hoarding gives nothing to. At first it holds the fire elementals (Ultima Underworld) or the
 brain creatures (Underworld II) and the Ethereal Void's creatures without a name.
 
 Changes to OBJECTS.DAT's creature table open in **Tools ▸ Object tables** as unsaved edits;
-**File ▸ Save all** writes them. OBJECTS.DAT lives in DATA, so it serves every save.
+**File ▸ Save all changes** writes them. OBJECTS.DAT lives in DATA, so it applies to every
+saved game.
 
 Limits:
 
@@ -2179,8 +2203,8 @@ Limits:
 
 ### Apply
 
-**Randomizer ▸ Key item scatter ▸ Apply…** (the key item shuffle) moves the key items to new places so that the game can
-still be finished with the logic you choose. It works on Ultima Underworld 1 only, because
+**Randomizer ▸ Key item scatter ▸ Apply…** (the key item shuffle) moves the key items to new
+places so that the game can still be finished with the logic you choose. It works on Ultima Underworld 1 only, because
 the facts and the solver it uses are UW1's. It reads the levels as they are in the editor,
 with unsaved edits and with any Named challenges or swaps already applied.
 
@@ -2202,7 +2226,7 @@ with unsaved edits and with any Named challenges or swaps already applied.
 Their inventories become places too. **Everything else as filler** adds every other item the
 item swap moves (weapons, armour, food, coins, lights …), and their places.
 
-**At the start** (both off at first) adds two helps, done at **Apply** as part of the same
+**At the start** (both off at first) adds two aids, done at **Apply** as part of the same
 step, so **Undo apply** takes them back too:
 - **A full torch (quality 63) and the map beside the start.** The start is the square the
   solver uses: the new-game square in `UW.EXE`, or the game's own with **Consider the current
@@ -2228,11 +2252,11 @@ it), and the coins and food beside Shak and Zak.
 **Zones.** Apply uses the Zones window's zoning, with its unsaved changes; the row at the top
 says which file and how many zones. The zones come from it as described in **How the
 randomizer's logic works** (Zones from a zoning). With no zoning yet (nothing painted), Apply
-makes automatic zones from the movement options, as before. **Quick autozone** makes those
-automatic zones at once and puts them in the Zones window, to look at, change and save there
-(saving asks for a name; `uw1-zones-auto.json` is suggested). It is only available while
-there is no zoning, and goes faint once clicked. If a zoning appears in the Zones window while
-they are being made, it asks before replacing it. **Zones window…** opens that window.
+makes automatic zones from the movement options. **Quick autozone** makes those automatic
+zones at once and puts them in the Zones window, to look at, change and save there (saving
+asks for a name; `uw1-zones-auto.json` is suggested). It is only available while there is no
+zoning, and greys out once clicked. If a zoning appears in the Zones window while the zones
+are being made, Apply asks before replacing it. **Zones window…** opens that window.
 
 **The logic** rows are the same as in the Automatic zones window, with one more:
 **Require breaking the orb (level 7)**. With it on, finishing also needs Tyball's orb broken
@@ -2254,7 +2278,7 @@ behind a door that only picking opens. If something the logic needs and that doe
 lies behind such a door, the door is unlocked as part of the shuffle, and the log says so.
 
 - **Preview** computes a shuffle and shows its spoiler log. Nothing changes.
-- **Apply** writes the shuffle on show into the levels (or computes one first). Items trade
+- **Apply** writes the shuffle shown into the levels (or computes one first). Items trade
   places whole: item, quality, flags, quantity or link, owner and enchantment. Each level is
   one undoable step, saved with the levels.
 - **Undo apply** puts the levels back as they were, byte for byte. A level edited since is
@@ -2270,13 +2294,13 @@ the Zones window names the places itself; otherwise the names come from the zone
 
 ## Mods
 
-**Tools ▸ Mods…** (Ctrl+Shift+M). A mod (`.uwmod`, format 2; the details are in
+**Tools ▸ Mods…** (Ctrl+Shift+M) makes and loads mods. A mod (`.uwmod`, format 2; the details are in
 [docs/mod-format.md](mod-format.md)) holds only the differences from the game's own files, never
 the files themselves, so it can be shared without the game's data:
 - **It changes files the game already has**: the executable and the files under `DATA`, `CRIT`,
-  `CUTS` and `SOUND`. It never removes a file, and never touches a saved game. It adds only the
-  sound files the game opens by a number from its data, which it plays though they are not
-  shipped: UW1 speech `SOUND\nn.VOC`; UW2 effects `SPnn.VOC`, trap sounds `UWnn.VOC` and
+  `CUTS` and `SOUND`. It never removes a file, and never touches a saved game. The only files
+  it adds are sound files that the game opens by a number from its data and plays even though
+  they are not shipped: UW1 speech `SOUND\nn.VOC`; UW2 effects `SPnn.VOC`, trap sounds `UWnn.VOC` and
   speech `BSPnn.VOC`. New music cannot be added (the themes' numbers are fixed in the game's
   code): a new theme replaces the one it goes into.
 - **Make a mod** compares the game with the originals the editor kept (`.ORIG`), or with an
@@ -2285,11 +2309,11 @@ the files themselves, so it can be shared without the game's data:
   own bytes. Every delta is checked to give back the saved file exactly before the mod is
   written. A file removed, or added where the game would never open it, is listed and no mod
   is made.
-- **Load a mod** checks each file against the open game: the original the mod was made from (it
-  applies), already as the mod makes it, not the file it was made from (another release, another
-  mod, or changed since: it does not apply), or missing. A mod applies only to the exact
-  originals (their SHA-256), and the files it writes are then the same, byte for byte, as the
-  ones its author saved. It then opens the game again. Mods made by earlier versions (format 1)
+- **Load a mod** checks each file against the open game. A file can be the original the mod
+  was made from (the mod applies), already as the mod makes it, a different file (another
+  release, another mod, or changed since: the mod does not apply), or missing. A mod applies
+  only to the exact originals (their SHA-256), and the files it writes are then the same, byte
+  for byte, as the ones its author saved. Loading a mod then opens the game again. Mods made by earlier versions (format 1)
   are not read.
 
 ## Keys and mouse
@@ -2358,9 +2382,10 @@ the files themselves, so it can be shared without the game's data:
 
 In the editor's settings folder (`%APPDATA%\UwEditorAvalonia`, `~/.config/UwEditorAvalonia` on Linux):
 `settings.json`, `checkpoints`, `crashes` (crash logs), `running-PID.json` (while it runs),
-`Play test` and `Exhumed check` (copies of the game for those). Versions before the rename kept it
-in `UwEditorFree`; the first start of this one moves that folder to the new name.
+`Play test` and `Exhumed check` (copies of the game for those). Versions before the rename kept
+this folder in `UwEditorFree`; the first time this version starts, it moves that folder to the
+new name.
 
-Before writing, the old file is kept as `NAME.EXT.BKP`. The first time the editor writes a file,
+Before writing a file, the editor keeps the old one as `NAME.EXT.BKP`. The first time the editor writes a file,
 it also keeps the untouched original as `NAME.EXT.ORIG`. The mods window compares with
 those originals.

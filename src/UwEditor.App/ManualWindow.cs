@@ -25,7 +25,7 @@ namespace UwEditor.App
         readonly StackPanel page = new StackPanel { Spacing = 8, Margin = new Thickness(4, 0, 18, 24) };
         readonly ScrollViewer scroller;
         readonly ListBox toc = new ListBox();
-        readonly TextBox search = new TextBox { PlaceholderText = "Search the manual (Enter: next)" };
+        readonly TextBox search = new TextBox { PlaceholderText = "Search the manual (Enter finds the next)" };
         readonly TextBlock status = new TextBlock { FontSize = 12, Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center };
         readonly List<(string Title, Control Target, int Level)> headings = new List<(string, Control, int)>();
         readonly List<(Control Block, string Text)> searchable = new List<(Control, string)>();

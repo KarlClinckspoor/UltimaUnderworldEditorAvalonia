@@ -78,7 +78,7 @@ namespace UwEditor.Core.Randomizer
             }
             int bound = free.Count(x => x.LevelBound != null);
             if (bound > 0) report.AppendFormat("  {0} level-bound creatures are not ranked: they trade at random within their level and class.\n", bound);
-            if (kept.Count > 0) report.AppendFormat("  {0} creatures stand on water or lava they could not be put on (the game put them there): they stay.\n", kept.Count);
+            if (kept.Count > 0) report.AppendFormat("  {0} creatures stand on water or lava that they could not be put on (the game put them there), so they stay.\n", kept.Count);
             report.AppendFormat("  Nearest fit: {0} spot(s) took the nearest-ranked creature that fits instead of one of their level's share; {1} took one whose height does not fit (nothing left fit).\n", fallbacks, relaxed);
         }
 

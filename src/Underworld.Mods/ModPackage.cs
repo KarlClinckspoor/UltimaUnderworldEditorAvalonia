@@ -199,7 +199,7 @@ namespace Underworld.Mods
                     if (p == null || p != raw || !GamePaths.IsGameFile(p, m.Game))
                         throw new ModException("The mod names " + raw + ", which is not a file of " + m.GameName + " that a mod may change.");
                     if (m.Files.Any(f => f.Path == p)) throw new ModException(p + " is in the mod twice.");
-                    if (!o.ContainsKey("base")) throw new ModException(p + " does not say what it was made from.");
+                    if (!o.ContainsKey("base")) throw new ModException(p + " does not say which original it was made from.");
                     bool added = o["base"] == null;
                     if (added && !GamePaths.CanAdd(p, m.Game)) throw new ModException("The mod adds " + p + ", which " + m.GameName + " would never open.");
                     var f = new ModFile
@@ -296,7 +296,7 @@ namespace Underworld.Mods
             }
             else if (original == null) throw new ModException("The game has no " + f.Path + ".");
             else if (original.Length != f.BaseSize || Sha256(original) != f.BaseSha256)
-                throw new ModException(f.Path + " is not the file this mod was made from (another release of the game, another mod, or changed since).");
+                throw new ModException(f.Path + " is not the file this mod was made from (it comes from another release of the game or another mod, or it has changed since).");
             byte[] edited;
             try { edited = Delta.Apply(original, f.Delta); }
             catch (InvalidDataException e) { throw new ModException(f.Path + ": " + e.Message); }

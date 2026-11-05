@@ -161,7 +161,7 @@ namespace UwEditor.Core.Editing
                 : (s.Names.Get(t.Item) ?? "item 0x" + t.Item.ToString("X3"));
             if (SpawnerHidden(m, o))
                 return string.Format("wandering-monster spawner that never runs: create-object trap #{0} comes first on its square, and the game's scan takes only the first one there.", FirstCreateTrapOn(m, o.TileX, o.TileY).Index);
-            return string.Format("wandering-monster spawner: makes {0}, {1:0} % each time it runs. The game runs it every {2} game minutes with chance 1 in 4 while the player is more than 8 squares away, and when he sleeps; not while a creature it made is within 4 squares. The creature goes when the player sleeps.",
+            return string.Format("wandering-monster spawner: makes {0}, {1:0} % each time it runs. The game runs it every {2} game minutes with a 1 in 4 chance while the player is more than 8 squares away, and when he sleeps, but not while a creature it made is within 4 squares. The creature goes when the player sleeps.",
                 what, SpawnChance(o.Quality), s.IsUw2 ? 10 : 8);
         }
 
@@ -240,7 +240,7 @@ namespace UwEditor.Core.Editing
                 try { now = Uw2Traps.Decode(o.Item, o.Quality, o.Owner, o.Z, o.Heading, o.FineX, o.FineY, o.IsQuantity, o.Link, i => s.Strings.Get(9, i)); }
                 catch (Exception) { }
                 if (!string.IsNullOrEmpty(now)) { sb.AppendLine(); sb.Append("With these values: ").AppendLine(now); }
-                if (sb.Length == 0) sb.Append("No description for this trap in UW2.");
+                if (sb.Length == 0) sb.Append("There is no description of this trap for UW2.");
             }
             else
             {

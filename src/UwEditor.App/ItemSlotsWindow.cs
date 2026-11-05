@@ -33,8 +33,8 @@ namespace UwEditor.App
         readonly TextBlock stats = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, FontFamily = new FontFamily("monospace") };
         readonly Image picture = new Image { Width = 64, Height = 64 };
         readonly ComboBox article = new ComboBox { ItemsSource = new[] { "a", "an", "some", "(none)" }, Width = 90 };
-        readonly TextBox nameBox = new TextBox { Width = 220, Watermark = "name" };
-        readonly TextBox pluralBox = new TextBox { Width = 220, Watermark = "plural (empty: none)" };
+        readonly TextBox nameBox = new TextBox { Width = 220, Watermark = "Name" };
+        readonly TextBox pluralBox = new TextBox { Width = 220, Watermark = "Plural (leave empty for none)" };
         readonly StackPanel details = new StackPanel { Spacing = 8 };
         ItemUses.ConversationIndex conversations;
         ObjectTables tables;
@@ -149,7 +149,7 @@ namespace UwEditor.App
                 });
             }
             catch (Exception ex) { status.Text = "Could not read everything: " + ex.Message; return; }
-            status.Text = string.Format("{0} item ids; {1} free (nothing in the levels, conversations, code, loot or combinations uses them). Conversations' item calls read: {2}.",
+            status.Text = string.Format("{0} item ids; {1} free (nothing in the levels, conversations, code, loot or combinations uses them); {2} item calls read from the conversations.",
                 census.Count, census.Count(r => r.Free), conversations.Calls.Count);
             Fill();
             ShowItem(item >= 0 ? item : census.FirstOrDefault(r => r.Free)?.Item ?? 0);
@@ -231,7 +231,7 @@ namespace UwEditor.App
             if ((name ?? nameBox.Text ?? "").Trim().Length == 0) { status.Text = "The name is empty."; return false; }
             try { st.Set(4, Selected.Item, text); }
             catch (Exception ex) { status.Text = "Not set: " + ex.Message; return false; }
-            status.Text = string.Format("Item 0x{0:X3} is now \"{1}\" (not saved: Save STRINGS.PAK, or the strings window).", Selected.Item, text);
+            status.Text = string.Format("Item 0x{0:X3} is now \"{1}\" (not saved yet; use Save STRINGS.PAK or the strings window).", Selected.Item, text);
             return true;
         }
 

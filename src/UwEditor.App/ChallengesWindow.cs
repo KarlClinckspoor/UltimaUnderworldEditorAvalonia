@@ -63,7 +63,7 @@ namespace UwEditor.App
             tabs.Items.Add(new TabItem { Header = "Challenges", Content = new ScrollViewer { Content = settings, Padding = new Thickness(4, 8, 16, 8) } });
             specialTab = new TabItem { Header = "Special creatures (" + opt.Special.Count + ")" };
             SpecialPanel = new IgnoreListPanel(main, s, opt.Special, Challenges.SpecialCandidates(s, Level), () => { Save(); specialTab.Header = "Special creatures (" + opt.Special.Count + ")"; },
-                "Creatures of special note: Ghost town keeps them, DMD mode neither turns them hostile nor makes them powerful, and Hoarding gives them nothing to carry. " + Challenges.SpecialDefaultsText(s) + " Only creatures without a conversation are listed.",
+                "Ghost town keeps these creatures, DMD mode neither turns them hostile nor makes them powerful, and Hoarding gives them nothing to carry. " + Challenges.SpecialDefaultsText(s) + " Only creatures without a conversation are listed.",
                 "Creatures without a conversation", "Special", "Add →", "← Remove", "Add the creature selected in the editor", null);
             specialTab.Content = SpecialPanel;
             tabs.Items.Add(specialTab);
@@ -75,10 +75,10 @@ namespace UwEditor.App
             undoButton.Click += (o, e) => UndoAll();
             var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 6) };
             bar.Children.Add(preview); bar.Children.Add(apply); bar.Children.Add(undoButton);
-            bar.Children.Add(new TextBlock { Text = "One Edit ▸ Undo step per level; nothing is written to the game until you save.", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, FontSize = 12, TextWrapping = TextWrapping.Wrap });
+            bar.Children.Add(new TextBlock { Text = "Each run is also one Edit ▸ Undo step per level; nothing is written to the game until you save.", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, FontSize = 12, TextWrapping = TextWrapping.Wrap });
             buttons = bar;
             report.MinHeight = MinReport;
-            report.Text = "Tick challenges, then Preview to see what would change, or Apply.";
+            report.Text = "Tick challenges, then press Preview to see what would change, or Apply to change it.";
 
             var grid = new Grid { Margin = new Thickness(16), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*") };
             Grid.SetRow(header, 0); grid.Children.Add(header);
@@ -134,8 +134,8 @@ namespace UwEditor.App
             settings.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7, Margin = new Thickness(0, 8, 0, 0),
-                Text = "Order: Ghost town, Bones rise, Peaceful, DMD mode, Vow of poverty, Allergic to magic, Illiterate, Old school, Eternal darkness, Naked, Monk, Ranger, Vegetarian, Starvation, Fasting, Utopia, Dystopia, Merchant, Hoarding, Lockdown, Precognition. " +
-                       "Not together: Monk and Ranger, Monk and Hoarding, Utopia and Dystopia, Peaceful and DMD mode, Merchant and Hoarding.",
+                Text = "The challenges are applied in this order: Ghost town, Bones rise, Peaceful, DMD mode, Vow of poverty, Allergic to magic, Illiterate, Old school, Eternal darkness, Naked, Monk, Ranger, Vegetarian, Starvation, Fasting, Utopia, Dystopia, Merchant, Hoarding, Lockdown, Precognition. " +
+                       "These pairs cannot go together: Monk and Ranger, Monk and Hoarding, Utopia and Dystopia, Peaceful and DMD mode, Merchant and Hoarding.",
             });
         }
 
@@ -164,7 +164,7 @@ namespace UwEditor.App
             }
             var wrap = new StackPanel { Spacing = 2 };
             wrap.Children.Add(p);
-            wrap.Children.Add(new TextBlock { Text = "Half the melee weapons become launchers, half ammunition (sling stones, bolts or arrows, 1-15 of them: N(7, 3) drawn again outside).", TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7 });
+            wrap.Children.Add(new TextBlock { Text = "Half the melee weapons become launchers and half become ammunition: sling stones, bolts or arrows, 1–15 of them (drawn from N(7, 3), and drawn again when outside that range).", TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7 });
             return wrap;
         }
 
@@ -243,11 +243,11 @@ namespace UwEditor.App
             Save();
             var notes = new List<string>();
             if (r.TableChanges.Count > 0)
-                notes.Add(tables == null ? "OBJECTS.DAT could not be opened: its creature table is unchanged." : a.Table.Count + " field(s) of OBJECTS.DAT's creature table changed in Tools ▸ Object tables (unsaved there; File ▸ Save all writes them; DATA's file serves every save).");
+                notes.Add(tables == null ? "OBJECTS.DAT could not be opened, so its creature table is unchanged." : a.Table.Count + " field(s) of OBJECTS.DAT's creature table changed in Tools ▸ Object tables. They are unsaved there until File ▸ Save all writes them; DATA's copy of the file serves every save.");
             if (player != null) notes.Add("The player's inventory changed (unsaved).");
             report.Text = "Applied. " + (applied.Count > 1 ? applied.Count + " runs so far; Undo challenges puts back all of them." : "Undo challenges puts everything back.") + string.Concat(notes.Select(n => "\n" + n)) + "\n\n" + r.Report;
             main.ViewModel.RaiseEditState();
-            main.RandomizerApplied("Named challenges applied; Edit ▸ Undo (per level) or the window's Undo challenges puts them back.");
+            main.RandomizerApplied("Named challenges applied. Edit ▸ Undo (per level) or Undo challenges in the Named challenges window puts them back.");
         }
 
         static Func<int, string, int, string> Setter(ObjectTables t)
@@ -266,7 +266,7 @@ namespace UwEditor.App
             if (sheet != null) main.ChallengePlayerChanging();
             for (int i = applied.Count - 1; i >= 0; i--) skipped.UnionWith(Challenges.Undo(applied[i], main.ViewModel.Edits, Setter(tables), sheet));
             report.Text = string.Format("Undone: {0} run(s) put back as they were.", applied.Count)
-                + (skipped.Count == 0 ? "" : "\n\nLeft as they are, because they were edited since: level" + (skipped.Count == 1 ? " " : "s ") + string.Join(", ", skipped) + ". Edit ▸ Undo steps back there.");
+                + (skipped.Count == 0 ? "" : "\n\nLeft as they are because they were edited since: level" + (skipped.Count == 1 ? " " : "s ") + string.Join(", ", skipped) + ". Use Edit ▸ Undo to step back there.");
             applied.Clear();
             undoButton.IsEnabled = false;
             main.ViewModel.RaiseEditState();

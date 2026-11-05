@@ -46,7 +46,7 @@ public static class ModNotes
         bool levels = m.Files.Any(f => f.Path is "DATA/LEV.ARK" or "DATA/SCD.ARK" or "DATA/BABGLOBS.DAT");
         bool exe = m.Files.Any(f => f.Path == ExeIdentity.ExeName(m.Game));
         if (levels) r.Add("It changes the levels: start a new game to see the changes (saved games keep their own levels).");
-        else if (exe) r.Add("It changes the executable (such as where a new game starts): start a new game to see it.");
+        else if (exe) r.Add("It changes the executable (such as where a new game starts): start a new game to see the change.");
         return r;
     }
 

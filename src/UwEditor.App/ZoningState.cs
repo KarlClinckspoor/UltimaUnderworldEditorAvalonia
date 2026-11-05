@@ -174,7 +174,7 @@ namespace UwEditor.App
         public Zone AddZone(string name = null)
         {
             int id = Set.NextZoneId();
-            if (id < 0) throw new InvalidOperationException("All 254 zone ids (2-255) are in use.");
+            if (id < 0) throw new InvalidOperationException("All 254 zone ids (2–255) are in use.");
             var z = Set.EnsureZone(id);
             z.Name = string.IsNullOrWhiteSpace(name) ? "Zone " + id : name.Trim();
             z.Status = "unfinished";
@@ -194,7 +194,7 @@ namespace UwEditor.App
         {
             var z = Set.EnsureZone(id);
             uint c;
-            z.Color = string.IsNullOrWhiteSpace(hex) ? "" : ZoneSet.TryParseColor(hex, out c) ? ZoneSet.ColorString(c) : throw new FormatException("A colour is #RRGGBB.");
+            z.Color = string.IsNullOrWhiteSpace(hex) ? "" : ZoneSet.TryParseColor(hex, out c) ? ZoneSet.ColorString(c) : throw new FormatException("Write a colour as #RRGGBB.");
             Raise("tiles");
         }
 

@@ -240,7 +240,7 @@ namespace UwEditor.App
             if (pickerKind != kind) BuildPicker();
             picker.IsVisible = true;
             int cur = TextureMap.Get(session, level, kind, slot);
-            pickTitle.Text = string.Format("{0} slot {1} shows texture {2}. Click another texture to use it there ({3} to choose from; • already in the level's list).", kind == TextureMap.Kind.Door ? "Door" : kind == TextureMap.Kind.Floor ? "Floor" : "Wall", slot, cur, pickButtons.Count);
+            pickTitle.Text = string.Format("{0} slot {1} shows texture {2}. Click another texture to use it there ({3} to choose from; • marks those already in the level's list).", kind == TextureMap.Kind.Door ? "Door" : kind == TextureMap.Kind.Floor ? "Floor" : "Wall", slot, cur, pickButtons.Count);
             var used = new HashSet<int>(Enumerable.Range(0, TextureMap.Slots(session, kind)).Select(i => TextureMap.Get(session, level, kind, i)));
             for (int t = 0; t < pickButtons.Count; t++)
             {
@@ -261,7 +261,7 @@ namespace UwEditor.App
             try { TextureMap.Set(vm.Edits.For(level.Level), kind, slot, texture); }
             catch (Exception e) { status.Text = e.Message; FillPicker(); return false; }
             vm.FlushRefresh();
-            status.Text = string.Format("Slot {0} now shows texture {1}. Edit ▸ Undo steps back; Save levels keeps it.", slot, texture);
+            status.Text = string.Format("Slot {0} now shows texture {1}. Edit ▸ Undo reverts it; Save levels keeps it.", slot, texture);
             vm.EditStatus = status.Text;
             if (!ReferenceEquals(level, vm.Level)) { level = vm.Edits.Model(level.Level); Fill(); }   // the shown level refreshes itself (LevelEdited)
             return true;

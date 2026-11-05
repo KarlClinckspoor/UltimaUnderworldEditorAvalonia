@@ -13,14 +13,14 @@
           <TextBlock Text="Global variables" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0" />
           <TextBlock Grid.Column="1" x:Name="SourceText" Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-            <Button x:Name="RefreshButton" Content="Refresh" Click="OnRefresh" ToolTip.Tip="Read the conversations again (after editing scripts) and the save's files" />
-            <Button x:Name="SaveButton" Content="Save values" Click="OnSave" ToolTip.Tip="Write PLAYER.DAT and BGLOBALS.DAT in the save (the old files kept as .BKP)" />
+            <Button x:Name="RefreshButton" Content="Refresh" Click="OnRefresh" ToolTip.Tip="Read the conversations and the save's files again, for example after editing scripts." />
+            <Button x:Name="SaveButton" Content="Save values" Click="OnSave" ToolTip.Tip="Write PLAYER.DAT and BGLOBALS.DAT in the save (Ctrl+S). The old files are kept as .BKP." />
           </StackPanel>
         </Grid>
         <StackPanel Orientation="Horizontal" Spacing="12">
-          <TextBox x:Name="FilterBox" Text="{Binding Filter}" Width="280" PlaceholderText="Filter: number, name, conversation" />
+          <TextBox x:Name="FilterBox" Text="{Binding Filter}" Width="280" PlaceholderText="Filter by number, name or conversation" />
           <ComboBox x:Name="KindBox" ItemsSource="{Binding Kinds}" SelectedIndex="{Binding KindIndex}" MinWidth="200" />
-          <CheckBox x:Name="UsedBox" Content="Only those conversations use" IsChecked="{Binding OnlyUsed}" />
+          <CheckBox x:Name="UsedBox" Content="Only those used by conversations" IsChecked="{Binding OnlyUsed}" />
           <CheckBox x:Name="SetBox" Content="Only non-zero" IsChecked="{Binding OnlySet}" />
         </StackPanel>
       </StackPanel>

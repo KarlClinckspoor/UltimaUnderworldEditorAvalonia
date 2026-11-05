@@ -69,11 +69,11 @@ namespace UwEditor.Core.Music
             catch (Exception ex) { l.Add(MusicIssue.Error("Not an XMI file the game can read: " + ex.Message)); return l; }
             int limit = MusicThemes.SizeLimit(t.Kind);
             if (bytes.Length > limit)
-                l.Add(MusicIssue.Error(string.Format("{0:N0} bytes: more than the {1:N0} the game reads a theme into. The length is not checked, so a bigger file overwrites memory.", bytes.Length, limit)));
+                l.Add(MusicIssue.Error(string.Format("The file is {0:N0} bytes, more than the {1:N0} the game reads a theme into. The game does not check the length, so a bigger file overwrites memory.", bytes.Length, limit)));
             else
                 l.Add(MusicIssue.Note(string.Format("{0:N0} of {1:N0} bytes.", bytes.Length, limit)));
             if (x.Sequences.Count != 1 || x.InfoCount > 1)
-                l.Add(MusicIssue.Warn(string.Format("{0} sequences: the game plays only the first.", Math.Max(x.Sequences.Count, x.InfoCount))));
+                l.Add(MusicIssue.Warn(string.Format("The file holds {0} sequences; the game plays only the first.", Math.Max(x.Sequences.Count, x.InfoCount))));
             if (!ev.Any(e => e.IsEndOfTrack))
                 l.Add(MusicIssue.Error("No end-of-track event: the sequencer would play on past the theme."));
 
@@ -159,7 +159,7 @@ namespace UwEditor.Core.Music
             if (notListed.Count > 0)
                 l.Add(MusicIssue.Warn("Programs not in TIMB: " + string.Join(", ", notListed) + ". The driver does not load them; they sound only if an earlier theme or effect loaded them."));
             if (drumsMissing.Count > 0)
-                l.Add(MusicIssue.Error("Drum keys bank 127 of UW.AD lacks: " + string.Join(", ", drumsMissing.Select(k => k + " (" + MidiToXmi.DrumName(k) + ")")) + ". They are silent."));
+                l.Add(MusicIssue.Error("UW.AD's drum bank (bank 127) lacks these drum keys, so they are silent: " + string.Join(", ", drumsMissing.Select(k => k + " (" + MidiToXmi.DrumName(k) + ")")) + "."));
             if (drumsUnlisted.Count > 0)
                 l.Add(MusicIssue.Warn("Drum keys not in TIMB: " + string.Join(", ", drumsUnlisted) + ". They sound only if an earlier theme loaded them."));
             if (mtRange.Count > 0)
@@ -225,7 +225,7 @@ namespace UwEditor.Core.Music
             else
                 l.Add(MusicIssue.Note(string.Format("Uses {0} of channels 2–9: the {1} channels the effects take stay free.", melodic.Count, fx)));
             if (ev.Any(e => e.IsController && e.Data1 == 110))
-                l.Add(MusicIssue.Note("Locks channels itself (controller 110): fewer are left for the effects."));
+                l.Add(MusicIssue.Note("The theme locks channels itself (controller 110), so fewer are left for the effects."));
         }
 
         static void CheckLoops(List<MusicIssue> l, MusicTarget t, List<XmiEvent> ev)
@@ -266,12 +266,12 @@ namespace UwEditor.Core.Music
             if (endless)
             {
                 if (t.Theme != null && t.Theme.MustEnd)
-                    l.Add(MusicIssue.Error(string.Format("Loops forever, but the game waits for theme {0} to end before it changes the music: the music would stay on it.", t.Theme.Number)));
+                    l.Add(MusicIssue.Error(string.Format("The theme loops forever, but the game waits for theme {0} to end before it changes the music, so the music would stay on it.", t.Theme.Number)));
                 else
-                    l.Add(MusicIssue.Note("Loops forever (an endless FOR/NEXT): it never ends by itself; the game still changes it when another theme is asked for."));
+                    l.Add(MusicIssue.Note("The theme loops forever (an endless FOR/NEXT) and never ends by itself; the game still changes it when another theme is asked for."));
             }
             else if (t.Theme != null)
-                l.Add(MusicIssue.Note("No endless loop: when it ends, " + t.Theme.AtEnd + " (the game restarts or replaces themes itself)."));
+                l.Add(MusicIssue.Note("The theme has no endless loop: when it ends, " + t.Theme.AtEnd + " (the game restarts or replaces themes itself)."));
         }
     }
 }

@@ -43,7 +43,7 @@ namespace UwEditor.Core.Editing
                     if (g.Id == 0)
                     {
                         found.Add(new WorldFinding { Kind = "note", Severity = 0, Level = l.Level, X = l.TileX, Y = l.TileY, Index = l.Holder >= 0 ? l.Holder : l.Index,
-                            Text = string.Format("Level {0} ({1}, {2}): {3} is locked with lock 0, which no key opens (a lockpick, a spell or force).", l.Level, l.TileX, l.TileY, l.Holder >= 0 ? "#" + l.Holder + " " + l.HolderName : "a lock") });
+                            Text = string.Format("Level {0} ({1}, {2}): {3} is locked with lock 0, which no key opens; only a lockpick, a spell or force will.", l.Level, l.TileX, l.TileY, l.Holder >= 0 ? "#" + l.Holder + " " + l.HolderName : "a lock") });
                         continue;
                     }
                     found.Add(new WorldFinding { Kind = "no key", Severity = 2, Level = l.Level, X = l.TileX, Y = l.TileY, Index = l.Holder >= 0 ? l.Holder : l.Index,

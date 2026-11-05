@@ -54,7 +54,7 @@ namespace UwEditor.App
             var report = new System.Text.StringBuilder();
             report.AppendLine(p.Zoning != null
                 ? "The solve over time on this zoning (unsaved changes included), as Apply uses it, with " + p.From + "." + (p.SplitByLevel ? " Split by level: " + p.Split + "." : "")
-                : "This zoning has no zones yet: the solve over time on automatic zones, with " + p.From + ".");
+                : "This zoning has no zones yet, so this is the solve over time on automatic zones, with " + p.From + ".");
             report.AppendLine();
             report.Append(Timeline.Report(result));
             return report.ToString();
@@ -215,7 +215,7 @@ namespace UwEditor.App
         }
 
         /// <summary>The item shuffle changed objects on many levels: the object list and the edit state are read again.</summary>
-        public void ShuffleApplied() { RandomizerApplied("Item properties shuffled; Edit ▸ Undo (per level) or the shuffle window's Undo shuffle puts them back."); }
+        public void ShuffleApplied() { RandomizerApplied("Item properties shuffled. Edit ▸ Undo (per level) or Undo shuffle in the shuffle window puts them back."); }
 
         /// <summary>A randomizer tool changed or restored levels: the zones follow, and the status line says so.</summary>
         public void RandomizerApplied(string status)

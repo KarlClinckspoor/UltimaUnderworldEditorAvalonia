@@ -95,14 +95,14 @@ namespace UwEditor.App
 
             var head = new StackPanel { Spacing = 4, Margin = new Thickness(0, 0, 0, 8) };
             head.Children.Add(new TextBlock { Text = "Sound and music", FontSize = 16, FontWeight = FontWeight.SemiBold });
-            var where = Note("The game folder's SOUND files" + (s.IsSave ? " (saved games share them)" : "") + ". Nothing is written until Save; each file written keeps NAME.EXT.BKP, and the first version NAME.EXT.ORIG.");
+            var where = Note("The SOUND files in the game folder" + (s.IsSave ? " (saved games share them)" : "") + ". Nothing is written until you click Save; each file written keeps its previous version as NAME.EXT.BKP and its first version as NAME.EXT.ORIG.");
             ToolTip.SetTip(where, Library.SoundFolder);
             head.Children.Add(where);
             var save = new Button { Content = "Save", FontWeight = FontWeight.SemiBold };
-            ToolTip.SetTip(save, "Writes every changed file of this window");
+            ToolTip.SetTip(save, "Write every file changed in this window.");
             save.Click += (o, e) => SaveAll();
             var stop = new Button { Content = "Stop" };
-            ToolTip.SetTip(stop, "Stops the sound playing");
+            ToolTip.SetTip(stop, "Stop the sound that is playing.");
             stop.Click += (o, e) => StopPlaying();
             var bottom = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
             var buttons = Row(save, stop);
@@ -303,8 +303,8 @@ namespace UwEditor.App
         {
             var use = Library.SpeechUse;
             string intro = session.IsUw2
-                ? "Speech of the cutscenes (BSPnn.VOC): the cutscene's say opcode starts the file and shows its subtitle (STRINGS block 0xC00 + cutscene) when speech is off. Streamed, so any length; the next say cuts it. The introduction has no speech."
-                : "The introduction's speech (cutscene 0), one nn.VOC a subtitle line (STRINGS block 0xC00). The game reads " + SoundLimits.Describe(use) + " of each file; the next line's say opcode cuts it. Conversations, the dreams and the ending have no speech.";
+                ? "The cutscenes' speech (BSPnn.VOC). A cutscene's say opcode starts the file, and shows its subtitle (STRINGS block 0xC00 + cutscene) when speech is off. The file is streamed, so it can be any length; the next say cuts it off. The introduction has no speech."
+                : "The introduction's speech (cutscene 0): one nn.VOC per subtitle line (STRINGS block 0xC00). The game reads " + SoundLimits.Describe(use) + " of each file; the next line's say opcode cuts it off. Conversations, the dreams and the ending have no speech.";
             var cols = new List<Col<SpeechRow>>
             {
                 new Col<SpeechRow> { Header = "File", Width = 90, Text = r => r.Name },
@@ -322,7 +322,7 @@ namespace UwEditor.App
             var all = B("Export all…", async () => await ExportAllAsk(Rows<SpeechRow>(speechList).Where(r => r.Info.Exists).Select(r => r.Name).ToList()));
             var import = B("Import WAV…", async () => { if (speechList.SelectedItem is SpeechRow r) await ImportAsk(r.Name, use, SpeechOptions); });
             var revert = B("Revert to the original", () => { if (speechList.SelectedItem is SpeechRow r) Revert(r.Name); });
-            ToolTip.SetTip(revert, "Back to the file as shipped (its .ORIG copy), or drop the unsaved import");
+            ToolTip.SetTip(revert, "Go back to the file as shipped (its .ORIG copy), or discard the unsaved import.");
             var buttons = Row(play, export, all, import, revert);
             var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto,Auto,Auto"), Margin = new Thickness(4, 8) };
             var introText = Note(intro);
@@ -387,7 +387,7 @@ namespace UwEditor.App
         Control EffectsTab()
         {
             string intro = session.IsUw2
-                ? "SOUNDS.DAT's " + SoundsDat.Uw2Max + " effects (the game's table holds no more). A digital effect plays SOUND\\SPnn.VOC (nn its number) on the Sound Blaster, else a note on the music card. Digitised files must be " + SoundLimits.Describe(SoundUse.Uw2Effect) + ": they share a cache of four 16 KB pages. Effects 100–163 are the trap sounds UW00–UW63.VOC, played by special-effects traps (0x184) of quality 2 and owner nn."
+                ? "SOUNDS.DAT's " + SoundsDat.Uw2Max + " effects (the game's table holds no more). A digital effect plays SOUND\\SPnn.VOC (nn being its number) on the Sound Blaster; any other plays a note on the music card. Digitised files must be " + SoundLimits.Describe(SoundUse.Uw2Effect) + ", because they share a cache of four 16 KB pages. Effects 100–163 are the trap sounds UW00–UW63.VOC, played by special-effects traps (0x184) of quality 2 and owner nn."
                 : "SOUNDS.DAT's " + SoundsDat.Uw1Max + " effects (the game's table holds no more). Every effect is a note played on the music card (FM or MT-32) with a timbre of bank 1: Ultima Underworld has no digitised effects.";
             bool uw2 = session.IsUw2;
             var cols = new List<Col<EffectRow>>
@@ -420,7 +420,7 @@ namespace UwEditor.App
                     int n = (int)(number.Value ?? 0);
                     await ImportAsk(SoundLibrary.TrapName(n), SoundUse.Uw2Trap, EffectOptions);
                 });
-                ToolTip.SetTip(add, "A new SOUND\\UWnn.VOC: a special-effects trap (0x184) of quality 2 and owner nn plays it");
+                ToolTip.SetTip(add, "Add a new SOUND\\UWnn.VOC, played by a special-effects trap (0x184) of quality 2 and owner nn.");
                 rowButtons.Children.Add(new TextBlock { Text = "UW", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) });
                 rowButtons.Children.Add(number);
                 rowButtons.Children.Add(new TextBlock { Text = ".VOC", VerticalAlignment = VerticalAlignment.Center });
@@ -538,7 +538,7 @@ namespace UwEditor.App
                 case "Priority": e.Priority = value; break;
                 default: throw new ArgumentException("No field " + field);
             }
-            status.Text = string.Format("Effect {0}: {1} {2}. Save to write SOUNDS.DAT.", n, field.ToLowerInvariant(), value);
+            status.Text = string.Format("Effect {0}: {1} set to {2}. Save to write SOUNDS.DAT.", n, field.ToLowerInvariant(), value);
             UpdateEffectRow(n);
         }
 
@@ -584,7 +584,7 @@ namespace UwEditor.App
                 }
                 effectDetail.Children.Add(fields);
                 if (!e.Digital)
-                    effectDetail.Children.Add(Note("Plays on the music card (FM or MT-32): the editor can't play these. The patch is a timbre of bank 1 of UW.AD (FM) and UW.MT (MT-32); the length is in 1/256 seconds (" + e.Length + ": " + (e.Length / 256.0).ToString("0.00") + " s; sound/SOUND.C fx_play)." +
+                    effectDetail.Children.Add(Note("This effect plays on the music card (FM or MT-32), which the editor cannot play. The patch is a timbre of bank 1 of UW.AD (FM) and UW.MT (MT-32); the length is in 1/256 seconds (" + e.Length + ": " + (e.Length / 256.0).ToString("0.00") + " s; sound/SOUND.C fx_play)." +
                         (session.IsUw2 ? " Tick Digital to play a .VOC instead." : "")));
                 if (!e.Digital && session.IsUw2 && Library.Exists(SoundLibrary.EffectName(n)))
                 {
@@ -611,7 +611,7 @@ namespace UwEditor.App
             if (critters.Count > 0) notes.Add("Creatures: " + string.Join(", ", critters) + ".");
             if (r.IsTrap)
             {
-                if (r.Traps.Count == 0) notes.Add("No special-effects trap of quality 2 and owner " + (r.Number - 100) + " is in the levels: add one, set off by a trigger, to play it.");
+                if (r.Traps.Count == 0) notes.Add("No special-effects trap of quality 2 and owner " + (r.Number - 100) + " is in the levels. To play it, add one and set it off with a trigger.");
                 else notes.Add("Played by: " + string.Join("; ", r.Traps.Select(t => t.ToString())) + ".");
             }
             if (notes.Count > 0) effectDetail.Children.Add(Note(string.Join("\n", notes)));

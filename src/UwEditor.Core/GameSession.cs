@@ -232,7 +232,7 @@ namespace UwEditor.Core
         /// </summary>
         public void SetNewGameStart(int x, int y)
         {
-            if (ExePath == null) throw new InvalidOperationException("No " + (IsUw2 ? "UW2.EXE" : "UW.EXE") + " next to DATA: the start square lives in the executable.");
+            if (ExePath == null) throw new InvalidOperationException("No " + (IsUw2 ? "UW2.EXE" : "UW.EXE") + " next to DATA: the start square is stored in the executable.");
             var exe = File.ReadAllBytes(ExePath);
             if (!StartPosition.Patch(exe, Kind, x, y)) throw new InvalidOperationException("The start call was not found in " + Path.GetFileName(ExePath) + " (another version?).");
             UwEditor.Core.Conversations.SafeFile.Write(ExePath, exe);

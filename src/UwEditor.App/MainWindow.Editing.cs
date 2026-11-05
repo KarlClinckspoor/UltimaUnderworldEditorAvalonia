@@ -220,7 +220,7 @@ namespace UwEditor.App
             int tx = hit.Tile >= 0 ? hit.Tile % 64 : -1, ty = hit.Tile >= 0 ? hit.Tile / 64 : -1;
             if (pick != null)
             {
-                if (tx < 0) { vm.EditStatus = "Click a square for the target of " + pick.Name + " (Esc cancels)."; return true; }
+                if (tx < 0) { vm.EditStatus = "Click the square " + pick.Name + " should act on (Esc cancels)."; return true; }
                 var p = pick;
                 pick = null;
                 if (vm.SetTarget(p.Level, p.Index, level.Level, tx, ty))
@@ -245,7 +245,7 @@ namespace UwEditor.App
                 if (View.Tool == ViewTool.Move)
                 {
                     carrying = arrow;
-                    vm.EditStatus = arrow == "player" ? "Click the square to put the player on (on any level: change level first)." : "Click the square on level 1 for the new-game start.";
+                    vm.EditStatus = arrow == "player" ? "Click the square to put the player on (for another level, change level first)." : "Click the square on level 1 for the new-game start.";
                     return true;
                 }
                 if (arrow == "player") { ShowPlayer()?.ShowTab(0); return true; }
@@ -447,7 +447,7 @@ namespace UwEditor.App
         {
             var s = vm.Session;
             if (s == null || vm.Level == null) return false;
-            if (vm.Level.Tiles[tx, ty].IsSolid) { vm.EditStatus = string.Format("({0}, {1}) is rock: nowhere to stand.", tx, ty); return false; }
+            if (vm.Level.Tiles[tx, ty].IsSolid) { vm.EditStatus = string.Format("({0}, {1}) is rock, so there is nowhere to stand.", tx, ty); return false; }
             try
             {
                 if (which == "start")
@@ -459,7 +459,7 @@ namespace UwEditor.App
                 else
                 {
                     var sheet = PlayerSheetOf();
-                    if (sheet == null) throw new InvalidOperationException("The player's position is in a saved game's PLAYER.DAT: open a SAVE folder.");
+                    if (sheet == null) throw new InvalidOperationException("The player's position is stored in a saved game's PLAYER.DAT, so open a SAVE folder.");
                     double fx = point != null && (int)Math.Floor(point.Value.X) == tx ? point.Value.X - tx : 0.5;
                     double fy = point != null && (int)Math.Floor(point.Value.Z) == ty ? point.Value.Z - ty : 0.5;
                     double floor = vm.Level.FloorAt(tx, ty, fx, fy);
@@ -580,7 +580,7 @@ namespace UwEditor.App
             if (vm.SelectedObject < 0) return;
             var o = vm.Level.Objects[vm.SelectedObject];
             int idx = o.Index, tx = o.TileX, ty = o.TileY;
-            if (vm.Edit(e => e.DeleteObject(idx), "Deleted #" + idx + " " + o.Name + (o.Children.Count > 0 ? " and what it held" : "") + "."))
+            if (vm.Edit(e => e.DeleteObject(idx), "Deleted #" + idx + " " + o.Name + (o.Children.Count > 0 ? " and its contents" : "") + "."))
             {
                 vm.FlushRefresh();
                 vm.Select(-1, tx, ty, true);

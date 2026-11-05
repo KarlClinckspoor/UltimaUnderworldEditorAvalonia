@@ -66,7 +66,7 @@ namespace UwEditor.App
 
             var head = new StackPanel { Spacing = 4, Margin = new Thickness(0, 0, 0, 8) };
             head.Children.Add(new TextBlock { Text = "Game tables", FontSize = 16, FontWeight = FontWeight.SemiBold });
-            head.Children.Add(Note("Small tables of the DATA folder that hold for the whole game, saved games too. Each tab saves its own file; the old one is kept as NAME.DAT.BKP, and the first version as NAME.DAT.ORIG. Changed values are marked."));
+            head.Children.Add(Note("Small tables in the DATA folder that apply to the whole game, saved games included. Each tab saves its own file, keeping the previous version as NAME.DAT.BKP and the first version as NAME.DAT.ORIG. Changed values are marked."));
             DockPanel.SetDock(head, Dock.Top);
             DockPanel.SetDock(status, Dock.Bottom);
             var dock = new DockPanel { Margin = new Thickness(16) };
@@ -311,8 +311,8 @@ namespace UwEditor.App
             editor.Children.Add(Row(Label("Word", 90), raw, revertOne));
             editor.Children.Add(was);
             editor.Children.Add(Note(uw2
-                ? "Bits 6-7 are the class: water lets you swim and fish, lava burns, ice slides (include/map.h TERR_CLASS). Bits 3-5: in water a current that carries the swimmer; on ice 7 grips and 0-6 slide (motion/PHYSICS.C). Bits 0-2 mark special walls: 3 and 4 are drawn and mapped as stairs (3d/DRAWOBJ.C, ui/AUTOMAP.C), 5 is a shaft you can look down (obj/LOOK.C). T64.TR has 264 textures; TERRAIN.DAT covers the first 256."
-                : "Walls: the special walls the game looks for (the ankh shrines, the princess, windows, the textured door; include/map.h TERR_*). Floors: water (swimming, fishing) and lava; the class is the word shifted right 4 (critter/PATHFIND.C, motion/COLLIDE.C). The automap draws water and lava floors in their colours."));
+                ? "Bits 6-7 are the class: water lets you swim and fish, lava burns, and ice is slippery (include/map.h TERR_CLASS). Bits 3-5 are, in water, a current that carries the swimmer and, on ice, the grip: 7 grips and 0-6 slide (motion/PHYSICS.C). Bits 0-2 mark special walls: 3 and 4 are drawn and mapped as stairs (3d/DRAWOBJ.C, ui/AUTOMAP.C), and 5 is a shaft you can look down (obj/LOOK.C). T64.TR has 264 textures; TERRAIN.DAT covers the first 256."
+                : "Walls: the special walls the game looks for (the ankh shrines, the princess, windows and the textured door; include/map.h TERR_*). Floors: water (for swimming and fishing) and lava; the class is the word shifted right by 4 (critter/PATHFIND.C, motion/COLLIDE.C). The automap draws water and lava floors in their own colours."));
 
             var top = new StackPanel { Spacing = 6, Margin = new Thickness(0, 4, 0, 8) };
             if (!uw2)
@@ -425,7 +425,7 @@ namespace UwEditor.App
             };
             classBox.SelectionChanged += (o, e) => { skillClass = Math.Max(0, classBox.SelectedIndex); refreshSkills(); };
 
-            panel.Children.Add(Note("A new character gets the class's strength, dexterity and intelligence, then its bonus points 1-4 at a time on random attributes, none above 30 (game/CHARGEN.C roll_stats). Then the class's five entries in order: an empty one gives nothing, a single skill is given, several make a menu to pick one (set_sklmnu). Every pick adds to the skill. An empty entry also loses the entries after it: the game does not step past it."));
+            panel.Children.Add(Note("A new character gets the class's strength, dexterity and intelligence, then its bonus points, added 1-4 at a time to random attributes, none going above 30 (game/CHARGEN.C roll_stats). Then come the class's five entries, in order: an empty entry gives nothing, a single skill is given outright, and several skills make a menu to pick one from (set_sklmnu). Every pick adds to the skill. An empty entry also cancels the entries after it, because the game does not step past it."));
             panel.Children.Add(Row(Label("Class"), classBox));
             panel.Children.Add(attrRow);
             panel.Children.Add(entries);
@@ -453,8 +453,8 @@ namespace UwEditor.App
             itemNames = Enumerable.Range(0, 0x200).Select(i => string.Format("0x{0:X3} {1}", i, session.Names.Get(i))).ToList();
             var panel = new StackPanel { Spacing = 6 };
             panel.Children.Add(Note(session.IsUw2
-                ? "Drop one item on the other in the inventory (either order) and the rule's output is made. Neither may be a stack or hold anything. The game takes the first rule that names both items; a source marked used up goes away (obj/COMBINE.C). Underworld II takes every rule; its unused ones are 0xFFFF."
-                : "Drop one item on the other in the inventory (either order) and the rule's output is made. Neither may be a stack or hold anything. The game takes the first rule that names both items and has a source marked used up; a used-up source goes away (obj/COMBINE.C)."));
+                ? "Drop one item on the other in the inventory, in either order, and the rule's output is made. Neither item may be a stack or hold anything. The game takes the first rule that names both items; a source marked used up goes away (obj/COMBINE.C). Underworld II reads every rule; its unused ones are 0xFFFF."
+                : "Drop one item on the other in the inventory, in either order, and the rule's output is made. Neither item may be a stack or hold anything. The game takes the first rule that names both items and has a source marked used up; a used-up source goes away (obj/COMBINE.C)."));
             var warnings = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
             warnings.Bind(TextBlock.ForegroundProperty, warnings.GetResourceObservable("Warn"));
             var marks = new List<TextBlock>();
@@ -634,7 +634,7 @@ namespace UwEditor.App
 
             Action refreshDl = () => { };
             if (session.IsUw2) refreshDl = MinimumLightPart(panel);
-            else panel.Children.Add(Note("Underworld has no DL.DAT: its light comes from what the player carries and the light spells. The squares' light flag (bit 8 of the tile) is kept but not used for light (its motion/PHYSICS.C has no light check)."));
+            else panel.Children.Add(Note("Underworld has no DL.DAT: its light comes from what the player carries and the light spells. The squares' light flag (bit 8 of the tile) is kept but not used for light (UW1's motion/PHYSICS.C has no light check)."));
             refreshLight = () => { refreshShades(); refreshDl(); };
             refreshShades();
             refreshDl();
@@ -647,7 +647,7 @@ namespace UwEditor.App
             var t = MinimumLight;
             var slots = session.LevelSlots();
             panel.Children.Add(new TextBlock { Text = "Minimum light of each level (DL.DAT)", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 16, 0, 0) });
-            panel.Children.Add(Note("A level can have a minimum light: the light is at least that, whatever the player carries. Each square's light flag says where: a level's value 10 and up applies it on squares without the flag, 1-9 on squares with it (game/PLAYDATA.C load_dl, motion/PHYSICS.C change_GrSq). That is why the castle's corridors are dark: level 1 has 14, light 4 on unflagged squares, and the corridors are flagged. The game redoes the light as the player steps between squares whose flags differ."));
+            panel.Children.Add(Note("A level can have a minimum light: the light is never lower than that, whatever the player carries. Each square's light flag says where it applies: a value of 10 or more applies it on squares without the flag, and 1-9 on squares with it (game/PLAYDATA.C load_dl, motion/PHYSICS.C change_GrSq). That is why the castle's corridors are dark: level 1 has 14, which means light 4 on unflagged squares, and the corridors are flagged. The game works out the light again whenever the player steps between squares whose flags differ."));
             var rows = new ObservableCollection<TableRow>();
             var list = RowList();
             list.Height = 260;

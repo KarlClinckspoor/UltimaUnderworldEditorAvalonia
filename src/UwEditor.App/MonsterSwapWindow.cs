@@ -56,7 +56,7 @@ namespace UwEditor.App
 
             var scope = new ComboBox { ItemsSource = new[] { "Within each level", s.IsUw2 ? "Within each world" : "Across all levels (no worlds in UW1)", "Across all levels" }, SelectedIndex = Math.Max(0, Array.IndexOf(Scopes, opt.Scope)), Width = 300 };
             scope.SelectionChanged += (o, e) => { opt.Scope = Scopes[Math.Max(0, scope.SelectedIndex)]; Changed(); };
-            var measure = new ComboBox { ItemsSource = new[] { "Experience value (the game's own rating)", "Hit points", "Damage per round (attacks and spells)", "Combined: √(toughness × damage)", "None: uniform" }, SelectedIndex = Math.Max(0, Array.IndexOf(Measures, opt.Measure)), Width = 300 };
+            var measure = new ComboBox { ItemsSource = new[] { "Experience value (the game's own rating)", "Hit points", "Damage per round (attacks and spells)", "Combined: √(toughness × damage)", "None (uniform)" }, SelectedIndex = Math.Max(0, Array.IndexOf(Measures, opt.Measure)), Width = 300 };
             measure.SelectionChanged += (o, e) => { opt.Measure = Measures[Math.Max(0, measure.SelectedIndex)]; Changed(); };
 
             ruleBox = new ComboBox { ItemsSource = new[] { "Rank matching: by the swap, target and spread below", "Uniform progression: the weakest on the first level, the strongest on the last" }, SelectedIndex = Math.Max(0, Array.IndexOf(Rules, opt.Rule)), Width = 560 };
@@ -69,8 +69,8 @@ namespace UwEditor.App
                        "Each level keeps its number of creatures of each class and takes the next ones; within a level they go to its spots at random. Level-bound creatures stay on their level. The swap, target and spread do not apply.",
             };
             scopeRow = Row(Label("Swap"), scope);
-            targetRow = Row(Label("Target"), Bar(opt.DepthBlend, x => opt.DepthBlend = x), Note("0: each spot keeps its difficulty (the strength of the monster that was there). 100: stronger deeper. Between: a blend."));
-            spreadRow = Row(Label("Spread"), Bar(opt.Spread, x => opt.Spread = x), Note("0: strongest to hardest, strictly. 100: uniform."));
+            targetRow = Row(Label("Target"), Bar(opt.DepthBlend, x => opt.DepthBlend = x), Note("At 0, each spot keeps its difficulty (the strength of the monster that was there). At 100, monsters get stronger the deeper they are. In between, the two are blended."));
+            spreadRow = Row(Label("Spread"), Bar(opt.Spread, x => opt.Spread = x), Note("At 0, the strongest monsters go strictly to the hardest spots. At 100, the choice is uniform."));
             settings.Children.Add(Row(Label("Seed"), seed, newSeed));
             settings.Children.Add(Row(Label("Order"), ruleBox));
             settings.Children.Add(ruleNote);
@@ -84,9 +84,9 @@ namespace UwEditor.App
             specialCheck = Check("Leave the " + MonsterSwap.SpecialKindName(s) + " alone: they neither move nor take another's place", opt.LeaveSpecialKinds, x => opt.LeaveSpecialKinds = x);
             settings.Children.Add(Row(Label(""), specialCheck));
             settings.Children.Add(Row(Label("Powerful"), Check("Roll it again", opt.RerollPowerful, x => opt.RerollPowerful = x),
-                Label("chance %", 60), Bar(opt.PowerfulChance, x => opt.PowerfulChance = x, 140), Label("depth", 40), Bar(opt.PowerfulDepth, x => opt.PowerfulDepth = x, 140)));
-            settings.Children.Add(Note("A powerful monster has armour × 5/3, +7..12 attack skill, +4..15 damage and × 1.5..3 experience; every strength measure counts it. Depth at 100 doubles the chance on the deepest level."));
-            settings.Children.Add(new TextBlock { Text = "Formula: N(μ, σ) is a normal distribution of mean μ and standard deviation σ, U(0, 1) uniform", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
+                Label("Chance %", 60), Bar(opt.PowerfulChance, x => opt.PowerfulChance = x, 140), Label("Depth", 40), Bar(opt.PowerfulDepth, x => opt.PowerfulDepth = x, 140)));
+            settings.Children.Add(Note("A powerful monster has armour × 5/3, +7..12 attack skill, +4..15 damage and × 1.5..3 experience; every strength measure takes this into account. A depth of 100 doubles the chance on the deepest level."));
+            settings.Children.Add(new TextBlock { Text = "Formula: N(μ, σ) is a normal distribution with mean μ and standard deviation σ, and U(0, 1) a uniform one", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
             settings.Children.Add(formula);
             UpdateRule();
             UpdateFormula();
@@ -97,8 +97,8 @@ namespace UwEditor.App
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
                 Text = "The monsters trade places: each spot keeps its position, home, goal and (by default) what lies in its inventory, and takes another monster's kind, hit points, powerful flag and attitude. " +
-                       "Creatures with a conversation stay (the plot finds them by their conversation, on their own level) unless whitelisted, and so do templates inside traps and ignored ones. " +
-                       "Race-bound creatures (liches, guards, Tybal's men...) only swap within their level; swimmers swap with swimmers; a monster only goes where its height fits, and only fliers, swimmers and fire-resistant ones go on water or lava. " +
+                       "Creatures with a conversation stay (the plot finds them by their conversation, on their own level) unless whitelisted, and so do monster templates inside traps and ignored monsters. " +
+                       "Race-bound creatures (liches, guards, Tybal's men…) only swap within their level; swimmers swap with swimmers; a monster only goes where its height fits, and only fliers, swimmers and fire-resistant ones go on water or lava. " +
                        "Uniform progression instead sorts them by strength and hands them out level by level, the weakest first.",
             });
             settingsView = new ScrollViewer { Content = settings, Padding = new Thickness(4, 8, 16, 8) };
@@ -110,10 +110,10 @@ namespace UwEditor.App
             undoButton.Click += (o, e) => UndoAll();
             buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 6) };
             var world = new Button { Content = "World report" };
-            ToolTip.SetTip(world, "The creatures of the game's levels as saved on disk (before any edits)");
+            ToolTip.SetTip(world, "Shows the creatures of the game's levels as saved on disk, before any edits.");
             world.Click += (o, e) => report.Text = MonsterSwap.WorldReport(session, session.LoadLevel);
             buttons.Children.Add(preview); buttons.Children.Add(swap); buttons.Children.Add(undoButton); buttons.Children.Add(world);
-            buttons.Children.Add(new TextBlock { Text = "One Edit ▸ Undo step per level; nothing is written to the game until you save.", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, FontSize = 12 });
+            buttons.Children.Add(new TextBlock { Text = "Each swap is also one Edit ▸ Undo step per level; nothing is written to the game until you save.", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, FontSize = 12 });
             report.MinHeight = MinReport;
 
             BuildTabs();
@@ -172,11 +172,11 @@ namespace UwEditor.App
             var live = survey.Where(x => x.Blocked == null || x.Blocked == "has a conversation").Select(x => new IgnoredObject { Level = x.Level, Index = x.Index, Label = x.Label }).ToList();
             TabItem wt = null, it = null;
             var white = new IgnoreListPanel(main, session, opt.Whitelist, talkers, () => { Save(); if (wt != null) wt.Header = "Whitelist (" + opt.Whitelist.Count + ")"; },
-                "Creatures with a conversation that may move anyway: ones whose plot only needs them alive somewhere, so the directions to them just stop being right. The level 2 gazer (Goldthirst's quest) in Ultima Underworld and the Listener (Altara's dagger) in Underworld II are whitelisted at first. Their conversation and their special death go with them.",
+                "These creatures with a conversation may move anyway: their plot only needs them alive somewhere, so at worst the directions to them stop being right. The level 2 gazer (Goldthirst's quest) in Ultima Underworld and the Listener (Altara's dagger) in Underworld II start out whitelisted. Their conversation and their special death go with them.",
                 "Creatures with a conversation", "Allowed to move", "Allow →", "← Keep in place", "Allow the creature selected in the editor",
                 c => talkers.Any(t => t.Level == c.Level && t.Index == c.Index) ? null : "Only creatures with a conversation need the whitelist.");
             var ign = new IgnoreListPanel(main, session, opt.Ignored, live, () => { Save(); if (it != null) it.Header = "Ignored (" + opt.Ignored.Count + ")"; },
-                "Monsters that never move (the Slasher of Veils, a guard you like where it is...).",
+                "These monsters never move (the Slasher of Veils, a guard you like where it is…).",
                 "Monsters", "Ignored", "Ignore →", "← Stop ignoring", "Ignore the creature selected in the editor",
                 c => live.Any(t => t.Level == c.Level && t.Index == c.Index) ? null : "That is not a creature in the world.");
             wt = new TabItem { Header = "Whitelist (" + opt.Whitelist.Count + ")", Content = white };
@@ -196,14 +196,14 @@ namespace UwEditor.App
             {
                 new TableColumn<MonsterSwap.StrengthRow> { Header = "Kind", Width = 150, Text = r => r.Name },
                 new TableColumn<MonsterSwap.StrengthRow> { Header = "Item", Width = 58, Text = r => "0x" + r.Item.ToString("X2"), Key = r => r.Item },
-                new TableColumn<MonsterSwap.StrengthRow> { Header = "XP", Width = 58, Right = true, Text = r => r.Xp.ToString(ci), Key = r => r.Xp, Tip = "The game's experience value for the kind" },
-                new TableColumn<MonsterSwap.StrengthRow> { Header = "HP", Width = 54, Right = true, Text = r => r.Hp.ToString(ci), Key = r => r.Hp, Tip = "Average hit points" },
-                new TableColumn<MonsterSwap.StrengthRow> { Header = "Armour", Width = 76, Right = true, Text = r => r.Armour.ToString("0.0", ci), Key = r => r.Armour, Tip = "The mean armour over the hit locations" },
-                new TableColumn<MonsterSwap.StrengthRow> { Header = "Damage", Width = 80, Right = true, Text = r => r.Damage.ToString("0.0", ci), Key = r => r.Damage, Tip = "Damage per round (attacks and spells)" },
+                new TableColumn<MonsterSwap.StrengthRow> { Header = "XP", Width = 58, Right = true, Text = r => r.Xp.ToString(ci), Key = r => r.Xp, Tip = "The game's experience value for the kind." },
+                new TableColumn<MonsterSwap.StrengthRow> { Header = "HP", Width = 54, Right = true, Text = r => r.Hp.ToString(ci), Key = r => r.Hp, Tip = "The average hit points." },
+                new TableColumn<MonsterSwap.StrengthRow> { Header = "Armour", Width = 76, Right = true, Text = r => r.Armour.ToString("0.0", ci), Key = r => r.Armour, Tip = "The mean armour over the hit locations." },
+                new TableColumn<MonsterSwap.StrengthRow> { Header = "Damage", Width = 80, Right = true, Text = r => r.Damage.ToString("0.0", ci), Key = r => r.Damage, Tip = "Damage per round, from attacks and spells." },
                 new TableColumn<MonsterSwap.StrengthRow> { Header = "Combined", Width = 94, Right = true, Text = r => r.Combined.ToString("0.0", ci), Key = r => r.Combined, Tip = "√(hp × (1 + armour / 8) × damage)" },
-                new TableColumn<MonsterSwap.StrengthRow> { Header = "Moves", Width = 68, Text = r => r.Moves, Tip = "Fliers may go anywhere, swimmers on water" },
-                new TableColumn<MonsterSwap.StrengthRow> { Header = "Fire", Width = 72, Text = r => r.Fireproof ? "resists" : "", Key = r => r.Fireproof ? 1 : 0, Tip = "Resists fire: may go on lava" },
-                new TableColumn<MonsterSwap.StrengthRow> { Header = "Height", Width = 70, Right = true, Text = r => r.Height.ToString(ci), Key = r => r.Height, Tip = "COMOBJ.DAT height: it must fit under the ceiling" },
+                new TableColumn<MonsterSwap.StrengthRow> { Header = "Moves", Width = 68, Text = r => r.Moves, Tip = "Fliers may go anywhere; swimmers may go on water." },
+                new TableColumn<MonsterSwap.StrengthRow> { Header = "Fire", Width = 72, Text = r => r.Fireproof ? "resists" : "", Key = r => r.Fireproof ? 1 : 0, Tip = "Resists fire, so it may go on lava." },
+                new TableColumn<MonsterSwap.StrengthRow> { Header = "Height", Width = 70, Right = true, Text = r => r.Height.ToString(ci), Key = r => r.Height, Tip = "The COMOBJ.DAT height, which must fit under the ceiling." },
                 new TableColumn<MonsterSwap.StrengthRow> { Header = "Spells", Width = 110, Fill = true, Text = r => r.Spells },
             };
             strengthTable = new SortableTable<MonsterSwap.StrengthRow>(cols, MonsterSwap.StrengthRows(session));
@@ -279,7 +279,7 @@ namespace UwEditor.App
             undoButton.IsEnabled = true;
             Save();
             report.Text = "Swapped. " + (applied.Count > 1 ? applied.Count + " swaps so far; Undo swap puts back all of them.\n\n" : "Undo swap puts everything back.\n\n") + r.Report;
-            main.RandomizerApplied("Monsters swapped; Edit ▸ Undo (per level) or the monster swap window's Undo swap puts them back.");
+            main.RandomizerApplied("Monsters swapped. Edit ▸ Undo (per level) or Undo swap in the monster swap window puts them back.");
         }
 
         /// <summary>The Undo swap button: every swap from this window, put back.</summary>
@@ -289,7 +289,7 @@ namespace UwEditor.App
             var skipped = new SortedSet<int>();
             for (int i = applied.Count - 1; i >= 0; i--) { skipped.UnionWith(MonsterSwap.Revert(applied[i], main.ViewModel.Edits)); n += applied[i].Changed; }
             report.Text = string.Format("Undone: {0} swap(s), {1} creature records put back as they were.", applied.Count, n)
-                + (skipped.Count == 0 ? "" : "\n\nLeft as they are, because they were edited since: level" + (skipped.Count == 1 ? " " : "s ") + string.Join(", ", skipped) + ". Edit ▸ Undo steps back there.");
+                + (skipped.Count == 0 ? "" : "\n\nLeft as they are because they were edited since: level" + (skipped.Count == 1 ? " " : "s ") + string.Join(", ", skipped) + ". Use Edit ▸ Undo to step back there.");
             applied.Clear();
             undoButton.IsEnabled = false;
             main.RandomizerApplied("Monster swaps undone.");

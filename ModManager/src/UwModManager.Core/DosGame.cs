@@ -142,7 +142,7 @@ public static class DosGame
         var desired = new Dictionary<string, byte[]?>(StringComparer.Ordinal);
         if (mod != null)
         {
-            if (mod.Game != t.GameKind) throw new ModException("the mod is for " + mod.GameName + ", this is " + (t.Game == "uw2" ? "Ultima Underworld II" : "Ultima Underworld"));
+            if (mod.Game != t.GameKind) throw new ModException("the mod is for " + mod.GameName + ", but this is " + (t.Game == "uw2" ? "Ultima Underworld II" : "Ultima Underworld"));
             foreach (var f in mod.Files)
                 if (f.Path != t.ExeName || !ultimaHacks) desired[f.Path] = mod.BuildOne(f, Original(t, vault, f.Path));
             plan.Warnings.AddRange(ModNotes.Warnings(mod));
@@ -186,7 +186,7 @@ public static class DosGame
     {
         var t = plan.Target;
         if (plan.OutsideChanges.Count > 0 && !overwrite)
-            throw new ModException("these files changed since the manager last wrote them: " + string.Join(", ", plan.OutsideChanges) +
+            throw new ModException("these files have changed since the manager last wrote them: " + string.Join(", ", plan.OutsideChanges) +
                 ". Keep the changes as a mod first (Capture), or overwrite them.");
         var folder = new GameDir(t.Folder, t.GameKind);
         var j = new DosJournal { Target = t.Id, Stamp = Guid.NewGuid().ToString("N"), Mod = plan.Mod, UltimaHacks = plan.UltimaHacks };
@@ -240,7 +240,7 @@ public static class DosGame
         if (t.LastChange == j.Stamp) return null;
         Rollback(t, vault, j);
         WriteMarker(t);
-        return string.Format("A change of {0} to {1} was interrupted and has been undone: it has {2} again.",
+        return string.Format("Switching {0} to {1} was interrupted, so the change has been undone: {0} has {2} again.",
             t.Name, j.Mod ?? "the original game", t.ActiveMod ?? "the original game");
     }
 

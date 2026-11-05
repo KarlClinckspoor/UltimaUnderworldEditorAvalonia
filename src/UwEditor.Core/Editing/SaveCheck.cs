@@ -59,7 +59,7 @@ namespace UwEditor.Core.Editing
                         list.Add(new SaveFinding
                         {
                             Level = lv, Kind = "notes",
-                            Text = string.Format("the map notes are read from {0} (all of this level's notes were erased once, and the game wrote an empty block that shares the next one's place); the {1} \"notes\" there have no end, and opening the map can crash the game", Describe(s, alias), b.Length / Automap.NoteSize),
+                            Text = string.Format("the map notes are read from {0} (all of this level's notes were once erased, and the game wrote an empty block that shares the next block's place); the {1} \"notes\" there have no end, and opening the map can crash the game", Describe(s, alias), b.Length / Automap.NoteSize),
                             FixText = "Drop the notes block (the level has no notes)",
                             Repair = e => { var a = e.AutomapFor(lv); a.Replace(a.Map, new List<MapNote>(), "Repair: drop the notes read from another block"); ForceDirty(e, a); return true; },
                         });
@@ -86,7 +86,7 @@ namespace UwEditor.Core.Editing
                             list.Add(new SaveFinding
                             {
                                 Level = lv, Kind = "notes", Problem = bad, Text = string.Join("; ", why),
-                                FixText = "Keep the whole notes that end and lie on the screen (at most 100); drop the rest",
+                                FixText = "Keep the complete notes that end and lie on the screen (at most 100), and drop the rest",
                                 Repair = e => { var a = e.AutomapFor(lv); a.Replace(a.Map, CleanNotes(b), "Repair: map notes"); ForceDirty(e, a); return true; },
                             });
                     }

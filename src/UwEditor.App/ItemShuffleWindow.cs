@@ -46,7 +46,7 @@ namespace UwEditor.App
             var newSeed = new Button { Content = "New seed" };
             newSeed.Click += (o, e) => seed.Value = new Random().Next(1, int.MaxValue);
             var defaults = new Button { Content = "All from the game" };
-            ToolTip.SetTip(defaults, "Every tab's values set to what the levels hold now");
+            ToolTip.SetTip(defaults, "Sets every tab's values to what the levels hold now.");
             defaults.Click += (o, e) => { int sd = opt.Seed; var ign = opt.Ignored; opt = ShuffleOptions.Defaults(session, Level); opt.Seed = sd; opt.Ignored = ign; Build(); report.Text = "Every setting now follows the levels as they are."; };
             seed.ValueChanged += (o, e) => opt.Seed = (int)(seed.Value ?? 1);
 
@@ -61,8 +61,8 @@ namespace UwEditor.App
             top.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
-                Text = "Weapons, armour, food, lights, tools, runestones, wands, scrolls, potions and rings stay where they lie, but may become other items by the weights below, " +
-                       "with their quality and enchantments rolled again. Each keeps its owner: food belonging to a rat that becomes a lantern is the rat's lantern. The settings start from what the world holds. Weights are relative: 0 removes a kind. Caliburn" + (s.IsUw2 ? ", the jewelled dagger" : "") +
+                Text = "Weapons, armour, food, lights, tools, runestones, wands, scrolls, potions and rings stay where they lie, but may become other items according to the weights below, " +
+                       "with their quality and enchantments rolled again. Each keeps its owner: if a rat's food becomes a lantern, the lantern belongs to the rat. The settings start from what the world holds. Weights are relative, and 0 removes a kind. Caliburn" + (s.IsUw2 ? ", the jewelled dagger" : "") +
                        ", talismans and quest items are never touched. The item swap moves existing objects around instead. The same seed gives the same result.",
             });
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -72,7 +72,7 @@ namespace UwEditor.App
 
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 6) };
             var world = new Button { Content = "World report" };
-            ToolTip.SetTip(world, "What the game's levels hold, as saved on disk (before any edits)");
+            ToolTip.SetTip(world, "Shows what the game's levels hold as saved on disk, before any edits.");
             world.Click += (o, e) => report.Text = ItemShuffle.WorldReport(session, session.LoadLevel);
             buttons.Children.Add(preview); buttons.Children.Add(shuffle); buttons.Children.Add(undoButton); buttons.Children.Add(world);
             buttons.Children.Add(new TextBlock { Text = "Each shuffle is also one Edit ▸ Undo step per level; nothing is written to the game until you save.", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, FontSize = 12, TextWrapping = TextWrapping.Wrap });
@@ -159,7 +159,7 @@ namespace UwEditor.App
             var skipped = new SortedSet<int>();
             for (int i = applied.Count - 1; i >= 0; i--) { skipped.UnionWith(ItemShuffle.Revert(applied[i], main.ViewModel.Edits)); n += applied[i].Changed; }
             report.Text = string.Format("Undone: {0} shuffle(s), {1} object changes put back as they were.", applied.Count, n)
-                + (skipped.Count == 0 ? "" : "\n\nLeft as they are, because they were edited since: level" + (skipped.Count == 1 ? " " : "s ") + string.Join(", ", skipped) + ". Edit ▸ Undo steps back there.");
+                + (skipped.Count == 0 ? "" : "\n\nLeft as they are because they were edited since: level" + (skipped.Count == 1 ? " " : "s ") + string.Join(", ", skipped) + ". Use Edit ▸ Undo to step back there.");
             applied.Clear();
             undoButton.IsEnabled = false;
             main.RandomizerApplied("Item property shuffles undone.");
@@ -242,7 +242,7 @@ namespace UwEditor.App
             var p = new StackPanel();
             var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
             head.Children.Add(Label("", 200));
-            foreach (var t in new[] { "chance %", "mean strength", "deviation" }) head.Children.Add(new TextBlock { Text = t, Width = 196, Opacity = 0.7, FontSize = 12 });
+            foreach (var t in new[] { "Chance %", "Mean strength", "Deviation" }) head.Children.Add(new TextBlock { Text = t, Width = 196, Opacity = 0.7, FontSize = 12 });
             p.Children.Add(head);
             foreach (var g in groups)
             {
@@ -285,9 +285,9 @@ namespace UwEditor.App
 
             var p = new StackPanel { Spacing = 4 };
             p.Children.Add(new TextBlock { Text = g.Name, FontSize = 16, FontWeight = FontWeight.SemiBold });
-            p.Children.Add(Small("Each part replaces its sliders while ticked; editing it ticks it. \"From the sliders\" sets it to what the sliders give now."));
+            p.Children.Add(Small("While ticked, each part below replaces its sliders, and editing a part ticks it. \"From the sliders\" sets a part to what the sliders give now."));
 
-            var useStrength = new CheckBox { Content = "Strength from these bars instead of the mean and deviation", IsChecked = g.CustomStrength };
+            var useStrength = new CheckBox { Content = "Use these bars for the strength instead of the mean and deviation", IsChecked = g.CustomStrength };
             var names = Enumerable.Range(0, n).Select(i => (i + 1).ToString()).ToArray();
             var bars = new BarsEditor(g.StrengthBars, names) { Caption = "weight by strength (1 = Minor)" };
             useStrength.IsCheckedChanged += (o, e) => { g.CustomStrength = useStrength.IsChecked == true; update(); };
@@ -300,7 +300,7 @@ namespace UwEditor.App
             p.Children.Add(Small(string.Join(", ", g.Effects.Select((e, i) => (i + 1) + " " + (session.Strings.Get(6, 0x1C0 + (opt.ArmourEnchants.Contains(g) ? 0x10 : 0) + e) ?? "").Trim()))));
             p.Children.Add(Row(fromSliders1));
 
-            var useDepth = new CheckBox { Content = "Chance by depth from this instead of the chance and depth sliders", IsChecked = g.CustomDepth };
+            var useDepth = new CheckBox { Content = "Use this chance by depth instead of the chance and depth sliders", IsChecked = g.CustomDepth };
             useDepth.IsCheckedChanged += (o, e) => { g.CustomDepth = useDepth.IsChecked == true; update(); };
             var fromSliders2 = new Button { Content = "From the sliders" };
             p.Children.Add(Heading("Chance by depth"));
@@ -315,7 +315,7 @@ namespace UwEditor.App
                 curve.Changed += () => useDepth.IsChecked = true;
                 fromSliders2.Click += (o, e) => { g.DepthCurve.Clear(); g.DepthCurve.AddRange(g.DepthCurveFromSliders(depthAdj)); curve.Points = g.DepthCurve; };
                 p.Children.Add(curve);
-                p.Children.Add(Row(fromSliders2, Small("Click to add a point, drag to move one, right-click to remove one. The dots are where each level reads it (Underworld II's worlds have up to 8 levels).")));
+                p.Children.Add(Row(fromSliders2, Small("Click to add a point, drag to move one, right-click to remove one. The dots mark where each level reads the curve (Underworld II's worlds have up to 8 levels).")));
             }
             else
             {
@@ -336,7 +336,7 @@ namespace UwEditor.App
             var p = new StackPanel { Spacing = 4 };
             string what = armour ? "Armour" : "Weapon";
             p.Children.Add(new TextBlock { Text = what + " quality", FontSize = 16, FontWeight = FontWeight.SemiBold });
-            p.Children.Add(Small("While ticked, each " + (armour ? "piece" : "weapon") + " gets a quality drawn from this curve (its height at each quality 1-63 is that quality's weight) instead of its own quality ± the spread. Most objects lie at 40."));
+            p.Children.Add(Small("While ticked, each " + (armour ? "piece" : "weapon") + " gets a quality drawn from this curve (its height at each quality 1–63 is that quality's weight) instead of its own quality ± the spread. Most objects have quality 40."));
             var use = new CheckBox { Content = "Quality from this curve instead of the spread", IsChecked = armour ? opt.CustomArmourQuality : opt.CustomWeaponQuality };
             use.IsCheckedChanged += (o, e) => { if (armour) opt.CustomArmourQuality = use.IsChecked == true; else opt.CustomWeaponQuality = use.IsChecked == true; update(); };
             var pts = armour ? opt.ArmourQualityCurve : opt.WeaponQualityCurve;
@@ -351,7 +351,7 @@ namespace UwEditor.App
             };
             p.Children.Add(use);
             p.Children.Add(curve);
-            p.Children.Add(Row(fromGame, Small("Click to add a point, drag to move one, right-click to remove one. \"From the game\" follows the qualities in the levels now.")));
+            p.Children.Add(Row(fromGame, Small("Click to add a point, drag to move one, right-click to remove one. \"From the game\" fits the curve to the qualities in the levels now.")));
             var w = Dialog(what + " quality", p, 420);
             ManualWindow.Attach(w, "Shuffling item properties");
             w.Show(this);
@@ -401,7 +401,7 @@ namespace UwEditor.App
         {
             var b = new Button { Content = "From the game" };
             b.Click += (o, e) => { opt.FromWorld(session, ItemShuffle.Census(session, Level), part); Build(); report.Text = "The " + what + " settings now follow the levels as they are."; };
-            return Row(b, Small("Sets every value of this tab, the relative weights included, to what the levels hold now."));
+            return Row(b, Small("Sets every value on this tab, relative weights included, to what the levels hold now."));
         }
 
         Control DepthRows(Func<double> get, Action<double> set, Func<double> getS, Action<double> setS)
@@ -409,7 +409,7 @@ namespace UwEditor.App
             var p = new StackPanel();
             p.Children.Add(Line("Depth: chance", Bar(0, 100, get(), 1, set)));
             p.Children.Add(Line("Depth: strength", Bar(0, 100, getS(), 1, setS)));
-            p.Children.Add(Note("Chance: at 100 the deepest level has double the chance of level 1. Strength: at 100 the mean strength moves to the strongest on the deepest level. Level 1 is never changed; in Underworld II the depth is the level within its world."));
+            p.Children.Add(Note("Chance: at 100, the deepest level has twice the chance of level 1. Strength: at 100, the mean strength on the deepest level moves to the strongest. Level 1 never changes. In Underworld II, the depth is the level within its world."));
             return p;
         }
 
@@ -440,18 +440,18 @@ namespace UwEditor.App
             p.Children.Add(Line("Maces and clubs", Bar(0, 100, opt.Maces, 1, x => opt.Maces = x)));
             p.Children.Add(Line("Ranged and ammunition", Bar(0, 100, opt.Ranged, 1, x => opt.Ranged = x)));
             p.Children.Add(Line("Launchers among ranged %", Bar(0, 100, opt.LauncherShare, 1, x => opt.LauncherShare = x)));
-            p.Children.Add(Note("Of the ranged objects, this share are slings, bows and crossbows; the rest are ammunition (never enchanted, keeping its count or 3–12)."));
+            p.Children.Add(Note("This share of the ranged objects are slings, bows and crossbows; the rest are ammunition, which is never enchanted and keeps its count (or gets 3–12)."));
             p.Children.Add(QualityLine(false));
             p.Children.Add(Heading("Enchantments (strength 1 = Minor)"));
-            p.Children.Add(Note("A weapon is enchanted with the sum of the kinds' chances (at most 100%); the kind is then picked in proportion to its chance. The strength is a normal draw around the mean, kept in range."));
+            p.Children.Add(Note("The chance that a weapon is enchanted is the sum of the kinds' chances (at most 100%); the kind is then picked in proportion to its chance. The strength is drawn from a normal distribution around the mean and kept in range."));
             p.Children.Add(EnchantRows(opt.WeaponEnchants, () => opt.WeaponDepth));
             p.Children.Add(DepthRows(() => opt.WeaponDepth, x => opt.WeaponDepth = x, () => opt.WeaponStrengthDepth, x => opt.WeaponStrengthDepth = x));
             p.Children.Add(Heading("Special weapons"));
             if (opt.WeaponSpecialList.Count == 0)
-                p.Children.Add(Note("Ultima Underworld has no special weapon enchantments (LifeStealer, Fire Doom, Stone Strike, Entry… are Underworld II's)."));
+                p.Children.Add(Note("Ultima Underworld has no special weapon enchantments (LifeStealer, Fire Doom, Stone Strike, Entry and the rest belong to Underworld II)."));
             else
             {
-                p.Children.Add(Check("Create special weapons on random melee weapons", opt.WeaponSpecials, x => opt.WeaponSpecials = x));
+                p.Children.Add(Check("Turn random melee weapons into special weapons", opt.WeaponSpecials, x => opt.WeaponSpecials = x));
                 p.Children.Add(SpecialRows(opt.WeaponSpecialList, 20));
             }
             return p;
@@ -473,15 +473,15 @@ namespace UwEditor.App
             p.Children.Add(EnchantRows(opt.ArmourEnchants, () => opt.ArmourDepth));
             p.Children.Add(DepthRows(() => opt.ArmourDepth, x => opt.ArmourDepth = x, () => opt.ArmourStrengthDepth, x => opt.ArmourStrengthDepth = x));
             p.Children.Add(Heading("Other effects (no degrees)"));
-            p.Children.Add(Small("Worn effects such as Valor, Leap, Stealth, Missile Protection or Flameproof, applied while the piece is worn (PLAYDATA.C player_affected_by). A piece that gets one has it instead of Protection or Toughness."));
+            p.Children.Add(Small("Worn effects such as Valor, Leap, Stealth, Missile Protection or Flameproof, which apply while the piece is worn (PLAYDATA.C player_affected_by). A piece that gets one has it instead of Protection or Toughness."));
             p.Children.Add(Check("Armour can get other effects", opt.ArmourEffectsOn, x => opt.ArmourEffectsOn = x));
             var slots = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
             string[] names = { "body", "leggings", "gloves", "boots", "helm", "shields" };
             for (int i = 0; i < 6; i++) { int k = i; slots.Children.Add(Check(names[i], opt.ArmourEffectSlots[i], x => opt.ArmourEffectSlots[k] = x)); }
-            p.Children.Add(Line("On", slots));
+            p.Children.Add(Line("On these pieces", slots));
             p.Children.Add(Line("Chance of another effect %", Bar(0, 100, opt.ArmourEffectChance, 0.1, x => opt.ArmourEffectChance = x, 220, "0.0")));
             p.Children.Add(Line("Cursed instead %", Bar(0, 100, opt.ArmourCurseShare, 1, x => opt.ArmourCurseShare = x)));
-            p.Children.Add(Small("A curse does its strength in d8 of damage, never below 3 hit points, every time what is worn changes (SPELLS.C backfire)."));
+            p.Children.Add(Small("A curse deals its strength in d8 of damage (never less than 3 hit points) every time the worn equipment changes (SPELLS.C backfire)."));
             p.Children.Add(CurseBars());
             p.Children.Add(new TextBlock { Text = "Effects (relative weights; drag the bars)", Opacity = 0.75, Margin = new Thickness(0, 8, 0, 4) });
             p.Children.Add(EffectBars(opt.ArmourEffects));
@@ -505,7 +505,7 @@ namespace UwEditor.App
             foreach (var k in opt.LightWeights.Keys.OrderBy(k => k).ToList())
                 p.Children.Add(Line(session.Names.Get(k), Bar(0, 100, opt.LightWeights[k], 1, x => opt.LightWeights[k] = x)));
             p.Children.Add(Heading("Tools (at least this many)"));
-            p.Children.Add(Note("When there are fewer, random food and lights lying on the floor become them."));
+            p.Children.Add(Note("When there are fewer, random food and lights lying on the floor become tools."));
             p.Children.Add(Line(session.Names.Get(ItemTables.Thread(session.IsUw2)), Count(0, 50, opt.MinThread, x => opt.MinThread = x)));
             p.Children.Add(Line(session.Names.Get(ItemTables.Pole), Count(0, 50, opt.MinPole, x => opt.MinPole = x)));
             p.Children.Add(Line(session.Names.Get(ItemTables.FishingPole), Count(0, 50, opt.MinFishingPole, x => opt.MinFishingPole = x)));
@@ -519,8 +519,8 @@ namespace UwEditor.App
             p.Children.Add(FromGame("runes", "runestone"));
             var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 12, 0, 4) };
             head.Children.Add(new TextBlock { Text = "Rune", Width = 200, FontWeight = FontWeight.SemiBold });
-            head.Children.Add(new TextBlock { Text = "weight", Width = 266, FontWeight = FontWeight.SemiBold });
-            head.Children.Add(new TextBlock { Text = "at least", FontWeight = FontWeight.SemiBold });
+            head.Children.Add(new TextBlock { Text = "Weight", Width = 266, FontWeight = FontWeight.SemiBold });
+            head.Children.Add(new TextBlock { Text = "At least", FontWeight = FontWeight.SemiBold });
             p.Children.Add(head);
             foreach (int r in ItemTables.Runes)
             {
@@ -528,7 +528,7 @@ namespace UwEditor.App
                 opt.RuneWeights.TryGetValue(r, out w); opt.RuneMinimum.TryGetValue(r, out m);
                 p.Children.Add(Line(session.Names.Get(r), Bar(0, 100, w, 1, x => opt.RuneWeights[r] = x), Count(0, 20, m, x => opt.RuneMinimum[r] = x)));
             }
-            p.Children.Add(Note("Minimums are met by changing runestones of the kinds with the most to spare; if there are too few runestones the report says which could not be met."));
+            p.Children.Add(Note("Minimums are met by changing runestones of the kinds with the most to spare. If there are too few runestones, the report says which minimums could not be met."));
             return p;
         }
 
@@ -546,7 +546,7 @@ namespace UwEditor.App
             var p = new StackPanel();
             p.Children.Add(Check("Shuffle wands", opt.ShuffleWands, x => opt.ShuffleWands = x));
             p.Children.Add(FromGame("wands", "wand"));
-            p.Children.Add(Small("A wand keeps its spell in a spell object inside it: its quality is the charges (USEITEMS.C useNSpellCharges). Broken wands and wands with other effects are kept. Drag the bars; sweeping sideways sets several at once."));
+            p.Children.Add(Small("A wand keeps its spell in a spell object inside it, and that object's quality is the number of charges (USEITEMS.C useNSpellCharges). Broken wands and wands with other effects are left alone. Drag the bars; sweeping sideways sets several at once."));
             p.Children.Add(Heading("Charges (relative weights)"));
             p.Children.Add(new BarsEditor(opt.WandCharges, Enumerable.Range(1, ShuffleOptions.MaxCharges).Select(i => i.ToString()).ToArray()) { Caption = "weight by charges" });
             p.Children.Add(Heading("Spell circle (relative weights)"));
@@ -560,14 +560,14 @@ namespace UwEditor.App
             var p = new StackPanel();
             p.Children.Add(Check("Shuffle spell scrolls", opt.ShuffleScrolls, x => opt.ShuffleScrolls = x));
             p.Children.Add(FromGame("scrolls", "scroll and potion"));
-            p.Children.Add(Small("Scrolls enchanted with a spell (read to cast it once). Readable scrolls, books and maps are kept."));
+            p.Children.Add(Small("This shuffles scrolls enchanted with a spell, which cast it once when read. Readable scrolls, books and maps are left alone."));
             p.Children.Add(Heading("Scroll spell circle (relative weights)"));
             p.Children.Add(new BarsEditor(opt.ScrollCircles, CircleLabels()) { Caption = "weight by circle", Height = 130 });
             p.Children.Add(Heading("Potions"));
             p.Children.Add(Check("Shuffle potions", opt.ShufflePotions, x => opt.ShufflePotions = x));
             p.Children.Add(Small(session.IsUw2
-                ? "Potions holding one of the 64 spells get a new one; a potion then takes the colour the game uses most for that spell (Underworld II's colours tell the effect). Potions with special effects are kept."
-                : "Potions holding one of the 64 spells get a new one; red and green tell nothing in Ultima Underworld. Potions with special effects are kept."));
+                ? "Potions holding one of the 64 spells get a new one; a potion then takes the colour the game uses most for that spell (Underworld II's colours tell the effect). Potions with special effects are left alone."
+                : "Potions holding one of the 64 spells get a new one; in Ultima Underworld, red and green say nothing about the effect. Potions with special effects are left alone."));
             p.Children.Add(Check("Only spells some potion already holds", opt.PotionsKnownOnly, x => opt.PotionsKnownOnly = x));
             p.Children.Add(new BarsEditor(opt.PotionCircles, CircleLabels()) { Caption = "weight by circle", Height = 130 });
             p.Children.Add(SpellList());
@@ -585,7 +585,7 @@ namespace UwEditor.App
                 p.Children.Add(Line(session.Names.Get(k), Bar(0, 100, opt.RingWeights[k], 1, x => opt.RingWeights[k] = x)));
             p.Children.Add(Line("Rings with an effect %", Bar(0, 100, opt.RingMagic, 1, x => opt.RingMagic = x)));
             p.Children.Add(Line("Cursed instead %", Bar(0, 100, opt.RingCurseShare, 1, x => opt.RingCurseShare = x)));
-            p.Children.Add(Small("Of the rings that get an effect, this share are cursed instead: the strength in d8 of damage, never below 3 hit points, every time what is worn changes."));
+            p.Children.Add(Small("This share of the rings that get an effect are cursed instead. A curse deals its strength in d8 of damage (never less than 3 hit points) every time the worn equipment changes."));
             p.Children.Add(CurseBars());
             p.Children.Add(new TextBlock { Text = "Effects (relative weights; drag the bars)", Opacity = 0.75, Margin = new Thickness(0, 8, 0, 4) });
             p.Children.Add(EffectBars(opt.RingEffects));
@@ -596,7 +596,7 @@ namespace UwEditor.App
         {
             var list = opt.Ignored;
             var panel = new IgnoreListPanel(main, session, list, ItemShuffle.Candidates(session, Level), () => IgnoreStore.Save(session, list),
-                "The item shuffle leaves these objects alone (a wand's spell object goes with its wand); the item swap has its own list. Wands enchanted directly are ignored at first: Ultima Underworld's bullfrog wand, Underworld II's slightly worn wand of Telekinesis and wand of Light.",
+                "The item shuffle leaves these objects alone (a wand's spell object goes with its wand); the item swap has its own list. Wands enchanted directly start out ignored: Ultima Underworld's bullfrog wand, Underworld II's slightly worn wand of Telekinesis and wand of Light.",
                 "Objects the shuffle touches", "Ignored", "Ignore →", "← Stop ignoring", "Ignore the object selected in the editor", null);
             panel.Changed += () => { if (ignoredTab != null) ignoredTab.Header = "Ignored (" + opt.Ignored.Count + ")"; };
             return panel;

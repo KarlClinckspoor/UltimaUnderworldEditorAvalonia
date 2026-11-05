@@ -238,7 +238,7 @@ namespace UwEditor.App
             tools.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7,
-                Text = "A seen tile gets the byte the game writes when you see it: the tile's shape, its floor's water, lava or ice, and doors. Rock is never drawn. Changes are saved with the levels (Save levels). A new game starts from DATA's maps: Underworld II's castle comes drawn.",
+                Text = "A seen tile gets the byte the game writes when you see it: the tile's shape, its floor's water, lava or ice, and doors. Rock is never drawn. Changes are saved with the levels (Save levels). A new game starts from DATA's maps, so Underworld II's castle is already drawn.",
             });
 
             notes.Bind(ListBox.BackgroundProperty, notes.GetResourceObservable("Panel"));

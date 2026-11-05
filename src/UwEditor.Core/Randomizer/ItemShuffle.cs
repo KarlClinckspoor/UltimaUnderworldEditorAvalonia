@@ -757,7 +757,7 @@ namespace UwEditor.Core.Randomizer
                     var c = pool[used++];
                     c.R.Item = item; c.R.Quality = 40; Plain(c); c.Touched = true;
                 }
-                res.Report.AppendFormat("Tools: {0} {1}{2} found, {3} made from food and lights{4}.\n", have, name, have == 1 ? "" : "s", made, made < add ? " (not enough food and lights for the minimum)" : "");
+                res.Report.AppendFormat("Tools: {0} {1}{2} found and {3} made from food and lights{4}.\n", have, name, have == 1 ? "" : "s", made, made < add ? " (not enough food and lights for the minimum)" : "");
             }
         }
 
@@ -867,8 +867,8 @@ namespace UwEditor.Core.Randomizer
             }
             if (progression)
             {
-                res.Report.AppendLine("Swap, Uniform progression: within each kind, across the whole game; weapons, armour, spell scrolls and wands sorted by strength and handed out level by level (" + Progression.OrderText(s) + "), the other kinds at random." + (anyAsked ? " (\"Across all the ticked kinds\" does not apply.)" : ""));
-                res.Report.AppendLine("  Strength: weapons the highest of slash, bash and stab (ammunition and launchers the missile's damage) + the enchantment's level; armour the protection + the enchantment's level; spell scrolls and wands the spell's circle.");
+                res.Report.AppendLine("Swap, Uniform progression: objects trade places within each kind across the whole game. Weapons, armour, spell scrolls and wands are sorted by strength and handed out level by level (" + Progression.OrderText(s) + "); the other kinds are placed at random." + (anyAsked ? " (\"Across all the ticked kinds\" does not apply.)" : ""));
+                res.Report.AppendLine("  Strength: for weapons, the highest of slash, bash and stab (for ammunition and launchers, the missile's damage) plus the enchantment's level; for armour, the protection plus the enchantment's level; for spell scrolls and wands, the spell's circle.");
             }
             else res.Report.AppendLine((anyKind ? "Swap, any kind: existing objects trade places across every kind taking part, " : "Swap, same kind: existing objects trade places within their kind, ") + ScopeText(s, opt) + ".");
             foreach (var g in groups.OrderBy(x => x.Key, StringComparer.Ordinal))
@@ -907,7 +907,7 @@ namespace UwEditor.Core.Randomizer
                     wands[i][0].R = w; wands[i][1].R = sp;
                     wands[i][0].Touched = wands[i][1].Touched = true;
                 }
-                res.Report.AppendFormat("  charged wands: {0}, swapped among themselves with their spells and charges (the charges live in an object inside the wand).\n", wands.Count);
+                res.Report.AppendFormat("  charged wands: {0}, swapped among themselves with their spells and charges (the charges are kept in an object inside the wand).\n", wands.Count);
             }
             if (stay > 0) res.Report.AppendFormat("  {0} object(s) holding triggers or other objects stay where they are.\n", stay);
             if (groups.Count == 0 && wands.Count == 0) res.Report.AppendLine("  Nothing takes part: tick at least one kind.");

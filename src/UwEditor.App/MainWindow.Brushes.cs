@@ -15,7 +15,7 @@ namespace UwEditor.App
     {
         void OnTakeTemplate(object sender, RoutedEventArgs e)
         {
-            if (!vm.TakeTemplate(vm.SelectedTileX, vm.SelectedTileY)) vm.EditStatus = "Select a tile first: the template is taken from it.";
+            if (!vm.TakeTemplate(vm.SelectedTileX, vm.SelectedTileY)) vm.EditStatus = "Select a tile first; the brush takes its template from that tile.";
         }
 
         void OnPaintSelection(object sender, RoutedEventArgs e) { PaintTiles(ChosenTiles(), "Paint selection"); }
@@ -45,7 +45,7 @@ namespace UwEditor.App
         public int FillFrom(int x, int y)
         {
             var tiles = WalkableFrom(x, y);
-            if (tiles.Count == 0) { vm.EditStatus = string.Format("({0}, {1}) is rock or holds a door: nothing to fill.", x, y); return 0; }
+            if (tiles.Count == 0) { vm.EditStatus = string.Format("({0}, {1}) is rock or holds a door, so there is nothing to fill.", x, y); return 0; }
             return PaintTiles(tiles, string.Format("Fill from ({0}, {1})", x, y));
         }
 
@@ -90,7 +90,7 @@ namespace UwEditor.App
             View.SetTopDown(on);
             if (!on) vm.ShowCeiling = ceilingBefore2D;
             MapItem.IsChecked = on;
-            vm.EditStatus = on ? "2D map: drag to move, wheel to zoom; clicks, Ctrl+drag selection and painting work as in 3D. Tab goes back." : "3D view.";
+            vm.EditStatus = on ? "2D map: drag to move and use the wheel to zoom. Clicking, Ctrl+drag selection and painting work as in 3D. Tab goes back." : "3D view.";
         }
 
         async void OnExportMap(object sender, RoutedEventArgs e)

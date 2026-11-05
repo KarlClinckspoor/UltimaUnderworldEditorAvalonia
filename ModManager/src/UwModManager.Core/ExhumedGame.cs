@@ -110,9 +110,9 @@ public static class ExhumedGame
         try { exe = ExeChange(m, original, game); }
         catch (ModException e) { r.Add(e.Message); return r; }
         if (exe.Start != null && (f == null || !f.StartSquare))
-            r.Add("the start square needs an Exhumed build with mods (start-square in --features: the fork's modding branch)");
+            r.Add("a moved start square needs an Exhumed build that lists start-square in --features (a build from the fork's modding branch)");
         if (exe.Patches.Count > 0 && (f == null || !f.ExePatch))
-            r.Add("changes to the executable's bytes need an Exhumed build with exe-patch (the fork's modding branch)");
+            r.Add("changes to the executable's bytes need an Exhumed build that lists exe-patch in --features (a build from the fork's modding branch)");
         else
             foreach (var p in exe.Patches)
                 if (!f!.ExePatchRanges.Any(rg => p.Offset >= rg[0] && p.Offset + p.New.Length <= rg[1]))

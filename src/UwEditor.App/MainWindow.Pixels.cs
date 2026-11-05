@@ -16,7 +16,7 @@ namespace UwEditor.App
             if (f == null || item < 0 || item >= f.Count) { vm.EditStatus = "OBJECTS.GR has no picture " + item + "."; return null; }
             var img = f.GetOrBlank(item, s.Pictures.Palettes, f.DefaultPalette(item));
             if (img == null) { vm.EditStatus = "Picture " + item + " of OBJECTS.GR is empty."; return null; }
-            var w = new PixelEditorWindow(img, string.Format("{0} (OBJECTS.GR picture {1})", s.Names.Get(item), item), f.Describe(item, img) + ". What the inventory and the view show for this item.",
+            var w = new PixelEditorWindow(img, string.Format("{0} (OBJECTS.GR picture {1})", s.Names.Get(item), item), f.Describe(item, img) + ". This is what the inventory and the view show for this item.",
                 px => { try { f.Replace(item, img, px); return null; } catch (Exception ex) { return ex.Message; } },
                 () => { try { s.Pictures.Save(f); return null; } catch (Exception ex) { return ex.Message; } }, "OBJECTS.GR");
             w.AskOnClose = AskBeforeDiscarding;

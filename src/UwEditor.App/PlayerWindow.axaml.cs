@@ -61,7 +61,7 @@ namespace UwEditor.App
 
         async void OnAddDetailed(object sender, RoutedEventArgs e)
         {
-            Func<string> where = () => "It goes to " + Model.AddTargetWhere + " (chosen under Add to in the inventory tab).";
+            Func<string> where = () => "It goes to " + Model.AddTargetWhere + " (chosen under Add to on the Inventory tab).";
             var w = await AddObjectWindow.Ask(this, Model.Session, iconOf, true, where(), keepAdding: spec => { Model.AddSpec(spec); return Model.Status + " " + where(); });
             if (w.Result != null) Model.AddSpec(w.Result);
         }

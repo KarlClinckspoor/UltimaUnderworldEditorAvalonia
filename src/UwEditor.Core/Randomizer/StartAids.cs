@@ -63,8 +63,8 @@ namespace UwEditor.Core.Randomizer
         public static List<string> PutKit(GameSession s, LevelEdits edits, StartPoint start)
         {
             var said = new List<string>();
-            if (s.IsUw2) { said.Add("The torch and the map: Ultima Underworld 1 only."); return said; }
-            if (start == null) { said.Add("The torch and the map: no start square known."); return said; }
+            if (s.IsUw2) { said.Add("The torch and the map are for Ultima Underworld 1 only."); return said; }
+            if (start == null) { said.Add("The torch and the map were not placed: no start square is known."); return said; }
             int level = start.Level, sx = (int)start.X, sy = (int)start.Y;
             var e = edits.For(level);
             var near = Near(e.Model, sx, sy);
@@ -75,21 +75,21 @@ namespace UwEditor.Core.Randomizer
                 if (torch.Quality < FullTorch)
                 {
                     e.SetObjectField(torch.Index, (torch.IsMobile ? Uw1Schemas.MobileObject : Uw1Schemas.StaticObject)["Quality"], FullTorch);
-                    said.Add(string.Format("The torch #{0} beside the start filled up (quality {1} to 63).", torch.Index, torch.Quality));
+                    said.Add(string.Format("The torch #{0} beside the start was filled up (quality {1} to 63).", torch.Index, torch.Quality));
                 }
                 else said.Add(string.Format("A full torch (#{0}) already lies beside the start.", torch.Index));
             }
             else
             {
                 int i = e.AddObject(new ObjectSpec { Item = Torch, Quality = FullTorch, IsQuantity = true, Link = 1 }, kx, ky);
-                said.Add(string.Format("A torch of quality 63 (#{0}) put on level {1} ({2}, {3}), beside the start.", i, level, kx, ky));
+                said.Add(string.Format("A torch of quality 63 (#{0}) was put on level {1} ({2}, {3}), beside the start.", i, level, kx, ky));
             }
             var map = Near(e.Model, sx, sy).FirstOrDefault(o => o.Item == Map);
             if (map != null) said.Add(string.Format("The map (#{0}) already lies beside the start.", map.Index));
             else
             {
                 int i = e.AddObject(new ObjectSpec { Item = Map, Quality = 40, IsQuantity = true, Link = 0x200 }, kx, ky);
-                said.Add(string.Format("A map (#{0}) put on level {1} ({2}, {3}), beside the start.", i, level, kx, ky));
+                said.Add(string.Format("A map (#{0}) was put on level {1} ({2}, {3}), beside the start.", i, level, kx, ky));
             }
             return said;
         }

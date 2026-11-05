@@ -88,7 +88,7 @@ public static class Saves
         foreach (var p in doc.RootElement.GetProperty("files").EnumerateObject())
         {
             string name = p.Name;
-            if (name.Length == 0 || name != Path.GetFileName(name) || name is "." or "..") throw new InvalidDataException("the backup names a file " + name);
+            if (name.Length == 0 || name != Path.GetFileName(name) || name is "." or "..") throw new InvalidDataException("the backup names an invalid file: " + name);
             files.Add((name, vault.Get(p.Value.GetString()!)));
         }
         Backup(paths, vault, into, "before-restore");

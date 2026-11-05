@@ -190,7 +190,7 @@ namespace UwEditor.Core.Editing
                 case 0xA: return "treasure";
                 case 0xB: return "food or drink (OBJECTS.DAT food: nutrition)";
                 case 0xC: case 0xD: return "scenery or junk";
-                case 0xE: return uw2 ? "potion or runestone" : "runestone, key piece or runestone";
+                case 0xE: return uw2 ? "potion or runestone" : "key piece or runestone";
                 case 0xF: return "runestone";
                 case 0x10: return "key or lockpick";
                 case 0x11: case 0x12: return "quest or magic item";

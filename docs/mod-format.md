@@ -1,23 +1,23 @@
 # Mod format 2 (`.uwmod`): design
 
-Status: **agreed**, being built (see "Building it" at the end). It replaces the editor's `Mods/ModPackage.cs` (format 1)
-and the Unity editor's `Assets/Scripts/Modding`, which the mod manager builds against today.
-Neither is carried over: format 2 is written from scratch in `src/Underworld.Mods` and shared by
-the editor and `ModManager/`.
+Status: **built** (see "Building it" at the end). It replaced the editor's `Mods/ModPackage.cs`
+(format 1) and the Unity editor's `Assets/Scripts/Modding`, which the mod manager used to build
+against. Neither was carried over: format 2 was written from scratch in `src/Underworld.Mods`,
+which the editor and `ModManager/` share.
 
 ## Rules
 
-1. **A mod changes files the game already has, and nothing else.** One game (UW1 or UW2), in
-   its folder: the executable and the files under `DATA`, `CRIT`, `CUTS` and `SOUND`, but not
+1. **A mod changes files the game already has, and nothing else.** It is for one game (UW1 or
+   UW2) and changes, in its folder, the executable and the files under `DATA`, `CRIT`, `CUTS` and `SOUND`, but not
    `UW.CFG`, the player's sound setup. A mod never
    deletes or renames a file, and never touches a `SAVEn` folder. The game reads only the
    files it knows, so a new music theme replaces the bytes of the `.XMI` it goes into (the
    themes' numbers are fixed in the game's code).
 
    **The one exception: sound files the game opens by a number from its data.** A mod may add
-   one of these, since the game plays it though GOG's release does not ship it; its content is
-   all the mod's own (`GamePaths.CanAdd`). Numbers are written as the game writes them: two
-   digits under 10, else as many as needed.
+   one of these, since the game plays it even though GOG's release does not ship it; its content
+   is all the mod's own (`GamePaths.CanAdd`). Numbers are written as the game writes them: two
+   digits below 10, otherwise as many as needed.
 
    | Game | File | Opened for | Source |
    | --- | --- | --- | --- |
@@ -38,7 +38,7 @@ the editor and `ModManager/`.
 
 ## The package
 
-A zip:
+A package is a zip file:
 
 ```
 mod.json
@@ -102,7 +102,7 @@ bytes or more, ADD for the rest. Files are at most about 1 MB (UW2's `T64.TR`), 
 
 **Why BLOCK:** UW2 stores most archive blocks LZSS-compressed (`LEV.ARK`, `CNV.ARK`,
 `BYT.ARK`…). One changed object changes the compressed bytes from that point to the end of the
-block, so a plain delta would carry most of the block recompressed: original content. BLOCK
+block, so a plain delta would carry most of the block recompressed, which is original content. BLOCK
 diffs the decompressed block instead and recompresses on applying, with the same `Lzss` code
 the editor saves with. Make a mod uses BLOCK for a block only when that encoding gives exactly
 the edited file's bytes, and falls back to COPY/ADD otherwise. UW1's archives are not
@@ -128,7 +128,7 @@ compressed and need only COPY and ADD.
 | Who | What |
 | --- | --- |
 | `src/Underworld.Mods` (new, net10.0, references `Underworld.Formats`) | `Delta.Make/Apply`, `ModPackage.Read/Write/Make`, the path rules, the start-square reading. No UI. |
-| The editor's Mods window | **Make a mod**: compares the game folder with its originals (the `.ORIG` copies, or a folder of originals) and refuses files that are new or missing, naming them. **Load a mod**: applies one with the same code. `Mods/ModPackage.cs` goes. |
+| The editor's Mods window | **Make a mod**: compares the game folder with its originals (the `.ORIG` copies, or a folder of originals) and refuses files that are new or missing, naming them. **Load a mod**: applies one with the same code. `Mods/ModPackage.cs` is removed. |
 | `ModManager/` | Drops `Underworld.Shared` and the Unity checkout; uses `Underworld.Formats` and `Underworld.Mods`. |
 
 Format 1 packages (this editor's and the Unity editor's) are not read: the program says the mod
@@ -136,11 +136,11 @@ was made by an older version.
 
 ## Testing (the reason for all this)
 
-`tests/ModRoundTrip.Tests` (`RoundTrip.cs` is the harness). For each kind of change, three
-copies of a clean game: the change is made in one with the editor's core and saved (SafeFile,
+`tests/ModRoundTrip.Tests` (`RoundTrip.cs` is the harness). Each kind of change uses three
+copies of a clean game. The change is made in one with the editor's core and saved (SafeFile,
 so `.ORIG` copies are kept), then `RoundTrip.Check`:
 
-1. makes the mod as **Make a mod** does, compared both with the `.ORIG` copies and with the
+1. makes the mod as **Make a mod** does, comparing both with the `.ORIG` copies and with the
    clean game (the two must agree), and names the files it expects;
 2. checks the package carries nothing of the originals: no 32-byte run of what a delta adds is
    found in the original file (for UW2's archives, in its blocks decompressed);
@@ -180,7 +180,7 @@ UW_REQUIRE_GAMEDATA=1 dotnet test tests/ModRoundTrip.Tests     # about 10 minute
 ## Building it
 
 1. `src/Underworld.Mods` and its tests: the delta (with BLOCK), the package, the rules. (Done.)
-2. The editor's Mods window on it; `Mods/ModPackage.cs` goes; the manual. (Done.)
-3. The manager on it: `Underworld.Shared` and the Unity checkout go, and so do save export and
-   install. (Done; the folder's originals are the editor's `.ORIG` first versions, not `.BKP`.)
+2. The editor's Mods window on it, `Mods/ModPackage.cs` removed, and the manual. (Done.)
+3. The manager on it, with `Underworld.Shared`, the Unity checkout, save export and save
+   install removed. (Done; the folder's originals are the editor's `.ORIG` first versions, not `.BKP`.)
 4. The round-trip tests above. (Done: 46 cases.)

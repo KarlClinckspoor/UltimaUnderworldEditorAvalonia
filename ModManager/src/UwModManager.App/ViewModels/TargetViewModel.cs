@@ -102,12 +102,12 @@ public sealed partial class TargetViewModel : ViewModelBase
             StatusLines.Add(M.HasGogExe(Target) ? "Executable: the GOG release's." : "Executable: not the GOG release's (UltimaHacks needs it).");
             var local = DosGame.LocalChanges(Target);
             LocalChanges = local.Count == 0 ? "" : "Changed outside the manager: " + string.Join(", ", local.Take(8)) + (local.Count > 8 ? $" and {local.Count - 8} more" : "") +
-                ". Capture them as a mod before switching, or they will be asked about.";
+                ". Capture them as a mod before switching, or the manager will ask about them when you switch.";
             foreach (var c in DosGame.CdImageConfs(Target.Folder)) StatusLines.Add($"{c} runs the game from GOG's CD image (game.gog), which never sees the folder's files.");
         }
         else
         {
-            StatusLines.Add(Target.Features == null ? "This Exhumed build reports no mod features: only mods of data files play in it."
+            StatusLines.Add(Target.Features == null ? "This Exhumed build reports no mod features, so only mods that change data files play in it."
                 : $"Start square: {(Target.Features.StartSquare ? "yes" : "no")} · executable data patches: {(Target.Features.ExePatch ? "yes" : "no")}");
             StatusLines.Add("Home: " + ExhumedGame.HomeFor(M.Paths, Target, Target.ActiveMod));
         }
@@ -146,8 +146,8 @@ public sealed partial class TargetViewModel : ViewModelBase
                     if (plan.OutsideChanges.Count > 0)
                     {
                         int a = await main.Dialogs.Ask("Files changed outside the manager",
-                            "These files changed since the manager last wrote them (the editor saved them, perhaps):\n\n" + string.Join("\n", plan.OutsideChanges) +
-                            "\n\nSwitching overwrites them. Keep them as a mod first?", "Capture them first", "Overwrite them", "Cancel");
+                            "These files have changed since the manager last wrote them (perhaps the editor saved them):\n\n" + string.Join("\n", plan.OutsideChanges) +
+                            "\n\nSwitching will overwrite them. Capture them as a mod first?", "Capture them first", "Overwrite them", "Cancel");
                         if (a == 0) { await Capture(); return; }
                         if (a != 1) return;
                         overwrite = true;
@@ -170,7 +170,7 @@ public sealed partial class TargetViewModel : ViewModelBase
         {
             if (IsDos && (Target.ActiveMod != (Selected?.Key) || Target.UltimaHacks != UltimaHacks))
             {
-                int a = await main.Dialogs.Ask("Not applied yet", "The game still has " + (Target.ActiveMod ?? "the original game") + ". Apply the choice first?", "Apply, then play", "Play as it is", "Cancel");
+                int a = await main.Dialogs.Ask("Not applied yet", "Your choice is not applied yet: the folder still has " + (Target.ActiveMod ?? "the original game") + ". Apply it first?", "Apply, then play", "Play as it is", "Cancel");
                 if (a == 2 || a < 0) return;
                 if (a == 0) { await Apply(); }
             }
@@ -191,7 +191,7 @@ public sealed partial class TargetViewModel : ViewModelBase
             var (pkg, diff) = await Task.Run(() => M.Capture(Target, d));
             if (pkg == null)
             {
-                await main.Dialogs.Tell("Nothing captured", diff.Changed.Count == 0 && diff.Problems.Count == 0 ? "Nothing changed." : string.Join("\n", diff.Problems));
+                await main.Dialogs.Tell("Nothing captured", diff.Changed.Count == 0 && diff.Problems.Count == 0 ? "Nothing has changed." : string.Join("\n", diff.Problems));
                 return;
             }
             M.Library.Add(pkg);
@@ -206,7 +206,7 @@ public sealed partial class TargetViewModel : ViewModelBase
         if (slot == null) return;
         var backups = Saves.Backups(M.Paths, M.SavesFolder(Target), slot.Slot.Number).Take(8).ToList();
         if (backups.Count == 0) { await main.Dialogs.Tell("No backups", "No backup of SAVE" + slot.Slot.Number + " yet: one is made whenever the manager replaces a slot."); return; }
-        int which = await main.Dialogs.Ask("Restore SAVE" + slot.Slot.Number, "The slot's game now is backed up first. Which backup?", backups.Select(Path.GetFileNameWithoutExtension).ToArray()!);
+        int which = await main.Dialogs.Ask("Restore SAVE" + slot.Slot.Number, "The game now in the slot is backed up first. Which backup do you want to restore?", backups.Select(Path.GetFileNameWithoutExtension).ToArray()!);
         if (which < 0) return;
         await main.Guard(async () =>
         {
@@ -222,8 +222,8 @@ public sealed partial class TargetViewModel : ViewModelBase
     {
         bool modded = IsDos && Target.Written.Count > 0;
         int a = await main.Dialogs.Ask("Forget " + Target.Name, modded
-            ? "The folder has a mod in place. The manager puts the original game back before it forgets the folder."
-            : "The manager forgets this game; its files stay as they are.",
+            ? "The folder has a mod in place. The manager will put the original game back before it forgets the folder."
+            : "The manager will forget this game. Its files stay as they are.",
             modded ? new[] { "Put it back, then forget", "Cancel" } : new[] { "Forget", "Cancel" });
         if (a != 0) return;
         bool restore = modded;

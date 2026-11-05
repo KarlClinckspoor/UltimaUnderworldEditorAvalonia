@@ -100,7 +100,7 @@ namespace UwEditor.App
                 var found = UwEditor.Core.Editing.SaveCheck.Find(s, vm.Edits).Where(f => f.Problem).ToList();
                 SaveProblemsAtOpen = found;
                 if (found.Count > 0)
-                    vm.EditStatus = "This saved game has " + found.Count + " problem(s) that can crash or upset the game (" + string.Join(", ", found.Select(f => "level " + f.Level + " " + f.Kind).Distinct().Take(4)) + "): File ▸ Check and repair the saved game…";
+                    vm.EditStatus = "This saved game has " + found.Count + " problem(s) that can crash or upset the game (" + string.Join(", ", found.Select(f => "level " + f.Level + " " + f.Kind).Distinct().Take(4)) + "). File ▸ Check and repair the saved game… fixes them.";
             }
             catch (Exception) { }
         }
@@ -114,7 +114,7 @@ namespace UwEditor.App
             if (s == null) return null;
             if (ExhumedCheck.SaveSource(s) == null)
             {
-                await MessageWindow.Show(this, "Export as a saved game", "A saved game holds the player as well as the levels, and this game has none to start from. Save a game once in the game (any slot), or open a SAVEn folder.");
+                await MessageWindow.Show(this, "Export as a saved game", "A saved game holds the player as well as the levels, and this game has no saved player to start from. Save once in the game (any slot), or open a SAVEn folder.");
                 return null;
             }
             if (folder == null)
@@ -125,7 +125,7 @@ namespace UwEditor.App
                 choices.Add("Another folder…"); choices.Add("Cancel");
                 string a = await MessageWindow.Ask(this, "Export as a saved game",
                     "The unsaved levels" + (playerSheet != null && playerSheet.Dirty ? " and player" : "") + " are written as a saved game, from " + ExhumedCheck.SaveSource(s) + ". " +
-                    "Put it among Underworld Exhumed's saved games (" + home + "), where Journey Onward or Ctrl+R finds it, or in a folder of your choice (a SAVEn folder of the original game, say). A slot already there is replaced.",
+                    "Put it among Underworld Exhumed's saved games (" + home + "), where Journey Onward or Ctrl+R finds it, or in a folder of your choice (for example a SAVEn folder of the original game). A saved game already in that slot is replaced.",
                     choices.ToArray());
                 if (a == null || a == "Cancel") return null;
                 if (a.StartsWith("Exhumed slot ", StringComparison.Ordinal)) folder = Path.Combine(home, "SAVE" + a.Substring(13));

@@ -51,8 +51,8 @@ namespace UwEditor.App
                 var changes = EditorMods.Collect(Session.GameFolder, Session.Kind, UseFolder ? referenceFolder : null);
                 if (changes.Problems.Count > 0)
                 {
-                    Preview = "These keep the changes from being a mod:\n" + string.Join("\n", changes.Problems.Select(p => "  " + p)) + "\n";
-                    Status = changes.Problems.Count + " problem(s): a mod changes the game's own files, and adds only sound files the game opens by number.";
+                    Preview = "These problems stop the changes from becoming a mod:\n" + string.Join("\n", changes.Problems.Select(p => "  " + p)) + "\n";
+                    Status = changes.Problems.Count + " problem(s): a mod may only change the game's own files and add sound files that the game opens by number.";
                 }
                 else if (changes.Changed.Count == 0)
                 {

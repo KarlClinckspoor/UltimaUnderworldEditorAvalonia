@@ -56,7 +56,7 @@ namespace UwEditor.App
         /// <summary>The item tools' shared ignore list.</summary>
         public IgnoreListPanel(MainWindow main, GameSession s, Func<int, LevelModel> level, List<IgnoredObject> list)
             : this(main, s, list, ItemShuffle.Candidates(s, level), () => IgnoreStore.Save(s, list),
-                  "The item shuffle and the item swap both leave these objects alone (a wand's spell object goes with its wand); the list is shared. Wands enchanted directly are ignored at first: Ultima Underworld's bullfrog wand, Underworld II's slightly worn wand of Telekinesis and wand of Light.",
+                  "The item shuffle and the item swap both leave these objects alone (a wand's spell object goes with its wand); the list is shared. Wands enchanted directly start out ignored: Ultima Underworld's bullfrog wand, Underworld II's slightly worn wand of Telekinesis and wand of Light.",
                   "Objects the tools touch", "Ignored", "Ignore →", "← Stop ignoring", "Ignore the object selected in the editor", null)
         {
         }
@@ -79,7 +79,7 @@ namespace UwEditor.App
             left.DoubleTapped += (o, e) => Add(left.SelectedItem as IgnoredObject);
             var remB = new Button { Content = removeText };
             remB.Click += (o, e) => RemoveSelected();
-            ToolTip.SetTip(addB, "Adds every selected entry: Ctrl+click or Shift+click selects several, Ctrl+A all shown.");
+            ToolTip.SetTip(addB, "Adds every selected entry. Ctrl+click or Shift+click selects several entries, and Ctrl+A selects all those shown.");
             ToolTip.SetTip(remB, "Removes every selected entry.");
             var selB = new Button { Content = selectedText };
             selB.Click += (o, e) =>
@@ -134,7 +134,7 @@ namespace UwEditor.App
             if (sel.Count == 0) return;
             var keys = new HashSet<long>(sel.Select(c => (long)c.Level << 32 | (uint)c.Index));
             list.RemoveAll(x => keys.Contains((long)x.Level << 32 | (uint)x.Index));
-            status.Text = sel.Count == 1 ? "Removed: " + sel[0].Label : "Removed " + sel.Count + ".";
+            status.Text = sel.Count == 1 ? "Removed: " + sel[0].Label : "Removed " + sel.Count + " entries.";
             Save();
         }
 
@@ -159,7 +159,7 @@ namespace UwEditor.App
                 list.Add(known ?? c);
                 n++;
             }
-            status.Text = "Added " + n + "." + (why != null ? " Not added: " + why : "");
+            status.Text = "Added " + n + (n == 1 ? " entry." : " entries.") + (why != null ? " Not added: " + why : "");
             if (n > 0) Save();
         }
 

@@ -19,9 +19,9 @@
       <Grid ColumnDefinitions="Auto,*,Auto">
         <TextBlock Text="Graphics" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0" />
         <TextBlock Grid.Column="1" Classes="muted" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
-                   Text="Export writes an indexed PNG with the picture's own colours. Import refuses another size and colours the picture cannot use, unless you take the nearest ones." />
+                   Text="Export writes an indexed PNG in the picture's own colours. Import refuses a different size, and refuses colours the picture cannot use unless you tick Use the nearest colours." />
         <CheckBox Grid.Column="2" x:Name="NearestBox" Content="Use the nearest colours" IsChecked="{Binding Nearest, Mode=TwoWay}" Margin="12,0,0,0"
-                  ToolTip.Tip="On import, give a colour the picture's table lacks the nearest one it has (otherwise the import is refused)" />
+                  ToolTip.Tip="On import, replace a colour the picture's colour table lacks with the nearest one it has. Otherwise the import is refused." />
       </Grid>
     </Border>
     <Border DockPanel.Dock="Bottom" Classes="status">
@@ -56,11 +56,11 @@
             <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
               <TextBlock x:Name="PictureInfoText" Text="{Binding PictureInfo}" TextWrapping="Wrap" FontSize="12" />
               <ComboBox x:Name="PaletteBox" ItemsSource="{Binding PaletteNames}" SelectedIndex="{Binding PaletteIndex, Mode=TwoWay}" HorizontalAlignment="Stretch"
-                        ToolTip.Tip="PALS.DAT palette to show (and match colours) with" />
+                        ToolTip.Tip="The PALS.DAT palette to show the picture in, and to match imported colours against." />
               <WrapPanel>
                 <Button x:Name="ExportPictureButton" Content="Export PNG…" Click="OnExportPicture" IsEnabled="{Binding HasPicture}" Margin="0,0,6,6" />
                 <Button x:Name="ImportPictureButton" Content="Import PNG…" Click="OnImportPicture" IsEnabled="{Binding HasPicture}" Margin="0,0,6,6" />
-                <Button x:Name="EditPictureButton" Content="Edit pixels…" Click="OnEditPicture" IsEnabled="{Binding HasPicture}" Margin="0,0,6,6" ToolTip.Tip="Draw on the picture with its own colours" />
+                <Button x:Name="EditPictureButton" Content="Edit pixels…" Click="OnEditPicture" IsEnabled="{Binding HasPicture}" Margin="0,0,6,6" ToolTip.Tip="Draw on the picture with its own colours." />
                 <Button Content="Revert" Click="OnRevertPicture" IsEnabled="{Binding HasPicture}" Margin="0,0,6,6" />
                 <Button x:Name="SavePicturesButton" Content="Save file" Click="OnSavePictures" Margin="0,0,6,6" />
               </WrapPanel>
@@ -78,7 +78,7 @@
           <ListBox x:Name="CritterList" ItemsSource="{Binding Critters}" SelectedItem="{Binding Critter, Mode=TwoWay}" Background="{DynamicResource Panel}" FontSize="12" />
           <DockPanel Grid.Column="2">
             <ComboBox DockPanel.Dock="Bottom" x:Name="AuxBox" ItemsSource="{Binding AuxNames}" SelectedIndex="{Binding AuxPalette, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="0,8,0,0"
-                      ToolTip.Tip="The page's auxiliary palette: critters that share art differ by it" />
+                      ToolTip.Tip="The page's auxiliary palette. Critters that share art are told apart by it." />
             <ListBox x:Name="AnimationList" ItemsSource="{Binding Animations}" SelectedItem="{Binding Animation, Mode=TwoWay}" Background="{DynamicResource Panel}" FontSize="12" />
           </DockPanel>
           <DockPanel Grid.Column="4">
@@ -104,8 +104,8 @@
                 <Button x:Name="PlayCritterButton" Content="Play" Click="OnPlayCritter" Margin="0,0,6,6" MinWidth="70" />
                 <Button Content="Export frame…" Click="OnExportFrame" Margin="0,0,6,6" />
                 <Button x:Name="ImportFrameButton" Content="Import frame…" Click="OnImportFrame" Margin="0,0,6,6" />
-                <Button Content="Edit pixels…" Click="OnEditFrame" Margin="0,0,6,6" ToolTip.Tip="Draw on this frame with its auxiliary palette's colours" />
-                <Button Content="Save critter" Click="OnSaveCritter" Margin="0,0,6,6" ToolTip.Tip="Write the changed page files (old ones kept as .BKP)" />
+                <Button Content="Edit pixels…" Click="OnEditFrame" Margin="0,0,6,6" ToolTip.Tip="Draw on this frame with its auxiliary palette's colours." />
+                <Button Content="Save critter" Click="OnSaveCritter" Margin="0,0,6,6" ToolTip.Tip="Write the changed page files. The old files are kept as .BKP." />
               </WrapPanel>
             </StackPanel>
             <Border Classes="stage">
@@ -132,8 +132,8 @@
                 <Button Content="Export frame…" Click="OnExportCutFrame" Margin="0,0,6,6" />
                 <Button Content="Export all frames…" Click="OnExportAllCutFrames" Margin="0,0,6,6" />
                 <Button x:Name="ImportCutButton" Content="Import frame…" Click="OnImportCutFrame" Margin="0,0,6,6"
-                        ToolTip.Tip="Re-encodes this frame and the next one's change; refused when a 64 KB page of the player would overflow" />
-                <Button Content="Edit pixels…" Click="OnEditCutFrame" Margin="0,0,6,6" ToolTip.Tip="Draw on this frame with the animation's palette" />
+                        ToolTip.Tip="Re-encode this frame and the change to the next one. The import is refused if a 64 KB page of the animation would overflow." />
+                <Button Content="Edit pixels…" Click="OnEditCutFrame" Margin="0,0,6,6" ToolTip.Tip="Draw on this frame with the animation's palette." />
                 <Button Content="Save animation" Click="OnSaveCutscene" Margin="0,0,6,6" />
               </WrapPanel>
             </StackPanel>

@@ -14,32 +14,35 @@ public static class Program
 
 Targets (games the manager installs mods into):
   targets                             list them
-  add-dos FOLDER [--name N] [--as-is] take over a DOS game folder (originals into the vault);
-                                      --as-is: its files now are the originals, whatever a
-                                      manager recorded in it before
+  add-dos FOLDER [--name N] [--as-is] take over a DOS game folder (its originals go into the
+                                      vault); --as-is: take its current files as the originals,
+                                      whatever a manager recorded in it before
   add-exhumed PORT [--data FOLDER] [--name N]
-                                      an Exhumed build (uw1port/uw2port) and the game it reads
+                                      add an Exhumed build (uw1port/uw2port) and the game
+                                      folder it reads
   remove TARGET                       forget a target (a DOS folder must have the original
-                                      game: use TARGET --original first)
-  status TARGET                       the mod in use, files changed outside the manager, GOG check
+                                      game back first: uwmod use TARGET --original)
+  status TARGET                       show the mod in use, files changed outside the manager,
+                                      and whether the executable is GOG's
 
 Mods:
-  library                             the imported mods
+  library                             list the imported mods
   import FILE.uwmod                   add a package to the library
-  info FILE.uwmod|MOD                 a package's details
+  info FILE.uwmod|MOD                 show a package's details
   use TARGET MOD|--original [--ultimahacks] [--overwrite] [--dry-run]
                                       use a mod (one at a time) or the original game;
-                                      --ultimahacks (DOS): UltimaHacks' executable
+                                      --ultimahacks (DOS): use UltimaHacks' executable
   capture TARGET --id ID --name NAME [--version V] [--author A] [-o FILE]
-                                      a DOS folder's changes as a mod (into the library, or FILE)
+                                      capture a DOS folder's changes as a mod (into the
+                                      library, or into FILE)
 
 Saved games (backed up before the manager changes them; not mods):
-  saves TARGET                        the slots
+  saves TARGET                        list the saved-game slots
 
 Other:
-  play TARGET [--print]               start the game (--print: show the command only)
+  play TARGET [--print]               start the game (--print: only show the command)
   hack uw1|uw2 IN.EXE OUT.EXE         apply UltimaHacks to the GOG executable
-  recover                             finish a change a crash interrupted
+  recover                             undo a change that a crash interrupted
 
 TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod file.";
 
@@ -75,7 +78,7 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                 bool asIs = Flag(a, "--as-is");
                 var t = m.AddDos(Arg(a, 0, "FOLDER"), name, asIs);
                 if (t.Written.Count > 0) Console.WriteLine($"The folder was taken over before and has {t.ActiveMod} in place; its originals are in the vault.");
-                Console.WriteLine($"Added {t.Name} ({t.Id}): {t.Baseline.Count} files kept in the vault; " + (m.HasGogExe(t) ? "the GOG release's executable." : "not the GOG release's executable (UltimaHacks and Exhumed need it)."));
+                Console.WriteLine($"Added {t.Name} ({t.Id}): {t.Baseline.Count} files kept in the vault. " + (m.HasGogExe(t) ? "The executable is the GOG release's." : "The executable is not the GOG release's (UltimaHacks and Exhumed need it)."));
                 foreach (var c in DosGame.CdImageConfs(t.Folder))
                     Console.WriteLine($"Note: {c} runs the game from GOG's CD image (game.gog), which never sees files changed in the folder. Extract the image into the folder and point that setup at it.");
                 return 0;
@@ -85,7 +88,7 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                 string? data = Take(a, "--data"), name = Take(a, "--name");
                 var t = m.AddExhumed(Arg(a, 0, "PORT"), data, name);
                 Console.WriteLine($"Added {t.Name} ({t.Id}), game folder {t.Folder}.");
-                Console.WriteLine(t.Features == null ? "This build reports no mod features (--features): only mods of data files play in it." :
+                Console.WriteLine(t.Features == null ? "This build reports no mod features (--features), so only mods that change data files play in it." :
                     $"Features: start square {(t.Features.StartSquare ? "yes" : "no")}, executable data patches {(t.Features.ExePatch ? "yes" : "no")}.");
                 return 0;
             }
@@ -162,7 +165,7 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                 string? output = Take(a, "-o");
                 var d = Details(a);
                 var (pkg, diff) = m.Capture(t, d);
-                if (pkg == null) { Console.Error.WriteLine(diff.Changed.Count == 0 && diff.Problems.Count == 0 ? "uwmod: nothing changed" : "uwmod: " + string.Join("; ", diff.Problems)); return 1; }
+                if (pkg == null) { Console.Error.WriteLine(diff.Changed.Count == 0 && diff.Problems.Count == 0 ? "uwmod: nothing has changed" : "uwmod: " + string.Join("; ", diff.Problems)); return 1; }
                 if (output != null) pkg.Write(output); else m.Library.Add(pkg);
                 Console.WriteLine($"Captured {pkg.Files.Count} changed file(s) as {Library.KeyOf(pkg)}" + (output != null ? " in " + output : " into the library") + ".");
                 return 0;
@@ -182,10 +185,10 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                 return 0;
             }
             case "recover":
-                Console.WriteLine(recovered ?? "Nothing to finish.");
+                Console.WriteLine(recovered ?? "Nothing to recover.");
                 return 0;
             default:
-                Console.Error.WriteLine("uwmod: unknown command " + cmd + " (uwmod help)");
+                Console.Error.WriteLine("uwmod: unknown command " + cmd + " (see uwmod help)");
                 return 2;
         }
     }
@@ -201,8 +204,8 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
 
     static ModDetails Details(List<string> a) => new()
     {
-        Id = Take(a, "--id") ?? throw new ArgumentException("give --id"),
-        Name = Take(a, "--name") ?? throw new ArgumentException("give --name"),
+        Id = Take(a, "--id") ?? throw new ArgumentException("--id is required"),
+        Name = Take(a, "--name") ?? throw new ArgumentException("--name is required"),
         Version = Take(a, "--version") ?? "1.0.0",
         Authors = (Take(a, "--author") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(),
         Description = Take(a, "--description") ?? "",
@@ -215,7 +218,7 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
         if (m.Library.Find(s) != null) return s;
         var byId = m.Library.List().Where(e => e.Package.Id == s).ToList();
         if (byId.Count == 1) return byId[0].Key;
-        throw new KeyNotFoundException("no mod " + s + " in the library (uwmod library)");
+        throw new KeyNotFoundException("the library has no mod " + s + " (see uwmod library)");
     }
 
     static string? Take(List<string> a, string name)
@@ -229,5 +232,5 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
 
     static bool Flag(List<string> a, string name) => a.Remove(name);
 
-    static string Arg(List<string> a, int i, string what) => i < a.Count ? a[i] : throw new ArgumentException("give " + what + " (uwmod help)");
+    static string Arg(List<string> a, int i, string what) => i < a.Count ? a[i] : throw new ArgumentException(what + " is required (see uwmod help)");
 }

@@ -144,10 +144,10 @@ namespace UwEditor.Core.Editing
         public static readonly RecipeInfo[] Recipes =
         {
             new RecipeInfo { Name = "Lever opens a door", Explanation = "A lever, switch, button or pull chain that opens, closes or toggles a door. Use one already in the level, or put a new one on a wall of a tile. Its use trigger runs a door trap on the door's square." },
-            new RecipeInfo { Name = "Teleport", Explanation = "Stepping on a square sends the player to another square, on this level or another one (the teleport's z is the level). Optionally a second pair sends him back. Only the player is teleported." },
+            new RecipeInfo { Name = "Teleport", Explanation = "Stepping on a square sends the player to another square, on this level or another one (the teleport's z is the level). Optionally, a second pair of squares sends the player back. Only the player is teleported." },
             new RecipeInfo { Name = "Pressure plate", Explanation = "Stepping on a square runs a trap: damage, a message, a variable, a new object or creature, a door, or removing an object. A move trigger works in both games; Underworld II also has pressure plates, which fire when weight comes onto the square." },
             new RecipeInfo { Name = "Object trigger", Explanation = "Picking up, using or looking at an object runs a trap: a message, a variable, damage, a new object or creature, a door, or removing an object. The trigger goes inside the object." },
-            new RecipeInfo { Name = "Wandering monsters", Explanation = "A spawner: a create-object trap with no trigger, which the game runs by itself every few game minutes (10 in Underworld II, 8 in Ultima Underworld) with chance 1 in 4 while the player is more than 8 squares away, and whenever he sleeps. Each run makes its creature with the chance set here, unless a creature it made is still within 4 squares. Made creatures go away when the player sleeps. In Underworld II the creature can be a random monster that grows stronger with the level, the castle plot and the player's level." },
+            new RecipeInfo { Name = "Wandering monsters", Explanation = "A spawner: a create-object trap with no trigger, which the game runs by itself every few game minutes (10 in Underworld II, 8 in Ultima Underworld) with a 1 in 4 chance while the player is more than 8 squares away, and whenever he sleeps. Each run makes its creature with the chance set here, unless a creature it made is still within 4 squares. The creatures it makes go away when the player sleeps. In Underworld II the creature can be a random monster that grows stronger with the level, the castle plot and the player's level." },
         };
 
         static FieldDef Field(int index, string name) { return (index < LevelBlock.Mobiles ? Uw1Schemas.MobileObject : Uw1Schemas.StaticObject)[name]; }
@@ -584,8 +584,8 @@ namespace UwEditor.Core.Editing
             {
                 Square(mt, o.BackFromX, o.BackFromY, "Back: step on");
                 Destination(mf, o.BackToX, o.BackToY, "Back: arrive at");
-                Need(o.BackFromX != o.ToX || o.BackFromY != o.ToY, "The way back must start on another square than the arrival, or the player is sent straight back.");
-                Need(o.BackToX != o.FromX || o.BackToY != o.FromY, "The way back must arrive on another square than the first teleport's, or the player is sent straight back.");
+                Need(o.BackFromX != o.ToX || o.BackFromY != o.ToY, "The way back must start on a different square from the arrival, or the player is sent straight back.");
+                Need(o.BackToX != o.FromX || o.BackToY != o.FromY, "The way back must arrive on a different square from where the first teleport starts, or the player is sent straight back.");
                 if (same) Need(o.BackFromX != o.FromX || o.BackFromY != o.FromY, "The way back needs its own square.");
             }
             RecipeResult r = null;
@@ -673,7 +673,7 @@ namespace UwEditor.Core.Editing
         {
             if (a.Kind != RecipeTrap.Message || a.TextIndex >= 0) return;
             int n = strings.Add(TextBlock, a.Text);
-            if (n != str) throw new InvalidOperationException("Block 9 changed while the recipe ran: the text trap prints string " + str + ", the message went to " + n + ".");
+            if (n != str) throw new InvalidOperationException("Block 9 changed while the recipe ran: the text trap prints string " + str + ", but the message went to " + n + ".");
         }
 
         // ---- 4. a trigger in an object
@@ -733,7 +733,7 @@ namespace UwEditor.Core.Editing
             Square(m, o.X, o.Y, "The spawner");
             Need(o.Item >= 0x40 && o.Item < 0x80, "A spawner makes a creature (0x40-0x7F).");
             Need(s.IsUw2 || o.Item != Triggers.Adventurer, "Ultima Underworld has no random monster: choose a creature.");
-            Need(o.Chance > 0 && o.Chance <= 100, "The chance is more than 0 and at most 100 %.");
+            Need(o.Chance > 0 && o.Chance <= 100, "The chance must be more than 0 and at most 100 %.");
             int q = Triggers.SpawnQuality(o.Chance);
             Need(q < 63, "The chance is too low: the trap would never make anything.");
             var first = Triggers.FirstCreateTrapOn(m, o.X, o.Y);

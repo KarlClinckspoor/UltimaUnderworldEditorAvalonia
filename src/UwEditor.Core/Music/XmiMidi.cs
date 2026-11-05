@@ -290,7 +290,7 @@ namespace UwEditor.Core.Music
                 while (q.Count > 0) { var n = q.Dequeue(); n.Duration = Math.Max(0, eot - n.Tick); unclosed++; }
             if (strayOffs > 0) r.Notes.Add(MusicIssue.Note(strayOffs + " note-off(s) without a note sounding were ignored."));
             if (unclosed > 0) r.Notes.Add(MusicIssue.Warn(unclosed + " note(s) never ended: they last to the end of the theme."));
-            if (gmBanks > 0) r.Notes.Add(MusicIssue.Warn(gmBanks + " General MIDI bank select(s) (controllers 0 and 32) were dropped: the game has no such banks, bank 0's program plays."));
+            if (gmBanks > 0) r.Notes.Add(MusicIssue.Warn(gmBanks + " General MIDI bank select(s) (controllers 0 and 32) were dropped: the game has no such banks, so bank 0's program plays."));
             if (droppedMetas > 0) r.Notes.Add(MusicIssue.Note(droppedMetas + " name, lyric or other text event(s) were left out (they only take room)."));
             if (droppedSysex > 0) r.Notes.Add(MusicIssue.Note(droppedSysex + " system exclusive message(s) were left out: the FM drivers ignore them."));
 
@@ -300,7 +300,7 @@ namespace UwEditor.Core.Music
                 int mapped = 0;
                 foreach (var e in outEv)
                     if (e.IsProgram && e.Channel != 9) { e.Data1 = (byte)Mt32Programs.Map(e.Data1); mapped++; }
-                if (mapped > 0) r.Notes.Add(MusicIssue.Note(mapped + " program change(s) mapped from General MIDI to the MT-32's presets."));
+                if (mapped > 0) r.Notes.Add(MusicIssue.Note(mapped + " program change(s) were mapped from General MIDI to the MT-32's presets."));
             }
             if (opt.Version == MusicVersion.Fm && opt.ReplaceMissingDrums && opt.FmTimbres != null) ReplaceDrums(outEv, opt.FmTimbres, r);
 
@@ -382,7 +382,7 @@ namespace UwEditor.Core.Music
                     map[c] = to;
                     r.Notes.Add(MusicIssue.Note(string.Format("Channel {0} moved to channel {1} (the game plays channels 2 to 10 only).", c + 1, to + 1)));
                 }
-                else r.Notes.Add(MusicIssue.Warn(string.Format("Channel {0} stays: no channel from 2 to 9 is free, and the game does not play it.", c + 1)));
+                else r.Notes.Add(MusicIssue.Warn(string.Format("Channel {0} was left as it is: no channel from 2 to 9 is free, so the game does not play it.", c + 1)));
             }
             if (map.Count == 0) return;
             foreach (var e in ev)
