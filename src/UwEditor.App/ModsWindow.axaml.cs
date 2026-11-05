@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using UwEditor.Core;
+using Underworld.Mods;
 using UwEditor.Core.Mods;
 
 namespace UwEditor.App
@@ -14,7 +15,7 @@ namespace UwEditor.App
     {
         public GameSession Session { get; private set; }
         string name, id, version = "1.0.0", authors = "", description = "", referenceFolder = "", preview = "", status = "", checks = "", loadedPath = "";
-        bool useOriginals = true, force;
+        bool useOriginals = true, loadedFits;
         public ModPackage Package { get; private set; }
         public ModPackage Loaded { get; private set; }
 
@@ -37,26 +38,39 @@ namespace UwEditor.App
         public string Status { get { return status; } set { Set(ref status, value); } }
         public string Checks { get { return checks; } set { Set(ref checks, value); } }
         public string LoadedPath { get { return loadedPath; } set { Set(ref loadedPath, value); } }
-        public bool Force { get { return force; } set { Set(ref force, value); } }
-        public bool HasPackage { get { return Package != null && Package.Components.Count > 0; } }
-        public bool CanApply { get { return Loaded != null; } }
+        public bool HasPackage { get { return Package != null && Package.Files.Count > 0; } }
+        public bool CanApply { get { return Loaded != null && loadedFits; } }
 
-        /// <summary>Compares the game folder with its reference and lists what the mod would hold.</summary>
+        /// <summary>Compares the saved game folder with its originals and makes the mod (checked: each delta rebuilds its file).</summary>
         public ModPackage Collect()
         {
-            if (UseFolder && !Directory.Exists(referenceFolder)) { Status = "Choose the folder of an untouched copy of the game."; Package = null; Raise(nameof(HasPackage)); return null; }
+            Package = null;
+            if (UseFolder && !Directory.Exists(referenceFolder)) { Status = "Choose the folder of an untouched copy of the game."; Raise(nameof(HasPackage)); return null; }
             try
             {
-                var m = ModPackage.FromChanges(Session.GameFolder, Session.Kind, UseFolder ? referenceFolder : null);
-                m.Id = id.Trim(); m.Name = name.Trim(); m.Version = version.Trim(); m.Description = description;
-                m.Authors.Clear();
-                m.Authors.AddRange(authors.Split(',').Select(a => a.Trim()).Where(a => a.Length > 0));
-                Package = m;
-                var sb = new StringBuilder(m.Summary);
-                sb.Append("\nMade from (SHA-256 of each file it changes):\n");
-                foreach (var kv in m.BaseFiles.OrderBy(k => k.Key)) sb.AppendFormat("  {0}  {1}\n", kv.Key, kv.Value);
-                Preview = sb.ToString();
-                Status = m.Components.Count == 0 ? "No changes found: save your edits first (only saved files are compared)." : m.Components.Count + " change(s) found.";
+                var changes = EditorMods.Collect(Session.GameFolder, Session.Kind, UseFolder ? referenceFolder : null);
+                if (changes.Problems.Count > 0)
+                {
+                    Preview = "These keep the changes from being a mod:\n" + string.Join("\n", changes.Problems.Select(p => "  " + p)) + "\n";
+                    Status = changes.Problems.Count + " problem(s): a mod changes the game's own files, and adds only sound files the game opens by number.";
+                }
+                else if (changes.Changed.Count == 0)
+                {
+                    Preview = "";
+                    Status = "No changes found: save your edits first (only saved files are compared).";
+                }
+                else
+                {
+                    var auth = authors.Split(',').Select(a => a.Trim()).Where(a => a.Length > 0);
+                    var m = ModMaker.Make(changes, id.Trim(), name.Trim(), version.Trim(), description, auth, EditorMods.MadeWith);
+                    Package = m;
+                    var sb = new StringBuilder(m.Summary);
+                    sb.Append("\nMade from (SHA-256 of each original):\n");
+                    foreach (var f in m.Files) sb.AppendFormat("  {0}  {1}\n", f.Path, f.Added ? "(none: the mod adds it)" : f.BaseSha256);
+                    sb.AppendFormat("\nThe package holds {0:N0} bytes of changes in all, and nothing of the original files.\n", m.Files.Sum(f => (long)f.Delta.Length));
+                    Preview = sb.ToString();
+                    Status = m.Files.Count + " file(s) changed.";
+                }
             }
             catch (Exception ex) { Status = ex.Message; Package = null; }
             Raise(nameof(HasPackage));
@@ -73,11 +87,11 @@ namespace UwEditor.App
         {
             try
             {
-                Loaded = ModPackage.Read(path);
+                Loaded = ModPackage.Load(path);
                 LoadedPath = path;
                 RecheckLoaded();
             }
-            catch (Exception ex) { Loaded = null; Checks = ""; Status = "Could not read the mod: " + ex.Message; }
+            catch (Exception ex) { Loaded = null; loadedFits = false; Checks = ""; Status = "Could not read the mod: " + ex.Message; }
             Raise(nameof(CanApply));
         }
 
@@ -85,15 +99,35 @@ namespace UwEditor.App
         {
             if (Loaded == null) return;
             var sb = new StringBuilder(Loaded.Summary);
-            string game = Session.IsUw2 ? "uw2" : "uw1";
-            if (!string.Equals(Loaded.Game, game, StringComparison.OrdinalIgnoreCase)) sb.Append("\nThis mod is for " + Loaded.Game.ToUpperInvariant() + "; the open game is " + game.ToUpperInvariant() + ".\n");
+            if (Loaded.Game != Session.Kind)
+            {
+                sb.Append("\nThis mod is for " + Loaded.GameName + "; the open game is the other one.\n");
+                Checks = sb.ToString();
+                Status = "This mod is for " + Loaded.GameName + ".";
+                loadedFits = false;
+                Raise(nameof(CanApply));
+                return;
+            }
             sb.Append("\nAgainst ").Append(Session.GameFolder).Append(":\n");
-            var list = Loaded.Check(Session.GameFolder, Session.Kind);
-            foreach (var c in list) sb.Append("  ").Append(c).Append('\n');
-            int bad = list.Count(c => c.State == ComponentState.Conflict || c.State == ComponentState.MissingFile);
-            int done = list.Count(c => c.State == ComponentState.AlreadyApplied);
+            var list = EditorMods.Check(Loaded, Session.GameFolder);
+            foreach (var c in list) sb.Append("  ").Append(c.File.Path).Append(": ").Append(StateText(c)).Append('\n');
+            int bad = list.Count(c => c.State == FileState.Different || c.State == FileState.Missing);
+            int done = list.Count(c => c.State == FileState.Applied);
             Checks = sb.ToString();
-            Status = bad > 0 ? bad + " part(s) do not fit this game." : done == list.Count ? "The mod is already applied." : "The mod fits this game.";
+            loadedFits = bad == 0 && done < list.Count;
+            Status = bad > 0 ? bad + " file(s) are not the ones the mod was made from: it does not fit this game." : done == list.Count ? "The mod is already applied." : "The mod fits this game.";
+            Raise(nameof(CanApply));
+        }
+
+        static string StateText(FileCheck c)
+        {
+            switch (c.State)
+            {
+                case FileState.Original: return c.File.Added ? "will be added" : "the original the mod was made from";
+                case FileState.Applied: return "already as the mod makes it";
+                case FileState.Missing: return "missing";
+                default: return c.File.Added ? "a file of that name is already there" : "not the file the mod was made from";
+            }
         }
 
         public bool Apply()
@@ -101,7 +135,7 @@ namespace UwEditor.App
             if (Loaded == null) return false;
             try
             {
-                var written = Loaded.Apply(Session.GameFolder, Session.Kind, force);
+                var written = EditorMods.Apply(Loaded, Session.GameFolder, Session.Kind);
                 Status = written.Count == 0 ? "Nothing to write: already applied." : "Applied: " + string.Join(", ", written) + " (each original kept as .ORIG). The game was opened again.";
                 return true;
             }

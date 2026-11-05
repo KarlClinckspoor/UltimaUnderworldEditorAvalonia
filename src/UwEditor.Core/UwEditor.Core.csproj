@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Underworld.Formats/Underworld.Formats.csproj" />
+    <ProjectReference Include="../Underworld.Mods/Underworld.Mods.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- the randomizer's hand-written UW1 facts, every docs/facts/uw1-*.json (Randomizer/Facts.cs FactSet.Shipped) -->

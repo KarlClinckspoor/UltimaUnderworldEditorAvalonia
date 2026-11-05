@@ -335,9 +335,12 @@ makes one undo step per level.
 
 ![Make a mod: only what changed, checked by SHA-256](docs/images/mods.png)
 
-- **Mods** (Ctrl+Shift+M): **Make a mod** writes a `.uwmod` with only what changed: level
-  blocks, single strings, patched bytes or new files, with the SHA-256 of each file it was
-  made from. **Load a mod** checks it block by block and string by string before applying it.
+- **Mods** (Ctrl+Shift+M): **Make a mod** writes a `.uwmod` holding only the differences from
+  the game's own files, never the files themselves (UW2's compressed blocks are compared
+  uncompressed), with the SHA-256 of each original. It changes files the game has, and adds
+  only sounds the game opens by number. **Load a mod** applies it to those exact originals,
+  giving back the saved files byte for byte. The format is in
+  [docs/mod-format.md](docs/mod-format.md).
 - **Backups:** every file written keeps `.BKP`, and the first version `.ORIG`.
 - **Checkpoints:** while there are unsaved changes, a copy is kept every 5 minutes (both
   numbers can be changed). Restoring loads one back as edits that can be undone.
@@ -487,6 +490,8 @@ The core tests check, among other things:
 | `tests/UwEditor.App.Tests` | Headless interface tests of the Avalonia windows. |
 | `tests/UwEditor.Screenshots` | Screenshot tests of the program with its OpenGL view (Linux). |
 | `tests/Shared` | Picture comparison and baselines, shared by the two interface test projects. |
+| `src/Underworld.Mods` | Mod packages, format 2 ([docs/mod-format.md](docs/mod-format.md)): deltas from the game's own files, shared by the editor and the mod manager. No UI. |
+| `tests/Underworld.Mods.Tests` | Its tests, on the real game files. |
 | `ModManager/` | The Ultima Underworlds Mod Manager (app, `uwmod` command line, tests), brought in from its own repository. It still builds against the Unity editor's mod code and format; see its [README](ModManager/README.md). |
 
 The meaning of the files comes from

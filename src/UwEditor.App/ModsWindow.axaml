@@ -9,7 +9,7 @@
   <DockPanel Margin="16">
     <TextBlock DockPanel.Dock="Top" Text="Mods" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" />
     <TextBlock DockPanel.Dock="Top" Classes="muted" TextWrapping="Wrap" Margin="0,0,0,10"
-               Text="A mod (.uwmod) holds only what changed: level blocks, strings, patched bytes, or whole new files. It names the files it was made from by their SHA-256 hash, so it is applied only to the same game, block by block and string by string." />
+               Text="A mod (.uwmod) holds only the differences from the game's own files, never the files themselves. It changes files the game already has (it adds only speech, effect and trap sounds the game opens by number), and it names each original by its SHA-256 hash: it applies only to those exact files, and gives back, byte for byte, the files you saved." />
     <TextBlock DockPanel.Dock="Bottom" x:Name="StatusText" Text="{Binding Status}" Classes="muted" TextWrapping="Wrap" Margin="0,10,0,0" />
     <TabControl x:Name="Tabs">
       <TabItem Header="Make a mod">
@@ -50,7 +50,6 @@
           </StackPanel>
           <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
             <Button x:Name="ApplyButton" Content="Apply to this game" Click="OnApply" IsEnabled="{Binding CanApply}" />
-            <CheckBox Content="Write over conflicts" IsChecked="{Binding Force}" ToolTip.Tip="Apply even where this game's file is not the one the mod was made from" />
           </StackPanel>
           <TextBox x:Name="ChecksBox" Text="{Binding Checks}" IsReadOnly="True" Classes="mono" FontSize="12" TextWrapping="Wrap" />
         </DockPanel>

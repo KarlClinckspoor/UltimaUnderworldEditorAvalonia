@@ -4,6 +4,7 @@ using System.Linq;
 using UltimateEditor.Games;
 using UltimateEditor.Uw1;
 using UwEditor.Core.Editing;
+using Underworld.Mods;
 using UwEditor.Core.Mods;
 using Xunit;
 using Xunit.Abstractions;
@@ -200,31 +201,36 @@ namespace UwEditor.Core.Tests
                 edits.Save();
                 var pak = Conversations.StringsPakFile.Load(Path.Combine(edited.Folder, "DATA", "STRINGS.PAK"));
                 var b5 = pak.Get(5); b5[0x64 + 3] = "This key smells of mod."; pak.Set(5, b5); pak.Save();
-                var mod = ModPackage.FromChanges(edited.Folder, s.Kind);
-                mod.Id = "test.mod"; mod.Name = "Test"; mod.Authors.Add("Tests");
-                Assert.Equal(2, mod.Components.Count);
-                var ark = mod.Components.Single(c => c.Kind == "ark-blocks");
-                Assert.Equal(new[] { 1 }, ark.Blocks.Select(b => b.Index));
-                Assert.Single(mod.Components.Single(c => c.Kind == "strings").Strings);
+                var changes = EditorMods.Collect(edited.Folder, s.Kind, null);
+                Assert.Empty(changes.Problems);
+                var mod = ModMaker.Make(changes, "test.mod", "Test", "1.0.0", "", new[] { "Tests" }, EditorMods.MadeWith);
+                Assert.Equal(new[] { "DATA/LEV.ARK", "DATA/STRINGS.PAK" }, mod.Files.Select(f => f.Path));
+                // differences only: an object and a string, not the files
+                Assert.True(mod.Files.Sum(f => f.Delta.Length) < 2000, "deltas of " + mod.Files.Sum(f => f.Delta.Length) + " bytes");
                 string file = Path.Combine(edited.Folder, "test.uwmod");
                 mod.Write(file);
-                var read = ModPackage.Read(file);
-                Assert.Equal(mod.BaseFiles, read.BaseFiles);
+                var read = ModPackage.Load(file);
+                Assert.Equal(mod.Files.Select(f => f.BaseSha256), read.Files.Select(f => f.BaseSha256));
                 // a clean copy takes it, and then reads as applied
-                Assert.All(read.Check(clean.Folder, s.Kind), c => Assert.Equal(ComponentState.Applicable, c.State));
-                Assert.Equal(2, read.Apply(clean.Folder, s.Kind).Count);
-                Assert.All(read.Check(clean.Folder, s.Kind), c => Assert.Equal(ComponentState.AlreadyApplied, c.State));
-                Assert.Equal(File.ReadAllBytes(Path.Combine(edited.Folder, "DATA", "LEV.ARK")), File.ReadAllBytes(Path.Combine(clean.Folder, "DATA", "LEV.ARK")));
+                Assert.All(EditorMods.Check(read, clean.Folder), c => Assert.Equal(FileState.Original, c.State));
+                Assert.Equal(2, EditorMods.Apply(read, clean.Folder, s.Kind).Count);
+                Assert.All(EditorMods.Check(read, clean.Folder), c => Assert.Equal(FileState.Applied, c.State));
+                Assert.Empty(EditorMods.Apply(read, clean.Folder, s.Kind));
+                foreach (var rel in new[] { "LEV.ARK", "STRINGS.PAK" })
+                    Assert.Equal(File.ReadAllBytes(Path.Combine(edited.Folder, "DATA", rel)), File.ReadAllBytes(Path.Combine(clean.Folder, "DATA", rel)));
                 Assert.Equal("This key smells of mod.", GameSession.Open(clean.Folder).Strings.Get(5, 0x64 + 3));
-                // a copy whose level 2 changed otherwise refuses it
+                // a copy whose level 2 changed otherwise refuses it, and is left as it was
                 var s3 = GameSession.Open(other.Folder);
                 var ed3 = new LevelEdits(s3);
                 var e3 = ed3.For(2);
                 e3.SetTileField(x, y, "Floor height", (e3.Model.Tiles[x, y].Height + 1) % 16);
                 ed3.Save();
-                var checks = read.Check(other.Folder, s.Kind);
-                Assert.Contains(checks, c => c.State == ComponentState.Conflict && c.Component.Kind == "ark-blocks");
-                Assert.Throws<InvalidOperationException>(() => read.Apply(other.Folder, s.Kind));
+                var checks = EditorMods.Check(read, other.Folder);
+                Assert.Contains(checks, c => c.State == FileState.Different && c.File.Path == "DATA/LEV.ARK");
+                var pakBefore = File.ReadAllBytes(Path.Combine(other.Folder, "DATA", "STRINGS.PAK"));
+                Assert.Throws<ModException>(() => EditorMods.Apply(read, other.Folder, s.Kind));
+                Assert.Equal(pakBefore, File.ReadAllBytes(Path.Combine(other.Folder, "DATA", "STRINGS.PAK")));
+                Assert.Throws<ModException>(() => EditorMods.Apply(read, other.Folder, GameKind.UW2));
             }
         }
     

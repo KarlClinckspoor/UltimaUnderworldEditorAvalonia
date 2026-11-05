@@ -9,9 +9,21 @@ the editor and `ModManager/`.
 
 1. **A mod changes files the game already has, and nothing else.** One game (UW1 or UW2), in
    its folder: the executable and the files under `DATA`, `CRIT`, `CUTS` and `SOUND`. A mod never
-   adds, deletes or renames a file, and never touches a `SAVEn` folder. The game reads only the
-   files it knows, so a new music theme replaces the bytes of the `.XMI` it goes into, and a
-   new sound replaces an existing `.VOC`.
+   deletes or renames a file, and never touches a `SAVEn` folder. The game reads only the
+   files it knows, so a new music theme replaces the bytes of the `.XMI` it goes into (the
+   themes' numbers are fixed in the game's code).
+
+   **The one exception: sound files the game opens by a number from its data.** A mod may add
+   one of these, since the game plays it though GOG's release does not ship it; its content is
+   all the mod's own (`GamePaths.CanAdd`). Numbers are written as the game writes them: two
+   digits under 10, else as many as needed.
+
+   | Game | File | Opened for | Source |
+   | --- | --- | --- | --- |
+   | UW1 | `SOUND/nn.VOC`, 0-998 | a cutscene's speech | `uw1 sound/SOUND.C play_speech`, `gfx/CUTS.C` |
+   | UW2 | `SOUND/SPnn.VOC`, 0-99 | an effect marked digital in `SOUNDS.DAT` | `uw2 sound/SOUND.C digi_fx_play` |
+   | UW2 | `SOUND/UWnn.VOC`, 0-155 | a special-effects trap of type 2 playing sound nn + 100 | `event/WORLDEV.C do_sfx`, `digi_fx_play` |
+   | UW2 | `SOUND/BSPnn.VOC`, 0-255 | a cutscene's speech | `gfx/CUTS.C big_speech_play` |
 2. **A mod carries differences, never an original file.** Each changed file is stored as a
    delta: the new bytes, plus instructions to copy everything else from the original. No
    whole original file, and no unchanged block, string or picture, goes into a package.
@@ -59,6 +71,9 @@ deltas/SOUND/UW01.XMI.uwd
 
 - `path`: upper case, `/`-separated, relative to the game folder; it must be the executable
   (`UW.EXE` / `UW2.EXE`) or lie under `DATA/`, `CRIT/`, `CUTS/` or `SOUND/`, with no `..`.
+- `"base": null` marks a file the mod adds (rule 1's exception); its delta is made from an
+  empty original (ADD only). A game that already has a file of that name refuses the mod, and
+  going back to the original game removes it.
 - Packages are untrusted: anything that breaks these rules, a delta whose hash does not match,
   or a delta that reads outside its original is refused on import.
 - What a mod changes (levels, strings, start square, music themes) is not stored: readers work
@@ -130,16 +145,17 @@ Each also checks that the package holds no original block or file.
 - **Saved games are not mods.** The manager stops exporting and installing save slots; it still
   backs a slot up before changing anything and can restore it. Saves may come back later as a
   type of their own.
-- **The sound window only replaces.** It replaces the sound in a `.VOC` the game ships; adding
-  and removing files goes, so everything it makes can go into a mod.
+- **New sound files only where the game opens them by number.** First decided as "replace
+  only"; the Exhumed sources then showed UW1 and UW2 build the speech and UW2 the effect and
+  trap file names from numbers in their data, so those may be added (rule 1's exception). The
+  sound window keeps "Add a trap sound"; any other new file cannot go into a mod.
 - **Exact originals only.** A mod made on GOG's files refuses another release of the same game.
   Matching archive blocks one by one could lift that later without changing the format.
 
 ## Building it
 
 1. `src/Underworld.Mods` and its tests: the delta (with BLOCK), the package, the rules.
-2. The editor's Mods window on it; `Mods/ModPackage.cs` and the sound window's add/remove go;
-   the manual.
+2. The editor's Mods window on it; `Mods/ModPackage.cs` goes; the manual.
 3. The manager on it: `Underworld.Shared` and the Unity checkout go, and so do save export and
    install.
 4. The round-trip tests above.

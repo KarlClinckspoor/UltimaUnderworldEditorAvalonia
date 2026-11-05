@@ -1069,7 +1069,9 @@ others out, so keep them short.
     from WAV…** makes a new `UWnn.VOC`: then put a trap with that owner in a level. New voice
     lines can be added this way, as data alone.
 
-Make a mod (**Tools ▸ Mods**) carries the changed and new files of `SOUND` with the rest.
+Make a mod (**Tools ▸ Mods**) carries the changed files of `SOUND` with the rest, and the new
+ones the game opens by number: UW1 speech `nn.VOC`, UW2 `SPnn.VOC`, `UWnn.VOC` and `BSPnn.VOC`.
+Any other new file keeps a mod from being made (see [Mods](#mods)).
 
 ### Music
 
@@ -2250,15 +2252,27 @@ the Zones window names the places itself; otherwise the names come from the zone
 
 ## Mods
 
-**Tools ▸ Mods…** (Ctrl+Shift+M):
-- **Make a mod** compares the game with the originals the editor kept (`.ORIG`), or with
-  an untouched copy, and writes a `.uwmod` (a zip with `mod.json`). It holds only what
-  changed: LEV.ARK and other archive blocks, single strings, bytes patched in place (an
-  executable's start square, never the program itself), or whole new files. It records
-  the SHA-256 of each file it was made from.
-- **Load a mod** checks it against the open game, block by block and string by string
-  (fits, already applied, changed since, missing). It then applies it and opens the game
-  again.
+**Tools ▸ Mods…** (Ctrl+Shift+M). A mod (`.uwmod`, format 2; the details are in
+[docs/mod-format.md](mod-format.md)) holds only the differences from the game's own files, never
+the files themselves, so it can be shared without the game's data:
+- **It changes files the game already has**: the executable and the files under `DATA`, `CRIT`,
+  `CUTS` and `SOUND`. It never removes a file, and never touches a saved game. It adds only the
+  sound files the game opens by a number from its data, which it plays though they are not
+  shipped: UW1 speech `SOUND\nn.VOC`; UW2 effects `SPnn.VOC`, trap sounds `UWnn.VOC` and
+  speech `BSPnn.VOC`. New music cannot be added (the themes' numbers are fixed in the game's
+  code): a new theme replaces the one it goes into.
+- **Make a mod** compares the game with the originals the editor kept (`.ORIG`), or with an
+  untouched copy, and writes the `.uwmod` (a zip with `mod.json` and one delta per file). A UW2
+  archive's compressed blocks are compared uncompressed, so a changed object carries only its
+  own bytes. Every delta is checked to give back the saved file exactly before the mod is
+  written. A file removed, or added where the game would never open it, is listed and no mod
+  is made.
+- **Load a mod** checks each file against the open game: the original the mod was made from (it
+  applies), already as the mod makes it, not the file it was made from (another release, another
+  mod, or changed since: it does not apply), or missing. A mod applies only to the exact
+  originals (their SHA-256), and the files it writes are then the same, byte for byte, as the
+  ones its author saved. It then opens the game again. Mods made by earlier versions (format 1)
+  are not read.
 
 ## Keys and mouse
 

@@ -21,16 +21,19 @@ namespace Underworld.Mods
     public sealed class ModFile
     {
         public string Path;
-        public string BaseSha256, TargetSha256;
+        /// <summary>The original's hash; null for a file the mod adds (GamePaths.CanAdd), whose delta is made from nothing.</summary>
+        public string BaseSha256;
+        public string TargetSha256;
         public long BaseSize, TargetSize;
         public byte[] Delta;
+        public bool Added { get { return BaseSha256 == null; } }
         public string DeltaPath { get { return "deltas/" + Path + ".uwd"; } }
-        public override string ToString() { return Path + " (" + BaseSize + " → " + TargetSize + " bytes, delta " + (Delta?.Length ?? 0) + ")"; }
+        public override string ToString() { return Path + (Added ? " (added, " : " (" + BaseSize + " → ") + TargetSize + " bytes, delta " + (Delta?.Length ?? 0) + ")"; }
     }
 
     public enum FileState
     {
-        /// <summary>The original the mod was made from: the mod applies.</summary>
+        /// <summary>The original the mod was made from (for a file the mod adds: no file): the mod applies.</summary>
         Original,
         /// <summary>Already the mod's result.</summary>
         Applied,
@@ -69,19 +72,24 @@ namespace Underworld.Mods
 
         // ---- making
 
-        /// <summary>Adds a changed file: its delta is made and checked here. A UW2 archive's compressed blocks are diffed decompressed.</summary>
+        /// <summary>
+        /// Adds a changed file: its delta is made and checked here. A UW2 archive's compressed
+        /// blocks are diffed decompressed. original null: a file the mod adds, which must be one
+        /// the game opens by number (GamePaths.CanAdd).
+        /// </summary>
         public ModFile Add(string path, byte[] original, byte[] edited)
         {
             string p = GamePaths.Normalize(path);
             if (p == null || !GamePaths.IsGameFile(p, Game)) throw new ModException(path + " is not a file of " + GameName + " that a mod may change.");
+            if (original == null && !GamePaths.CanAdd(p, Game)) throw new ModException(p + " is not one of " + GameName + "'s files, and the game would never open it: a mod cannot add it.");
             if (Files.Any(f => f.Path == p)) throw new ModException(p + " is in the mod twice.");
             bool uw2Archive = Game == GameKind.UW2 && p.EndsWith(".ARK");
             var f = new ModFile
             {
                 Path = p,
-                BaseSha256 = Sha256(original), BaseSize = original.Length,
+                BaseSha256 = original == null ? null : Sha256(original), BaseSize = original?.Length ?? 0,
                 TargetSha256 = Sha256(edited), TargetSize = edited.Length,
-                Delta = Delta.Make(original, edited, uw2Archive),
+                Delta = Delta.Make(original ?? new byte[0], edited, uw2Archive && original != null),
             };
             Files.Add(f);
             Files.Sort((a, b) => string.CompareOrdinal(a.Path, b.Path));
@@ -112,7 +120,7 @@ namespace Underworld.Mods
                 files.Add(new JsonObject
                 {
                     ["path"] = f.Path,
-                    ["base"] = new JsonObject { ["sha256"] = f.BaseSha256, ["size"] = f.BaseSize },
+                    ["base"] = f.Added ? null : new JsonObject { ["sha256"] = f.BaseSha256, ["size"] = f.BaseSize },
                     ["target"] = new JsonObject { ["sha256"] = f.TargetSha256, ["size"] = f.TargetSize },
                     ["delta"] = new JsonObject { ["path"] = f.DeltaPath, ["sha256"] = Sha256(f.Delta) },
                 });
@@ -191,10 +199,13 @@ namespace Underworld.Mods
                     if (p == null || p != raw || !GamePaths.IsGameFile(p, m.Game))
                         throw new ModException("The mod names " + raw + ", which is not a file of " + m.GameName + " that a mod may change.");
                     if (m.Files.Any(f => f.Path == p)) throw new ModException(p + " is in the mod twice.");
+                    if (!o.ContainsKey("base")) throw new ModException(p + " does not say what it was made from.");
+                    bool added = o["base"] == null;
+                    if (added && !GamePaths.CanAdd(p, m.Game)) throw new ModException("The mod adds " + p + ", which " + m.GameName + " would never open.");
                     var f = new ModFile
                     {
                         Path = p,
-                        BaseSha256 = Hex(o["base"] as JsonObject, p), BaseSize = Size(o["base"] as JsonObject, p),
+                        BaseSha256 = added ? null : Hex(o["base"] as JsonObject, p), BaseSize = added ? 0 : Size(o["base"] as JsonObject, p),
                         TargetSha256 = Hex(o["target"] as JsonObject, p), TargetSize = Size(o["target"] as JsonObject, p),
                     };
                     var d = o["delta"] as JsonObject ?? throw new ModException(p + " has no delta.");
@@ -249,12 +260,12 @@ namespace Underworld.Mods
             {
                 byte[] now = read(f.Path);
                 FileState s;
-                if (now == null) s = FileState.Missing;
+                if (now == null) s = f.Added ? FileState.Original : FileState.Missing;
                 else
                 {
                     string h = Sha256(now);
                     s = h == f.TargetSha256 && now.Length == f.TargetSize ? FileState.Applied
-                        : h == f.BaseSha256 && now.Length == f.BaseSize ? FileState.Original
+                        : !f.Added && h == f.BaseSha256 && now.Length == f.BaseSize ? FileState.Original
                         : FileState.Different;
                 }
                 list.Add(new FileCheck { File = f, State = s });
@@ -263,8 +274,9 @@ namespace Underworld.Mods
         }
 
         /// <summary>
-        /// Every file the mod changes, as the mod makes it, from the originals
-        /// (<paramref name="readOriginal"/>: the original's bytes by the mod's path, or null).
+        /// Every file the mod changes or adds, as the mod makes it, from the originals
+        /// (<paramref name="readOriginal"/>: the original's bytes by the mod's path, or null;
+        /// null is right for a file the mod adds).
         /// Throws ModException when an original is missing or is not the one the mod was made
         /// from, or a result is not the one the mod promises. Nothing is written here.
         /// </summary>
@@ -277,8 +289,13 @@ namespace Underworld.Mods
 
         public byte[] BuildOne(ModFile f, byte[] original)
         {
-            if (original == null) throw new ModException("The game has no " + f.Path + ".");
-            if (original.Length != f.BaseSize || Sha256(original) != f.BaseSha256)
+            if (f.Added)
+            {
+                if (original != null) throw new ModException("The game already has a " + f.Path + ", which this mod would add.");
+                original = new byte[0];
+            }
+            else if (original == null) throw new ModException("The game has no " + f.Path + ".");
+            else if (original.Length != f.BaseSize || Sha256(original) != f.BaseSha256)
                 throw new ModException(f.Path + " is not the file this mod was made from (another release of the game, another mod, or changed since).");
             byte[] edited;
             try { edited = Delta.Apply(original, f.Delta); }
@@ -297,7 +314,7 @@ namespace Underworld.Mods
                 if (Authors.Count > 0) sb.Append(", by " + string.Join(", ", Authors));
                 sb.Append('\n');
                 if (!string.IsNullOrWhiteSpace(Description)) sb.Append(Description.Trim()).Append('\n');
-                foreach (var f in Files) sb.Append("  ").Append(f.Path).Append(": ").Append(f.Delta.Length).Append(" bytes of changes\n");
+                foreach (var f in Files) sb.Append("  ").Append(f.Path).Append(f.Added ? ": added, " + f.TargetSize + " bytes\n" : ": " + f.Delta.Length + " bytes of changes\n");
                 return sb.ToString();
             }
         }

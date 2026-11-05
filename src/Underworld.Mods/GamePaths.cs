@@ -43,6 +43,35 @@ namespace Underworld.Mods
             return !IsWorkFile(p);
         }
 
+        /// <summary>
+        /// Whether a mod may add this file: one the game opens by a number it reads from its
+        /// data, so a new one is played though the game does not ship it. UW1: speech
+        /// SOUND\nn.VOC, by a cutscene's number below 999 (uw1 sound/SOUND.C play_speech).
+        /// UW2: SOUND\SPnn.VOC for effects 0-99 marked digital in SOUNDS.DAT, SOUND\UWnn.VOC
+        /// for a special-effects trap's sound nn + 100, nn up to 155 (uw2 sound/SOUND.C
+        /// digi_fx_play, event/WORLDEV.C do_sfx), and SOUND\BSPnn.VOC, a cutscene's speech
+        /// (gfx/CUTS.C big_speech_play). Numbers are written as the game writes them: two
+        /// digits under 10, else as many as needed. Music is not among them: the themes'
+        /// numbers are fixed in the game's code.
+        /// </summary>
+        public static bool CanAdd(string rel, GameKind game)
+        {
+            string p = Normalize(rel);
+            if (p == null || !p.StartsWith("SOUND/") || !p.EndsWith(".VOC")) return false;
+            string name = p.Substring(6, p.Length - 10);
+            if (game == GameKind.UW1) return Numbered(name, "", 998);
+            return Numbered(name, "SP", 99) || Numbered(name, "UW", 155) || Numbered(name, "BSP", 255);
+        }
+
+        static bool Numbered(string name, string prefix, int max)
+        {
+            if (!name.StartsWith(prefix)) return false;
+            string digits = name.Substring(prefix.Length);
+            if (digits.Length == 0 || digits.Length > 3 || !digits.All(char.IsAsciiDigit)) return false;
+            int n = int.Parse(digits);
+            return n <= max && digits == (n < 10 ? "0" + n : n.ToString());
+        }
+
         /// <summary>Backups, first versions and temporary files the editor and the manager keep beside the game's.</summary>
         public static bool IsWorkFile(string rel)
         {

@@ -324,8 +324,12 @@ namespace UwEditor.App.Tests
                 var mw = w.ShowMods();
                 var pkg = mw.Model.Collect();
                 Assert.NotNull(pkg);
-                Assert.Contains(pkg.Components, c => c.Kind == "bytes" && c.File == "UW.EXE" && c.Patches.Sum(p => p.New.Length) <= 3);
-                Assert.Contains(pkg.Components, c => c.Kind == "ark-blocks" && c.File.EndsWith("LEV.ARK"));
+                Assert.Equal(new[] { "DATA/LEV.ARK", "UW.EXE" }, pkg.Files.Select(f => f.Path));
+                // the executable's change is the start square and nothing else
+                var exe = pkg.Files.Single(f => f.Path == "UW.EXE");
+                var exeOrig = File.ReadAllBytes(Path.Combine(copy.Folder, "UW.EXE.ORIG"));
+                Assert.True(Underworld.Mods.ExeChanges.OnlyStart(exeOrig, pkg.BuildOne(exe, exeOrig), UltimateEditor.Games.GameKind.UW1));
+                Assert.True(exe.Delta.Length < 32);
                 string mod = Path.Combine(copy.Folder, "test.uwmod");
                 mw.Model.Write(mod);
                 mw.Close();

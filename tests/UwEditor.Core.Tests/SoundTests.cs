@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using UltimateEditor.Games;
 using UltimateEditor.Sound;
+using Underworld.Mods;
 using UwEditor.Core.Mods;
 using UwEditor.Core.Sound;
 using Xunit;
@@ -284,17 +285,22 @@ namespace UwEditor.Core.Tests
                 Assert.Empty(File.ReadAllBytes(Path.Combine(snd, "UW05.VOC.ORIG")));          // the mark of a new file
                 Assert.Equal(File.ReadAllBytes(Path.Combine(g, "SOUND", "SP01.VOC")), File.ReadAllBytes(Path.Combine(snd, "SP01.VOC.ORIG")));
                 Assert.True(new SoundLibrary(c.Folder, GameKind.UW2).Effects.Effects[13].Digital);
-                // Make a mod carries the new file, the replaced one and SOUNDS.DAT
-                var mod = ModPackage.FromChanges(c.Folder, GameKind.UW2);
-                Assert.Contains(mod.Components, x => x.File == "SOUND/UW05.VOC" && x.Kind == "file" && x.Base == "new");
-                Assert.Contains(mod.Components, x => x.File == "SOUND/SP01.VOC");
-                Assert.Contains(mod.Components, x => x.File == "SOUND/SOUNDS.DAT" && x.Kind == "bytes");
+                // Make a mod carries the new trap sound (UW2 opens UWnn.VOC by number), the replaced one and SOUNDS.DAT
+                var changes = EditorMods.Collect(c.Folder, GameKind.UW2, null);
+                Assert.Empty(changes.Problems);
+                var mod = ModMaker.Make(changes, "t", "T", "1", "", null, "");
+                Assert.Contains(mod.Files, x => x.Path == "SOUND/UW05.VOC" && x.Added);
+                Assert.Contains(mod.Files, x => x.Path == "SOUND/SP01.VOC" && !x.Added);
+                Assert.Contains(mod.Files, x => x.Path == "SOUND/SOUNDS.DAT" && x.Delta.Length < 64);
                 using (var clean = new EditingTests.Copy(g, "SOUND"))
                 {
-                    Assert.All(mod.Check(clean.Folder, GameKind.UW2), x => Assert.Equal(ComponentState.Applicable, x.State));
-                    mod.Apply(clean.Folder, GameKind.UW2);
+                    Assert.All(EditorMods.Check(mod, clean.Folder), x => Assert.Equal(FileState.Original, x.State));
+                    EditorMods.Apply(mod, clean.Folder, GameKind.UW2);
                     Assert.Equal(tone.Voc, File.ReadAllBytes(Path.Combine(clean.Folder, "SOUND", "UW05.VOC")));
-                    Assert.Contains(ModPackage.FromChanges(clean.Folder, GameKind.UW2).Components, x => x.File == "SOUND/UW05.VOC" && x.Base == "new");
+                    foreach (var f in mod.Files)
+                        Assert.Equal(File.ReadAllBytes(GamePaths.Find(c.Folder, f.Path)), File.ReadAllBytes(GamePaths.Find(clean.Folder, f.Path)));
+                    // the added file keeps the editor's mark of a new file, so a mod made from this copy carries it too
+                    Assert.Contains(EditorMods.Collect(clean.Folder, GameKind.UW2, null).Changed, x => x.Path == "SOUND/UW05.VOC" && x.Original == null);
                 }
                 // revert: the new file goes, the replaced one comes back
                 lib.Revert("UW05.VOC");

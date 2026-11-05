@@ -120,23 +120,73 @@ namespace Underworld.Mods.Tests
         }
 
         [Fact]
-        public void Added_or_removed_files_cannot_go_into_a_mod()
+        public void Removed_files_and_files_the_game_never_opens_cannot_go_into_a_mod()
         {
             string orig = SmallGame("UW");
             if (orig == null) return;
             string edited = CopyDir(orig);
-            File.WriteAllBytes(Path.Combine(edited, "SOUND", "21.VOC"), new byte[] { 1, 2, 3 });
+            File.WriteAllBytes(Path.Combine(edited, "DATA", "NEW.DAT"), new byte[] { 1, 2, 3 });
+            File.WriteAllBytes(Path.Combine(edited, "SOUND", "UW99.XMI"), new byte[] { 1, 2, 3 });   // themes are fixed in the code
             File.Delete(Path.Combine(edited, "SOUND", "UW.AD"));
             // not game files: ignored
             File.WriteAllBytes(Path.Combine(edited, "README.TXT"), new byte[] { 1 });
             Directory.CreateDirectory(Path.Combine(edited, "SAVE1"));
             File.WriteAllBytes(Path.Combine(edited, "SAVE1", "LEV.ARK"), new byte[] { 1 });
             var c = ModMaker.Compare(orig, edited, GameKind.UW1);
-            Assert.Equal(2, c.Problems.Count);
-            Assert.Contains(c.Problems, p => p.StartsWith("SOUND/21.VOC"));
+            Assert.Equal(3, c.Problems.Count);
+            Assert.Contains(c.Problems, p => p.StartsWith("DATA/NEW.DAT"));
+            Assert.Contains(c.Problems, p => p.StartsWith("SOUND/UW99.XMI"));
             Assert.Contains(c.Problems, p => p.StartsWith("SOUND/UW.AD"));
             Assert.Throws<ModException>(() => ModMaker.Make(c, "t", "T", "1", "", null, ""));
             Assert.Throws<ModException>(() => ModMaker.Make(ModMaker.Compare(orig, CopyDir(orig), GameKind.UW1), "t", "T", "1", "", null, ""));
+        }
+
+        [Theory]
+        [InlineData("UW", "SOUND/21.VOC", true)]
+        [InlineData("UW", "SOUND/05.VOC", true)]
+        [InlineData("UW", "SOUND/998.VOC", true)]
+        [InlineData("UW", "SOUND/5.VOC", false)]
+        [InlineData("UW", "SOUND/999.VOC", false)]
+        [InlineData("UW", "SOUND/021.VOC", false)]
+        [InlineData("UW", "SOUND/UW05.VOC", false)]
+        [InlineData("UW", "SOUND/UW99.XMI", false)]
+        [InlineData("UW", "DATA/21.VOC", false)]
+        [InlineData("UW2", "SOUND/UW05.VOC", true)]
+        [InlineData("UW2", "SOUND/UW155.VOC", true)]
+        [InlineData("UW2", "SOUND/UW156.VOC", false)]
+        [InlineData("UW2", "SOUND/SP13.VOC", true)]
+        [InlineData("UW2", "SOUND/SP100.VOC", false)]
+        [InlineData("UW2", "SOUND/BSP255.VOC", true)]
+        [InlineData("UW2", "SOUND/BSP256.VOC", false)]
+        [InlineData("UW2", "SOUND/21.VOC", false)]
+        [InlineData("UW2", "SOUND/UWA99.XMI", false)]
+        public void Only_files_the_game_opens_by_number_can_be_added(string game, string path, bool can)
+        {
+            Assert.Equal(can, GamePaths.CanAdd(path, game == "UW2" ? GameKind.UW2 : GameKind.UW1));
+        }
+
+        [Fact]
+        public void A_speech_file_the_game_opens_by_number_is_added_and_applied()
+        {
+            string orig = SmallGame("UW");
+            if (orig == null) return;
+            string edited = CopyDir(orig);
+            var voc = new byte[] { 9, 8, 7, 6, 5 };
+            File.WriteAllBytes(Path.Combine(edited, "SOUND", "21.VOC"), voc);
+            var c = ModMaker.Compare(orig, edited, GameKind.UW1);
+            Assert.Empty(c.Problems);
+            var mod = ModPackage.FromBytes(ModMaker.Make(c, "t", "T", "1", "", null, "").ToBytes());
+            var f = mod.Files.Single();
+            Assert.True(f.Added);
+            Assert.Equal("SOUND/21.VOC", f.Path);
+            // the original game has no such file: that is what the mod was made from
+            Assert.Equal(FileState.Original, mod.Check(Reader(orig)).Single().State);
+            Assert.Equal(voc, mod.Build(Reader(orig))["SOUND/21.VOC"]);
+            Assert.Equal(FileState.Applied, mod.Check(Reader(edited)).Single().State);
+            // a game that already has another file of that name refuses it
+            File.WriteAllBytes(Path.Combine(orig, "SOUND", "21.VOC"), new byte[] { 1 });
+            Assert.Equal(FileState.Different, mod.Check(Reader(orig)).Single().State);
+            Assert.Throws<ModException>(() => mod.Build(Reader(orig)));
         }
 
         [Fact]
@@ -152,10 +202,20 @@ namespace Underworld.Mods.Tests
             var c = ModMaker.FromOriginals(folder, GameKind.UW1);
             Assert.Empty(c.Problems);
             Assert.Equal("DATA/LEV.ARK", c.Changed.Single().Path);
-            // an empty .ORIG: a file the editor added
+            // an empty .ORIG: a file the editor added; carried when the game opens it by number
             File.WriteAllBytes(Path.Combine(folder, "SOUND", "21.VOC"), new byte[] { 1 });
             File.WriteAllBytes(Path.Combine(folder, "SOUND", "21.VOC.ORIG"), new byte[0]);
+            c = ModMaker.FromOriginals(folder, GameKind.UW1);
+            Assert.Empty(c.Problems);
+            Assert.Contains(c.Changed, x => x.Path == "SOUND/21.VOC" && x.Original == null);
+            File.WriteAllBytes(Path.Combine(folder, "DATA", "NEW.DAT"), new byte[] { 1 });
+            File.WriteAllBytes(Path.Combine(folder, "DATA", "NEW.DAT.ORIG"), new byte[0]);
             Assert.Single(ModMaker.FromOriginals(folder, GameKind.UW1).Problems);
+            // a .ORIG whose file is gone: removed
+            File.Delete(Path.Combine(folder, "DATA", "NEW.DAT.ORIG"));
+            File.Delete(Path.Combine(folder, "DATA", "NEW.DAT"));
+            File.Delete(lev);
+            Assert.Contains(ModMaker.FromOriginals(folder, GameKind.UW1).Problems, p => p.StartsWith("DATA/LEV.ARK"));
         }
 
         static byte[] Zip(string json, params (string Name, byte[] Data)[] entries)
@@ -208,6 +268,11 @@ namespace Underworld.Mods.Tests
             Assert.Throws<ModException>(() => ModPackage.FromBytes(Zip(Json("DATA/LEV.ARK", game: "uw3"), ("deltas/DATA/LEV.ARK.uwd", d))));
             // not a zip
             Assert.Throws<ModException>(() => ModPackage.FromBytes(new byte[] { 1, 2, 3 }));
+            // a file with no original: only one the game opens by number
+            string added = Json("SOUND/21.VOC").Replace("\"base\":{\"sha256\":\"" + new string('a', 64) + "\",\"size\":1}", "\"base\":null");
+            Assert.True(ModPackage.FromBytes(Zip(added, ("deltas/SOUND/21.VOC.uwd", d))).Files.Single().Added);
+            string addedData = Json("DATA/NEW.DAT").Replace("\"base\":{\"sha256\":\"" + new string('a', 64) + "\",\"size\":1}", "\"base\":null");
+            Assert.Throws<ModException>(() => ModPackage.FromBytes(Zip(addedData, ("deltas/DATA/NEW.DAT.uwd", d))));
         }
     }
 }

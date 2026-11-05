@@ -10,9 +10,9 @@ namespace Underworld.Mods
     public sealed class FolderChanges
     {
         public GameKind Game;
-        /// <summary>Changed files: the mod's path, the original's bytes, the edited bytes.</summary>
+        /// <summary>Changed files: the mod's path, the original's bytes (null for a file added), the edited bytes.</summary>
         public readonly List<(string Path, byte[] Original, byte[] Edited)> Changed = new List<(string, byte[], byte[])>();
-        /// <summary>Why no mod can be made (files added or removed). Empty when one can.</summary>
+        /// <summary>Why no mod can be made (files removed, or added where the game would not read them). Empty when one can.</summary>
         public readonly List<string> Problems = new List<string>();
     }
 
@@ -20,29 +20,38 @@ namespace Underworld.Mods
     public static class ModMaker
     {
         /// <summary>
-        /// Compares an edited folder with a folder of the original files. Files only in one of
-        /// them are problems: a mod changes the game's files, it never adds or removes one.
+        /// Compares an edited folder with a folder of the original files. A file missing from
+        /// the edited game is a problem (a mod never removes one), and so is a new file, unless
+        /// it is one the game opens by number (GamePaths.CanAdd).
         /// </summary>
         public static FolderChanges Compare(string originalFolder, string editedFolder, GameKind game)
         {
             var r = new FolderChanges { Game = game };
             var a = GamePaths.List(originalFolder, game);
             var b = GamePaths.List(editedFolder, game);
-            foreach (var p in b.Except(a)) r.Problems.Add(p + " is not one of the game's files: a mod cannot add files.");
             foreach (var p in a.Except(b)) r.Problems.Add(p + " is missing from the edited game: a mod cannot remove files.");
-            foreach (var p in a.Intersect(b))
+            foreach (var p in b)
             {
-                byte[] o = File.ReadAllBytes(GamePaths.Find(originalFolder, p));
                 byte[] e = File.ReadAllBytes(GamePaths.Find(editedFolder, p));
+                if (!a.Contains(p))
+                {
+                    if (GamePaths.CanAdd(p, game)) r.Changed.Add((p, null, e));
+                    else r.Problems.Add(NotReadable(p));
+                    continue;
+                }
+                byte[] o = File.ReadAllBytes(GamePaths.Find(originalFolder, p));
                 if (!o.AsSpan().SequenceEqual(e)) r.Changed.Add((p, o, e));
             }
             return r;
         }
 
+        static string NotReadable(string p) { return p + " is not one of the game's files, and the game would never open it: a mod cannot add it."; }
+
         /// <summary>
         /// Compares a game folder the editor wrote with the first versions it kept
         /// (NAME.EXT.ORIG beside each file it wrote). An empty .ORIG marks a file the editor
-        /// added, and a .ORIG without its file one it removed: both are problems.
+        /// added (carried when the game opens it by number), and a .ORIG without its file one
+        /// it removed (a problem).
         /// </summary>
         public static FolderChanges FromOriginals(string folder, GameKind game)
         {
@@ -58,8 +67,13 @@ namespace Underworld.Mods
                     if (o.Length > 0) r.Problems.Add(rel + " was removed: a mod cannot remove files.");
                     continue;
                 }
-                if (o.Length == 0) { r.Problems.Add(rel + " is not one of the game's files: a mod cannot add files."); continue; }
                 byte[] e = File.ReadAllBytes(GamePaths.Find(folder, rel));
+                if (o.Length == 0)
+                {
+                    if (GamePaths.CanAdd(rel, game)) r.Changed.Add((rel, null, e));
+                    else r.Problems.Add(NotReadable(rel));
+                    continue;
+                }
                 if (!o.AsSpan().SequenceEqual(e)) r.Changed.Add((rel, o, e));
             }
             r.Changed.Sort((x, y) => string.CompareOrdinal(x.Path, y.Path));
