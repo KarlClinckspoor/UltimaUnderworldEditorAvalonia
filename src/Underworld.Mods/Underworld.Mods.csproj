@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Mod packages, format 2 (docs/mod-format.md): differences from the game's own files only,
+       shared by the editor and the mod manager. No UI. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Underworld.Mods</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Underworld.Formats/Underworld.Formats.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Underworld.Mods.Tests" />
+  </ItemGroup>
+</Project>
