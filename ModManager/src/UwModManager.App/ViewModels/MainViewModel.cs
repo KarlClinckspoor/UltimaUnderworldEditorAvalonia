@@ -80,8 +80,9 @@ public sealed partial class MainViewModel : ViewModelBase
     [RelayCommand]
     async Task AddDos()
     {
-        string? folder = await Dialogs.PickFolder("The DOS game's folder (with UW.EXE or UW2.EXE and DATA)");
+        string? folder = await Dialogs.PickFolder("The DOS game's folder (with UW.EXE or UW2.EXE and DATA), or the GOG install's (with game.gog)");
         if (folder == null) return;
+        if (Manager.IsGogImageInstall(folder)) { await AddGog(folder); return; }
         bool asItIs = false;
         string? foreign = Manager.ForeignMarker(folder);
         if (foreign != null)
@@ -98,6 +99,49 @@ public sealed partial class MainViewModel : ViewModelBase
             notes.Add(Manager.HasGogExe(t) ? "The executable is the GOG release's." : "The executable is not the GOG release's. UltimaHacks and Underworld Exhumed need GOG's, and mods made from GOG's files will not install.");
             foreach (var c in DosGame.CdImageConfs(t.Folder))
                 notes.Add($"{c} runs the game from GOG's CD image (game.gog), which never sees files changed in the folder. Extract the image into the folder (7-Zip opens it) and change that setup to mount the folder instead.");
+            RefreshGames(t);
+            await Dialogs.Tell("Added " + t.Name, string.Join("\n\n", notes));
+        });
+    }
+
+    /// <summary>
+    /// A GOG install of the 2025 release, which plays from its CD image (game.gog): the image's
+    /// hash is checked, the game is copied out of it into the manager's own folder, and that copy
+    /// is the one mods go into. The install is not touched.
+    /// </summary>
+    async Task AddGog(string folder)
+    {
+        var game = Underworld.Mods.GogImage.GameOfInstall(folder);
+        if (game == null)
+        {
+            int g = await Dialogs.Ask("Which game?", folder + " holds GOG's game.gog, which has both games on it. Which one do you want to add?",
+                "Ultima Underworld", "Ultima Underworld II", "Cancel");
+            if (g is < 0 or > 1) return;
+            game = g == 0 ? UltimateEditor.Games.GameKind.UW1 : UltimateEditor.Games.GameKind.UW2;
+        }
+        await Guard(async () =>
+        {
+            Target t;
+            Status = "Copying the game out of game.gog…";
+            try { t = await Task.Run(() => Manager.AddGog(folder, game)); }
+            catch (UnknownImageException u)
+            {
+                Status = "";
+                int a = await Dialogs.Ask("An image the manager does not know",
+                    "This game.gog is not the GOG release the manager was checked with (its SHA-256 is " + u.Sha256 + "). It may be another release, or a damaged copy.\n\n" +
+                    "Copy the game out of it anyway? The install is not changed either way.", "Copy it anyway", "Cancel");
+                if (a != 0) return;
+                Status = "Copying the game out of game.gog…";
+                t = await Task.Run(() => Manager.AddGog(folder, game, null, unknownImage: true));
+            }
+            Status = "";
+            var notes = new List<string>
+            {
+                "GOG's install plays the game from its CD image, game.gog. The manager checked the image and copied the game out of it into its own folder; " +
+                    $"the {t.Baseline.Count} original files are kept in the vault.",
+                "The GOG install is left exactly as it is. GOG Galaxy and its shortcuts still play the original game from game.gog, which never sees a mod: to play a game with a mod, use Play here.",
+                Manager.HasGogExe(t) ? "The executable is the GOG release's." : "The executable is not the GOG release's. UltimaHacks and Underworld Exhumed need GOG's, and mods made from GOG's files will not install.",
+            };
             RefreshGames(t);
             await Dialogs.Tell("Added " + t.Name, string.Join("\n\n", notes));
         });

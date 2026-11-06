@@ -21,6 +21,37 @@ game folder you choose once; the editor remembers that choice.
 or `/` and the first folder) and its end (the last folders), with `…` for the middle; the
 item's tooltip shows the whole path.
 
+### GOG's game.gog
+
+GOG's current release (2025) does not install the games as files. Each install (`Ultima
+Underworld`, `Ultima Underworld 2`) holds `game.gog`, the games' CD as an ISO image, which GOG's
+DOSBox mounts as drive D:. The same image is in both installs and holds both games (`UW` and
+`UW2` on the disc). **File ▸ Open GOG's game.gog…** opens it; so do opening the install's
+folder with Open game folder and naming the image on the command line.
+
+1. The editor checks the image's SHA-256. An image it was not checked with (another release,
+   or a damaged copy) is copied only when you say so.
+2. It asks where the copies go: **the editor's folder** (a new folder each time, under
+   `GOG copies` in the settings folder) or **a folder you choose**. A chosen folder must not
+   already hold a copy (`UW` or `UW2` with files in it), so no game you changed is
+   overwritten.
+3. It asks which game to edit now. Both are copied, into `UW` and `UW2`; the other one opens
+   with Open game folder.
+
+Each copy gets every file of its game on the disc, plus the install's `UNDEROM1` or
+`UNDEROM2` files (the sound setup GOG's installer wrote), so it plays as GOG's does. The
+folder of the copies keeps a note, `GOG install.txt`, naming the install, so **Run in DOSBox**
+and **Play test** use the install's DOSBox and settings.
+
+**The GOG install is never changed.** GOG Galaxy and the install's shortcuts always play the
+original game from `game.gog`, which never sees the copy. To play a game changed here, make
+it a mod (**Tools ▸ Mods ▸ Make a mod**) and use it with the mod manager, which keeps its own
+copy of the game for GOG's installs (see `ModManager/README.md`), or run the copy from the
+editor (Run and Test).
+
+**Open recent** keeps both: the copy's folder, to go on editing it, and `game.gog`, shown as
+"Start over from …", which makes a fresh copy (the copies made before stay where they are).
+
 When you open a saved game, the editor checks it for problems that crash or upset the game.
 The status line names them, and **File ▸ Check and repair the saved game…** repairs them.
 

@@ -67,6 +67,9 @@ umb=true
             var dirs = new List<string> { gameFolder };
             string up = Path.GetDirectoryName(Path.GetFullPath(gameFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             if (up != null) dirs.Add(up);
+            // a copy taken out of GOG's game.gog: the install it came from has GOG's settings
+            string gog = Underworld.Mods.GogImage.InstallOf(gameFolder);
+            if (gog != null) dirs.Add(gog);
             foreach (var d in dirs)
             {
                 if (!Directory.Exists(d)) continue;

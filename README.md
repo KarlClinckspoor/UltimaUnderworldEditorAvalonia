@@ -10,7 +10,9 @@ into mods, and shuffle the whole world into a randomizer run that stays beatable
 
 **Get it:** ready-made builds for Windows, Linux and macOS are on the
 [Releases page](https://github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia/releases).
-Point it at your own copy of the game (GOG's works) and go.
+Point it at your own copy of the game and go. With GOG's current release, open its
+`game.gog` (**File ▸ Open GOG's game.gog…**): the editor copies both games out of the CD image
+and edits the copy, leaving the GOG install as it is.
 
 **Why it is worth a look:**
 - **It reads the game the way the game reads itself.** Every file format and rule comes from

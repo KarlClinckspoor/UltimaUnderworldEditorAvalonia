@@ -178,6 +178,12 @@ namespace UwEditor.App
         /// <summary>Opens a game without asking about unsaved changes.</summary>
         public void OpenPathNow(string path)
         {
+            // GOG's image: a fresh copy of the games, then the chosen one
+            if (IsGogImage(path)) { _ = OpenGogImage(path); return; }
+            // a GOG install of the 2025 release has no game files, only the image: open that
+            string image = Directory.Exists(path) && !Directory.EnumerateDirectories(path).Any(d => string.Equals(Path.GetFileName(d), "DATA", StringComparison.OrdinalIgnoreCase))
+                ? Underworld.Mods.GogImage.Find(path) : null;
+            if (image != null) { _ = OpenGogImage(image); return; }
             GameSession s;
             try
             {
@@ -260,8 +266,11 @@ namespace UwEditor.App
             foreach (var r in settings.Recent)
             {
                 // a long path keeps its start and end, the middle left out; the whole of it in the tip
-                var mi = new MenuItem { Header = PathText.MiddleEllipsis(r, 64).Replace("_", "__") };   // "_" would be an access key
-                ToolTip.SetTip(mi, r);
+                // GOG's image: opening it again copies the games out afresh
+                bool gog = r.EndsWith(".gog", StringComparison.OrdinalIgnoreCase);
+                string header = (gog ? "Start over from " : "") + PathText.MiddleEllipsis(r, gog ? 48 : 64);
+                var mi = new MenuItem { Header = header.Replace("_", "__") };   // "_" would be an access key
+                ToolTip.SetTip(mi, gog ? r + "\nA fresh copy of the games from GOG's image (the copies made before are kept)" : r);
                 string path = r;
                 mi.Click += (s, e) => OpenPath(path);
                 items.Add(mi);

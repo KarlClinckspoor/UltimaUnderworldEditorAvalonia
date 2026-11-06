@@ -150,7 +150,9 @@ namespace UwEditor.Core
             var c = new List<string>();
             if (gameFolder != null)
             {
-                foreach (var dir in new[] { gameFolder, Path.GetDirectoryName(gameFolder) ?? gameFolder })
+                // a copy taken out of GOG's game.gog: the install it came from has the DOSBox
+                string gog = Underworld.Mods.GogImage.InstallOf(gameFolder);
+                foreach (var dir in new[] { gameFolder, Path.GetDirectoryName(gameFolder) ?? gameFolder, gog }.Where(d => d != null))
                 {
                     c.Add(Path.Combine(dir, "DOSBOX", "DOSBox.exe"));
                     c.Add(Path.Combine(dir, "DOSBox", "DOSBox.exe"));

@@ -55,7 +55,8 @@ public sealed partial class TargetViewModel : ViewModelBase
     public bool IsDos => Target.Kind == TargetKind.Dos;
     public bool IsExhumed => Target.Kind == TargetKind.Exhumed;
     public string Header => Target.Name;
-    public string Kind => (IsDos ? "DOS game, changed in place" : "Underworld Exhumed, a home folder per mod") + " · " + (Target.Game == "uw2" ? "Ultima Underworld II" : "Ultima Underworld");
+    public string Kind => (Target.IsGogCopy ? "DOS game from GOG's game.gog, a copy in the manager's folder" : IsDos ? "DOS game, changed in place" : "Underworld Exhumed, a home folder per mod") +
+        " · " + (Target.Game == "uw2" ? "Ultima Underworld II" : "Ultima Underworld");
     public string Folder => Target.Folder + (IsExhumed ? "\n" + Target.PortExe : "");
     public bool HasLocalChanges => LocalChanges.Length > 0;
     public string UltimaHacksCredit => Hacks.Credit;
@@ -128,9 +129,19 @@ public sealed partial class TargetViewModel : ViewModelBase
             var local = DosGame.LocalChanges(Target);
             LocalChanges = local.Count == 0 ? "" : "Changed outside the manager: " + string.Join(", ", local.Take(8)) + (local.Count > 8 ? $" and {local.Count - 8} more" : "") +
                 ". Capture them as a mod before switching, or the manager will ask about them when you switch.";
-            var gog = Launcher.GogConfs(Target.Folder);
-            StatusLines.Add(gog.Count > 0 ? "DOSBox setup: GOG's (" + string.Join(", ", gog.Select(Path.GetFileName)) + ")."
-                : "DOSBox setup: the manager's, with GOG's settings for the game (written at each start to " + Launcher.ManagerConf(M.Paths, Target) + ").");
+            if (Target.IsGogCopy)
+            {
+                StatusLines.Add("GOG install: " + Target.GogInstall + ". It is left as it is: GOG's launcher plays the original game from game.gog and never sees a mod. Play mods here.");
+                var settings = Launcher.GogSettingsConfs(Target);
+                StatusLines.Add(settings.Count > 0 ? "DOSBox setup: GOG's settings (" + string.Join(", ", settings.Select(Path.GetFileName)) + "), then the manager's start, which plays the copy."
+                    : "DOSBox setup: the manager's, with GOG's settings for the game (written at each start to " + Launcher.ManagerConf(M.Paths, Target) + ").");
+            }
+            else
+            {
+                var gog = Launcher.GogConfs(Target.Folder);
+                StatusLines.Add(gog.Count > 0 ? "DOSBox setup: GOG's (" + string.Join(", ", gog.Select(Path.GetFileName)) + ")."
+                    : "DOSBox setup: the manager's, with GOG's settings for the game (written at each start to " + Launcher.ManagerConf(M.Paths, Target) + ").");
+            }
             foreach (var c in DosGame.CdImageConfs(Target.Folder)) StatusLines.Add($"{c} runs the game from GOG's CD image (game.gog), which never sees the folder's files.");
         }
         else
@@ -301,18 +312,20 @@ public sealed partial class TargetViewModel : ViewModelBase
     async Task Remove()
     {
         bool modded = IsDos && Target.Written.Count > 0;
+        string files = Target.IsGogCopy ? "The manager's copy of the game is deleted with it (kept if it holds saved games); the GOG install stays as it is." : "Its files stay as they are.";
         int a = await main.Dialogs.Ask("Forget " + Target.Name, modded
-            ? "The folder has a mod in place. The manager will put the original game back before it forgets the folder."
-            : "The manager will forget this game. Its files stay as they are.",
+            ? "The folder has a mod in place. The manager will put the original game back before it forgets the folder." + (Target.IsGogCopy ? " " + files : "")
+            : "The manager will forget this game. " + files,
             modded ? new[] { "Put it back, then forget", "Cancel" } : new[] { "Forget", "Cancel" });
         if (a != 0) return;
         bool restore = modded;
         await main.Guard(async () =>
         {
             if (restore) await Task.Run(() => M.UseDos(Target, null, false));
-            M.Remove(Target);
+            string? note = M.Remove(Target);
             main.RefreshGames();
             main.Page = new WelcomeViewModel();
+            if (note != null) await main.Dialogs.Tell("Forgot " + Target.Name, note);
         });
     }
 

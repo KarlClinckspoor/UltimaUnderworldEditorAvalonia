@@ -35,6 +35,7 @@ namespace UwEditor.App
                 },
             };
             ok.Click += (s, e) => w.Close();
+            Opening?.Invoke(w);
             return w.ShowDialog(owner);
         }
 

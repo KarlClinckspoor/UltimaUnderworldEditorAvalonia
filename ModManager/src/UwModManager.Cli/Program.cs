@@ -17,6 +17,12 @@ Targets (games the manager installs mods into):
   add-dos FOLDER [--name N] [--as-is] take over a DOS game folder (its originals go into the
                                       vault); --as-is: take its current files as the originals,
                                       whatever a manager recorded in it before
+  add-dos GOGFOLDER [--game uw1|uw2] [--name N] [--unknown-image]
+                                      a GOG install that plays from game.gog (the 2025
+                                      release): the image's hash is checked, the game is
+                                      copied out of it into the manager's folder, and the
+                                      copy takes the mods; the install is not changed.
+                                      --unknown-image: copy from an image of another hash
   add-exhumed PORT [--data FOLDER] [--name N]
                                       add an Exhumed build (uw1port/uw2port) and the game
                                       folder it reads
@@ -79,9 +85,25 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                 return 0;
             case "add-dos":
             {
-                string? name = Take(a, "--name");
-                bool asIs = Flag(a, "--as-is");
-                var t = m.AddDos(Arg(a, 0, "FOLDER"), name, asIs);
+                string? name = Take(a, "--name"), gameArg = Take(a, "--game");
+                bool asIs = Flag(a, "--as-is"), unknownImage = Flag(a, "--unknown-image");
+                string folder = Arg(a, 0, "FOLDER");
+                if (Manager.IsGogImageInstall(folder))
+                {
+                    GameKind? game = gameArg switch
+                    {
+                        null => null,
+                        "uw1" => GameKind.UW1,
+                        "uw2" => GameKind.UW2,
+                        _ => throw new ArgumentException("--game is uw1 or uw2"),
+                    };
+                    var g = m.AddGog(folder, game, name, unknownImage, s => Console.WriteLine(s));
+                    Console.WriteLine($"Added {g.Name} ({g.Id}): the game was copied out of GOG's game.gog into {g.Folder}, and its {g.Baseline.Count} original files kept in the vault. " +
+                        (m.HasGogExe(g) ? "The executable is the GOG release's." : "The executable is not the GOG release's (UltimaHacks and Exhumed need it)."));
+                    Console.WriteLine("The GOG install is left as it is: GOG's launcher still plays the original game from game.gog. Play mods with uwmod play.");
+                    return 0;
+                }
+                var t = m.AddDos(folder, name, asIs);
                 if (t.Written.Count > 0) Console.WriteLine($"The folder was taken over before and has {t.ActiveMod} in place; its originals are in the vault.");
                 Console.WriteLine($"Added {t.Name} ({t.Id}): {t.Baseline.Count} files kept in the vault. " + (m.HasGogExe(t) ? "The executable is the GOG release's." : "The executable is not the GOG release's (UltimaHacks and Exhumed need it)."));
                 foreach (var c in DosGame.CdImageConfs(t.Folder))
@@ -97,11 +119,19 @@ TARGET is a target's id or name; MOD is a library key (id@version), or a .uwmod 
                     $"Features: start square {(t.Features.StartSquare ? "yes" : "no")}, executable data patches {(t.Features.ExePatch ? "yes" : "no")}.");
                 return 0;
             }
-            case "remove": m.Remove(m.Get(Arg(a, 0, "TARGET"))); return 0;
+            case "remove":
+            {
+                string? note = m.Remove(m.Get(Arg(a, 0, "TARGET")));
+                if (note != null) Console.WriteLine(note);
+                return 0;
+            }
             case "status":
             {
                 var t = m.Get(Arg(a, 0, "TARGET"));
                 Console.WriteLine($"{t.Name} [{t.Kind}, {t.Game}] {t.Folder}");
+                if (t.IsGogCopy)
+                    Console.WriteLine($"A copy of the game of the GOG install {t.GogInstall} (left as it is)" +
+                        (Manager.ImageUnchanged(t) == false ? "; its game.gog has changed since the copy was made" : ""));
                 Console.WriteLine("Mod: " + (t.ActiveMod ?? "(original game)") + (t.UltimaHacks ? ", with UltimaHacks" : ""));
                 if (t.Kind == TargetKind.Dos)
                 {

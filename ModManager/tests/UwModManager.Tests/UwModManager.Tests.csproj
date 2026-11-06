@@ -12,6 +12,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="TestData/**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- GOG's game.gog, made from the test data -->
+    <Compile Include="../../../tests/Shared/FakeGogImage.cs" Link="Shared/FakeGogImage.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/UwModManager.Core/UwModManager.Core.csproj" />

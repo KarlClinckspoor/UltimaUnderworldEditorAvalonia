@@ -24,6 +24,14 @@ public sealed class Target
     /// <summary>Exhumed: the port's program.</summary>
     public string? PortExe { get; set; }
 
+    /// <summary>DOS, from GOG's 2025 release: the install, which plays from its CD image
+    /// (game.gog) and is never changed. <see cref="Folder"/> is then the manager's own copy of the
+    /// game, taken out of the image, which the mods are written into and DOSBox plays.</summary>
+    public string? GogInstall { get; set; }
+    /// <summary>The image the copy came from, and its SHA-256 then.</summary>
+    public string? GogImage { get; set; }
+    public string? GogImageSha { get; set; }
+
     /// <summary>The mod in use ("id@version"), or null for the original game. One at a time.</summary>
     public string? ActiveMod { get; set; }
     /// <summary>DOS: run with UltimaHacks' changes to the executable (built from the original).</summary>
@@ -54,6 +62,8 @@ public sealed class Target
     public PortFeatures? Features { get; set; }
 
     [JsonIgnore] public UltimateEditor.Games.GameKind GameKind => Game == "uw2" ? UltimateEditor.Games.GameKind.UW2 : UltimateEditor.Games.GameKind.UW1;
+    /// <summary>A copy of a GOG install's game that the manager made and keeps in its own folder.</summary>
+    [JsonIgnore] public bool IsGogCopy => Kind == TargetKind.Dos && !string.IsNullOrEmpty(GogInstall);
     [JsonIgnore] public string ExeName => Game == "uw2" ? "UW2.EXE" : "UW.EXE";
 }
 

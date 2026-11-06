@@ -128,29 +128,59 @@ keyboardlayout=auto
     public static string ManagerConf(AppPaths paths, Target t) => Path.Combine(paths.DosBox, t.Id + ".conf");
 
     /// <summary>The setup the manager writes for a folder without GOG's: <see cref="DosBoxDefaults"/>, then an [autoexec] that mounts the folder and starts the game.</summary>
-    public static string ManagerConfText(Target t)
+    public static string ManagerConfText(Target t) =>
+        "# DOSBox setup for " + t.Name + ", written by Ultima Underworlds Mod Manager at each start (GOG's settings for the game).\n" +
+        "# To change it, put your settings in a file of your own and choose it as the game's extra settings file: it is read after this one.\n\n" +
+        DosBoxDefaults.Replace("\r\n", "\n") + "\n" + Autoexec(t);
+
+    /// <summary>The setup the manager writes for its copy of a GOG install's game, read after GOG's
+    /// own settings (dosboxULTIMA1.conf or 2, which GOG's Graphic Mode Setup changes): only the
+    /// start, which mounts the copy where GOG's setup would mount game.gog.</summary>
+    public static string ManagerStartText(Target t) =>
+        "# How " + t.Name + " starts, written by Ultima Underworlds Mod Manager at each start.\n" +
+        "# DOSBox reads GOG's settings first (" + t.GogInstall + "), then this: the manager's copy of the game, which holds the mod.\n\n" +
+        Autoexec(t);
+
+    static string Autoexec(Target t)
     {
         if (t.Folder.Contains('"')) throw new ArgumentException("DOSBox cannot mount a folder whose name holds a quote: " + t.Folder);
         string folder = t.Folder.Length > 3 ? t.Folder.TrimEnd('\\', '/') : t.Folder;     // a drive's root keeps its separator
-        return "# DOSBox setup for " + t.Name + ", written by Ultima Underworlds Mod Manager at each start (GOG's settings for the game).\n" +
-            "# To change it, put your settings in a file of your own and choose it as the game's extra settings file: it is read after this one.\n\n" +
-            DosBoxDefaults.Replace("\r\n", "\n") +
-            "\n[autoexec]\n@echo off\nmount c \"" + folder + "\"\nc:\ncls\n" + t.ExeName + "\nexit\n";
+        return "[autoexec]\n@echo off\nmount c \"" + folder + "\"\nc:\ncls\n" + t.ExeName + "\nexit\n";
+    }
+
+    /// <summary>GOG's settings for a GOG copy: the install's setups without the ones that mount game.gog (those only start the game from the image).</summary>
+    public static List<string> GogSettingsConfs(Target t)
+    {
+        if (!t.IsGogCopy) return new List<string>();
+        var cd = DosGame.CdImageConfs(t.GogInstall!);
+        return GogConfs(t.GogInstall!).Where(c => !cd.Contains(Path.GetFileName(c))).ToList();
     }
 
     /// <summary>
     /// The DOSBox command for a game folder: GOG's own setups when the folder has them (the base
     /// one first, then the game's, as GOG's shortcuts do), else a setup the manager writes with
-    /// GOG's settings that mounts the folder and starts the game. The game's extra settings file
+    /// GOG's settings that mounts the folder and starts the game. The manager's copy of a GOG
+    /// install's game gets the install's DOSBox and settings (not the setup that mounts game.gog),
+    /// then the manager's start, which mounts the copy. The game's extra settings file
     /// comes last (DOSBox lets a later -conf override an earlier one), then its extra arguments.
     /// </summary>
     public static ProcessStartInfo DosBox(AppPaths paths, Settings s, Target t)
     {
-        string exe = FindDosBox(s, t.Folder) ?? throw new FileNotFoundException("DOSBox was not found: set its program in Settings");
+        // a GOG copy plays with the install's DOSBox and settings, on the manager's copy of the game
+        string install = t.IsGogCopy ? t.GogInstall! : t.Folder;
+        string exe = FindDosBox(s, install) ?? throw new FileNotFoundException("DOSBox was not found: set its program in Settings");
         var psi = new ProcessStartInfo(exe) { UseShellExecute = false };
-        var confs = GogConfs(t.Folder);
+        var confs = t.IsGogCopy ? GogSettingsConfs(t) : GogConfs(t.Folder);
         bool gog = confs.Count > 0;
-        if (gog)
+        if (t.IsGogCopy)
+        {
+            string conf = ManagerConf(paths, t);
+            Directory.CreateDirectory(Path.GetDirectoryName(conf)!);
+            File.WriteAllText(conf, gog ? ManagerStartText(t) : ManagerConfText(t));
+            confs.Add(conf);
+            psi.WorkingDirectory = Directory.Exists(Path.Combine(install, "DOSBOX")) ? Path.Combine(install, "DOSBOX") : t.Folder;
+        }
+        else if (gog)
             psi.WorkingDirectory = Directory.Exists(Path.Combine(t.Folder, "DOSBOX")) ? Path.Combine(t.Folder, "DOSBOX") : t.Folder;
         else
         {

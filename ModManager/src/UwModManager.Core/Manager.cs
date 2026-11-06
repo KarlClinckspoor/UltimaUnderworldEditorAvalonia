@@ -66,6 +66,62 @@ public sealed class Manager
         return t;
     }
 
+    // ---- GOG's 2025 release: the game is on a CD image (game.gog), copied out into the manager's folder
+
+    /// <summary>Whether a folder is a GOG install that plays from game.gog, without the game's files beside it.</summary>
+    public static bool IsGogImageInstall(string folder) =>
+        Directory.Exists(folder) && DosGame.Detect(folder) == null && Underworld.Mods.GogImage.Find(folder) != null;
+
+    /// <summary>
+    /// Adds a game of a GOG install that plays from its CD image (game.gog): the image's hash is
+    /// checked (an image the manager does not know is refused unless <paramref name="unknownImage"/>),
+    /// the game is copied out of it into the manager's own folder (with the install's UNDEROM1 or
+    /// UNDEROM2 files, its sound setup), and that copy becomes a DOS target like any other. The
+    /// install itself is never written to: GOG's launcher still plays the original game from the
+    /// image, and the mods play through the manager. <paramref name="game"/>: which of the two
+    /// games on the image, else the one the install is for.
+    /// </summary>
+    public Target AddGog(string install, GameKind? game = null, string? name = null, bool unknownImage = false, Action<string>? step = null)
+    {
+        install = Path.GetFullPath(install);
+        string image = Underworld.Mods.GogImage.Find(install) ?? throw new InvalidOperationException(install + " holds no " + Underworld.Mods.GogImage.FileName);
+        step?.Invoke("Checking " + Underworld.Mods.GogImage.FileName + "…");
+        string sha = Underworld.Mods.GogImage.Sha256(image);
+        if (Underworld.Mods.GogImage.Release(sha) == null && !unknownImage) throw new UnknownImageException(image, sha);
+        var g = game ?? Underworld.Mods.GogImage.GameOfInstall(install)
+            ?? throw new InvalidOperationException("the install does not say which game it is: choose Ultima Underworld or Ultima Underworld II (--game uw1|uw2)");
+        string gameId = g == GameKind.UW2 ? "uw2" : "uw1";
+        var same = State.Targets.FirstOrDefault(t => t.IsGogCopy && t.Game == gameId && SamePath(t.GogInstall!, install));
+        if (same != null) throw new InvalidOperationException("the manager already has this game of " + install + ", as " + same.Name);
+        if (!Underworld.Mods.GogImage.Games(image).Contains(g)) throw new InvalidDataException(image + " does not hold " + (g == GameKind.UW2 ? "Ultima Underworld II" : "Ultima Underworld"));
+        var t = new Target { Kind = TargetKind.Dos, Game = gameId, GogInstall = install, GogImage = image, GogImageSha = sha };
+        t.Name = name ?? (g == GameKind.UW2 ? "Ultima Underworld II (GOG)" : "Ultima Underworld (GOG)");
+        t.Folder = Path.Combine(Paths.Games, t.Id);
+        step?.Invoke("Copying the game out of " + Underworld.Mods.GogImage.FileName + "…");
+        Underworld.Mods.GogImage.Extract(image, g, t.Folder, install);
+        try
+        {
+            step?.Invoke("Keeping the originals in the vault…");
+            DosGame.Adopt(t, Vault);
+            DosGame.WriteMarker(t);
+        }
+        catch
+        {
+            try { Directory.Delete(t.Folder, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            throw;
+        }
+        State.Targets.Add(t);
+        Save();
+        return t;
+    }
+
+    /// <summary>Whether a GOG copy's game.gog is still the one it was made from (null: nothing to compare).</summary>
+    public static bool? ImageUnchanged(Target t)
+    {
+        if (!t.IsGogCopy || string.IsNullOrEmpty(t.GogImage) || string.IsNullOrEmpty(t.GogImageSha) || !File.Exists(t.GogImage)) return null;
+        return Underworld.Mods.GogImage.Sha256(t.GogImage) == t.GogImageSha;
+    }
+
     /// <summary>Why a folder's marker cannot be used (it was taken over by a manager whose vault
     /// this one does not have), or null.</summary>
     public string? ForeignMarker(string folder)
@@ -92,6 +148,14 @@ public sealed class Manager
             if (folder == null) throw new InvalidOperationException("the port's own settings do not name a game folder: choose one (--data on the command line)");
         }
         folder = Path.GetFullPath(folder);
+        // a GOG install that plays from game.gog has no game files: Exhumed reads the manager's copy of it
+        if (IsGogImageInstall(folder))
+        {
+            var copy = State.Targets.FirstOrDefault(d => d.IsGogCopy && d.Game == game && SamePath(d.GogInstall!, folder))
+                ?? State.Targets.FirstOrDefault(d => d.IsGogCopy && SamePath(d.GogInstall!, folder));
+            if (copy == null) throw new InvalidOperationException(folder + " plays the game from GOG's image (game.gog). Add it as a DOS game first: the manager copies the game out of the image, and Exhumed reads that copy.");
+            folder = copy.Folder;
+        }
         var kind = DosGame.Detect(folder);
         if (kind != null) game = kind == GameKind.UW2 ? "uw2" : "uw1";
         var t = new Target { Kind = TargetKind.Exhumed, Folder = folder, PortExe = portExe, Game = game };
@@ -103,14 +167,32 @@ public sealed class Manager
     }
 
     /// <summary>Forgets a target. A DOS folder must hold the original game first (otherwise
-    /// the originals of the files a mod changed would only be in the vault, unreachable).</summary>
-    public void Remove(Target t)
+    /// the originals of the files a mod changed would only be in the vault, unreachable). The
+    /// manager's copy of a GOG install's game is deleted with it, unless it holds saved games,
+    /// which keep it; returns a line saying so, or null.</summary>
+    public string? Remove(Target t)
     {
         if (t.Kind == TargetKind.Dos && t.Written.Count > 0)
             throw new InvalidOperationException(t.Name + " has a mod in place: put the original game back first");
-        if (t.Kind == TargetKind.Dos && Directory.Exists(t.Folder)) DosGame.DeleteMarker(t);
+        string? note = null;
+        if (t.Kind == TargetKind.Dos && Directory.Exists(t.Folder))
+        {
+            DosGame.DeleteMarker(t);
+            if (t.IsGogCopy && IsInside(Paths.Games, t.Folder))
+            {
+                if (Saves.List(t.Folder).Any(s => s.Exists)) note = "The copy of the game holds saved games, so it is kept: " + t.Folder;
+                else Directory.Delete(t.Folder, true);
+            }
+        }
         State.Targets.Remove(t);
         Save();
+        return note;
+    }
+
+    static bool IsInside(string root, string path)
+    {
+        string r = Path.GetFullPath(root).TrimEnd('/', '\\') + Path.DirectorySeparatorChar;
+        return Path.GetFullPath(path).StartsWith(r, OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     }
 
     public Target Get(string idOrName) => State.Find(idOrName) ?? throw new KeyNotFoundException("there is no target " + idOrName);
@@ -276,4 +358,14 @@ public sealed class Manager
     public static bool SamePath(string a, string b) =>
         string.Equals(Path.GetFullPath(a).TrimEnd('/', '\\'), Path.GetFullPath(b).TrimEnd('/', '\\'),
             OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+}
+
+/// <summary>A game.gog whose hash is not one the manager knows: another release, or a damaged copy.</summary>
+public sealed class UnknownImageException : Exception
+{
+    public string Image { get; }
+    public string Sha256 { get; }
+    public UnknownImageException(string image, string sha) : base(image + " is not the GOG release the manager was checked with (SHA-256 " + sha +
+        "). It may be another release, or a damaged copy. Add it anyway only if you trust it (--unknown-image).")
+    { Image = image; Sha256 = sha; }
 }

@@ -15,6 +15,19 @@ was brought in with its history from `KarlClinckspoor/UltimaUnderworldsModManage
   files its author saved. A mod made from other files (another release, another mod) is refused
   before anything is written.
 - **One mod at a time.** Pick a mod or "The original game" for each game you added.
+- **GOG's current release** (2025) plays from a CD image, `game.gog`, beside a small
+  `UNDEROM1` or `UNDEROM2` folder; there are no game files to change. Choose the install's
+  folder with **Add a DOS game…** (or `uwmod add-dos FOLDER`). The manager checks the image's
+  SHA-256 (it asks before using an image of another hash, `--unknown-image`), copies the
+  game out of it into its own folder (`games`, with the install's sound setup from
+  `UNDEROM1`/`UNDEROM2`), and that copy takes the mods. The game is the install's (from
+  `UNDEROM1`/`dosboxULTIMA1.conf` and the like), else the one you choose (`--game uw1|uw2`).
+  **The GOG install is not changed:** GOG Galaxy and its shortcuts still play the original
+  game from `game.gog`, so a modded game plays only through the manager's **Play**. Play
+  uses the install's DOSBox and GOG's settings (`dosboxULTIMA1.conf` or 2, which GOG's Graphic
+  Mode Setup changes), not the setup that mounts the image, then the manager's start, which
+  mounts the copy. Forgetting the game deletes the copy, unless it holds saved games. Exhumed
+  added on such an install reads the manager's copy.
 - **DOS games are changed in place.** Before the manager touches a file it keeps the original
   in its vault, so the original game is always one click away. Where the editor has written a
   file, its first version (`NAME.EXT.ORIG`) counts as the original. A change is all or nothing:
@@ -100,7 +113,8 @@ branch, add tests that start a port and check the start square of a new game.
 `%APPDATA%\UltimaUnderworldsModManager` on Windows,
 `~/Library/Application Support/UltimaUnderworldsModManager` on macOS,
 `~/.local/share/UltimaUnderworldsModManager` elsewhere; `UWMM_HOME` overrides it. It holds the
-vault of originals, the library of imported mods, the Exhumed homes and the saved-game backups.
+vault of originals, the library of imported mods, the Exhumed homes, the saved-game backups and
+the copies of the games taken out of GOG's `game.gog` (`games`).
 
 ## Credits
 

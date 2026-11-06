@@ -2,7 +2,8 @@ namespace UwModManager.Core;
 
 /// <summary>
 /// Where the manager keeps its own files: the state (installs, settings), the vault of original
-/// files, the library of imported mods, Exhumed's homes for mods and generated DOSBox setups.
+/// files, the library of imported mods, Exhumed's homes for mods, generated DOSBox setups and
+/// the copies of the games taken out of GOG's images.
 /// %APPDATA%\UltimaUnderworldsModManager on Windows, ~/Library/Application Support/... on macOS,
 /// $XDG_DATA_HOME (or ~/.local/share)/UltimaUnderworldsModManager elsewhere; UWMM_HOME overrides.
 /// </summary>
@@ -13,6 +14,8 @@ public sealed class AppPaths
     public string Library => Path.Combine(Root, "library");
     public string ExhumedHomes => Path.Combine(Root, "exhumed");
     public string DosBox => Path.Combine(Root, "dosbox");
+    /// <summary>The copies of the games taken out of GOG's images (game.gog), one folder per target.</summary>
+    public string Games => Path.Combine(Root, "games");
     public string StateFile => Path.Combine(Root, "state.json");
     public string JournalFile => Path.Combine(Root, "journal.json");
     public string Logs => Path.Combine(Root, "logs");
@@ -20,7 +23,7 @@ public sealed class AppPaths
     public AppPaths(string? root = null)
     {
         Root = root ?? DefaultRoot();
-        foreach (var d in new[] { Root, Vault, Library, ExhumedHomes, DosBox, Logs }) Directory.CreateDirectory(d);
+        foreach (var d in new[] { Root, Vault, Library, ExhumedHomes, DosBox, Games, Logs }) Directory.CreateDirectory(d);
     }
 
     public static string DefaultRoot()

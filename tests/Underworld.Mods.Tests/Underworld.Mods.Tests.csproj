@@ -12,6 +12,7 @@
   <ItemGroup>
     <!-- the game files, found the same way as the editor's tests -->
     <Compile Include="../UwEditor.Core.Tests/GameData.cs" Link="GameData.cs" />
+    <Compile Include="../Shared/FakeGogImage.cs" Link="Shared/FakeGogImage.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Underworld.Mods/Underworld.Mods.csproj" />
