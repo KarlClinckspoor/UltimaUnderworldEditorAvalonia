@@ -223,6 +223,21 @@ namespace UwEditor.Core.Tests
         static MusicLibrary Uw1() { string g = GameData.Game("UW"); return g == null ? null : MusicLibrary.Open(g, GameKind.UW1); }
 
         [Fact]
+        public void A_uw2_theme_imported_into_uw1_drops_the_drum_keys_uw1s_library_lacks_from_its_timbre_list()
+        {
+            // UW2 theme 11 (FM) lists drum keys 63 and 64, which UW1's UW.AD lacks: the notes move to
+            // keys it has, and the list must not keep them, or the game turns the music off
+            var uw1 = Uw1(); string g2 = GameData.Game("UW2");
+            if (uw1 == null || g2 == null) return;
+            var uw2 = MusicLibrary.Open(g2, GameKind.UW2);
+            var midi = uw2.ExportMidi(uw2.Theme(11), MusicVersion.Fm);
+            var r = uw1.Convert(uw1.Theme(13), midi, new MusicImportOptions { Version = MusicVersion.Fm, MapGmToMt32 = false });
+            Assert.False(r.HasErrors, string.Join("; ", r.Validation.Concat(r.Notes)));
+            Assert.All(r.Xmi.Timbres.Where(t => t.Bank == 127), t => Assert.True(uw1.Fm.Contains(127, t.Patch), "key " + t.Patch));
+            Assert.Contains(r.Notes, n => n.Text.Contains("Drum key 63"));
+        }
+
+        [Fact]
         public void A_midi_file_imports_with_its_timing_loops_programs_and_drums()
         {
             var lib = Uw1(); if (lib == null) return;

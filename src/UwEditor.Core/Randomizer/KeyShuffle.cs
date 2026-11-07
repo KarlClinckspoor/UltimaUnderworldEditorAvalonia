@@ -29,8 +29,10 @@ namespace UwEditor.Core.Randomizer
         public HashSet<string> Move = new HashSet<string>(KeyShuffle.Categories);
         /// <summary>Items carried by creatures without a conversation take part, and their inventories are places.</summary>
         public bool CreatureInventories;
-        /// <summary>Everything else the item swap moves (weapons, armour, food, coins, lights …) takes part as filler, and its places too.</summary>
+        /// <summary>Everything else the item swap moves (weapons, armour, food, lights …) takes part as filler, and its places too (the window now picks these through Extra).</summary>
         public bool Filler;
+        /// <summary>Additional item kinds that take part as filler, with their places (ExtraItems: the picker). Containers among them move with what they hold, within their level.</summary>
+        public HashSet<int> Extra = new HashSet<int>();
         /// <summary>At Apply: a torch of quality 63 and the map beside the start square (StartAids.PutKit).</summary>
         public bool StartKit;
         /// <summary>At Apply: every level's map explored (StartAids.ExploreMaps).</summary>
@@ -46,6 +48,7 @@ namespace UwEditor.Core.Randomizer
             o.Logic = Logic.Clone();
             o.Nav = Nav.Clone();
             o.Move = new HashSet<string>(Move);
+            o.Extra = new HashSet<int>(Extra ?? new HashSet<int>());
             return o;
         }
     }
@@ -75,6 +78,10 @@ namespace UwEditor.Core.Randomizer
         public ItemRewrite Record;
         /// <summary>It lies on the floor (not in a container or a creature).</summary>
         public bool OnFloor;
+        /// <summary>A container picked as an additional item: it moves with what it holds, to a place on its own level.</summary>
+        public bool Container;
+        /// <summary>For an object inside such a container: the container (level:index); it goes where the container goes.</summary>
+        public string RidesIn;
         /// <summary>Its square before Place anywhere moved its place (-1: not moved).</summary>
         public int FromX = -1, FromY = -1;
         public bool Relocated { get { return FromX >= 0; } }
@@ -150,6 +157,32 @@ namespace UwEditor.Core.Randomizer
         /// <summary>What Apply did besides moving the items (the torch and map, the maps explored).</summary>
         public readonly List<string> AppliedAids = new List<string>();
         public bool IsApplied { get { return Applied.Count > 0; } }
+
+        /// <summary>The categories whose items are always worth a hint: the talismans and the Key of Infinity's parts.</summary>
+        public static readonly HashSet<string> Artifacts = new HashSet<string> { "talismans", "infinity" };
+
+        /// <summary>An artifact: a talisman, a part of the Key of Infinity, or a unique item with a proper name (Caliburn's blade and hilt: NamedItems). Other plot items (six orb rocks, the flutes) are hinted only when crucial.</summary>
+        public static bool IsArtifact(ShuffleObject o) { return Artifacts.Contains(o.Category) || NamedItems.Of(UltimateEditor.Games.GameKind.UW1, o.Item) != null; }
+        internal Func<ShuffleObject, bool> crucialTest;
+        readonly Dictionary<ShuffleObject, bool> crucial = new Dictionary<ShuffleObject, bool>();
+
+        /// <summary>
+        /// Whether the shuffled game cannot be finished without this key item: a solve of the
+        /// shuffled placements without it (the same logic options, so a door the options let the
+        /// player bash, pick or go round needs no key) misses the goal. An item with a twin (two
+        /// keys to one lock) is not crucial. Computed once an item, when asked (the spoiler notes).
+        /// </summary>
+        public bool IsCrucial(ShuffleObject item)
+        {
+            bool c;
+            if (crucial.TryGetValue(item, out c)) return c;
+            c = crucialTest != null && crucialTest(item);
+            crucial[item] = c;
+            return c;
+        }
+
+        /// <summary>A key item the spoiler notes give: an artifact, or one the game cannot be finished without.</summary>
+        public bool WorthAHint(KeyShuffleMove m) { return m.ByFill && (IsArtifact(m.Item) || IsCrucial(m.Item)); }
         public IEnumerable<ShuffleObject> Moving { get { return Objects.Where(o => o.Stays == null); } }
     }
 
@@ -369,20 +402,33 @@ namespace UwEditor.Core.Randomizer
                     if (!o.Free && o.OnTile && o.IsCritter && o.Record.Length > 0x1A && (o.Record[0x1A] == Challenges.ShakWhoami || o.Record[0x1A] == Challenges.ZakWhoami))
                         for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++) exceptionSquares.Add(l + ":" + (o.TileX + dx) + ":" + (o.TileY + dy));
             var filler = opt.Filler ? new HashSet<string>(ItemShuffle.Candidates(s, w.Model).Select(c => c.Level + ":" + c.Index)) : new HashSet<string>();
+            var extra = opt.Extra ?? new HashSet<int>();
             foreach (int level in w.Levels)
             {
                 var m = w.Model(level);
                 var named = Named(m);
                 HashSet<int> abil;
                 if (!abilityItems.TryGetValue(level, out abil)) abil = new HashSet<int>();
+                var boxes = MovingContainers(s, m, extra, abil, byObject, needed, t, level);
                 foreach (var o in m.Objects)
                 {
                     if (o.Free || o.TileX < 0 || o.IsCritter || o.Item >= 0x140 || o.Index < 2) continue;
                     string key = level + ":" + o.Index;
                     List<Placement> gives;
                     if (!byObject.TryGetValue(key, out gives)) gives = new List<Placement>();
+                    // inside a container that moves: it goes along, and its placements go with the container
+                    int box = -1;
+                    for (int up = o.Parent, g = 0; up >= 0 && g < 64; up = m.Objects[up].Parent, g++) if (boxes.ContainsKey(up)) box = up;
+                    if (box >= 0)
+                    {
+                        var ride = new ShuffleObject { Level = level, Index = o.Index, Item = o.Item, Name = s.Names.Get(o.Item), X = o.TileX, Y = o.TileY, Category = "filler", Record = RecordOf(o), RidesIn = level + ":" + box,
+                            Stays = "inside a container that moves (#" + box + " " + s.Names.Get(m.Objects[box].Item) + "): it goes along" };
+                        ride.Gives.AddRange(gives);
+                        list.Add(ride);
+                        continue;
+                    }
                     string cat = CategoryOf(s, o, abil, gives);
-                    bool fill = filler.Contains(key);
+                    bool fill = filler.Contains(key) || (extra.Contains(o.Item) && ExtraItems.ClassOf(s, o.Item) != null);
                     if (cat == null && !fill) continue;
                     var so = new ShuffleObject
                     {
@@ -390,6 +436,8 @@ namespace UwEditor.Core.Randomizer
                         Category = cat ?? "filler", Record = RecordOf(o), Zone = t.Set.NearestZone(level, o.TileX, o.TileY),
                     };
                     so.Gives.AddRange(gives);
+                    List<Placement> inside;
+                    if (cat == null && boxes.TryGetValue(o.Index, out inside)) { so.Container = true; so.Gives.AddRange(inside); }
                     so.OnFloor = o.OnTile;
                     so.Requires = AbilityZones.ContainerLock(m, o) ?? "";
                     if (so.Requires.Length > 0) so.Holder += " (locked: " + so.Requires + ")";
@@ -414,7 +462,8 @@ namespace UwEditor.Core.Randomizer
                     else if (trap) so.Stays = "inside a trap";
                     else if (named.Contains(o.Index)) so.Stays = "a trap or trigger names it";
                     else if (o.Children.Any(c => m.Objects[c].IsTrapOrTrigger)) so.Stays = "it holds a trap or trigger";
-                    else if (!o.IsQuantity && o.Link != 0) so.Stays = "it holds other objects (its list stays on its level)";
+                    else if (!o.IsQuantity && o.Link != 0 && !so.Container) so.Stays = extra.Contains(o.Item) && ExtraItems.IsContainer(s, o.Item)
+                        ? "a container holding something the logic needs or a key item (its contents take part instead)" : "it holds other objects (its list stays on its level)";
                     else if (o.IsMobile) so.Stays = "a mobile record";
                     else if (carrier != null && !opt.CreatureInventories) so.Stays = "carried by a creature (creature inventories off)";
                     else if (carrier != null && carrier.Record.Length > 0x1A && carrier.Record[0x1A] != 0) so.Stays = "carried by an NPC with a conversation (it may hand it over)";
@@ -429,6 +478,53 @@ namespace UwEditor.Core.Randomizer
                 }
             }
             return list;
+        }
+
+        /// <summary>
+        /// The containers on a level that move with what they hold: picked as additional items,
+        /// no category of their own (the rune bag, a bowl keep theirs), nothing inside that the
+        /// logic needs, that has a category of its own or that is a trap or trigger; only the
+        /// outermost of nested ones (the inner ride along). With the placements of everything
+        /// inside, which go where the container goes.
+        /// </summary>
+        static Dictionary<int, List<Placement>> MovingContainers(GameSession s, LevelModel m, HashSet<int> extra, HashSet<int> abil, Dictionary<string, List<Placement>> byObject, HashSet<string> needed, TimelineResult t, int level)
+        {
+            var boxes = new Dictionary<int, List<Placement>>();
+            if (extra == null || extra.Count == 0) return boxes;
+            foreach (var o in m.Objects)
+            {
+                if (o.Free || o.TileX < 0 || o.IsMobile || o.IsQuantity || o.Link == 0 || o.Index < 2) continue;
+                if (!extra.Contains(o.Item) || !ExtraItems.IsContainer(s, o.Item)) continue;
+                List<Placement> own;
+                if (!byObject.TryGetValue(level + ":" + o.Index, out own)) own = new List<Placement>();
+                if (CategoryOf(s, o, abil, own) != null) continue;
+                // not inside a trap, nor carried by a creature with a conversation
+                bool bad = false;
+                for (int up = o.Parent, g = 0; up >= 0 && g < 64; up = m.Objects[up].Parent, g++)
+                {
+                    var u = m.Objects[up];
+                    if (u.IsTrapOrTrigger || (u.IsCritter && u.Record.Length > 0x1A && u.Record[0x1A] != 0)) bad = true;
+                }
+                var gives = new List<Placement>();
+                var stack = new Stack<int>(o.Children);
+                int guard = 0;
+                while (stack.Count > 0 && !bad && guard++ < 1100)
+                {
+                    var c = m.Objects[stack.Pop()];
+                    if (c.Free) continue;
+                    List<Placement> cg;
+                    if (!byObject.TryGetValue(level + ":" + c.Index, out cg)) cg = new List<Placement>();
+                    if (c.IsTrapOrTrigger || CategoryOf(s, c, abil, cg) != null || cg.Any(p => IsNeeded(needed, p, t))) { bad = true; break; }
+                    gives.AddRange(cg);
+                    foreach (int k in c.Children) stack.Push(k);
+                }
+                if (!bad) boxes[o.Index] = gives;
+            }
+            // nested: only the outermost moves
+            foreach (int b in boxes.Keys.ToList())
+                for (int up = m.Objects[b].Parent, g = 0; up >= 0 && g < 64; up = m.Objects[up].Parent, g++)
+                    if (boxes.ContainsKey(up)) { boxes.Remove(b); break; }
+            return boxes;
         }
 
         // ---------------------------------------------------------------- the solves
@@ -469,7 +565,8 @@ namespace UwEditor.Core.Randomizer
 
         static Solver MakeSolver(TimelineResult t, KeyShuffleOptions opt, List<ShuffleObject> objs)
         {
-            var moving = new HashSet<string>(objs.Where(o => o.Stays == null).Select(o => o.Key2));
+            // what moves, and what rides along inside a container that moves: their placements are the movers' now
+            var moving = new HashSet<string>(objs.Where(o => o.Stays == null || o.RidesIn != null).Select(o => o.Key2));
             var fixedList = new List<Placement>();
             foreach (var p in t.Set.Placements)
             {
@@ -568,10 +665,20 @@ namespace UwEditor.Core.Randomizer
                     empty.Remove(at);
                 }
                 if (fail != null) { r.Failures.Add("seed " + seed + ": " + fail); continue; }
-                // the rest at random
+                // the rest at random: containers first, each to a place on its own level (their contents list is the level's)
                 var others = rest.ToList();
                 Shuffle(rng, others);
-                for (int k = 0; k < others.Count; k++) placed[others[k]] = places[empty[k]];
+                foreach (var box in others.Where(o => o.Container))
+                {
+                    var same = empty.Where(i => places[i].Level == box.Level).ToList();
+                    if (same.Count == 0) { fail = "no place left on level " + box.Level + " for the container " + box; break; }
+                    int at = same[rng.Next(same.Count)];
+                    placed[box] = places[at];
+                    empty.Remove(at);
+                }
+                if (fail != null) { r.Failures.Add("seed " + seed + ": " + fail); continue; }
+                var loose = others.Where(o => !o.Container).ToList();
+                for (int k = 0; k < loose.Count; k++) placed[loose[k]] = places[empty[k]];
                 // write it on a copy and solve that afresh
                 var wv = w.Copy();
                 foreach (var kv in placed)
@@ -595,6 +702,12 @@ namespace UwEditor.Core.Randomizer
                 r.CheckBuild = tv;
                 r.SpheresAfter = check.Spheres.Count;
                 var final = solver.Run(placed, Enumerable.Range(0, places.Count), null, "shuffled");
+                var placedFinal = new Dictionary<ShuffleObject, ShuffleObject>(placed);
+                r.crucialTest = item =>
+                {
+                    var without = placedFinal.Where(kv => kv.Key != item).ToDictionary(kv => kv.Key, kv => kv.Value);
+                    return !solver.Run(without, Enumerable.Empty<int>(), null, "without " + item.Name).GoalReached;
+                };
                 foreach (var kv in placed)
                 {
                     int i = places.IndexOf(kv.Value), sp;
@@ -752,7 +865,7 @@ namespace UwEditor.Core.Randomizer
                 if (r.Options.SpoilerNotes)
                 {
                     var pages = PutSpoilerNotes(r, edits);
-                    r.AppliedAids.Add(pages.Count == 0 ? "The spoiler log was already in the map notes." : "The spoiler log was written in the map notes: a warning on page " + SpoilerNotes.WarningPage + ", hints from page " + SpoilerNotes.HintsPage + ", answers from page " + SpoilerNotes.AnswersPage + " (pages " + string.Join(", ", pages.OrderBy(k => k)) + " changed).");
+                    r.AppliedAids.Add(pages.Count == 0 ? "The spoiler log was already in the map notes." : "The spoiler log was written in the map notes: a warning on page " + SpoilerNotes.WarningPage + ", hints from page " + SpoilerNotes.HintsPage + ", then a page saying the solutions come next, then the solutions (pages " + string.Join(", ", pages.OrderBy(k => k)) + " changed).");
                 }
             },
             // Edit ▸ Undo took the whole apply back: the maps too, and the result is no longer applied; Redo brings both again
@@ -854,7 +967,9 @@ namespace UwEditor.Core.Randomizer
             b.AppendLine();
             b.AppendLine(string.Format("Seed {0}{1}.", opt.Seed, r.Success ? (r.UsedSeed != opt.Seed ? ", used seed " + r.UsedSeed + " after " + (r.Attempts - 1) + " failed attempt" + (r.Attempts == 2 ? "" : "s") : "") : ": NO SHUFFLE FOUND in " + r.Attempts + " attempts"));
             b.AppendLine("Logic: " + opt.Logic + ".");
-            b.AppendLine("Moving: " + string.Join(", ", Categories.Where(opt.Move.Contains).Select(CategoryName)) + (opt.Filler ? ", and everything else as filler" : "") + "; creature inventories " + (opt.CreatureInventories ? "in (creatures without a conversation)" : "out") + ".");
+            b.AppendLine("Moving: " + string.Join(", ", Categories.Where(opt.Move.Contains).Select(CategoryName)) + (opt.Filler ? ", and everything else as filler" : "")
+                + (opt.Extra != null && opt.Extra.Count > 0 ? ", and " + opt.Extra.Count + " additional item kind" + (opt.Extra.Count == 1 ? "" : "s") : "")
+                + "; creature inventories " + (opt.CreatureInventories ? "in (creatures without a conversation)" : "out") + ".");
             b.AppendLine("Method: assumed fill on the time-aware solver; a fresh solve of the shuffled levels (with the return check) must reach the goal.");
             b.AppendLine(opt.Anywhere
                 ? "Place anywhere: on; " + r.Relocated + " places on the floor moved to random squares of their level that the logic reaches (not water or lava, no door, trap or trigger)" + (r.AnywhereNotes.Count > 0 ? "; " + string.Join("; ", r.AnywhereNotes) : "") + "."

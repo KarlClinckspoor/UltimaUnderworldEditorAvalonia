@@ -123,7 +123,7 @@ namespace UwEditor.Core.Tests
         }
 
         [Fact]
-        public void The_spoiler_log_goes_on_map_pages_9_10_and_11_and_leaves_the_levels_notes_alone()
+        public void The_spoiler_log_gives_hints_then_a_divider_then_solutions_and_leaves_the_levels_notes_alone()
         {
             var s = Uw1(); if (s == null) return;
             var r = Scatter();
@@ -140,12 +140,18 @@ namespace UwEditor.Core.Tests
             var nine = edits.AutomapFor(9).Notes;
             Assert.Equal(level9Own, nine.Take(level9Own.Count).Select(n => n.Text).ToList());
             Assert.Contains(nine, n => n.Text.StartsWith("SPOILERS AHEAD"));
+            // hints from page 10, then a page saying only that the solutions come next, then the solutions
+            var logPages = Enumerable.Range(10, 90).Where(p => edits.Automaps.Any(x => x.Level == p && x.Notes.Count > 0)).ToList();
+            Assert.Equal(Enumerable.Range(10, logPages.Count), logPages);          // no gaps
+            int divider = logPages.First(p => edits.AutomapFor(p).Notes[0].Text == SpoilerNotes.DividerMark);
             var hints = edits.AutomapFor(10);
-            var answers = edits.AutomapFor(11);
+            var answers = edits.AutomapFor(divider + 1);
             Assert.True(hints.NotesOnly && answers.NotesOnly);
-            Assert.StartsWith("HINTS 1/", hints.Notes[0].Text);
-            Assert.StartsWith("ANSWERS 1/", answers.Notes[0].Text);
-            foreach (var page in new[] { 9, 10, 11, 12, 13 }.Where(p => edits.Automaps.Any(a => a.Level == p)))
+            Assert.All(logPages.Where(p => p < divider), p => Assert.StartsWith("HINTS ", edits.AutomapFor(p).Notes[0].Text));
+            Assert.All(logPages.Where(p => p > divider), p => Assert.StartsWith("SOLUTIONS ", edits.AutomapFor(p).Notes[0].Text));
+            Assert.Contains("SOLUTIONS AFTER PAGE " + divider, edits.AutomapFor(divider - 1).Notes[0].Text);
+            Assert.True(edits.AutomapFor(divider).Notes.Count <= 6);
+            foreach (var page in new[] { 9 }.Concat(logPages))
             {
                 var notes = edits.AutomapFor(page).Notes;
                 Assert.True(notes.Count <= SpoilerNotes.LinesPerPage + (page == 9 ? level9Own.Count : 0));
@@ -161,12 +167,17 @@ namespace UwEditor.Core.Tests
                 var ys = notes.Where(n => n.X == 12).Select(n => n.Y).ToList();
                 Assert.Equal(ys.Count, ys.Distinct().Count());
             }
-            // every key item has a hint and an answer (wrapped lines aside)
-            int keyItems = r.Moves.Count(m => m.ByFill);
-            var allHints = edits.Automaps.Where(a => a.Level >= 10 && a.Level % 2 == 0).SelectMany(a => a.Notes).Count(n => !n.Text.StartsWith("  ") && !n.Text.StartsWith("HINTS"));
-            var allAnswers = edits.Automaps.Where(a => a.Level >= 11 && a.Level % 2 == 1).SelectMany(a => a.Notes).Count(n => !n.Text.StartsWith("  ") && !n.Text.StartsWith("ANSWERS"));
-            Assert.Equal(keyItems, allHints);
-            Assert.Equal(keyItems, allAnswers);
+            // the items worth a hint: every artifact, every crucial item, and nothing else; each with a hint and a solution
+            var worth = r.Moves.Where(r.WorthAHint).ToList();
+            Assert.All(r.Moves.Where(m => m.ByFill && KeyShuffleResult.IsArtifact(m.Item)), m => Assert.Contains(m, worth));
+            Assert.True(worth.Count < r.Moves.Count(m => m.ByFill), "some key items get no hint");
+            Assert.Contains(worth, m => !KeyShuffleResult.IsArtifact(m.Item));
+            output.WriteLine("{0} of {1} key items get a hint", worth.Count, r.Moves.Count(m => m.ByFill));
+            output.WriteLine(string.Join("\n", logPages.Where(p => p < divider).SelectMany(p => edits.AutomapFor(p).Notes).Select(n => n.Text)));
+            var allHints = logPages.Where(p => p < divider).SelectMany(p => edits.AutomapFor(p).Notes).Count(n => !n.Text.StartsWith("  ") && !n.Text.StartsWith("HINTS"));
+            var allAnswers = logPages.Where(p => p > divider).SelectMany(p => edits.AutomapFor(p).Notes).Count(n => !n.Text.StartsWith("  ") && !n.Text.StartsWith("SOLUTIONS"));
+            Assert.Equal(worth.Count, allHints);
+            Assert.Equal(worth.Count, allAnswers);
             output.WriteLine(string.Join("\n", hints.Notes.Take(8).Select(n => n.Text)));
             output.WriteLine(string.Join("\n", answers.Notes.Take(8).Select(n => n.Text)));
             // saved: page 10's notes in block 0x2D, level 1's notes (block 0x24, what 0x1A + 10 would be) untouched
@@ -177,6 +188,40 @@ namespace UwEditor.Core.Tests
             KeyShuffle.Undo(r, edits);
             Assert.Empty(edits.AutomapFor(10).Notes);
             Assert.Equal(level9Own, edits.AutomapFor(9).Notes.Select(n => n.Text).ToList());
+        }
+
+        [Fact]
+        public void Additional_items_bring_bedrolls_and_containers_and_containers_keep_their_contents_on_their_level()
+        {
+            var s = Uw1(); if (s == null) return;
+            var offered = ExtraItems.Offered(s, s.LoadLevel);
+            Assert.Contains(offered, x => x.Item == 0x121 && x.Class == "other");          // bedroll
+            Assert.Contains(offered, x => x.Item == 0x080 && x.Class == "containers");     // sack
+            Assert.DoesNotContain(offered, x => x.Item == 0x12E || x.Item == 0x120);        // a fountain, a wand's spell object
+            var extra = new HashSet<int>(offered.Where(x => x.Class == "containers" || x.Item == 0x121 || x.Class == "treasure").Select(x => x.Item));
+            var r = KeyShuffle.Run(s, null, new KeyShuffleOptions { Seed = 17, Extra = extra });
+            Assert.True(r.Success, string.Join("; ", r.Failures));
+            Assert.Contains("additional item kind", r.Log.ToString());
+            Assert.Contains(r.Moves, m => m.Item.Item == 0x121 && m.Item != m.Place);
+            var boxes = r.Moves.Where(m => m.Item.Container).ToList();
+            Assert.NotEmpty(boxes);
+            Assert.All(boxes, m => Assert.Equal(m.Item.Level, m.Place.Level));
+            output.WriteLine("{0} containers move", boxes.Count(m => m.Item != m.Place || m.Place.Relocated));
+            var edits = new LevelEdits(s);
+            KeyShuffle.Apply(r, edits);
+            // what each moving container held is inside it where it went, on its level
+            foreach (var m in boxes)
+            {
+                var before = s.LoadLevel(m.Item.Level);
+                var kids = before.Objects[m.Item.Index].Children.Select(c => before.Objects[c].Item).OrderBy(x => x).ToList();
+                var after = edits.Model(m.Place.Level);
+                var o = after.Objects[m.Place.Index];
+                Assert.Equal(m.Item.Item, o.Item);
+                Assert.Equal(kids, o.Children.Select(c => after.Objects[c].Item).OrderBy(x => x).ToList());
+            }
+            foreach (int l in r.After.Keys) { bool ok; edits.For(l).Check(out ok); Assert.True(ok, "level " + l + " fails the list check"); }
+            var t = Timeline.Build(s, edits.Model, r.Options.Nav, r.Options.Logic, null, null, false);
+            Assert.True(t.Solve.GoalReached, string.Join(", ", t.Solve.GoalMissing));
         }
 
         [Fact]

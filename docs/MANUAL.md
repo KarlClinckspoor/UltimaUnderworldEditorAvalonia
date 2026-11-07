@@ -1036,7 +1036,7 @@ level; UW2 0x9F + level and 0xEF + level). A saved game has its own; a new game 
   up to page 99 (`ui/AUTOMAP.C`). Those pages show a blank map with their own notes, from
   `LEV.ARK` blocks 0x2D-0x86, which nothing else uses. A new game copies `DATA`'s `LEV.ARK`,
   notes included, so notes put there travel with a mod. The key item scatter can write its
-  spoiler log there (pages 9-11 and on).
+  spoiler log there (pages 9, 10 and on).
 - **Show the level under the map** draws the level faintly behind the map, as a guide for
   painting.
 - **Undo** steps back in the window; the changes are saved with the levels (Save levels)
@@ -2448,13 +2448,19 @@ at **Apply** (Underworld only; `LEV.ARK` in `DATA`, so a new game has them, and 
 from the game carries them):
 - **page 9**, the Ethereal Void's map, keeps its own notes and gets a warning that the next
   pages hold spoilers;
-- **page 10: hints.** Each key item, in the order the logic reaches them, with the name of the
-  hand-made zone it lies in and its level ("Key of Courage: Tyball's crib (L7)"), or, without
-  names, its level and the part of the level ("level 3, southeast"). ", hidden" means it is in
-  a container or carried;
-- **page 11: answers.** Each key item's level, square and what holds it ("L3 (12, 40) in sack").
-- A page holds 25 lines. Longer logs go on: hints on pages 12, 14 …, answers on 13, 15 …,
-  each page's first line saying where the next one is.
+- **from page 10: hints**, on as many pages as they need. Each item, in the order the logic
+  reaches them, with the name of the hand-made zone it lies in and its level ("Key of Courage:
+  Tyball's crib (L7)"), or, without names, its level and the part of the level ("level 3,
+  southeast"). ", hidden" means it is in a container or carried;
+- **then a page that says only SOLUTIONS NEXT**, so that turning one page too far does not
+  give anything away;
+- **then the solutions:** each item's level, square and what holds it ("L3 (12, 40) in sack").
+- **Which items:** the artifacts (talismans, the Key of Infinity's parts and the plot items),
+  and every other key item the shuffled game cannot be finished without. That is checked by
+  solving the shuffled game without the item, with the run's logic options. So a key to a door
+  the options let you bash or pick, or that you can go round, gets no hint, and neither does
+  one of two keys to the same lock.
+- A page holds 25 lines; each page's first line says where the next one is.
 - Keys are named by the first lock they open ("key to door, L2 (15, 51)").
 - Everything is written in capitals, as the game itself writes notes. The map screen's note
   font has no lowercase letters, and a note with one hangs the game as soon as its page is
@@ -2465,8 +2471,23 @@ from the game carries them):
   of an earlier one.
 
 **Creature inventories** lets items carried by creatures without a conversation take part.
-Their inventories become places too. **Everything else as filler** adds every other item the
-item swap moves (weapons, armour, food, coins, lights …), and their places.
+Their inventories become places too.
+
+**Additional items to include in the shuffle** shows what else takes part ("none" at first);
+**…** opens a window listing every kind of item the player can pick up that lies in the levels,
+with how many there are, by class:
+- weapons; armour, shields and crowns; rings; wands; potions; food and drink; lights; coins,
+  gems and treasure; books, scrolls and maps; containers; skulls and bones; broken weapons,
+  wood, plants and debris; other things (bedrolls, instruments, tools …);
+- a class's box ticks all its kinds; **The item swap's kinds** ticks what the old "Everything
+  else as filler" moved; **All** and **None** do what they say.
+
+The kinds ticked take part as filler: they trade places with the key items and with each other,
+and their places become places too. Key items move by their category whatever is ticked here.
+A **container** takes everything it holds along, and goes only to a place on its own level (what
+it holds is a list of that level's objects). A container holding something the logic needs, a
+key item, or a trap or trigger stays where it is, and what it holds takes part instead.
+Fixed objects the game marks as pickable (urns, campfires, fountains, cauldrons) are not offered.
 
 **At the start** (both off at first) adds two aids, done at **Apply** as part of the same
 step, so **Undo apply** takes them back too:

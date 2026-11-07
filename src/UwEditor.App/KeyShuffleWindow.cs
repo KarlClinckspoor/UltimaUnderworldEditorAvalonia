@@ -43,8 +43,10 @@ namespace UwEditor.App
         bool quickRunning, namesFromZoning;
         readonly CheckBox kitBox = new CheckBox { Content = "A full torch (quality 63) and the map beside the start" };
         readonly CheckBox mapsBox = new CheckBox { Content = "Every map square explored" };
+        readonly TextBlock extraText = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold };
+        KeyShuffleExtraWindow extraWindow;
         readonly CheckBox anywhereBox = new CheckBox { Content = "Place anywhere (random squares, not where items lay)" };
-        readonly CheckBox notesBox = new CheckBox { Content = "Spoiler log in the map notes (pages 9-11)" };
+        readonly CheckBox notesBox = new CheckBox { Content = "Spoiler log in the map notes (pages 9, 10 …)" };
 
         /// <summary>The last preview or shuffle, or null.</summary>
         public KeyShuffleResult Result { get; private set; }
@@ -110,8 +112,12 @@ namespace UwEditor.App
             for (int i = 0; i < boxes.Count; i += 3) moves.AddRow(i == 0 ? "Move" : "", boxes.Skip(i).Take(3).Concat(Enumerable.Repeat<Control>(null, Math.Max(0, 3 - (boxes.Count - i)))).ToArray());
             var creatures = new CheckBox { Content = "Creature inventories (creatures without a conversation)", IsChecked = opt.CreatureInventories };
             creatures.IsCheckedChanged += (o, e) => opt.CreatureInventories = creatures.IsChecked == true;
-            var filler = new CheckBox { Content = "Everything else as filler (weapons, armour, food, coins, lights…)", IsChecked = opt.Filler };
-            filler.IsCheckedChanged += (o, e) => opt.Filler = filler.IsChecked == true;
+            // additional items: a row with what is picked and the picker
+            var extraButton = new Button { Content = "…", Padding = new Thickness(10, 2) };
+            ToolTip.SetTip(extraButton, "Picks other kinds of items to move with the key items: weapons, armour, coins, food, containers, bedrolls…");
+            extraButton.Click += (o, e) => ShowExtra();
+            var filler = LogicOptionsPanel.Row(new TextBlock { Text = "Additional items to include in the shuffle:", VerticalAlignment = VerticalAlignment.Center }, extraText, extraButton);
+            RefreshExtra();
             top.Children.Add(moves);
             // the longer choices in a grid of their own, so that the categories' columns stay close
             var more = new OptionGrid(2);
@@ -128,7 +134,7 @@ namespace UwEditor.App
             ToolTip.SetTip(anywhereBox, "On: the places on the floor become random squares of their level that the logic reaches: open floor, slopes and the open half of a diagonal, but not water or lava, and not a square with a door, a trap or a trigger. Items in containers and creatures keep those places. Off: the items trade the places where items lay.");
             notesBox.IsChecked = opt.SpoilerNotes;
             notesBox.IsCheckedChanged += (o, e) => opt.SpoilerNotes = notesBox.IsChecked == true;
-            ToolTip.SetTip(notesBox, "At Apply, the log goes into the game's own map notes, which a new game copies from DATA: page 9 (the Ethereal Void's map) gets a warning, page 10 hints (each key item by the name of the zone it lies in, or its level and the part of it), page 11 the answers (level and square). The map screen's up arrow goes past level 9 to these pages. Longer logs go on to pages 12 and 13, and so on.");
+            ToolTip.SetTip(notesBox, "At Apply, the log goes into the game's own map notes, which a new game copies from DATA: page 9 (the Ethereal Void's map) gets a warning, from page 10 the hints (each artifact, and each item the game cannot be finished without, by the name of the zone it lies in, or its level and the part of it), then a page saying SOLUTIONS NEXT, then the solutions (level and square). The map screen's up arrow goes past level 9 to these pages.");
             more.AddRow("Places", anywhereBox, notesBox);
             top.Children.Add(more);
 
@@ -155,6 +161,22 @@ namespace UwEditor.App
             root.Children.Add(scroll); root.Children.Add(actions); root.Children.Add(report);
             Content = root;
             ManualWindow.Attach(this, "Apply");
+        }
+
+        /// <summary>The additional items' picker (one at a time), editing the options' set in place.</summary>
+        public KeyShuffleExtraWindow ShowExtra()
+        {
+            if (extraWindow != null) { extraWindow.Activate(); return extraWindow; }
+            extraWindow = new KeyShuffleExtraWindow(session, l => main.ViewModel.Edits.Model(l), opt.Extra);
+            extraWindow.Changed += RefreshExtra;
+            extraWindow.Closed += (o, e) => { extraWindow = null; RefreshExtra(); };
+            extraWindow.Show(this);
+            return extraWindow;
+        }
+
+        void RefreshExtra()
+        {
+            extraText.Text = opt.Extra.Count == 0 ? "none" : KeyShuffleExtraWindow.Summary(ExtraItems.Offered(session, l => main.ViewModel.Edits.Model(l)), opt.Extra);
         }
 
         KeyShuffleResult Compute()
@@ -251,7 +273,7 @@ namespace UwEditor.App
         {
             if (r == null || !r.Success || r.IsApplied) return false;
             var o = r.Options;
-            if (o.Seed != opt.Seed || o.Retries != opt.Retries || o.Anywhere != opt.Anywhere || o.Filler != opt.Filler || o.CreatureInventories != opt.CreatureInventories || !o.Move.SetEquals(opt.Move)) return false;
+            if (o.Seed != opt.Seed || o.Retries != opt.Retries || o.Anywhere != opt.Anywhere || o.Filler != opt.Filler || !o.Extra.SetEquals(opt.Extra) || o.CreatureInventories != opt.CreatureInventories || !o.Move.SetEquals(opt.Move)) return false;
             if (o.Logic.ToString() != opt.Logic.ToString() || o.Nav.MaxClimb != opt.Nav.MaxClimb || o.Nav.JumpSpellClimb != opt.Nav.JumpSpellClimb || o.Nav.GapJumps != opt.Nav.GapJumps
                 || o.Nav.GapTiles != opt.Nav.GapTiles || o.Nav.JumpSpellGapTiles != opt.Nav.JumpSpellGapTiles || o.Nav.DiagonalJumps != opt.Nav.DiagonalJumps
                 || o.Nav.CutAtLevelChanges != opt.Nav.CutAtLevelChanges || o.Nav.FoldEmptyDeadEnds != opt.Nav.FoldEmptyDeadEnds || o.Nav.ShippedStart != opt.Nav.ShippedStart) return false;

@@ -14,10 +14,13 @@ namespace UwEditor.Core.Randomizer
     /// The key item scatter's spoiler log in the game's own map notes (UW1). The map screen's up
     /// arrow goes past the last level to page 99, showing a blank map with that page's notes
     /// (Automap.NotesOnly), so the log can travel inside the mod: page 9 (the Ethereal Void's map)
-    /// gets a warning, page 10 hints (the key items, in the order the logic reaches them, by the
-    /// name of the hand-made zone they lie in, or the level and the part of it), page 11 the
-    /// answers (level, square and what holds it). More lines than a page holds go on pages 12,
-    /// 14 … (hints) and 13, 15 … (answers). The map screen draws notes in FONT4X5P.SYS
+    /// gets a warning; from page 10 come the hints (in the order the logic reaches the items, by
+    /// the name of the hand-made zone they lie in, or the level and the part of it), on as many
+    /// pages as they need; then a page that says the solutions come next and nothing else; then
+    /// the solutions (level, square and what holds it). Only the items worth a hint are given:
+    /// the artifacts (talismans, the Key of Infinity's parts, plot items) and the key items the
+    /// shuffled game cannot be finished without (KeyShuffleResult.WorthAHint), so not a key to a
+    /// door the logic lets the player bash, pick or go round. The map screen draws notes in FONT4X5P.SYS
     /// (ui/AUTOMAP.C RedisplayStrings), which has capitals only: every line is in capitals
     /// (Automap.NoteChars; a lowercase letter hangs the game on that page), at most 246 pixels wide
     /// from x 12, so it ends on the parchment before the buttons, 25 lines a page from y 186 down
@@ -29,11 +32,11 @@ namespace UwEditor.Core.Randomizer
     /// </summary>
     public static class SpoilerNotes
     {
-        public const int WarningPage = 9, HintsPage = 10, AnswersPage = 11;
+        public const int WarningPage = 9, HintsPage = 10;
         const int Left = 12, Top = 186, Bottom = 12, LineStep = 7, MaxWidth = 246;
         public static int LinesPerPage { get { return (Top - Bottom) / LineStep + 1; } }
         /// <summary>The first words of the notes this writes, to find them again (and replace them) on a later run.</summary>
-        public const string WarningMark = "SPOILERS", HintsMark = "HINTS", AnswersMark = "ANSWERS";
+        public const string WarningMark = "SPOILERS", HintsMark = "HINTS", AnswersMark = "SOLUTIONS", DividerMark = "SOLUTIONS NEXT";
 
         // ------------------------------------------------------------ the font
 
@@ -148,7 +151,7 @@ namespace UwEditor.Core.Randomizer
 
         static IEnumerable<KeyShuffleMove> KeyMoves(KeyShuffleResult r)
         {
-            return r.Moves.Where(m => m.ByFill).OrderBy(m => m.Sphere < 0 ? int.MaxValue : m.Sphere).ThenBy(m => m.Place.Level).ThenBy(m => m.Item.Name).ThenBy(m => m.Item.Index);
+            return r.Moves.Where(r.WorthAHint).OrderBy(m => m.Sphere < 0 ? int.MaxValue : m.Sphere).ThenBy(m => m.Place.Level).ThenBy(m => m.Item.Name).ThenBy(m => m.Item.Index);
         }
 
         /// <summary>One hint a key item: where by the hand-made zone's name (and the level), or by the level and its part.</summary>
@@ -193,16 +196,18 @@ namespace UwEditor.Core.Randomizer
             var answers = Answers(s, r, level).SelectMany(l => Wrap(l, widths)).ToList();
             int body = LinesPerPage - 1;
             int hintPages = Math.Max(1, (hints.Count + body - 1) / body), answerPages = Math.Max(1, (answers.Count + body - 1) / body);
+            int divider = HintsPage + hintPages, firstAnswer = divider + 1;
             for (int k = 0; k < hintPages; k++)
             {
-                int page = HintsPage + 2 * k;
-                string head = string.Format("{0} {1}/{2} ({3})", HintsMark, k + 1, hintPages, k + 1 < hintPages ? "more on page " + (page + 2) : "answers on page " + AnswersPage);
+                int page = HintsPage + k;
+                string head = string.Format("{0} {1}/{2} ({3})", HintsMark, k + 1, hintPages, k + 1 < hintPages ? "more on page " + (page + 1) : "solutions after page " + divider);
                 pages[page] = Lay(new[] { head }.Concat(hints.Skip(k * body).Take(body)));
             }
+            pages[divider] = Lay(new[] { DividerMark, "The pages after this one give every", "solution: where each item lies.", "Turn back now if you want to search." }.SelectMany(l => Wrap(l, widths)));
             for (int k = 0; k < answerPages; k++)
             {
-                int page = AnswersPage + 2 * k;
-                string head = string.Format("{0} {1}/{2}{3}", AnswersMark, k + 1, answerPages, k + 1 < answerPages ? " (more on page " + (page + 2) + ")" : "");
+                int page = firstAnswer + k;
+                string head = string.Format("{0} {1}/{2}{3}", AnswersMark, k + 1, answerPages, k + 1 < answerPages ? " (more on page " + (page + 1) + ")" : "");
                 pages[page] = Lay(new[] { head }.Concat(answers.Skip(k * body).Take(body)));
             }
             pages[WarningPage] = Lay(Warning(r).SelectMany(l => Wrap(l, widths)));
@@ -216,8 +221,9 @@ namespace UwEditor.Core.Randomizer
             {
                 WarningMark + " AHEAD: the next map pages hold the",
                 "key item scatter's log (seed " + r.UsedSeed + ").",
-                "Page " + HintsPage + ": hints, in the order you can reach",
-                "the items. Page " + AnswersPage + ": the answers.",
+                "From page " + HintsPage + ": hints, in the order you",
+                "can reach the items; then a page saying",
+                "solutions next, and the solutions.",
                 "Do not turn the page if you want to search!",
             };
         }
@@ -242,13 +248,16 @@ namespace UwEditor.Core.Randomizer
             string t = n.Text ?? "";
             var ic = StringComparison.OrdinalIgnoreCase;
             return t.StartsWith(WarningMark + " AHEAD", ic) || t.StartsWith("key item scatter's log", ic)
-                || t.StartsWith("Page " + HintsPage + ": hints", ic) || t.StartsWith("the items. Page " + AnswersPage, ic)
+                || t.StartsWith("Page " + HintsPage + ": hints", ic) || t.StartsWith("the items. Page 11", ic)
+                || t.StartsWith("From page " + HintsPage + ": hints", ic) || t.StartsWith("can reach the items; then", ic) || t.StartsWith("solutions next, and the", ic)
                 || t.StartsWith("Do not turn the page", ic);
         }
 
         static bool IsLogPage(List<MapNote> notes)
         {
-            return notes.Count > 0 && (notes[0].Text.StartsWith(HintsMark + " ", StringComparison.Ordinal) || notes[0].Text.StartsWith(AnswersMark + " ", StringComparison.Ordinal));
+            // this version's pages, and 0.1.8's answer pages (ANSWERS)
+            return notes.Count > 0 && (notes[0].Text.StartsWith(HintsMark + " ", StringComparison.OrdinalIgnoreCase) || notes[0].Text.StartsWith(AnswersMark + " ", StringComparison.OrdinalIgnoreCase)
+                || notes[0].Text.StartsWith("ANSWERS ", StringComparison.OrdinalIgnoreCase) || notes[0].Text.Equals(DividerMark, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>

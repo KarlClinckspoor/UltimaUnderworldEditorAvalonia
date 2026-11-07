@@ -38,7 +38,8 @@ namespace UwEditor.App.Tests
             Assert.True(kw.Options.Logic.RequireOrb);
             foreach (var c in KeyShuffle.Categories) Assert.True(Box(kw, KeyShuffle.CategoryName(c)).IsChecked);
             Assert.False(Box(kw, "Creature inventories").IsChecked);
-            Assert.False(Box(kw, "Everything else as filler").IsChecked);
+            Assert.Empty(kw.Options.Extra);                                  // no additional items at first
+            Assert.True(Box(kw, "Place anywhere").IsChecked);
             kw.GetLogicalDescendants().OfType<NumericUpDown>().First().Value = 11;
             Ui.Pump();
             Assert.Equal(11, kw.Options.Seed);
@@ -86,6 +87,32 @@ namespace UwEditor.App.Tests
             var until = DateTime.UtcNow.AddMinutes(2);
             while (!task.IsCompleted && DateTime.UtcNow < until) { Ui.Pump(); System.Threading.Thread.Sleep(20); }
             Assert.True(task.IsCompleted);
+        }
+
+        [AvaloniaFact]
+        public void Additional_items_are_picked_by_class_or_kind_in_their_own_window()
+        {
+            if (Uw1 == null) return;
+            var w = Ui.Open(Uw1);
+            w.AskBeforeDiscarding = false;
+            var kw = w.ShowKeyShuffle();
+            Ui.Pump();
+            Assert.Empty(kw.Options.Extra);
+            var ew = kw.ShowExtra();
+            Ui.Pump();
+            Assert.Same(ew, kw.ShowExtra());
+            Assert.Contains(ew.Offered, x => x.Class == "containers");
+            ew.SetClass("containers", true);
+            Assert.Contains(0x080, kw.Options.Extra);                 // the sack
+            Assert.DoesNotContain(0x121, kw.Options.Extra);           // not the bedroll, which is "other"
+            Box(ew, "bedroll").IsChecked = true;
+            Ui.Pump();
+            Assert.Contains(0x121, kw.Options.Extra);
+            ew.SetClass("containers", false);
+            Assert.Equal(new[] { 0x121 }, kw.Options.Extra.ToArray());
+            ew.Close();
+            kw.Close();
+            w.Close();
         }
 
         [AvaloniaFact]
@@ -147,7 +174,7 @@ namespace UwEditor.App.Tests
             foreach (var t in new[] { "Runestones", "Plot items", "Creature inventories", "A full torch", "Magic", "Ring of Levitation", "Cut at level changes", "Consider the current starting square" })
                 Assert.Equal(first, x(t), 0);
             Assert.Equal(x("Key of Infinity parts"), x("Ability items"), 0);
-            Assert.Equal(x("Everything else as filler"), x("Every map square explored"), 0);   // the longer choices: a grid of their own
+            Assert.Equal(x("Spoiler log in the map notes"), x("Every map square explored"), 0);   // the longer choices: a grid of their own
             Assert.Equal(x("Talismans"), x("Dragon skin"), 0);
             Assert.Equal(x("Single-use items count"), x("Killing NPCs"), 0);
             Assert.Equal(x("Single-use items count"), x("Require breaking the orb"), 0);

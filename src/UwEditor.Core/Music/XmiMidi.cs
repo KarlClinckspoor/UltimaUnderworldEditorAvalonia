@@ -352,6 +352,10 @@ namespace UwEditor.Core.Music
                 else if (e.IsNote && e.Channel == 9) need = new XmiTimbre(e.Data1, 127);
                 if (need.HasValue && !timb.Contains(need.Value)) timb.Add(need.Value);
             }
+            // drum keys the stored list names but UW.AD lacks (a theme of the other game): the notes
+            // were moved to keys it has, and a listed timbre the library lacks turns the music off
+            if (opt.Version == MusicVersion.Fm && opt.ReplaceMissingDrums && opt.FmTimbres != null)
+                timb.RemoveAll(tb => tb.Bank == 127 && !opt.FmTimbres.Contains(127, tb.Patch));
             r.Xmi = XmiFile.Build(timb, events);
             r.Bytes = r.Xmi.ToBytes();
             return r;
