@@ -540,11 +540,23 @@ after it runs once. **Creatures set it off too** sets the trigger's enchanted bi
 by the name the creature talks under. The list filter matches slots, names and any text a
 conversation says. The window has four tabs:
 - **Dialogue:** what the script does, rebuilt from its code by following the conversation
-  machine's stack (conv/BABL.C). It shows the say and respond lines with their text, each
-  menu with its numbered choices, and the checks on quests, variables and the talker's
-  state. Simple `if` blocks are folded; other jumps stay as labels (named, see "Names and
-  F2" below). Functions the script never calls (the compiler's small library) are hidden
-  unless you ask. Double-click a line to see its code.
+  machine's stack (conv/BABL.C) and read back as structured source, in the conversation
+  language (`docs/conversation-language.md`):
+  - each function with its arguments and its locals (`int local3[5];`);
+  - `say` and `respond` with their text and string number;
+  - `if` / `else if` / `else`, `while` loops, `return e;` for a function's value;
+  - each menu as a `menu { }` block: the choices in the order the player sees them, each
+    with what it does (`"Tell me more." #7:` and the lines under it), a choice nothing
+    tests for with `;`, and `fmenu` for the filtered menu with each choice's condition;
+  - `switch` where the code compares one value with several numbers;
+  - calls with every argument shown: a constant the script passes to a built-in is in the
+    call (`get_quest(32)`), a variable passed by address has `&`.
+  A `goto` and its label (named, see "Names and F2" below) are left only where the script
+  itself jumps between parts in a way no `if` or loop can show (UW1 has 277, mostly in
+  conversation 4; UW2 895). Functions the script never calls (the compiler's small library)
+  are hidden unless you ask. Double-click a line to see its code: the Script tab selects the
+  instruction the line comes from (the store, the say, the call, the branch of an `if`, the
+  compare of a menu's choice).
 - **Strings:** the conversation's block of STRINGS.PAK, edited in place. Each string shows
   where the script uses it. **Add string** appends one, for the script to say.
 - **Script:** the code as assembly, one instruction a line (conv.h's opcodes):
@@ -594,7 +606,7 @@ reading: they never change the bytes, and the Script assembles to the same code 
   selected line (several on the line: pick one); on the Script tab, the function or label
   at the caret. A name is letters, digits and `_`, not starting with a digit. It must not
   clash with another name in the conversation, an imported function or variable, an
-  instruction or a word the views use (`if`, `goto`, `say`...). An empty name goes back to
+  instruction or a word the views use (`if`, `while`, `menu`, `goto`, `say`...). An empty name goes back to
   the shipped one. Imported variables keep the game's names. With unapplied Script edits,
   apply or undo them first.
 - **Your renames** are kept in `conversation-names-uw1.json` (or `-uw2`) in the editor's

@@ -156,6 +156,8 @@ namespace UwEditor.Core.Conversations
         static readonly HashSet<string> reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "if", "goto", "return", "end", "exit", "say", "respond", "not", "and", "or", "strcmp", "result", "bp", "mem", "frame", "main", "word",
+            // the conversation language's own words (docs/conversation-language.md)
+            "else", "while", "do", "break", "continue", "menu", "fmenu", "switch", "case", "default", "int", "true", "false", "streq", "ptr", "save_reg",
         };
 
         /// <summary>Why a name cannot be given to t in conversation c, or null when it can. An empty name, or the placeholder, clears the name.</summary>

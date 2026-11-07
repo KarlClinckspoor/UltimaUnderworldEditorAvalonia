@@ -54,8 +54,10 @@ namespace UwEditor.App.Tests
             Assert.Equal(1, cw.Model.Selected.Slot);
             Assert.Contains("Corby", cw.Model.Header);
             Assert.Contains(cw.Model.Lines, l => l.Line.Kind == PseudoKind.Say && l.Text.Contains("Hast thou come to add to my torment?"));
-            Assert.Contains(cw.Model.Lines, l => l.Text.Contains("local22 = babl_menu(…)"));
-            Assert.Contains(cw.Model.Lines, l => l.Line.Kind == PseudoKind.Menu && l.Text.Trim() == "1: \"Of what torment dost thou speak?\" #2");
+            // the structured view: a menu block with each choice and what it does
+            Assert.Contains(cw.Model.Lines, l => l.Line.Kind == PseudoKind.Menu && l.Text.Trim() == "menu {");
+            Assert.Contains(cw.Model.Lines, l => l.Line.Kind == PseudoKind.Menu && l.Text.Trim() == "\"Of what torment dost thou speak?\" #2:");
+            Assert.DoesNotContain(cw.Model.Lines, l => l.Text.Contains("goto "));
             // the compiler's library functions are hidden until asked for
             Assert.DoesNotContain(cw.Model.Lines, l => l.Text.Contains("never called"));
             Ui.Find<CheckBox>(cw, "HideUnusedBox").IsChecked = false;
@@ -91,6 +93,34 @@ namespace UwEditor.App.Tests
             Assert.False(cw.ApplyScript());
             Assert.Contains("unknown instruction 'SAYY'", cw.Model.ScriptError);
             Assert.False(cw.Library.Archive.HasChanges);
+            cw.Close();
+            w.Close();
+        }
+
+        [AvaloniaFact]
+        public void A_menu_choice_opens_the_script_at_its_compare_and_a_renamed_local_shows_in_the_structured_view()
+        {
+            if (Uw1 == null) return;
+            var w = Ui.Open(Uw1);
+            var cw = w.ShowConversations(1);
+            Ui.Pump();
+            // a choice's line is the compare that picks it: double-click shows that instruction
+            var choice = cw.Model.Lines.First(l => l.Line.Kind == PseudoKind.Menu && l.Text.Trim().StartsWith("\"Of what torment"));
+            Assert.True(choice.Line.Start >= 0 && choice.Line.End > choice.Line.Address);
+            cw.ShowAddress(choice.Line.Address);
+            Ui.Pump();
+            Assert.Contains("BEQ", Ui.Find<TextBox>(cw, "ScriptBox").SelectedText);
+            // F2 on a local: npc_not_hostile's result, shown in its declaration
+            Ui.Find<CheckBox>(cw, "HideUnusedBox").IsChecked = false;
+            Ui.Pump();
+            var fn = cw.Model.Lines.First(l => l.Line.Kind == PseudoKind.Function && l.Text.StartsWith("npc_not_hostile()"));
+            var target = NameTarget.Local(fn.Line.Address, 1);
+            Assert.Null(cw.Rename(target, "not_hostile"));
+            Ui.Pump();
+            Assert.Contains(cw.Model.Lines, l => l.Text.Trim() == "int not_hostile;");
+            Assert.Null(cw.Rename(target, ""));
+            Ui.Pump();
+            Assert.Contains(cw.Model.Lines, l => l.Text.Trim() == "int local1;");
             cw.Close();
             w.Close();
         }

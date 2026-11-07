@@ -12,6 +12,8 @@ namespace UwEditor.Core.Conversations
         public int Indent;
         public string Text;
         public PseudoKind Kind;
+        /// <summary>The instructions the line shows, Start to End - 1 (-1: only Address). Address is the one that does the work (STO, SAY, the call, the branch).</summary>
+        public int Start = -1, End = -1;
         /// <summary>For a conditional goto: the condition under which the next line runs (it falls through).</summary>
         internal string Guard;
         /// <summary>For a goto: the address it goes to (else -1).</summary>
@@ -81,6 +83,8 @@ namespace UwEditor.Core.Conversations
         public readonly Dictionary<int, string> Notes = new Dictionary<int, string>();
         /// <summary>The names the view was made with (ConversationNames.None: the placeholders).</summary>
         public ConversationNames Names = ConversationNames.None;
+        /// <summary>For the structured view: the gotos left and the checks (null for the flat view).</summary>
+        public StructureReport Structure;
         public string Text
         {
             get
@@ -101,7 +105,7 @@ namespace UwEditor.Core.Conversations
     /// "if" blocks are folded. Arguments are listed in the order the script pushes them, so
     /// the first is the built-in's args[-n] and the last its args[-1].
     /// </summary>
-    public static class Decompiler
+    public static partial class Decompiler
     {
         abstract class Expr
         {
@@ -110,6 +114,8 @@ namespace UwEditor.Core.Conversations
         sealed class Const : Expr
         {
             public int Value; public int At;
+            /// <summary>Pushed positive and negated (PUSHI n NEG), not pushed as a negative number.</summary>
+            public bool Negated;
             public override string Text(Ctx c) { return ((short)Value).ToString(); }
         }
         sealed class FrameAddr : Expr
@@ -141,6 +147,12 @@ namespace UwEditor.Core.Conversations
         {
             public string Name; public List<Expr> Args = new List<Expr>(); public bool Builtin; public int At;
             public string Rendered;
+            /// <summary>For CALL, the function's address; for CALLI, the import number.</summary>
+            public int Target;
+            /// <summary>For CALLI, the count pushed before it (not always the number of arguments: babl_menu gets 0).</summary>
+            public Expr Count;
+            /// <summary>The POPs after the call.</summary>
+            public int Pops;
             public override string Text(Ctx c) { return Rendered ?? (Rendered = c.RenderCall(this)); }
         }
         sealed class Raw : Expr
@@ -347,6 +359,20 @@ namespace UwEditor.Core.Conversations
             {
                 int start = fl[fi], end = fi + 1 < fl.Count ? fl[fi + 1] : conv.Code.Length;
                 DecompileFunction(c, code, at, start, end, labels, called.Contains(start) || start == 0, fold);
+            }
+            // the readable view: the lines again, structured (the metadata above stays the flat view's)
+            if (fold)
+            {
+                var folded = new List<PseudoLine>(r.Lines);
+                try { Structure(conv, strings, kind, names, r); }
+                catch (Exception ex)
+                {
+                    // code the structurer cannot follow (an edited script, say): the flat view, folded as before
+                    r.Lines.Clear();
+                    r.Lines.AddRange(folded);
+                    r.Structure = new StructureReport();
+                    r.Structure.Problems.Add("not structured: " + ex.Message);
+                }
             }
             return r;
         }

@@ -74,7 +74,8 @@ namespace UwEditor.Core.Tests
             Assert.Equal("quest_flag", n.Global(34));
             var d = Decompiler.Decompile(c, Pak("UW").Get(c.StringBlock).ToArray(), GameKind.UW1, true, n);
             Assert.Contains(d.Lines, l => l.Kind == PseudoKind.Function && l.Text.StartsWith("followed()"));
-            Assert.Contains(d.Lines, l => l.Text.Contains("answer = babl_menu("));
+            // the menu's answer is a local the structured view folds into menu { }: the flat view shows it named
+            Assert.Contains(Decompiler.Decompile(c, Pak("UW").Get(c.StringBlock).ToArray(), GameKind.UW1, false, n).Lines, l => l.Text.Contains("answer = babl_menu("));
             Assert.Contains(d.Lines, l => l.Text.Contains("quest_flag = get_quest(32)"));
 
             var e = Shifted(c);

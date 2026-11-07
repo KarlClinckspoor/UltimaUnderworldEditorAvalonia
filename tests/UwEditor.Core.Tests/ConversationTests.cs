@@ -148,7 +148,7 @@ namespace UwEditor.Core.Tests
                 var d = lib.Decompile(c);
                 Assert.NotEmpty(d.Lines);
                 says += d.Lines.Count(l => l.Kind == PseudoKind.Say);
-                menus += d.Lines.Count(l => l.Text.Contains("babl_menu(…)") || l.Text.Contains("babl_fmenu(…"));
+                menus += d.Lines.Count(l => l.Kind == PseudoKind.Menu && l.Text.EndsWith("menu {"));
                 // the stack always balances, except after UW1 conversation 6's two words that are not instructions
                 if (!d.Lines.Any(l => l.Text.StartsWith("word 0x"))) Assert.DoesNotContain(d.Lines, l => l.Text.Contains("<empty>"));
                 // every string a say or respond names is in the block

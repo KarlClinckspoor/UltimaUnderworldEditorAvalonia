@@ -474,6 +474,15 @@ namespace UwEditor.Core.Conversations
             if (State != SimState.WaitingMenu || Menu == null) return "No menu is waiting.";
             if (n < 1 || n > Menu.Ids.Count) return "Choose 1-" + Menu.Ids.Count + ".";
             var m = Menu;
+            int result = Chosen(m, n);
+            Return(m.Address, result);
+            Changed?.Invoke();
+            return null;
+        }
+
+        /// <summary>The menu's result for choice n, with the choice echoed (the part of Choose that does not move the program counter).</summary>
+        int Chosen(SimMenu m, int n)
+        {
             if (World.InHand != 0)
             {
                 // the player can use the inventory while a menu waits (converse_event_loop): what was handed over is put away
@@ -484,9 +493,61 @@ namespace UwEditor.Core.Conversations
             int result = m.Filtered ? m.Ids[n - 1] : n;
             Add(SimLogKind.Call, (m.Filtered ? "babl_fmenu" : "babl_menu") + " → " + result + " (choice " + n + ")", m.Address);
             Menu = null;
-            Return(m.Address, result);
-            Changed?.Invoke();
-            return null;
+            return result;
+        }
+
+        // ----- for the structured view's reference run (Decompiler.RunStructured) -----
+        // It runs the structured statements on this machine's memory and stack, with the same
+        // built-ins, so the two can be compared on the same menu choices.
+
+        internal int StackBase { get { return nvars; } }
+        internal int Mem(int addr) { return GetMem(addr); }
+        internal void Store(int addr, int value) { SetMem(addr, value); }
+        internal int StackPointer { get { return Sp; } set { Sp = value; } }
+        internal int BasePointer { get { return Bp; } set { Bp = value; } }
+        internal int Register { get { return Reg; } set { Reg = value; } }
+        internal void PushWord(int v) { Push(v); }
+        internal int PopWord() { return Pop(); }
+        internal int Top { get { return S(Sp); } set { SetS(Sp, value); } }
+        internal void SwapTop() { int a = S(Sp); SetS(Sp, S(Sp - 1)); SetS(Sp - 1, a); }
+        internal string StringText(int id) { return Text(id); }
+        internal void Speak(bool say, int id, int at) { Emit(say ? SimOutputKind.Say : SimOutputKind.Respond, id, at); }
+        internal void End() { Finish(); }
+        internal void Abort(string why) { if (State != SimState.Error) Fail(why); }
+
+        /// <summary>
+        /// Calls built-in number with the count on top of the stack and the argument addresses
+        /// under it, as CALLI does; a menu is answered by choose (the menu, how often it was
+        /// met), babl_ask by answer. The result replaces the count; null when the run stopped.
+        /// </summary>
+        internal int? CallDirect(int at, int number, Func<SimMenu, int, int> choose, Func<string> answer, Dictionary<string, int> seen)
+        {
+            var f = Conversation.Function(number);
+            string name = f != null ? f.Name : "builtin" + number;
+            int? result = Builtin(name, at, S(Sp));
+            if (result == null && State == SimState.WaitingMenu && Menu != null)
+            {
+                string key = Menu.Address + ":" + string.Join(",", Menu.Ids);
+                int n;
+                seen.TryGetValue(key, out n);
+                seen[key] = n + 1;
+                result = Chosen(Menu, Math.Max(1, Math.Min(Menu.Ids.Count, choose(Menu, n))));
+                State = SimState.Running;
+            }
+            else if (result == null && State == SimState.WaitingAsk)
+            {
+                string text = answer == null ? "" : answer() ?? "";
+                if (text.Length > 0x32) text = text.Substring(0, 0x32);
+                if (askHandle == 0) askHandle = MakeString(text);
+                else dynamic[askHandle & 0x1FF] = text;
+                Output.Add(new SimOutput { Kind = SimOutputKind.Answer, Text = text, Address = at });
+                result = askHandle;
+                State = SimState.Running;
+            }
+            if (result == null || State != SimState.Running) return null;
+            SetS(Sp, result.Value);
+            Reg = (short)result.Value;
+            return (short)result.Value;
         }
 
         /// <summary>Gives babl_ask the player's typed answer (at most 0x32 characters, wdialog) and goes on.</summary>
