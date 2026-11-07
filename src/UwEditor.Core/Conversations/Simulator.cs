@@ -175,18 +175,20 @@ namespace UwEditor.Core.Conversations
             return null;
         }
 
-        /// <summary>A memory address as the readable view names it: an import, globalN, or a frame slot of the current function.</summary>
+        /// <summary>The names the log and the values use (NameBook.Resolve); the placeholders until set.</summary>
+        public ConversationNames Names = ConversationNames.None;
+
+        /// <summary>A memory address as the readable view names it: an import, a global's name, or a frame slot of the current function.</summary>
         public string MemoryName(int addr)
         {
             if (addr < nvars)
             {
                 var im = Conversation.VariableAt(addr);
                 if (im != null) return im.Count > 1 ? im.Name + "[" + (addr - im.Index + 1) + "]" : im.Name;
-                return "global" + addr;
+                return Names.Global(addr);
             }
             int off = addr - nvars - Bp;
-            if (off > 0) return "local" + off;
-            if (off <= -2) return "arg" + (-off - 1);
+            if (off > 0 || off <= -2) return Names.Local(Names.Layout == null ? 0 : Names.Layout.FunctionOf(Pc), off);
             return "stack[" + (addr - nvars) + "]";
         }
 

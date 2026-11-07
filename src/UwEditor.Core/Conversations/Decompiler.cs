@@ -14,6 +14,8 @@ namespace UwEditor.Core.Conversations
         public PseudoKind Kind;
         /// <summary>For a conditional goto: the condition under which the next line runs (it falls through).</summary>
         internal string Guard;
+        /// <summary>For a goto: the address it goes to (else -1).</summary>
+        internal int Target = -1;
         public override string ToString() { return new string(' ', 4 * Indent) + Text; }
     }
 
@@ -77,6 +79,8 @@ namespace UwEditor.Core.Conversations
         public readonly List<GlobalUse> Globals = new List<GlobalUse>();
         /// <summary>Notes for the disassembly, by instruction address.</summary>
         public readonly Dictionary<int, string> Notes = new Dictionary<int, string>();
+        /// <summary>The names the view was made with (ConversationNames.None: the placeholders).</summary>
+        public ConversationNames Names = ConversationNames.None;
         public string Text
         {
             get
@@ -169,6 +173,9 @@ namespace UwEditor.Core.Conversations
             public GameKind Kind;
             public DecompileResult Result;
             public Dictionary<int, string> FunctionNames = new Dictionary<int, string>();
+            public ConversationNames Names = ConversationNames.None;
+            /// <summary>The start of the function being read, for its locals' names.</summary>
+            public int Function;
             /// <summary>Frame slot → the constant last stored there and the PUSHI that pushed it.</summary>
             public Dictionary<int, Const> Known = new Dictionary<int, Const>();
             /// <summary>The line that stored each known constant, hidden once a built-in takes it as an argument.</summary>
@@ -187,15 +194,10 @@ namespace UwEditor.Core.Conversations
             {
                 var im = Conv.VariableAt(a);
                 if (im != null) return im.Count > 1 ? im.Name + "[" + (a - im.Index + 1) + "]" : im.Name;
-                return a < Conv.Variables ? "global" + a : "mem[" + a + "]";
+                return a >= 0 && a < Conv.Variables ? Names.Global(a) : "mem[" + a + "]";
             }
 
-            public string FrameName(int n)
-            {
-                if (n > 0) return "local" + n;
-                // the caller's arguments: bp - 1 the return address, bp - 2 the last argument pushed
-                return n <= -2 ? "arg" + (-n - 1) : "frame[" + n + "]";
-            }
+            public string FrameName(int n) { return Names.Local(Function, n); }
 
             public string Str(int id)
             {
@@ -323,30 +325,21 @@ namespace UwEditor.Core.Conversations
         static string Shorten(string s, int n) { return s.Length <= n ? s : s.Substring(0, n - 1) + "…"; }
 
         /// <param name="fold">Fold simple "if" blocks (the readable view); false keeps every conditional goto, as the graph wants.</param>
-        public static DecompileResult Decompile(Conversation conv, string[] strings, GameKind kind, bool fold = true)
+        /// <param name="names">The names to show (NameBook.Resolve); null for the placeholders.</param>
+        public static DecompileResult Decompile(Conversation conv, string[] strings, GameKind kind, bool fold = true, ConversationNames names = null)
         {
             var r = new DecompileResult();
-            var c = new Ctx { Conv = conv, Strings = strings, Kind = kind, Result = r };
-            var code = BablCode.Decode(conv.Code);
-            var at = new Dictionary<int, int>();
-            for (int i = 0; i < code.Count; i++) at[code[i].Address] = i;
-
-            // functions: word 0, CALL targets, and every PUSHBP SPTOBP (the compiler's prologue)
-            var funcs = new SortedSet<int> { 0 };
-            var labels = new HashSet<int>();
-            for (int i = 0; i < code.Count; i++)
-            {
-                var ins = code[i];
-                if (!ins.Known) continue;
-                if (ins.Op == BablOp.CALL && at.ContainsKey(ins.Target)) funcs.Add(ins.Target);
-                else if (BablOps.IsJump(ins.Op) && at.ContainsKey(ins.Target)) labels.Add(ins.Target);
-                if (ins.Op == BablOp.PUSHBP && i + 1 < code.Count && code[i + 1].Known && code[i + 1].Op == BablOp.SPTOBP
-                    && i > 0 && code[i - 1].Known && (code[i - 1].Op == BablOp.RET || code[i - 1].Op == BablOp.EXIT || code[i - 1].Op == BablOp.JMP))
-                    funcs.Add(ins.Address);
-            }
-            var called = new HashSet<int>();
-            foreach (var ins in code) if (ins.Known && ins.Op == BablOp.CALL) called.Add(ins.Target);
-            foreach (int f in funcs) c.FunctionNames[f] = f == 0 ? "main" : "func_" + f.ToString("X4");
+            names = names ?? ConversationNames.None;
+            r.Names = names;
+            var c = new Ctx { Conv = conv, Strings = strings, Kind = kind, Result = r, Names = names };
+            // functions: word 0, CALL targets, and every PUSHBP SPTOBP (the compiler's prologue); labels: jump targets
+            var lay = names.Layout ?? BablLayout.Of(conv);
+            var code = lay.Code;
+            var at = lay.At;
+            var funcs = lay.Functions;
+            var labels = lay.Labels;
+            var called = lay.Called;
+            foreach (int f in funcs) c.FunctionNames[f] = names.Function(f);
 
             r.Lines.Add(new PseudoLine { Address = 0, Kind = PseudoKind.Comment, Text = string.Format("// {0} variables in memory (imports and private globals), string block 0x{1:X4}", conv.Variables, conv.StringBlock) });
             var fl = new List<int>(funcs);
@@ -367,6 +360,7 @@ namespace UwEditor.Core.Conversations
             c.KnownLine.Clear();
             c.Hide.Clear();
             Call pending = null;
+            c.Function = start;
             int i0 = at[start];
             int locals = 0;
             int i = i0;
@@ -417,7 +411,7 @@ namespace UwEditor.Core.Conversations
                     flush();
                     c.Known.Clear();
                     c.KnownLine.Clear();
-                    lines.Add(new PseudoLine { Address = a, Indent = 0, Text = "L" + a.ToString("X4") + ":", Kind = PseudoKind.Label });
+                    lines.Add(new PseudoLine { Address = a, Indent = 0, Text = c.Names.Label(a) + ":", Kind = PseudoKind.Label });
                 }
                 if (!ins.Known) { flush(); emit(a, "word 0x" + ins.Word.ToString("X4") + "    // not an instruction", PseudoKind.Statement); continue; }
                 var op = ins.Op;
@@ -491,7 +485,8 @@ namespace UwEditor.Core.Conversations
                             int t = ins.Target;
                             if (t == a + 2) break;   // the compiler's jump to the next line
                             if (i > 0 && code[i - 1].Known && (code[i - 1].Op == BablOp.JMP || code[i - 1].Op == BablOp.BRA) && !labels.Contains(a)) break;   // unreachable
-                            emit(a, "goto L" + t.ToString("X4"), PseudoKind.Statement);
+                            emit(a, "goto " + c.Names.Label(t), PseudoKind.Statement);
+                            lines[lines.Count - 1].Target = t;
                             break;
                         }
                     case BablOp.BEQ:
@@ -500,8 +495,9 @@ namespace UwEditor.Core.Conversations
                             var cond = pop();
                             string yes = Bare(cond.Text(c)), no = Negate(c, cond);
                             bool beq = op == BablOp.BEQ;
-                            emit(a, "if " + (beq ? no : yes) + " goto L" + ins.Target.ToString("X4"), PseudoKind.Statement);
+                            emit(a, "if " + (beq ? no : yes) + " goto " + c.Names.Label(ins.Target), PseudoKind.Statement);
                             lines[lines.Count - 1].Guard = beq ? yes : no;
+                            lines[lines.Count - 1].Target = ins.Target;
                             r.Branches[a] = Unmark(beq ? no : yes);
                             r.FallThrough[a] = Unmark(beq ? yes : no);
                             break;
@@ -626,29 +622,24 @@ namespace UwEditor.Core.Conversations
         /// </summary>
         static void Fold(List<PseudoLine> lines)
         {
-            var refs = new Dictionary<string, int>();
+            var refs = new Dictionary<int, int>();
             foreach (var l in lines)
-            {
-                int g = l.Text.LastIndexOf("goto L", StringComparison.Ordinal);
-                if (g >= 0) { string t = l.Text.Substring(g + 5); refs[t] = refs.ContainsKey(t) ? refs[t] + 1 : 1; }
-            }
+                if (l.Target >= 0) refs[l.Target] = refs.ContainsKey(l.Target) ? refs[l.Target] + 1 : 1;
             for (int i = 0; i < lines.Count; i++)
             {
                 var l = lines[i];
-                if (l.Kind != PseudoKind.Statement || !l.Text.StartsWith("if ") || !l.Text.Contains(" goto L")) continue;
-                int g = l.Text.LastIndexOf(" goto L", StringComparison.Ordinal);
-                string target = l.Text.Substring(g + 6);
+                if (l.Kind != PseudoKind.Statement || l.Guard == null || l.Target < 0) continue;
                 int n;
-                if (!refs.TryGetValue(target, out n) || n != 1) continue;
+                if (!refs.TryGetValue(l.Target, out n) || n != 1) continue;
                 int j = i + 1;
                 bool ok = false;
                 for (; j < lines.Count; j++)
                 {
-                    if (lines[j].Kind == PseudoKind.Label) { ok = lines[j].Text == target + ":"; break; }
+                    if (lines[j].Kind == PseudoKind.Label) { ok = lines[j].Address == l.Target; break; }
                 }
                 if (!ok || j == i + 1) continue;
-                if (l.Guard == null) continue;
                 l.Text = "if " + l.Guard + ":";
+                l.Target = -1;
                 for (int k = i + 1; k < j; k++) lines[k].Indent++;
                 lines.RemoveAt(j);
             }

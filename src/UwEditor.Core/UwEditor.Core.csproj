@@ -11,5 +11,7 @@
   <ItemGroup>
     <!-- the randomizer's hand-written UW1 facts, every docs/facts/uw1-*.json (Randomizer/Facts.cs FactSet.Shipped) -->
     <EmbeddedResource Include="../../docs/facts/uw1-*.json" LogicalName="%(Filename)%(Extension)" />
+    <!-- the conversations' names, docs/conversations/names-uw1.json and names-uw2.json (Conversations/ConversationNames.cs NameBook.LoadShipped) -->
+    <EmbeddedResource Include="../../docs/conversations/names-*.json" LogicalName="%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

@@ -1,8 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -25,6 +31,8 @@ namespace UwEditor.App
         public event Action CurrentChanged;
         /// <summary>A string of the shown conversation was edited.</summary>
         public event Action StringsChanged;
+        /// <summary>A function, label or variable of the shown conversation was renamed (F2).</summary>
+        public event Action NamesChanged;
         ConversationSimulatorWindow simulatorWindow;
         ConversationGraphWindow graphWindow;
         readonly ConversationLibrary lib;
@@ -34,6 +42,8 @@ namespace UwEditor.App
         Conversation current;
         List<string> originalStrings = new List<string>();
         bool dialogueStale;
+        /// <summary>The names the shown conversation is shown with.</summary>
+        ConversationNames names = ConversationNames.None;
 
         public ConversationLibrary Library { get { return lib; } }
         public Conversation Current { get { return current; } }
@@ -54,9 +64,12 @@ namespace UwEditor.App
             Closed += (o, e) => { simulatorWindow?.Close(); graphWindow?.Close(); };
             if (lib != null)
             {
+                // the user's renames live in the settings folder, beside settings.json
+                if (lib.Names.UserPath == null) lib.Names = NameBook.Load(lib.Kind, NameBook.UserFile(Settings.Folder, lib.Kind));
                 Title = "Conversations — " + lib.Session.Title;
                 FillList();
-                Model.Status = string.Format("{0} conversations in {1}. Finding who talks through each…", Model.All.Count, lib.Archive.Path);
+                Model.Status = string.Format("{0} conversations in {1}. Finding who talks through each…", Model.All.Count, lib.Archive.Path)
+                    + (lib.Names.LoadError != null ? " The names could not be read: " + lib.Names.LoadError : "");
                 _ = FindUsersAsync();
             }
         }
@@ -68,6 +81,7 @@ namespace UwEditor.App
             else if (ctrl && e.Key == Key.G) { OpenGlobals(); e.Handled = true; }
             else if (ctrl && e.Key == Key.R && current != null) { ShowSimulator(); e.Handled = true; }
             else if (ctrl && e.Key == Key.Enter && Model.Tab == 2) { ApplyScript(); e.Handled = true; }
+            else if (!ctrl && e.Key == Key.F2 && current != null) { _ = BeginRename(); e.Handled = true; }
         }
 
         void FillList()
@@ -125,6 +139,7 @@ namespace UwEditor.App
             Model.Strings.Clear();
             Model.Users.Clear();
             current = null;
+            names = ConversationNames.None;
             if (slot < 0 || lib == null) { Model.Header = ""; Model.Subheader = ""; Model.SetScriptQuietly(""); return; }
             try { current = lib.Archive.Read(slot); }
             catch (Exception ex) { Model.Header = "Conversation " + slot; Model.Subheader = "Cannot be read: " + ex.Message; return; }
@@ -146,6 +161,7 @@ namespace UwEditor.App
             Model.Lines.Clear();
             if (current == null) return;
             var d = lib.Decompile(current);
+            names = d.Names;
             bool hide = HideUnusedBox == null || HideUnusedBox.IsChecked == true, skipping = false;
             for (int i = 0; i < d.Lines.Count; i++)
             {
@@ -159,7 +175,7 @@ namespace UwEditor.App
             }
             if (!Model.ScriptChanged)
                 Model.SetScriptQuietly(Disassembler.Disassemble(current, a => { string n; return d.Notes.TryGetValue(a, out n) ? n : null; },
-                    "Conversation " + current.Slot + (lib.Name(current.Slot) is string nm ? " — " + nm : "")));
+                    "Conversation " + current.Slot + (lib.Name(current.Slot) is string nm ? " — " + nm : ""), d.Names));
             usesById = new Dictionary<int, List<StringUse>>();
             foreach (var u in d.Strings)
             {
@@ -415,5 +431,180 @@ namespace UwEditor.App
         }
 
         void OpenGlobals() { showGlobals?.Invoke(current == null ? -1 : current.Slot); }
+
+        // ----- names (F2) -----
+
+        /// <summary>The names the shown conversation is shown with.</summary>
+        public ConversationNames Names { get { return names; } }
+
+        static readonly Regex quoted = new Regex("\"(?:\\\\.|[^\"\\\\])*\"");
+        static readonly Regex word = new Regex("[A-Za-z_][A-Za-z0-9_]*");
+
+        /// <summary>
+        /// What F2 can rename now: on the Dialogue tab, the functions, labels and variables on
+        /// the selected line (the line's own function or label first); on the Script tab, the
+        /// function or label at the caret or in the selection.
+        /// </summary>
+        public List<NameTarget> NameCandidates()
+        {
+            var list = new List<NameTarget>();
+            if (current == null || names.Layout == null) return list;
+            if (Model.Tab == 2)
+            {
+                string s = ScriptBox.Text ?? "";
+                int a = Math.Min(ScriptBox.SelectionStart, ScriptBox.SelectionEnd), b = Math.Max(ScriptBox.SelectionStart, ScriptBox.SelectionEnd);
+                if (a == b) a = b = Math.Max(0, Math.Min(ScriptBox.CaretIndex, s.Length));
+                while (a > 0 && IsWordChar(s[a - 1])) a--;
+                while (b < s.Length && IsWordChar(s[b])) b++;
+                int lineStart = a == 0 ? 0 : s.LastIndexOf('\n', a - 1) + 1;
+                int nl = s.IndexOf('\n', lineStart), lineEnd = nl < 0 ? s.Length : nl;
+                int semi = s.IndexOf(';', lineStart, lineEnd - lineStart);
+                // a word in a comment (an address, a string's text) names nothing
+                if (b > a && (semi < 0 || a < semi))
+                {
+                    var t = names.Find(current, s.Substring(a, b - a), 0);
+                    if (t.HasValue && (t.Value.Kind == NameKind.Function || t.Value.Kind == NameKind.Label)) list.Add(t.Value);
+                }
+                return list;
+            }
+            var line = DialogueList.SelectedItem as DialogueLine;
+            if (line == null) return list;
+            var l = line.Line;
+            int f = names.Layout.FunctionOf(l.Address);
+            if (l.Kind == PseudoKind.Function) list.Add(NameTarget.Function(l.Address));
+            else if (l.Kind == PseudoKind.Label) list.Add(NameTarget.Label(l.Address));
+            foreach (Match m in word.Matches(quoted.Replace(l.Text, " ")))
+            {
+                var t = names.Find(current, m.Value, f);
+                if (t.HasValue && !list.Contains(t.Value) && !(t.Value.Kind == NameKind.Function && t.Value.Address == 0)) list.Add(t.Value);
+            }
+            return list;
+        }
+
+        static bool IsWordChar(char c) { return c == '_' || c < 128 && char.IsLetterOrDigit(c); }
+
+        /// <summary>A short description of what a name belongs to, for the rename dialog.</summary>
+        public string Describe(NameTarget t)
+        {
+            string n = names.NameOf(t);
+            switch (t.Kind)
+            {
+                case NameKind.Function: return "function " + n + " (at " + t.Address.ToString("X4") + ")";
+                case NameKind.Label: return "label " + n + " (at " + t.Address.ToString("X4") + ", in " + names.Function(names.Layout.FunctionOf(t.Address)) + ")";
+                case NameKind.Global: return "global " + n + " (memory " + t.Address + ")";
+                default: return (t.Offset < 0 ? "argument " : "local ") + n + " (in " + names.Function(t.Address) + ")";
+            }
+        }
+
+        /// <summary>Why t cannot be called name, or null.</summary>
+        public string CheckName(NameTarget t, string name)
+        {
+            if (current == null) return "No conversation is shown.";
+            if (Model.ScriptChanged) return "The script has edits that are not applied: apply or undo them first.";
+            return names.Check(current, t, (name ?? "").Trim());
+        }
+
+        /// <summary>
+        /// Renames t in the shown conversation and in every view (Dialogue, Script, the graph and
+        /// the simulator); the rename is kept in the user's names file. An empty name goes back
+        /// to the shipped name. Returns why it could not be done, or null.
+        /// </summary>
+        public string Rename(NameTarget t, string name)
+        {
+            name = (name ?? "").Trim();
+            string why = CheckName(t, name);
+            if (why != null) { Model.Status = "Not renamed: " + why; return why; }
+            string old = names.NameOf(t);
+            try { lib.Names.Rename(current, t, name); }
+            catch (Exception ex) { Model.Status = "Not renamed: " + ex.Message; return ex.Message; }
+            var keep = DialogueList.SelectedItem as DialogueLine;
+            RefreshDialogue();
+            if (keep != null) DialogueList.SelectedItem = Model.Lines.FirstOrDefault(x => x.Line.Address == keep.Line.Address && x.Line.Kind == keep.Line.Kind);
+            Model.Status = string.Format("{0} is now {1} (kept in {2}).", old, names.NameOf(t), lib.Names.UserPath ?? "this session");
+            NamesChanged?.Invoke();
+            return null;
+        }
+
+        /// <summary>F2: asks for a new name for what is under the caret or on the selected line.</summary>
+        public async Task BeginRename()
+        {
+            var list = NameCandidates();
+            if (list.Count == 0)
+            {
+                Model.Status = Model.Tab == 2 ? "Put the caret on a function or label name to rename it (F2)." : Model.Tab == 0 ? "Select a line with a function, label or variable to rename it (F2)." : "F2 renames on the Dialogue and Script tabs.";
+                return;
+            }
+            if (Model.ScriptChanged) { Model.Status = "Not renamed: the script has edits that are not applied: apply or undo them first."; return; }
+            await RenameDialog(list);
+        }
+
+        /// <summary>The rename dialog: what to rename (when the line has several names), the new name, checked as it is typed.</summary>
+        Task RenameDialog(List<NameTarget> list)
+        {
+            var pick = new ComboBox { ItemsSource = list.Select(Describe).ToList(), SelectedIndex = 0, HorizontalAlignment = HorizontalAlignment.Stretch, IsVisible = list.Count > 1, Margin = new Thickness(0, 0, 0, 8) };
+            var what = new TextBlock { Text = Describe(list[0]), IsVisible = list.Count == 1, Margin = new Thickness(0, 0, 0, 8), Opacity = 0.8 };
+            var box = new TextBox { Text = names.NameOf(list[0]), FontFamily = Application.Current?.FindResource("Mono") as FontFamily ?? FontFamily.Default };
+            var error = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0), Foreground = Application.Current?.FindResource("Warn") as IBrush ?? Brushes.OrangeRed };
+            var hint = new TextBlock { Text = "Letters, digits and _. An empty name goes back to the shipped one.", Opacity = 0.7, FontSize = 11, Margin = new Thickness(0, 4, 0, 0), TextWrapping = TextWrapping.Wrap };
+            var ok = new Button { Content = "Rename", IsDefault = true, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
+            var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
+            var w = new Window
+            {
+                Title = "Rename", Width = 460, SizeToContent = SizeToContent.Height, CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Content = new DockPanel
+                {
+                    Margin = new Thickness(20),
+                    Children =
+                    {
+                        new TextBlock { Text = "Rename", FontSize = 16, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 10), [DockPanel.DockProperty] = Dock.Top },
+                        new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Margin = new Thickness(0, 16, 0, 0), Children = { ok, cancel }, [DockPanel.DockProperty] = Dock.Bottom },
+                        new StackPanel { Children = { pick, what, box, hint, error } },
+                    },
+                },
+            };
+            Action check = () =>
+            {
+                var t = list[Math.Max(0, pick.SelectedIndex)];
+                string why = CheckName(t, box.Text);
+                error.Text = why ?? "";
+                ok.IsEnabled = why == null;
+            };
+            pick.SelectionChanged += (o, e) => { box.Text = names.NameOf(list[Math.Max(0, pick.SelectedIndex)]); box.SelectAll(); check(); };
+            box.TextChanged += (o, e) => check();
+            ok.Click += (o, e) => { if (Rename(list[Math.Max(0, pick.SelectedIndex)], box.Text) == null) w.Close(); else check(); };
+            cancel.Click += (o, e) => w.Close();
+            w.Opened += (o, e) => { box.Focus(); box.SelectAll(); };
+            check();
+            RenameWindowOpened?.Invoke(w);
+            return w.ShowDialog(this);
+        }
+
+        /// <summary>For tests: the rename dialog as it opens.</summary>
+        public static event Action<Window> RenameWindowOpened;
+
+        async void OnExportNames(object sender, RoutedEventArgs e)
+        {
+            if (lib == null) return;
+            var f = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export the conversation names", SuggestedFileName = NameBook.ShippedResource(lib.Kind), DefaultExtension = "json",
+                FileTypeChoices = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
+            });
+            string path = f?.TryGetLocalPath();
+            if (path != null) ExportNames(path);
+        }
+
+        /// <summary>Writes the shipped names with the user's renames folded in, in the shipped file's format.</summary>
+        public bool ExportNames(string path)
+        {
+            try
+            {
+                var file = lib.Names.Export(slot => { var raw = lib.Archive.RawBlock(slot); return raw == null ? null : Conversation.Parse(raw, slot); });
+                File.WriteAllText(path, file.ToJson());
+                Model.Status = "Names exported to " + path + ": copy it over docs/conversations/" + NameBook.ShippedResource(lib.Kind) + " to ship them.";
+                return true;
+            }
+            catch (Exception ex) { Model.Status = "Names not exported: " + ex.Message; return false; }
+        }
     }
 }

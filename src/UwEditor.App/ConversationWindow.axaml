@@ -60,11 +60,13 @@
         <TabControl x:Name="Tabs" SelectedIndex="{Binding Tab}" Padding="0,6,0,0">
           <TabItem Header="Dialogue" x:Name="DialogueTab">
             <DockPanel>
-              <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
-                <TextBlock Classes="muted" VerticalAlignment="Center"
-                           Text="What the script does, read from its code: the lines said and responded, the menus and their choices, and the quests and variables it checks. Double-click a line to see its code; edit the text on the Strings tab." />
+              <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,6">
+                <TextBlock Classes="muted" VerticalAlignment="Center" TextWrapping="Wrap"
+                           Text="What the script does, read from its code: the lines said and responded, the menus and their choices, and the quests and variables it checks. Double-click a line to see its code; edit the text on the Strings tab. F2 renames a function, label or variable on the selected line." />
                 <CheckBox Grid.Column="1" x:Name="HideUnusedBox" Content="Hide functions that are never called" IsChecked="True" Margin="12,0,0,0"
                           IsCheckedChanged="OnHideUnusedChanged" ToolTip.Tip="The compiler adds a small library of functions to every conversation, and most of them are never called." />
+                <Button Grid.Column="2" x:Name="ExportNamesButton" Content="Export names…" Click="OnExportNames" Margin="8,0,0,0"
+                        ToolTip.Tip="Write the names (the shipped ones with your renames folded in) as a names file, the format of docs/conversations/names-uw1.json." />
               </Grid>
               <ListBox x:Name="DialogueList" ItemsSource="{Binding Lines}" Background="{DynamicResource Bg}" DoubleTapped="OnDialogueDoubleTapped"
                        FontFamily="{DynamicResource Mono}" FontSize="12">
@@ -121,8 +123,8 @@
           <TabItem Header="Script" x:Name="ScriptTab">
             <DockPanel>
               <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,6">
-                <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
-                           Text="The code, one instruction per line (the opcodes of conv.h); the comments show addresses and strings. Apply assembles the text into the conversation." />
+                <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center" TextWrapping="Wrap"
+                           Text="The code, one instruction per line (the opcodes of conv.h); the comments show addresses and strings. Apply assembles the text into the conversation. F2 renames the function or label at the caret." />
                 <Button Grid.Column="1" x:Name="ApplyScriptButton" Content="Apply" Click="OnApplyScript" Margin="8,0,0,0" IsEnabled="{Binding ScriptChanged}"
                         ToolTip.Tip="Assemble the text into the conversation (Ctrl+Enter)." />
                 <Button Grid.Column="2" Content="Undo edits" Click="OnResetScript" Margin="8,0,0,0" IsEnabled="{Binding ScriptChanged}" />

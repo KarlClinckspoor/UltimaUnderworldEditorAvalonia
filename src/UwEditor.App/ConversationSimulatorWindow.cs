@@ -145,7 +145,8 @@ namespace UwEditor.App
             Content = Build();
             ManualWindow.Attach(this, "Conversation simulator");
             cw.CurrentChanged += OnCurrentChanged;
-            Closed += (o, e) => cw.CurrentChanged -= OnCurrentChanged;
+            cw.NamesChanged += OnNamesChanged;
+            Closed += (o, e) => { cw.CurrentChanged -= OnCurrentChanged; cw.NamesChanged -= OnNamesChanged; };
             AddHandler(KeyDownEvent, OnKey, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             Load();
         }
@@ -338,6 +339,14 @@ namespace UwEditor.App
 
         void OnCurrentChanged() { Load(); }
 
+        /// <summary>A name was changed (F2 in the conversation editor): the values and what is logged from now on use it; the run goes on.</summary>
+        void OnNamesChanged()
+        {
+            if (conv == null) return;
+            decompiled = cw.Library.Decompile(conv);
+            if (sim != null) { sim.Names = decompiled.Names; BuildRows(); }
+        }
+
         GameSession Session { get { return cw.Library.Session; } }
 
         /// <summary>Takes the conversation the editor shows (the world filled in again for another slot) and resets.</summary>
@@ -490,6 +499,7 @@ namespace UwEditor.App
             if (err != null) { stateText.Text = err; tabs.SelectedIndex = 1; return; }
             conv = cw.Current ?? conv;
             sim = new ConversationSimulator(conv, cw.CurrentStrings, start, (b, i) => Session.Strings.Get(b, i), SimWorld.SavedGlobals(Session, conv.Slot));
+            sim.Names = decompiled != null ? decompiled.Names : cw.Library.Names.Resolve(conv);
             sim.LogInstructions = logInstructions.IsChecked == true;
             transcript.Clear();
             log.Clear();

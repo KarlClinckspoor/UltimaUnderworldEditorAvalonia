@@ -47,20 +47,23 @@ namespace UwEditor.Core.Conversations
     public static class Disassembler
     {
         /// <param name="note">Optional comment for an instruction address (a string's text, say).</param>
-        public static string Disassemble(Conversation c, Func<int, string> note = null, string title = null)
+        /// <param name="names">The names for functions and labels (NameBook.Resolve); null for func_XXXX and LXXXX. Names never change the bytes.</param>
+        public static string Disassemble(Conversation c, Func<int, string> note = null, string title = null, ConversationNames names = null)
         {
+            names = names ?? ConversationNames.None;
             var sb = new StringBuilder();
             var code = BablCode.Decode(c.Code);
             var starts = new HashSet<int>();
             foreach (var i in code) starts.Add(i.Address);
             var labels = new Dictionary<int, string>();
+            var functions = new HashSet<int>();
             foreach (var i in code)
             {
                 if (!i.Known || !BablOps.IsJump(i.Op)) continue;
                 int t = i.Target;
                 if (!starts.Contains(t)) continue;
-                if (i.Op == BablOp.CALL) labels[t] = "func_" + t.ToString("X4");
-                else if (!labels.ContainsKey(t)) labels[t] = "L" + t.ToString("X4");
+                if (i.Op == BablOp.CALL) { labels[t] = names.Function(t); functions.Add(t); }
+                else if (!labels.ContainsKey(t)) labels[t] = names.Label(t);
             }
 
             if (title != null) sb.Append("; ").Append(title).Append('\n');
@@ -87,7 +90,7 @@ namespace UwEditor.Core.Conversations
                 string label;
                 if (labels.TryGetValue(i.Address, out label))
                 {
-                    if (label.StartsWith("func_")) sb.Append('\n');
+                    if (functions.Contains(i.Address)) sb.Append('\n');
                     sb.Append(label).Append(":\n");
                 }
                 string text;

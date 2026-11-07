@@ -551,7 +551,8 @@ namespace UwEditor.App
             ManualWindow.Attach(this, "Conversation graph");
             cw.CurrentChanged += OnCurrentChanged;
             cw.StringsChanged += OnStringsChanged;
-            Closed += (o, e) => { cw.CurrentChanged -= OnCurrentChanged; cw.StringsChanged -= OnStringsChanged; };
+            cw.NamesChanged += OnNamesChanged;
+            Closed += (o, e) => { cw.CurrentChanged -= OnCurrentChanged; cw.StringsChanged -= OnStringsChanged; cw.NamesChanged -= OnNamesChanged; };
             Rebuild(false);
         }
 
@@ -576,6 +577,8 @@ namespace UwEditor.App
         void Zoomed() { zoomText.Text = Math.Round(canvas.Scale * 100) + "%"; }
 
         void OnCurrentChanged() { sideFor = -1; Rebuild(false); }
+
+        void OnNamesChanged() { sideFor = -1; Rebuild(true); }
 
         void OnStringsChanged()
         {
@@ -612,7 +615,7 @@ namespace UwEditor.App
             ConversationGraph g;
             try
             {
-                var d = Decompiler.Decompile(conv, strings.ToArray(), cw.Library.Kind, false);
+                var d = Decompiler.Decompile(conv, strings.ToArray(), cw.Library.Kind, false, cw.Library.Names.Resolve(conv));
                 g = ConversationGraph.Build(conv, d);
             }
             catch (Exception ex) { status.Text = "No graph: " + ex.Message; canvas.SetGraph(null, false); return; }

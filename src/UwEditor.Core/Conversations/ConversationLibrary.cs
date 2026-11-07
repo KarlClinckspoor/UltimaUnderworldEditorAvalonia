@@ -58,7 +58,12 @@ namespace UwEditor.Core.Conversations
         /// <summary>The conversation's strings (its STRINGS.PAK block, from the header's string block).</summary>
         public List<string> StringsOf(Conversation c) { return Strings.Get(c.StringBlock); }
 
-        public DecompileResult Decompile(Conversation c) { return Decompiler.Decompile(c, StringsOf(c).ToArray(), Kind); }
+        /// <summary>The conversation's readable view, with its names.</summary>
+        public DecompileResult Decompile(Conversation c, bool fold = true) { return Decompiler.Decompile(c, StringsOf(c).ToArray(), Kind, fold, Names.Resolve(c)); }
+
+        NameBook names;
+        /// <summary>The names the conversations are shown with: the shipped ones, and the user's renames once the editor has set where they are kept.</summary>
+        public NameBook Names { get { return names ?? (names = NameBook.Load(Kind, null)); } set { names = value; } }
 
         /// <summary>
         /// Saves what changed: CNV.ARK and STRINGS.PAK in DATA, each old file kept as .BKP, and

@@ -542,9 +542,9 @@ conversation says. The window has four tabs:
 - **Dialogue:** what the script does, rebuilt from its code by following the conversation
   machine's stack (conv/BABL.C). It shows the say and respond lines with their text, each
   menu with its numbered choices, and the checks on quests, variables and the talker's
-  state. Simple `if` blocks are folded; other jumps stay as labels. Functions the script
-  never calls (the compiler's small library) are hidden unless you ask. Double-click a
-  line to see its code.
+  state. Simple `if` blocks are folded; other jumps stay as labels (named, see "Names and
+  F2" below). Functions the script never calls (the compiler's small library) are hidden
+  unless you ask. Double-click a line to see its code.
 - **Strings:** the conversation's block of STRINGS.PAK, edited in place. Each string shows
   where the script uses it. **Add string** appends one, for the script to say.
 - **Script:** the code as assembly, one instruction a line (conv.h's opcodes):
@@ -567,6 +567,47 @@ words as the script has variables), and a new game makes that file from `DATA\BA
 an empty slot gets a conversation, saving grows or adds its record in `BABGLOBS.DAT`, and in
 the open save's `BGLOBALS.DAT` too (new words 0, the others kept). Records are never made
 smaller. Other saved games are not changed.
+
+### Names and F2
+
+The Dialogue, Script, graph and simulator show names for a conversation's functions, labels
+and variables in place of `func_02B5`, `L02CF`, `global33` and `local22`. Names are only for
+reading: they never change the bytes, and the Script assembles to the same code with them.
+- **Where they come from:** one names file per game, shipped with the editor
+  (`docs/conversations/names-uw1.json` and `names-uw2.json`). A first pass named:
+  - the compiler's library, by hand: the functions found in every conversation, such as
+    `end_conversation`, `goodbye`, `attack_and_end`, `set_attitude_and_end`, `get_time`;
+  - each function that says something or shows a menu, after its first line
+    (`hail_stranger_be_thou`) or its menu's first choice (`menu_i_wish_to_become`);
+  - the function `main` calls, when it says nothing itself, `start`;
+  - labels by role: `done` (the function ends), `loop` and `menu_loop` (jumped back to),
+    `end_of_menu` (a menu's answers meet), `not_choice_2` (an answer other than 2),
+    `otherwise`, `end_if`. Names are unique in a conversation, so repeats get `_2`, `_3`;
+  - globals where their use is plain: `met_before` (set when a conversation ends, read
+    where it starts), `quest_32` (a copy of quest 32), `xclock_3`.
+- **When they apply:** a slot's names are kept with the SHA-256 of its CNV.ARK block. They
+  apply as they are to that block. When the block is another (the conversation was edited,
+  or another release), the names follow each function by its body (its code, with jumps
+  counted from the function and calls from the call), labels and locals with it; globals
+  keep their address. Library names follow bodies in every slot.
+- **F2** renames. On the Dialogue tab it renames the function, label or variable on the
+  selected line (several on the line: pick one); on the Script tab, the function or label
+  at the caret. A name is letters, digits and `_`, not starting with a digit. It must not
+  clash with another name in the conversation, an imported function or variable, an
+  instruction or a word the views use (`if`, `goto`, `say`...). An empty name goes back to
+  the shipped one. Imported variables keep the game's names. With unapplied Script edits,
+  apply or undo them first.
+- **Your renames** are kept in `conversation-names-uw1.json` (or `-uw2`) in the editor's
+  settings folder, and come before the shipped names. **Export names…** (Dialogue tab)
+  writes the shipped names with yours folded in, in the shipped file's format: copy it over
+  the file in `docs/conversations` to ship them. A rename made in an edited conversation
+  goes to the function with the same body in the shipped block; one in new code is left out.
+- **Editing the file by hand:** `library` names the shared functions by body; `slots` holds
+  each conversation's `sha256`, `globals` by memory address, and `functions` by hex address,
+  each with `name`, `body`, `labels` (hex addresses) and `locals` (frame offsets: 1 and up the
+  locals, -2 and down the arguments). A rerun of the first pass (the test
+  `Write_the_shipped_names_files_when_asked` with `UW_WRITE_NAMES=1`) keeps the names already
+  in the files.
 
 ### Conversation simulator
 

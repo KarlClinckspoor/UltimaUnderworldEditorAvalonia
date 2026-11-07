@@ -40,9 +40,11 @@ namespace UwEditor.Core.Conversations
         /// <summary>The code it covers, as [start, end) ranges: a node that took in others covers theirs too.</summary>
         public readonly List<int[]> Ranges = new List<int[]>();
         public GraphNodeKind Kind;
-        /// <summary>The function it belongs to (main, func_XXXX), and whether it is where that function starts.</summary>
+        /// <summary>The function it belongs to (main, func_XXXX, or its name), and whether it is where that function starts.</summary>
         public string Function;
         public bool Entry;
+        /// <summary>The name of the label at its start (LXXXX when it has none).</summary>
+        public string Label;
         /// <summary>No flow leaves it: the conversation ends, or the function returns.</summary>
         public bool Ends;
         public readonly List<GraphLine> Lines = new List<GraphLine>();
@@ -59,7 +61,7 @@ namespace UwEditor.Core.Conversations
 
         public string Title
         {
-            get { return Entry ? Function + "()" : "L" + Address.ToString("X4"); }
+            get { return Entry ? Function + "()" : Label ?? "L" + Address.ToString("X4"); }
         }
 
         public double CenterX { get { return X + Width / 2; } }
@@ -157,7 +159,7 @@ namespace UwEditor.Core.Conversations
             {
                 int end = i + 1 < starts.Count ? starts[i + 1] : c.Code.Length;
                 var fn = funcs.Where(kv => kv.Key <= starts[i]).Select(kv => kv.Value).LastOrDefault() ?? "main";
-                var n = new GraphNode { Address = starts[i], End = end, Function = fn, Entry = funcs.ContainsKey(starts[i]) };
+                var n = new GraphNode { Address = starts[i], End = end, Function = fn, Entry = funcs.ContainsKey(starts[i]), Label = d.Names.Label(starts[i]) };
                 n.Ranges.Add(new[] { starts[i], end });
                 byStart[n.Address] = n;
                 g.Nodes.Add(n);
