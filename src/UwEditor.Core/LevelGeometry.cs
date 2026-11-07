@@ -196,14 +196,20 @@ namespace UwEditor.Core
             return new LevelVertex(P(x, y, corner, height), x + c.X, -(y + c.Y), layer, shade);
         }
 
-        /// <summary>A wall from corner a to corner b, bottom to top at each end (in tiles); its
-        /// texture is one tile high, placed by absolute height, top row up.</summary>
+        /// <summary>
+        /// A wall from corner a to corner b, bottom to top at each end (in tiles). Its texture is
+        /// one tile high, top row up, and starts at the face's top edge as the game's does (3d/GRIDDB.C
+        /// txtwal and 3d/TMAPOPS.ASM do_compact_tmap: v is 0 at both top corners and the face's
+        /// height at both bottom ones), so a face that ends on a floor not a whole tile below its
+        /// top shows the texture cut at the bottom. A sloped face takes its two ends' mean height.
+        /// </summary>
         static void WallQuad(LevelMesh m, int tile, int x, int y, int a, int b, float botA, float botB, float topA, float topB, float u0, float u1, int layer, float shade)
         {
-            var v0 = new LevelVertex(P(x, y, a, botA), u0, -botA, layer, shade);
-            var v1 = new LevelVertex(P(x, y, b, botB), u1, -botB, layer, shade);
-            var v2 = new LevelVertex(P(x, y, b, topB), u1, -topB, layer, shade);
-            var v3 = new LevelVertex(P(x, y, a, topA), u0, -topA, layer, shade);
+            float h = ((topA - botA) + (topB - botB)) / 2;
+            var v0 = new LevelVertex(P(x, y, a, botA), u0, h, layer, shade);
+            var v1 = new LevelVertex(P(x, y, b, botB), u1, h, layer, shade);
+            var v2 = new LevelVertex(P(x, y, b, topB), u1, 0, layer, shade);
+            var v3 = new LevelVertex(P(x, y, a, topA), u0, 0, layer, shade);
             m.Tri(v0, v1, v2, tile, 1);
             m.Tri(v0, v2, v3, tile, 1);
         }

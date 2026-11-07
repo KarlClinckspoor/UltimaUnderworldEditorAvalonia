@@ -93,6 +93,19 @@ namespace UwEditor.App
             Build();
         }
 
+        /// <summary>New rows, shown in the order sorted by now.</summary>
+        public void SetRows(IEnumerable<T> newRows)
+        {
+            rows.Clear();
+            rows.AddRange(newRows);
+            if (SortColumn < 0) { Shown = rows.ToList(); Build(); return; }
+            int col = SortColumn;
+            bool desc = Descending;
+            SortColumn = -1;
+            SortBy(col);
+            if (desc) SortBy(col);
+        }
+
         static int Compare(IComparable a, IComparable b)
         {
             if (a == null) return b == null ? 0 : -1;

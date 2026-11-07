@@ -101,9 +101,17 @@
         <MenuItem Header="Programs and _paths…" Click="OnRunPaths" />
       </MenuItem>
       <MenuItem Header="_Tools">
-        <MenuItem Header="_Conversations…" Click="OnConversations" InputGesture="Ctrl+Shift+C" IsEnabled="{Binding HasGame}" />
-        <MenuItem Header="Conversation si_mulator…" Click="OnConversationSimulator" IsEnabled="{Binding HasGame}" />
-        <MenuItem Header="Conversation gra_ph…" Click="OnConversationGraph" IsEnabled="{Binding HasGame}" />
+        <MenuItem Header="_Conversations">
+          <MenuItem Header="_All conversations…" Click="OnConversations" InputGesture="Ctrl+Shift+C" IsEnabled="{Binding HasGame}" />
+          <MenuItem Header="_Simulator…" Click="OnConversationSimulator" IsEnabled="{Binding HasGame}" />
+          <MenuItem Header="_Graph…" Click="OnConversationGraph" IsEnabled="{Binding HasGame}" />
+        </MenuItem>
+        <MenuItem Header="Ba_lance">
+          <MenuItem Header="_Barter simulator…" Click="OnBarterSimulator" IsEnabled="{Binding HasGame}" />
+          <MenuItem Header="_Weapons…" Click="OnWeaponBalance" IsEnabled="{Binding HasGame}" />
+          <MenuItem Header="_Armour and rings…" Click="OnArmourBalance" IsEnabled="{Binding HasGame}" />
+        </MenuItem>
+        <Separator />
         <MenuItem Header="_Global variables…" Click="OnGlobals" InputGesture="Ctrl+Shift+G" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="_Player and inventory…" Click="OnPlayer" InputGesture="Ctrl+Shift+P" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="G_raphics…" Click="OnGraphics" InputGesture="Ctrl+Shift+R" IsEnabled="{Binding HasGame}" />

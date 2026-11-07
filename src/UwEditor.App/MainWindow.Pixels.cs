@@ -49,8 +49,17 @@ namespace UwEditor.App
             if (up != "OBJECTS.GR" && !up.EndsWith(".TR") && up != "DOORS.GR" && up != "TMOBJ.GR" && up != "TMFLAT.GR") return;
             s.ReloadGraphics();
             atlas = SpriteAtlas.Build(s.Graphics.ObjectPictures);
-            vm.RefreshNames();
+            vm.RefreshNames();      // empties the icon cache; the object list and the selection take the new pictures
             if (vm.Level != null) { scene = LevelScene.Build(vm.Level, atlas, vm.Options); View.SetScene(scene); UpdateMarkers(); }
+            // the open windows (item slots, object tables, add an object, the inventory, find, triggers)
+            // keep the icons they took when they filled their lists
+            foreach (var w in ItemIcons.In(this)) w.RefreshIcons();
+            // a texture: the tile panel, the brush, level textures and game tables drew the old one
+            if (up.EndsWith(".TR") || up == "DOORS.GR")
+            {
+                vm.RefreshTextures();
+                foreach (var w in ItemIcons.Owned<IShowsTextures>(this)) w.RefreshTextures();
+            }
         }
     }
 }

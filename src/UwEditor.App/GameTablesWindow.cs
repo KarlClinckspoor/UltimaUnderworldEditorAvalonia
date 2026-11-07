@@ -31,7 +31,7 @@ namespace UwEditor.App
     /// the item combinations (CMB.DAT) and the light (SHADES.DAT, and UW2's DL.DAT with the
     /// squares' light flags). Changed values are marked; each tab saves its own file.
     /// </summary>
-    public sealed class GameTablesWindow : Window
+    public sealed class GameTablesWindow : Window, IShowsTextures
     {
         readonly MainWindow main;
         readonly GameSession session;
@@ -116,6 +116,9 @@ namespace UwEditor.App
         }
 
         Action refreshTerrain, refreshSkills, refreshCombinations, refreshLight;
+        /// <summary>A texture file was saved: the texture pictures again.</summary>
+        public void RefreshTextures() { thumbs.Clear(); RefreshAll(); }
+
         void RefreshAll() { refreshTerrain?.Invoke(); refreshSkills?.Invoke(); refreshCombinations?.Invoke(); refreshLight?.Invoke(); }
 
         // ---- helpers

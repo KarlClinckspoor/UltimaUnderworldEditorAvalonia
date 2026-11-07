@@ -135,5 +135,89 @@ namespace UwEditor.App.Tests
             ot.Close();
             w.Close();
         }
+
+        /// <summary>The cells of the first row shown in a table, in field order.</summary>
+        static System.Collections.Generic.List<Border> FirstRowCells(ObjectTablesWindow ot, out ListBox list)
+        {
+            list = ot.GetVisualDescendants().OfType<ListBox>().First(l => l.IsEffectivelyVisible);
+            var item = list.GetVisualDescendants().OfType<ListBoxItem>().First();
+            return item.GetVisualDescendants().OfType<Border>().Where(b => b.Width >= 40 && b.Width <= 96 && b.Parent is StackPanel sp && sp.Height == 24).ToList();
+        }
+
+        [AvaloniaFact]
+        public void A_cell_left_without_a_change_has_no_frame()
+        {
+            string g = GameData.Game("UW"); if (g == null) return;
+            var w = Ui.Open(g);
+            w.AskBeforeDiscarding = false;
+            var ot = w.ShowObjectTables();
+            ot.Width = 1180; ot.Height = 780;
+            Ui.Pump();
+            ot.ShowTable("Common properties");
+            Ui.Pump();
+            var cells = FirstRowCells(ot, out _);
+            var plain = new Avalonia.Thickness(0, 0, 1, 0);
+            // Enter, Escape, Tab and a click elsewhere, none of them changing anything
+            Ui.Click(ot, cells[0]); Ui.Key(ot, Key.Enter);
+            Ui.Click(ot, cells[1]); Ui.Key(ot, Key.Escape);
+            Ui.Click(ot, cells[2]);
+            ot.KeyPressQwerty(PhysicalKey.Tab, RawInputModifiers.None);
+            ot.KeyReleaseQwerty(PhysicalKey.Tab, RawInputModifiers.None);
+            Ui.Pump();
+            Assert.IsType<TextBox>(cells[3].Child);
+            Ui.Click(ot, cells[5]);
+            Ui.Key(ot, Key.Enter);
+            Assert.False(ot.HasChanges);
+            foreach (var c in cells)
+            {
+                Assert.IsType<TextBlock>(c.Child);
+                Assert.Equal(plain, c.BorderThickness);
+            }
+            // a changed cell keeps its mark, and no frame either
+            Ui.Click(ot, cells[0]);
+            ((TextBox)cells[0].Child).Text = "7";
+            Ui.Key(ot, Key.Enter);
+            Assert.True(ot.HasChanges);
+            Assert.Equal(plain, cells[0].BorderThickness);
+            ot.Tables.RevertAll();
+            ot.Close();
+            w.Close();
+        }
+
+        [AvaloniaFact]
+        public void Editing_a_cell_scrolled_to_the_right_keeps_the_header_and_the_names_in_line()
+        {
+            string g = GameData.Game("UW"); if (g == null) return;
+            var w = Ui.Open(g);
+            w.AskBeforeDiscarding = false;
+            var ot = w.ShowObjectTables();
+            ot.Width = 1180; ot.Height = 780;
+            Ui.Pump();
+            ot.ShowTable("Common properties");
+            Ui.Pump();
+            var cells = FirstRowCells(ot, out var list);
+            var sv = list.GetVisualDescendants().OfType<ScrollViewer>().First(x => x.TemplatedParent == list);
+            Assert.True(sv.Extent.Width > sv.Viewport.Width + 300);
+            double x0 = sv.Extent.Width - sv.Viewport.Width;
+            sv.Offset = new Avalonia.Vector(x0, 0);
+            Ui.Pump();
+            var head = ot.GetVisualDescendants().OfType<ScrollViewer>().First(x => x.IsEffectivelyVisible && x.TemplatedParent == null && x.Content is StackPanel sp && sp.Height == 52);
+            Assert.Equal(x0, head.Offset.X, 1);
+            // the cell for Tenacity, near the right end
+            int k = Array.FindIndex(UltimateEditor.Uw1.Uw1Schemas.ComObj.Fields, f => f.Name == "Tenacity");
+            Ui.Click(ot, cells[k]);
+            Assert.IsType<TextBox>(cells[k].Child);
+            Assert.True(sv.Offset.X > 300);                 // still scrolled to the right
+            Assert.Equal(sv.Offset.X, head.Offset.X, 1);
+            // the name column stays at the left of what is shown
+            var row = (StackPanel)cells[k].Parent;
+            var name = row.Children.OfType<StackPanel>().First();
+            Assert.Equal(sv.Offset.X, ((Avalonia.Media.TranslateTransform)name.RenderTransform).X, 1);
+            Ui.Key(ot, Key.Escape);
+            Assert.Equal(sv.Offset.X, head.Offset.X, 1);
+            Assert.Equal(sv.Offset.X, ((Avalonia.Media.TranslateTransform)name.RenderTransform).X, 1);
+            ot.Close();
+            w.Close();
+        }
     }
 }

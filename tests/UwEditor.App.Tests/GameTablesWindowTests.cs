@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using UwEditor.Core;
 using UwEditor.Core.Editing;
 using UwEditor.Core.Tests;
@@ -176,6 +177,68 @@ namespace UwEditor.App.Tests
                     Assert.Equal(2, lt.Level.Level);
                     lt.Close();
                     Ui.Pump();
+                    w.Close();
+                }
+        }
+
+        [AvaloniaFact]
+        public void A_click_in_level_textures_only_marks_a_texture_until_it_is_used()
+        {
+            foreach (var game in new[] { Uw1, Uw2 }.Where(g => g != null))
+                using (var copy = new GameCopy(game))
+                {
+                    var w = OpenQuiet(copy.Folder);
+                    var vm = w.ViewModel;
+                    var lt = w.ShowLevelTextures();
+                    lt.Width = 1080; lt.Height = 760;
+                    Ui.Pump();
+                    lt.Slots.SelectedIndex = 3;
+                    Ui.Pump();
+                    int old = vm.Level.WallMap[3], to = old == 7 ? 8 : 7, other = old == 9 ? 10 : 9;
+                    Assert.Null(lt.PendingText);
+
+                    // one click: marked, nothing changed
+                    Ui.Click(lt, lt.PickButtons[to]);
+                    Assert.Equal(old, vm.Level.WallMap[3]);
+                    Assert.False(vm.HasLevelChanges);
+                    Assert.Equal(to, lt.PendingTexture);
+                    Assert.Contains(old + " → " + to, lt.PendingText);
+                    Assert.True(lt.PickButtons[old].IsChecked == true);
+                    Assert.False(lt.PickButtons[to].IsChecked == true);
+                    // Esc drops it
+                    Ui.Key(lt, Key.Escape);
+                    Assert.Equal(-1, lt.PendingTexture);
+                    Assert.Null(lt.PendingText);
+                    Assert.Equal(old, vm.Level.WallMap[3]);
+                    // another slot drops a mark too
+                    Ui.Click(lt, lt.PickButtons[other]);
+                    lt.Slots.SelectedIndex = 4;
+                    Ui.Pump();
+                    Assert.Equal(-1, lt.PendingTexture);
+                    lt.Slots.SelectedIndex = 3;
+                    Ui.Pump();
+
+                    // a click and Enter use it; Undo beside the status takes it back
+                    Ui.Click(lt, lt.PickButtons[to]);
+                    Ui.Key(lt, Key.Enter);
+                    Assert.Equal(to, vm.Level.WallMap[3]);
+                    Assert.True(lt.CanUndo);
+                    lt.UndoLast();
+                    Ui.Pump();
+                    Assert.Equal(old, vm.Level.WallMap[3]);
+                    Assert.False(lt.CanUndo);
+
+                    // a double click uses it at once
+                    Ui.Click(lt, lt.PickButtons[to]);
+                    Ui.Click(lt, lt.PickButtons[to]);
+                    Assert.Equal(to, vm.Level.WallMap[3]);
+                    Assert.True(lt.PickButtons[to].IsChecked == true);
+                    // an undo from the menu hides Undo here: it would take back something else
+                    w.Undo();
+                    Ui.Pump();
+                    Assert.Equal(old, vm.Level.WallMap[3]);
+                    Assert.False(lt.CanUndo);
+                    lt.Close();
                     w.Close();
                 }
         }

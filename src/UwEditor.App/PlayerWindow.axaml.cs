@@ -16,7 +16,7 @@ namespace UwEditor.App
     /// condition, experience, skills — and inventory, with the checks the game makes (UW2 calls
     /// attributes over 64 cheating) and the values play cannot reach.
     /// </summary>
-    public partial class PlayerWindow : Window
+    public partial class PlayerWindow : Window, IShowsItemIcons
     {
         public PlayerViewModel Model { get; private set; }
 
@@ -58,6 +58,9 @@ namespace UwEditor.App
         void OnSave(object sender, RoutedEventArgs e) { Save(); }
 
         Func<int, Bitmap> iconOf;
+
+        /// <summary>A picture file was saved: the inventory's icons are taken again.</summary>
+        public void RefreshIcons() { Model.RefreshIcons(); }
 
         async void OnAddDetailed(object sender, RoutedEventArgs e)
         {

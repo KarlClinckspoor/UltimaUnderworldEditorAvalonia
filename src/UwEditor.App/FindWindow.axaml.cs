@@ -12,10 +12,11 @@ using UwEditor.Core;
 namespace UwEditor.App
 {
     /// <summary>One result line: the object's picture, where it is, and what matched.</summary>
-    public sealed class HitRow
+    public sealed class HitRow : Observable
     {
         public SearchHit Hit { get; set; }
-        public Bitmap Icon { get; set; }
+        Bitmap icon;
+        public Bitmap Icon { get { return icon; } set { Set(ref icon, value); } }
         public string Title { get; set; }
         public string Detail { get; set; }
         public bool HasDetail { get { return !string.IsNullOrEmpty(Detail); } }
@@ -51,7 +52,7 @@ namespace UwEditor.App
 
     /// <summary>Tools ▸ Find in all levels: searches every level with the object list's rules
     /// and kinds; a result opens its level and selects the object.</summary>
-    public partial class FindWindow : Window
+    public partial class FindWindow : Window, IShowsItemIcons
     {
         public readonly FindViewModel Model = new FindViewModel();
         readonly MainViewModel main;
@@ -73,6 +74,13 @@ namespace UwEditor.App
         }
 
         void OnSearch(object sender, RoutedEventArgs e) { _ = SearchAsync(); }
+
+        /// <summary>A picture file was saved: the results' icons are taken again.</summary>
+        public void RefreshIcons()
+        {
+            if (main == null) return;
+            foreach (var h in Model.Hits) h.Icon = main.IconOf(h.Hit.Item);
+        }
 
         /// <summary>Runs the search off the window's thread and fills the results.</summary>
         public async Task SearchAsync()

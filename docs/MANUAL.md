@@ -79,6 +79,10 @@ new-game start; in a saved game a **green arrow** marks the player.
 
 **The 3D view:**
 - Floors, walls, slopes and diagonal walls, textured through the level's texture map.
+  A wall's texture starts at the wall's top edge (the ceiling, or the higher floor of a
+  step) and runs down, a texture every 4 floor steps, as the game lays it. So under the
+  ceiling (height 16) a wall ends on a whole texture only when its floor is at 0, 4, 8 or 12,
+  and is cut at the bottom otherwise, in the game as here.
 - The ceiling (G), seen only from below, as in the game.
 - Objects drawn the game's way, from COMOBJ.DAT's render field:
   - doors in their frames (open doors swung by their flags, the portcullis raised, the
@@ -528,7 +532,7 @@ after it runs once. **Creatures set it off too** sets the trigger's enchanted bi
 
 ## Conversations
 
-**Tools ▸ Conversations…** (Ctrl+Shift+C) lists every conversation in CNV.ARK, by slot and
+**Tools ▸ Conversations ▸ All conversations…** (Ctrl+Shift+C) lists every conversation in CNV.ARK, by slot and
 by the name the creature talks under. The list filter matches slots, names and any text a
 conversation says. The window has four tabs:
 - **Dialogue:** what the script does, rebuilt from its code by following the conversation
@@ -562,7 +566,7 @@ smaller. Other saved games are not changed.
 
 ### Conversation simulator
 
-**Simulate…** in the conversation window (Ctrl+R), or **Tools ▸ Conversation simulator…**,
+**Simulate…** in the conversation window (Ctrl+R), or **Tools ▸ Conversations ▸ Simulator…**,
 runs the conversation shown as the game does. It follows the conversation machine of
 conv/BABL.C and the game's built-in functions (conv/CONVERSE.C, BABLHACK.C, BARTER.C).
 Nothing is written to the game's files.
@@ -603,7 +607,7 @@ the applied code: apply the Script tab's edits first.
 
 ### Conversation graph
 
-**Graph…** in the conversation window, or **Tools ▸ Conversation graph…**, shows the
+**Graph…** in the conversation window, or **Tools ▸ Conversations ▸ Graph…**, shows the
 conversation's flow as a graph, read from its code. The code is split where it jumps; each
 node shows the readable view's lines for its piece of code.
 - Brown nodes are where the NPC speaks, blue ones show a menu with its numbered answers,
@@ -638,6 +642,108 @@ node shows the readable view's lines for its piece of code.
 - Editing a string on the right edits that string of the conversation, as the Strings tab
   does: it is marked changed and saved with the conversation. **Revert conversation** undoes
   it.
+
+## Balance
+
+**Tools ▸ Balance** holds three windows that work out what the game does with items, from the
+game's own rules (underworld-exhumed: conv/BARTER.C, combat/COMBAT.C, game/PLAYDATA.C), so a
+modder can see whether a value, a weapon or a piece of armour is out of line. They read the
+object tables as the Object tables window has them, with its unsaved edits, every time they are
+brought up. They read the levels as edited; **Read the levels again** counts again after a
+change. The player's sliders start from the open saved game's PLAYER.DAT, or at Strength and
+Dexterity 20 and every skill 10. **From PLAYER.DAT** and **Defaults** set them again.
+
+### Barter simulator
+
+**Tools ▸ Balance ▸ Barter simulator…** puts a trader and two sides of items together, and says
+what the trader makes of the trade.
+
+- **Trader:** every creature of the levels with a conversation of its own (by level, name and
+  object number), then every creature class ("Any goblin"). **Use the selected creature** takes
+  the creature selected in the main window.
+- **Temper:** a trader's greed (how much more than it gives it wants, in per cent), patience and
+  judgement come from its creature's haggle, patience and shrewd figures (OBJECTS.DAT creature
+  bytes 0x0D-0x0E). Each trader blurs them by a draw seeded with its object number, so a
+  creature of the levels always draws the same, and the window shows its exact figures. For a
+  creature class it shows the range and uses the middle. The player's **Charm** lowers the
+  greed by 2 a point and raises the patience by half a point.
+- **Likes and dislikes** are read from the trader's conversation (its `set_likes_dislikes`
+  call). A liked item counts 1.5 times; a disliked one is worth nothing and stays with the
+  player. Only a few conversations set them: 7 in UW1, 3 in UW2.
+- **Items:** choose a kind and an item and add it to either side, or add the object selected
+  in the main window with its quality and stack size. Each item has **Quantity** (1-511) and
+  **Quality** (0-63) sliders and shows what it is worth to the trader. **Value…** opens Object
+  tables on the item's common properties, where its value can be changed; the simulator follows
+  when it is brought up again.
+- **Result:** the trader values the player's side with its likes and its own side without them.
+  It accepts when (player's side − its side) × 100 / its side reaches its greed. The window shows
+  that figure, the range its misjudgement can move it over (up to its judgement in per cent,
+  the same each time for the same object), and the player's own remark ("…I think that I am
+  getting a fair deal"), which **Appraise** only colours: the trader ignores it.
+- **Balance trade** adds gold coins (0xA0). When the trader would refuse, it adds the fewest
+  coins it accepts to the player's side; when the player gives more, it adds the most coins the
+  trader still pays back. **Equal worth** aims at an even trade instead of the trader's greed.
+  UW2 counts every coin at quality 63 (about 3 a coin). UW1 uses the coins' own quality: the
+  **Coin quality** slider starts at the quality the levels' coins have most (40, about 1.9 a
+  coin).
+
+The game multiplies value × quantity in 16 bits, and UW1 × quality too: a stack past 32767
+(in UW1, more than about 270 coins of quality 40) is valued wrongly, even below 0. The window
+says so under the result. The simulator does not play the demand (a threat), which weighs the
+player's level and health against the trader's.
+
+Changing an item's value is already possible in **Object tables** (the Common properties
+table, Value), and the **Value…** button goes there. A separate sheet with one item's every
+property from all the tables would be possible: every field is described in one place.
+
+### Balance weapons
+
+**Tools ▸ Balance ▸ Weapons…** lists every melee weapon (Melee tab) and every launcher with its
+ammunition (Launchers tab). For each it shows how many the levels hold: plain, with an accuracy
+or damage enchantment, special (UW2's special weapons) and other (an enchantment that does
+nothing in a fight). Under each weapon's own line, an indented line for each enchantment found
+gives that copy's figures. Click a header to sort by it.
+
+- **Melee:** the expected damage of a slash, a bash and a stab, misses and critical hits
+  counted, and per second when the player swings over and over, releasing at full charge. To hit
+  is Attack / 2 + the weapon's skill + Dexterity / 7 (+7 on Easy) against the target's
+  defence; a roll 0-30 above 15 hits, above 28 is critical and doubles the damage half of the
+  time. Damage is the swing's base + Strength / 9 (bare hands: Unarmed × 2 / 5 + Strength /
+  6 + 4), rolled as (d / 6)d6 + 1d(d % 6), × Max charge / 128, less the target's armour.
+  Quality changes nothing.
+- **Timing:** the game's clock runs at 256 ticks a second and the weapon's picture moves on
+  every 32 ticks. The charge grows by the weapon's Speed every 16 ticks up to 100. A swing takes
+  the wind-up (4 steps; in UW2 2 for a stab or bare hands), the charge rounded up to a step,
+  and 5 steps more. UW1's longsword takes about 1.56 s.
+- **Launchers:** only the ammunition's damage counts, × (Missile × 8 + 192) / 256, less
+  128/256 on a bad roll and plus 192/256 on a good one. Charge, Strength and enchantments do
+  nothing, and there is no critical hit; a shot that reaches the target always hits. A shot takes
+  about 0.625 s plus the **Aim** time. The ammunition column counts the stacks' items in the
+  levels.
+- **Target:** its defence and armour, or a creature's (the four hit zones' average armour).
+  **Powerful** counts the armour 5/3 times.
+
+UW2's weapon enchantment names are swapped: the Effect column says what each one does.
+
+### Balance armour and rings
+
+**Tools ▸ Balance ▸ Armour and rings…** lists every wearable item with how many the levels hold
+(plain, with Protection or Toughness, other), the hit locations it covers and its armour at the
+**Quality** chosen: quality × protection / 64 + 1.
+
+- A creature's blow hits one location: torso, hands, legs or head. Body armour covers the
+  torso, gloves the hands, leggings and boots the legs (they add up), a helm the head, and a
+  shield (items 0x3B-0x3F) both torso and hands.
+- **The blow:** its to-hit and damage, or a creature's strongest attack (to-hit + equip / 2,
+  damage + Strength / 5). It needs to-hit + a roll 0-30 − the player's Defence (Defense + the
+  weapon skill / 2) above 15. The Blow column is its expected damage at the item's location with
+  the item worn; Saved compares it with nothing worn there.
+- **Enchantments:** Protection takes its level from the attacker's to-hit at the item's
+  locations (melee only); Toughness adds its level to the armour (on a shield or ring twice to
+  the torso, never to the hands); Resist Blows, Thick Skin and Iron Flesh add 2, 3 and 5
+  everywhere (only the best counts). Rings do nothing without an enchantment.
+- **Wear:** a critical hit takes 2d4 >> quality class off the quality of the helm, the leggings
+  (the boots one time in five) or the shield; class 3 never wears.
 
 ## Global variables
 
@@ -820,7 +926,11 @@ colours** shows the drawing and the preview cycling as they would in the game.
 An item with no picture (UW1's nameless slots) gets a blank one to draw on, shaped as the
 nearest picture in `OBJECTS.GR`. A critter page must stay under 0x7FFF bytes, and a cutscene
 frame is encoded again with the next one; the editor says so when a drawing does not fit. After
-`OBJECTS.GR` or a texture file is saved, the 3D view and the object list show the new pictures.
+`OBJECTS.GR` or a texture file is saved, the 3D view, the object list and the item icons in the
+open windows (Item slots, Object tables, Add an object, the inventory, Find, Triggers) show the
+new pictures, without opening the game again. A saved wall, floor or door texture also shows in
+the tile panel, the brush's slots, Level textures and Game tables. Icons follow saved pictures only: applied but
+unsaved drawing shows in the pixel editor and in the Item slots picture.
 
 ## Keys and locks
 
@@ -968,10 +1078,16 @@ level's texture map says which texture each slot shows.
   slot 15), plus 6 door slots.
 
 Each slot shows its picture, the texture number, how many open tiles use it, and the
-texture's terrain (water, lava...). Choose a slot, then click another texture on the right
-to show it there; textures already in the list are marked •. Each change is one Edit ▸ Undo
-step; the 3D view and the paint brush's slots follow it, and Save levels writes it with the
-level (only the level's texture map block changes).
+texture's terrain (water, lava...). Choose a slot, then click another texture on the right;
+textures already in the list are marked •. A click only marks the texture: the bar above the
+textures says what would change ("Wall slot 3: texture 12 → 27. 140 tiles change."). **Use it**
+(Enter, or a second click on the same texture, so a double-click works too) puts it in the slot;
+**Cancel** (Esc), choosing another slot or clicking the slot's own texture leaves the slot as it
+was. A stray click therefore changes nothing.
+
+Each change is one Edit ▸ Undo step, and **Undo** beside the status line takes the last one back
+while it is still the next step to undo. The 3D view and the paint brush's slots follow, and
+Save levels writes the change with the level (only the level's texture map block changes).
 
 ## Strings
 
@@ -1020,11 +1136,35 @@ what that would take.
   2 pick up, 4 use, 5 look, 6 unlock, 7 open). In UW2, 0x1B0-0x1BF share these entries.
 - **Animations** (0x1C0-0x1CF): how animated objects run their frames.
 - **Common properties** (every item, COMOBJ.DAT): height, radius, mass (tenths of a
-  stone), value, the flags (solid, can be picked up, can be owned...), toughness and
+  stone), value, the flags (solid, pick up, pickable, can be owned...), toughness and
   quality words, fate when thrown, resistances and how it is drawn.
+
+Two of the common properties sound alike but do different things (both games):
+- **Pickable** decides whether the item can be taken from the world: picking it up in the
+  view puts it on the cursor. Creatures, scenery, furniture and doors have it clear.
+- **Pick up** decides where the held item may go: a pack, shoulder or hand slot, or a bag.
+  The armour and ring slots, a weapon in the weapon hand, a light, and the rune bag, quiver,
+  map case and bowl have rules of their own. An item that is Pickable but not Pick up can be
+  taken from the world and only put down or thrown again.
+
+Every shipped item that is Pickable is also Pick up. A few fixed objects have Pick up set
+with no effect (UW1's urn, orb, campfire, fountain and cauldron; UW2's skull 0x13, orb, force
+field, campfire and fountain).
+
+**Value** is a worth in trade, not a price in coins. A trader adds up each side of the trade:
+value × quantity × quality / 64 (at least 1; 0 at quality 0), blurred by how well it
+judges, and 1.5 times as much for an item it likes. It never puts an item of value 0 up for
+trade, and such an item is worth nothing to it. A gold coin's value is 3 in both games:
+- UW2 counts every coin as quality 63, so a coin is worth about 3;
+- UW1 uses the coins' own quality, mostly 40 in its levels, so a coin is worth about 1.9.
+
+So an item of value 30 at full quality is worth about 10 coins in UW2 and about 15 in UW1.
+UW2's vending machines charge (value + 1) / 2 + 1 gold pieces. For the coins and gems
+(0xA0-0xA7), a higher value also makes them rarer in creature loot.
 
 Each table has one row per item, with its picture and name. Click a cell to edit it; Enter
 or Tab keeps the value, Shift+Tab goes back, and Esc drops it. Numbers are decimal, or hexadecimal with `0x`.
+Only the cell being edited has a frame; once it closes, only the changed mark is left.
 A value outside the field's range is refused, and one the game cannot use (a weapon skill
 that is not a weapon skill, an armour category no slot takes) is kept with a warning; both
 show in the status line. Changed cells are marked and changed rows have a bar at the left.

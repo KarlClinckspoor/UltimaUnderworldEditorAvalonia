@@ -250,6 +250,18 @@ namespace UwEditor.App
             BuildAddTargets();
         }
 
+        /// <summary>Takes the inventory's icons again (a picture file was saved).</summary>
+        public void RefreshIcons() { RefreshIcons(Items); }
+
+        void RefreshIcons(IEnumerable<ItemNode> nodes)
+        {
+            foreach (var n in nodes)
+            {
+                if (n.Item != null) n.Icon = icon?.Invoke(n.Item.ItemId);
+                RefreshIcons(n.Children);
+            }
+        }
+
         ItemNode Node(InventoryItem it)
         {
             var n = new ItemNode { Item = it, Icon = icon?.Invoke(it.ItemId), IsExpanded = !collapsed.Contains(it) };

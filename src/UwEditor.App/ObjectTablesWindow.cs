@@ -23,7 +23,7 @@ namespace UwEditor.App
     /// one tab and one grid each. A cell is edited in place (click, type, Enter); the values are
     /// range-checked, changed cells are marked, and Save writes the two files to DATA.
     /// </summary>
-    public sealed class ObjectTablesWindow : Window
+    public sealed class ObjectTablesWindow : Window, IShowsItemIcons
     {
         readonly MainWindow main;
         readonly GameSession session;
@@ -42,10 +42,13 @@ namespace UwEditor.App
         /// <summary>The tables being edited (null when the files could not be read).</summary>
         public ObjectTables Tables { get; private set; }
 
+        /// <summary>A picture file was saved: every table's icons are taken again.</summary>
+        public void RefreshIcons() { foreach (var p in pages) p.RefreshIcons(); }
+
         /// <summary>The cell being edited, or null.</summary>
         CellEdit editing;
-        /// <summary>The cell last clicked.</summary>
-        TablePage selPage; RowItem selRow; int selField = -1;
+        /// <summary>The row last clicked (for Revert row).</summary>
+        TablePage selPage; RowItem selRow;
 
         public ObjectTablesWindow(MainWindow main, GameSession s)
         {
@@ -230,10 +233,8 @@ namespace UwEditor.App
 
         void Select(TablePage p, RowItem r, int k)
         {
-            if (selPage != null && selRow != null && selField >= 0) selPage.Paint(selRow, selField);
-            selPage = p; selRow = r; selField = k;
+            selPage = p; selRow = r;
             p.List.SelectedItem = r;
-            if (k >= 0) p.Paint(r, k);
             ShowExplanation(p, r, k);
         }
 
@@ -338,6 +339,8 @@ namespace UwEditor.App
             public string Label;
             public string Search;
             public Bitmap Icon;
+            /// <summary>The row's icon while it is on screen (null otherwise).</summary>
+            public Image IconImage;
             /// <summary>The row's cells while it is on screen (null otherwise).</summary>
             public Border[] Cells;
             public Border Marker;
@@ -405,7 +408,9 @@ namespace UwEditor.App
                 List.ItemTemplate = new FuncDataTemplate<RowItem>((r, ns) => Build(r));
                 List.AddHandler(ScrollViewer.ScrollChangedEvent, (o, e) =>
                 {
-                    if (!(e.Source is ScrollViewer sv)) return;
+                    // only the list's own scroll viewer: the edited cell's text box has one too,
+                    // and its offset (0) put the header and the labels back to the left
+                    if (!(e.Source is ScrollViewer sv) || sv.TemplatedParent != List) return;
                     hOffset = sv.Offset.X;
                     headScroll.Offset = new Vector(hOffset, 0);
                     headLabel.RenderTransform = new TranslateTransform(hOffset, 0);
@@ -417,6 +422,15 @@ namespace UwEditor.App
             }
 
             static int Longest(string s) { return s.Split(' ', '/').Max(x => x.Length); }
+
+            public void RefreshIcons()
+            {
+                foreach (var r in Rows)
+                {
+                    r.Icon = w.main.ViewModel.IconOf(r.Item);
+                    if (r.IconImage != null) r.IconImage.Source = r.Icon;
+                }
+            }
 
             public void Filter(string text, bool changedOnly)
             {
@@ -434,7 +448,8 @@ namespace UwEditor.App
                 var label = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Width = LabelWidth + 22, ZIndex = 1 };
                 label.Bind(StackPanel.BackgroundProperty, w.GetResourceObservable("Panel"));
                 label.Children.Add(r.Marker);
-                label.Children.Add(new Image { Source = r.Icon, Width = 18, Height = 18, VerticalAlignment = VerticalAlignment.Center });
+                r.IconImage = new Image { Source = r.Icon, Width = 18, Height = 18, VerticalAlignment = VerticalAlignment.Center };
+                label.Children.Add(r.IconImage);
                 label.Children.Add(new TextBlock { Text = r.Label, FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, Width = LabelWidth - 30 });
                 label.RenderTransform = new TranslateTransform(hOffset, 0);
                 r.Head = label;
@@ -467,7 +482,8 @@ namespace UwEditor.App
                 r.Marker.Background = w.Tables.IsRowChanged(Table, r.Row) ? w.Brush("Accent", Brushes.Orange) : null;
             }
 
-            /// <summary>Draws one cell: its value, marked when changed, outlined when selected.</summary>
+            /// <summary>Draws one cell: its value, marked when changed. Only the cell being edited
+            /// has a frame (its text box's); a closed cell, changed or not, has none.</summary>
             public void Paint(RowItem r, int k)
             {
                 if (r.Cells == null || k < 0 || k >= r.Cells.Length) return;
@@ -483,9 +499,8 @@ namespace UwEditor.App
                     Opacity = f.Certainty == Certainty.Unknown && !changed ? 0.6 : 1,
                 };
                 b.Background = changed ? ChangedBrush : Brushes.Transparent;
-                bool sel = w.selPage == this && w.selRow == r && w.selField == k;
-                b.BorderBrush = sel ? w.Brush("Accent", Brushes.Orange) : LineBrush;
-                b.BorderThickness = sel ? new Thickness(1) : new Thickness(0, 0, 1, 0);
+                b.BorderBrush = LineBrush;
+                b.BorderThickness = new Thickness(0, 0, 1, 0);
             }
         }
     }

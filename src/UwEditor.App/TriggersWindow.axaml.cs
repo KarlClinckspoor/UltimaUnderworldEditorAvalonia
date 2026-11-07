@@ -15,7 +15,10 @@ namespace UwEditor.App
     public sealed class ChainNode : Observable
     {
         public string Header { get; set; }
-        public Bitmap Icon { get; set; }
+        Bitmap icon;
+        public Bitmap Icon { get { return icon; } set { Set(ref icon, value); } }
+        /// <summary>The item id of the object on the line, or -1 for a heading.</summary>
+        public int Item { get; set; } = -1;
         public int Level { get; set; }
         public int Index { get; set; } = -1;
         public ObservableCollection<ChainNode> Children { get; } = new ObservableCollection<ChainNode>();
@@ -33,6 +36,15 @@ namespace UwEditor.App
         LevelModel level;
 
         public TriggersViewModel(MainViewModel main) { this.main = main; }
+
+        public void RefreshIcons(IEnumerable<ChainNode> nodes)
+        {
+            foreach (var n in nodes)
+            {
+                if (n.Item >= 0) n.Icon = main.IconOf(n.Item);
+                RefreshIcons(n.Children);
+            }
+        }
 
         public string Status { get { return status; } set { Set(ref status, value); } }
         public string Help { get { return help; } set { Set(ref help, value ?? ""); } }
@@ -85,7 +97,7 @@ namespace UwEditor.App
             foreach (var c in chains)
             {
                 var t = c.Trigger;
-                var n = new ChainNode { Header = string.Format("#{0} {1} {2}  →  runs on ({3}, {4})", t.Index, t.Name, Where(t), c.TargetX, c.TargetY), Icon = main.IconOf(t.Item), Level = m.Level, Index = t.Index };
+                var n = new ChainNode { Header = string.Format("#{0} {1} {2}  →  runs on ({3}, {4})", t.Index, t.Name, Where(t), c.TargetX, c.TargetY), Icon = main.IconOf(t.Item), Item = t.Item, Level = m.Level, Index = t.Index };
                 if (c.Steps.Count == 0) n.Children.Add(new ChainNode { Header = "links to nothing, so it does nothing" });
                 for (int i = 0; i < c.Steps.Count; i++)
                 {
@@ -95,7 +107,7 @@ namespace UwEditor.App
                     n.Children.Add(new ChainNode
                     {
                         Header = string.Format("{0} #{1} {2}{3}{4}{5}", i == 0 ? "fires" : "then", o.Index, o.Name, string.IsNullOrEmpty(what) ? "" : ": " + Flat(what), Where(o).Length > 0 ? "  " + Where(o) : "", note),
-                        Icon = main.IconOf(o.Item), Level = m.Level, Index = o.Index,
+                        Icon = main.IconOf(o.Item), Item = o.Item, Level = m.Level, Index = o.Index,
                     });
                 }
                 Nodes.Add(n);
@@ -113,7 +125,7 @@ namespace UwEditor.App
                     h.Children.Add(new ChainNode
                     {
                         Header = string.Format("#{0} {1}: spawns {2}, {3:0} % each run  {4}{5}", o.Index, o.Name, made, Triggers.SpawnChance(o.Quality), Where(o), Triggers.SpawnerHidden(m, o) ? "  · never runs: #" + Triggers.FirstCreateTrapOn(m, o.TileX, o.TileY).Index + " comes first on its square" : ""),
-                        Icon = main.IconOf(o.Item), Level = m.Level, Index = o.Index,
+                        Icon = main.IconOf(o.Item), Item = o.Item, Level = m.Level, Index = o.Index,
                     });
                 }
                 Nodes.Add(h);
@@ -127,7 +139,7 @@ namespace UwEditor.App
                     h.Children.Add(new ChainNode
                     {
                         Header = string.Format("#{0} {1}: {2}  {3}{4}", o.Index, o.Name, Flat(Triggers.Short(s, o)), Where(o), from.Count > 0 ? "  · linked from " + string.Join(", ", from.Select(f => "#" + f.Index + " " + f.Name)) : ""),
-                        Icon = main.IconOf(o.Item), Level = m.Level, Index = o.Index,
+                        Icon = main.IconOf(o.Item), Item = o.Item, Level = m.Level, Index = o.Index,
                     });
                 }
                 Nodes.Add(h);
@@ -143,7 +155,7 @@ namespace UwEditor.App
     }
 
     /// <summary>Tools ▸ Triggers and traps: every trigger of the level shown and the chain it sets off; the traps no trigger reaches.</summary>
-    public partial class TriggersWindow : Window
+    public partial class TriggersWindow : Window, IShowsItemIcons
     {
         public TriggersViewModel Model { get; private set; }
         readonly MainViewModel main;
@@ -165,6 +177,9 @@ namespace UwEditor.App
         }
 
         void OnMainLevel(LevelModel l) { Refresh(); }
+
+        /// <summary>A picture file was saved: the chains' icons are taken again.</summary>
+        public void RefreshIcons() { Model.RefreshIcons(Model.Nodes); }
 
         /// <summary>Shows the level the main window shows.</summary>
         public void Refresh() { main.FlushRefresh(); Model.Build(main.Level); }

@@ -83,6 +83,8 @@ namespace UwEditor.Core.Editing
         public bool CanUndo { get { return undo.Count > 0; } }
         public bool CanRedo { get { return redo.Count > 0; } }
         public string UndoLabel { get { return undo.Count > 0 ? undo[undo.Count - 1].Item1 : null; } }
+        /// <summary>The step the next undo takes back (compared by reference), or null.</summary>
+        public object UndoTop { get { return undo.Count > 0 ? undo[undo.Count - 1] : null; } }
         public string RedoLabel { get { return redo.Count > 0 ? redo[redo.Count - 1].Item1 : null; } }
 
         int GroupOf(object step) { int g; return step != null && groups.TryGetValue(step, out g) ? g : 0; }

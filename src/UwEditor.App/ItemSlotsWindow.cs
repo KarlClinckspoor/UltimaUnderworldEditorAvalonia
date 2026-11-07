@@ -18,7 +18,7 @@ namespace UwEditor.App
     /// the game's code, creature loot, combinations, quest items), to turn a slot nobody needs into
     /// a new item: its name and plural, its picture, its stats, and placing it.
     /// </summary>
-    public sealed class ItemSlotsWindow : Window
+    public sealed class ItemSlotsWindow : Window, IShowsItemIcons
     {
         readonly MainWindow main;
         readonly GameSession session;
@@ -43,10 +43,17 @@ namespace UwEditor.App
         public ItemUseReport Selected { get; private set; }
         public Task Loading { get; private set; }
 
-        public sealed class Row
+        /// <summary>The list's line for an item, or null when the filter hides it.</summary>
+        public Row RowOf(int item) { return (list.ItemsSource as IEnumerable<Row>)?.FirstOrDefault(r => r.Report.Item == item); }
+
+        /// <summary>The picture shown for the selected item.</summary>
+        public IImage PictureShown { get { return picture.Source; } }
+
+        public sealed class Row : Observable
         {
             public ItemUseReport Report { get; set; }
-            public Bitmap Icon { get; set; }
+            Bitmap icon;
+            public Bitmap Icon { get { return icon; } set { Set(ref icon, value); } }
             public string Text { get; set; }
             public string Summary { get; set; }
         }
@@ -180,6 +187,21 @@ namespace UwEditor.App
             if (Selected != null) list.SelectedItem = rows.FirstOrDefault(x => x.Report.Item == Selected.Item);
         }
 
+        /// <summary>The big picture, from OBJECTS.GR as it is in the editor (with changes not saved yet).</summary>
+        void ShowPicture(int item)
+        {
+            var f = session.Pictures.Get("OBJECTS.GR");
+            var img = f != null && item < f.Count ? f.Get(item, session.Pictures.Palettes, f.DefaultPalette(item)) : null;
+            picture.Source = img == null ? null : Pictures.ToBitmap(img);
+        }
+
+        /// <summary>A picture file was saved: the list's icons and the big picture are taken again.</summary>
+        public void RefreshIcons()
+        {
+            if (list.ItemsSource is IEnumerable<Row> rows) foreach (var r in rows) r.Icon = main.ViewModel.IconOf(r.Report.Item);
+            if (Selected != null) ShowPicture(Selected.Item);
+        }
+
         /// <summary>Shows one item's slot.</summary>
         public void ShowItem(int item)
         {
@@ -193,9 +215,7 @@ namespace UwEditor.App
                 : "Only objects, creature loot or combinations use it: move or delete those, or keep them as the new item.";
             verdict.Foreground = r.Free ? new SolidColorBrush(Color.Parse("#62C370")) : r.Bound ? new SolidColorBrush(Color.Parse("#FF8A65")) : new SolidColorBrush(Color.Parse("#FFC24A"));
             ParseName(NameOf(item));
-            var f = session.Pictures.Get("OBJECTS.GR");
-            var img = f != null && item < f.Count ? f.Get(item, session.Pictures.Palettes, f.DefaultPalette(item)) : null;
-            picture.Source = img == null ? null : Pictures.ToBitmap(img);
+            ShowPicture(item);
             stats.Text = StatsText(item);
             uses.ItemsSource = r.Uses.Count == 0 ? new List<ItemUse> { new ItemUse { Kind = "", Text = "(nothing)" } } : r.Uses.OrderBy(u => u.Kind == "code" ? 0 : u.Kind == "named" ? 1 : u.Kind == "conversation" ? 2 : u.Kind == "creature" ? 3 : u.Kind == "combination" ? 4 : 5).ToList();
         }

@@ -14,7 +14,8 @@ namespace UwEditor.App
     {
         public int Item { get; set; } = -1;
         public string Label { get; set; }
-        public Bitmap Icon { get; set; }
+        Bitmap icon;
+        public Bitmap Icon { get { return icon; } set { Set(ref icon, value); } }
         public bool IsGroup { get { return Item < 0; } }
         public ObservableCollection<ItemChoice> Children { get; } = new ObservableCollection<ItemChoice>();
         bool expanded;
@@ -46,9 +47,18 @@ namespace UwEditor.App
         public static readonly string[] AttitudeNames = { "0: hostile", "1: upset", "2: mellow", "3: friendly" };
         public string[] Attitudes { get { return AttitudeNames; } }
 
+        readonly Func<int, Bitmap> iconOf;
+
+        /// <summary>Takes the items' icons again (a picture file was saved).</summary>
+        public void RefreshIcons()
+        {
+            foreach (var c in all) c.Icon = iconOf?.Invoke(c.Item);
+        }
+
         public AddObjectModel(GameSession s, Func<int, Bitmap> icon, bool forInventory)
         {
             Session = s;
+            iconOf = icon;
             ForInventory = forInventory;
             all = new List<ItemChoice>();
             for (int i = 0; i < 0x200; i++)

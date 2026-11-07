@@ -86,5 +86,30 @@ namespace UwEditor.Core.Tests
             Assert.Equal(15, s.LoadLevel(1).CeilingFloorIndex);
             Assert.DoesNotContain(LevelGeometry.Build(s.LoadLevel(65), true).TriangleKind, k => k == 2);
         }
+
+        [Theory]
+        [InlineData("UW")]
+        [InlineData("UW2")]
+        public void A_walls_texture_starts_at_its_top_edge_as_the_games_does(string game)
+        {
+            string g = GameData.Game(game); if (g == null) return;
+            var s = GameSession.Open(g);
+            var mesh = LevelGeometry.Build(s.LoadLevel(1), false);
+            int faces = 0, offGrid = 0;
+            // a wall is two triangles in a row: (bottom a, bottom b, top b) and (bottom a, top b, top a)
+            for (int t = 0; t + 1 < mesh.TriangleCount; t++)
+            {
+                if (mesh.TriangleKind[t] != 1) continue;
+                var a0 = mesh.Vertices[3 * t]; var b0 = mesh.Vertices[3 * t + 1]; var b1 = mesh.Vertices[3 * t + 2]; var a1 = mesh.Vertices[3 * t + 5];
+                Assert.Equal(0, b1.V); Assert.Equal(0, a1.V);
+                float h = ((a1.Y - a0.Y) + (b1.Y - b0.Y)) / 2;
+                Assert.Equal(h, a0.V, 4); Assert.Equal(h, b0.V, 4);
+                faces++;
+                if (Math.Abs(a1.Y - Math.Round(a1.Y)) > 0.01) offGrid++;      // a step whose top is not a whole tile up
+                t++;
+            }
+            Assert.True(faces > 100);
+            Assert.True(offGrid > 0);
+        }
     }
 }

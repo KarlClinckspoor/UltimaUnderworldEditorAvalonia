@@ -9,9 +9,12 @@ using UwEditor.Core.Editing;
 namespace UwEditor.App
 {
     /// <summary>Chooses a new object and fills in a form that fits its kind (AddObjectModel).</summary>
-    public partial class AddObjectWindow : Window
+    public partial class AddObjectWindow : Window, IShowsItemIcons
     {
         public AddObjectModel Model { get; private set; }
+
+        /// <summary>A picture file was saved: the items' icons are taken again.</summary>
+        public void RefreshIcons() { Model?.RefreshIcons(); }
         /// <summary>The object chosen, or null when cancelled.</summary>
         public ObjectSpec Result { get; private set; }
         public bool Inside { get { return InsideBox.IsChecked == true; } }

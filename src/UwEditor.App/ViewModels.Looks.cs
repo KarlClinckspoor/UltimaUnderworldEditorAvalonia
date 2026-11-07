@@ -58,6 +58,14 @@ namespace UwEditor.App
             return true;
         }
 
+        /// <summary>A texture file was saved (the graphics read again): the tile panel's and the brush's pictures again.</summary>
+        public void RefreshTextures()
+        {
+            if (level == null) return;
+            Select(selectedObject, selectedTileX, selectedTileY, false);
+            RefreshSlots();
+        }
+
         /// <summary>Selects again with every row of the panel made anew (a refused value shows the old one again).</summary>
         void ReselectFresh()
         {
