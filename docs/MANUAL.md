@@ -38,10 +38,13 @@ folder with Open game folder and naming the image on the command line.
 3. It asks which game to edit now. Both are copied, into `UW` and `UW2`; the other one opens
    with Open game folder.
 
-Each copy gets every file of its game on the disc, plus the install's `UNDEROM1` or
-`UNDEROM2` files (the sound setup GOG's installer wrote), so it plays as GOG's does. The
-folder of the copies keeps a note, `GOG install.txt`, naming the install, so **Run in DOSBox**
-and **Play test** use the install's DOSBox and settings.
+Each copy gets every file of its game on the disc, plus that game's `UNDEROM1` or
+`UNDEROM2` files (the sound setup GOG's installer wrote), so it plays as GOG's does. Each game
+has its own install, so the other game's files come from its install beside this one
+(`Ultima Underworld 2` next to `Ultima Underworld`). When that game is not installed, the
+editor says so: its copy keeps the disc's own `UW.CFG`, which has no sound. The folder of the
+copies keeps a note, `GOG install.txt`, naming each game's install, so **Run in DOSBox** and
+**Play test** use that install's DOSBox and settings.
 
 **The GOG install is never changed.** GOG Galaxy and the install's shortcuts always play the
 original game from `game.gog`, which never sees the copy. To play a game changed here, make
@@ -632,6 +635,251 @@ words as the script has variables), and a new game makes that file from `DATA\BA
 an empty slot gets a conversation, saving grows or adds its record in `BABGLOBS.DAT`, and in
 the open save's `BGLOBALS.DAT` too (new words 0, the others kept). Records are never made
 smaller. Other saved games are not changed.
+
+#### Recipes
+
+Worked examples in the Dialogue tab's language, each based on a shipped conversation. Each was
+spliced into the UW1 conversation named, compiled and run in the simulator
+(`tests/UwEditor.Core.Tests/ConversationRecipesTests.cs`). A recipe that is a function can go
+anywhere in the source: call it from a menu choice or from the opening function. The item
+numbers are UW1's; where UW2 differs, it says so. First:
+- Every conversation imports the game's built-ins and the variables it fills in, so any
+  conversation can use them (but five UW1 ones, slots 11, 26, 115, 186 and 295, lack
+  `find_barter_total`: the compiler says so).
+- A private global (`global34`, or a name such as `met_before`) must be below the
+  conversation's variable count, given in the first line's comment. The compiler does not add
+  variables: to get a new one, raise `.variables` on the Script tab and Apply, then use the
+  next number. Saving grows its record (above).
+- Items are given by their object id in decimal (177 is 0xB1, a loaf of bread). An entry of 1000
+  or more names a class of 16 items, 1000 + id / 16: 1011 is 176-191 (food), 1000 is 0-15 (axes,
+  swords, maces).
+- New lines become new strings at the end of the conversation's block when you Apply.
+
+**Trade one item for another.** The player gives rotworm stew, the NPC gives dragon scales, as
+the old troll of slot 17 does.
+
+```
+trade_stew_for_scales() {
+    int stew, given;
+    stew = find_barter(283);
+    if (stew == 0) {
+        say "Thou hast not offered me any rotworm stew.";
+        return;
+    }
+    give_ptr_npc(&stew, -1);
+    given = take_from_npc(285);
+    if (given == 2) {
+        say "Thine arms are full. I leave the scales on the floor.";
+    }
+}
+```
+
+- Before choosing the answer that calls this, the player puts the stew in one of their trade
+  slots on the conversation screen (four, UW2 six) and clicks it to select it. `find_barter`
+  gives that object, or 0 when no selected slot holds item 283; `give_ptr_npc(&stew, -1)` moves
+  it to the NPC (-1: the whole stack).
+- `take_from_npc(285)` hands over the NPC's first object of type 285: into the player's hand,
+  else a free trade slot (1), else onto the floor beside the NPC (2). It gives nothing (0) when
+  the NPC has none or the player's hand already holds something.
+- The NPC must own the item: put it in the creature's inventory in the level, or make it with
+  `do_inv_create` (next recipe). A creature whose **Inventory made** flag is clear also gets its
+  class's loot the first time it talks or trades.
+
+**Give an item after a menu choice.** Once only.
+
+```
+offer_bread() {
+    say "Wilt thou take a loaf of bread for the road?";
+    menu {
+        "Yes, I thank thee.":
+            if (global34 == 0) {
+                global34 = 1;
+                do_inv_create(177);
+                if (take_from_npc(177) == 2) {
+                    say "Thy hands are full. I leave it at thy feet.";
+                }
+            } else {
+                say "I gave thee my last loaf already.";
+            }
+        "No, keep it.";
+    }
+}
+```
+
+- `do_inv_create(177)` makes a loaf (quality 63) in the NPC's inventory and `take_from_npc`
+  hands it over. Biden (slot 143) gives a scroll this way, Anjor (slot 161) a gold nugget.
+- `global34` keeps the gift to once: a private global keeps its value from one conversation to
+  the next. The test splices this into Corby (slot 1), whose 34 variables end at `global33`,
+  after raising `.variables` to 35; use a global your conversation has and nothing else uses.
+- A choice written with `;` has no statements: the menu just ends.
+
+**Wait for the player, threaten, attack.** The waiting is object data; the conversation does
+the rest.
+
+```
+thou_hast_come_far_enough() {
+    say "Thou hast come far enough, @GS8. Draw thy weapon!";
+    menu {
+        "Wait! I mean thee no harm.":
+            say "Thy words mean nothing to me.";
+        "Then have at thee!";
+    }
+    npc_attitude = 0;
+    npc_goal = 5;
+    npc_gtarg = 1;
+    exit;
+}
+```
+
+- In the creature's object properties set **Goal** to 10. It then stands where it is; when it
+  sees or hears the player within about 2.5 tiles it turns to face them, and when the player is
+  within about 1.5 tiles and facing it the conversation starts by itself (critter/AI.C
+  `crit_talk`). Rodrick (slot 142, level 4) ships this way, as do the stone golem of level 6 and
+  the goblin guards of level 7. Make this function the first thing the opening calls.
+- UW1: **Attitude** may be anything, 0 hostile included (Rodrick's): a creature with goal 10
+  talks however it feels. UW2: a hostile one with goal 10 turns to guarding and attacks without a
+  word, so give it 1 to 3.
+- When the conversation ends the game copies `npc_attitude`, `npc_goal` and `npc_gtarg` back to
+  the creature and sets its **Talked to** flag. Goal 5 with target 1 attacks the player;
+  attitude 0 keeps it hostile, and clicking it to talk gets "You get no response" (UW1 lets
+  Rodrick, the golem and Tyball talk anyway). The library's
+  `attack_and_end()` does the same with attitude 1 (upset), through `end_conversation`.
+- An ending that leaves the goal at 10 starts the conversation again as soon as the player
+  faces the creature: a peaceful ending sets `npc_goal` too (0 stand, 8 mill about).
+- `set_race_attitude(race, attitude, range)` turns its kind nearby too, as the level 7 goblin
+  guards (slot 209) do with `set_race_attitude(9, 0, 6)`.
+
+**Barter, likes and greed.**
+
+```
+trade_goods() {
+    int finished, likes[3], dislikes[2];
+    likes[1] = 1011;
+    likes[2] = -1;
+    dislikes[1] = 1000;
+    dislikes[2] = -1;
+    set_likes_dislikes(likes, dislikes);
+    setup_to_barter();
+    finished = 0;
+    while (!finished) {
+        menu {
+            "I make thee this offer.":
+                if (do_offer("Done!", "That is not enough.", "That is worse than before!", "I tire of this.", "Thou hast offered nothing.")) {
+                    finished = 1;
+                }
+            "I demand that thou givest me these items.":
+                if (do_demand("Take them, then.", "Never! Thou shalt pay for that!")) {
+                    finished = 1;
+                } else {
+                    attack_and_end();
+                }
+            "Excuse me, I must think about this deal.":
+                do_judgement();
+            "I do not wish to barter any further.":
+                do_decline();
+                finished = 1;
+        }
+    }
+}
+```
+
+- There is no separate barter screen: the trade slots are on every conversation screen.
+  `setup_to_barter()` fills the NPC's slots from its inventory, skipping its first weapon and
+  anything worth nothing (with more items than slots, some are picked at random). The player
+  selects items on both sides. `do_offer` tries the trade and says one of its five lines
+  (accepted, not enough, worse than the last offer, out of patience, nothing selected); it gives
+  1 when the trade is made. `do_demand` asks for the NPC's selected items for nothing,
+  `do_judgement` says the player's own appraisal, `do_decline` puts the NPC's items back. The
+  mountainman traders (slots 276 and 278) have this loop.
+- After Apply the Dialogue tab shows `do_offer`'s and `do_demand`'s lines as their numbers
+  (`do_offer(47, 48, 49, 50, 51)`); edit them on the Strings tab.
+- A refused demand sets the NPC to attack, but when the conversation ends the game copies
+  `npc_goal` back over that, so call `attack_and_end()` (or set `npc_goal` and `npc_gtarg`), as
+  the shipped traders do.
+- `set_likes_dislikes(likes, dislikes)` takes two lists ending in -1, of item ids or classes. A
+  liked item is worth 1.5 times as much to the NPC; a disliked one is worth nothing and is not
+  taken. The game keeps only where the lists are, and forgets them when a conversation starts:
+  keep them in locals of the function that runs the haggling (as here) or in private globals,
+  and call it every conversation before the first offer. Zak (slot 28) calls it only on the
+  first visit, so later visits trade without them; slots 6, 276 and 278 have the call in a
+  function nothing calls.
+- Greed (the gain in per cent the NPC wants), patience (bad offers it takes) and how far off its
+  valuations are come from its creature class: **Haggle**, **Patience** and **Shrewd** in Object
+  tables' **Creatures**, blurred for each creature by its object number, then the player's
+  **Charm** lowers the greed by 2 a point and raises the patience by half. The game works them
+  out when the conversation starts and no built-in reads or changes them, so a conversation
+  cannot make a trader greedier: change the class's figures (every creature of the class) or use
+  another class. The Barter simulator (above, under Balance) shows a trader's figures and what it
+  accepts.
+
+**Answers the player types.** Passwords, riddles, names.
+
+```
+ask_for_the_password() {
+    int typed;
+    say "Halt! What is the password?";
+    menu {
+        "Other...":
+            typed = babl_ask();
+            if (contains("Deco Morono", &typed)) {
+                say "Pass, friend.";
+            } else {
+                say "That's not it! Begone!";
+                upset_and_end();
+            }
+        "I do not know it.":
+            say "Then thou shalt not pass.";
+    }
+}
+```
+
+- `babl_ask()` lets the player type up to 50 characters and gives the number of a string
+  holding them; keep it in a variable and pass its address. The shipped scripts offer it as a
+  menu choice "Other...".
+- `contains(word, text)` is 1 when the text holds the word or phrase as a whole word, ignoring
+  case: "deco morono, I say" passes, "decomorono" does not. `compare(a, b)` is 1 when the two
+  strings are the same, ignoring case: the whole answer must match.
+- Shipped ones: Steeltoe (slot 21) wants the password "Deco Morono"; Garamon (slot 27) waits for
+  "Talismans", then "volcano" or "lava", counting wrong tries in a global to give hints; Murgo
+  (slot 24) has the player guess his name and try lizardman words, with `compare`.
+- The mantras chanted at shrines are not a conversation: the game's own code reads them, and the
+  conversation editor cannot change them.
+
+**One NPC knows the player met another.** In A's opening function (Hagbard's, slot 19, has
+`set_quest(1, 1);` there):
+
+```
+set_quest(12, 1);
+```
+
+In B, a function its opening calls first:
+
+```
+greet_hagbards_friend() {
+    if (get_quest(12) == 1) {
+        say "Hagbard told me thou wouldst come. Welcome, friend.";
+    } else {
+        say "Thou art new here. Speak with Hagbard, our leader, first.";
+    }
+}
+```
+
+- Quest flags are kept in the player's record (`PLAYER.DAT`): every conversation reads the same
+  ones, so they carry news from one NPC to another. Hagbard sets quest 1 when first met, and
+  Gulik (slot 20) reads it to catch the player in a lie.
+- UW1 has quest flags 0-31 and quest bytes 32-35, but a conversation can use only flags 0-14
+  (`get_quest` and `set_quest` shift a 16-bit 1: flags 16-31 read 0 and never change, and
+  setting 15 sets 16-31 too). The shipped game uses 0-11 and 32, so 12 to 14 are free, and 33 to
+  35 hold 0-255. UW2 has flags 0-127 (set them
+  to 0 or 1 only) and bytes 128-143. **Tools ▸ Global variables** lists which ones the
+  conversations use.
+- A private global (`met_before` in most conversations, set by `end_conversation`) is kept per
+  conversation slot in `BGLOBALS.DAT`: no other conversation can read it, and every creature
+  that talks with that slot shares it (all goblins with the generic goblin conversation).
+  `npc_talkedto` is per creature: its **Talked to** flag, which the game sets after every
+  conversation with it. Hagbard opens differently with it.
+- The game variables (`x_traps`, shared with set and check variable traps) are another shared
+  store.
 
 ### Names and F2
 
@@ -2684,8 +2932,8 @@ from the game carries them):
 - **then a page that says only SOLUTIONS NEXT**, so that turning one page too far does not
   give anything away;
 - **then the solutions:** each item's level, square and what holds it ("L3 (12, 40) in sack").
-- **Which items:** the artifacts (talismans, the Key of Infinity's parts and the plot items),
-  and every other key item the shuffled game cannot be finished without. That is checked by
+- **Which items:** the artifacts (the talismans, the Key of Infinity's parts, and Caliburn,
+  its blade and its hilt), whether or not the logic needs them, and every other key item the shuffled game cannot be finished without. That is checked by
   solving the shuffled game without the item, with the run's logic options. So a key to a door
   the options let you bash or pick, or that you can go round, gets no hint, and neither does
   one of two keys to the same lock.
@@ -2762,8 +3010,10 @@ solver of the automatic zones (with the world changing over time) finds the plac
 reach, counting every key item not placed yet as already held. One of those places is chosen
 at random. The other items then fill the remaining places at random. At the end the shuffled
 levels are solved again from scratch, with nothing counted as held. The goal must be reached,
-and no one-way trap may strand the player with something he needs. If not, the next seed is
-tried, up to **Retries** times. The same seed on the same levels gives the same shuffle.
+and no one-way trap may strand the player with something they need. If not, the next seed is
+tried, up to **Retries** times. The same seed on the same levels gives the same shuffle, and
+the seed the log names (after failed attempts, the one that worked) gives it again on its own:
+Place anywhere draws each attempt's squares from that attempt's seed.
 
 **Doors with lock picking off.** When lock picking is not in the logic, a key item never goes
 behind a door that only picking opens. If something the logic needs and that does not move

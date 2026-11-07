@@ -83,24 +83,28 @@ namespace UwEditor.Core.Conversations
                     Sim.StackPointer += t.Fn.Locals - 1;
                 }
                 int label = -1;
+                int epilogue = t.Fn.EpilogueIdx >= 0 ? t.Fn.Flats[t.Fn.EpilogueIdx].Start : -1;
+                // a jump straight to the epilogue (a bare return; in a function that returns a value) skips the exit block, as the bytecode does
+                bool skipExit = false;
                 while (true)
                 {
                     try
                     {
                         if (label < 0) Exec(t.Body);
-                        else if (label == t.Fn.ExitAddr || t.Fn.EpilogueIdx >= 0 && label == t.Fn.Flats[t.Fn.EpilogueIdx].Start) { }
+                        else if (label == t.Fn.ExitAddr) { }
+                        else if (epilogue >= 0 && label == epilogue) skipExit = true;
                         else ExecFrom(t.Body, label);
                         break;
                     }
                     catch (Jump j)
                     {
-                        if (j.What == "return") break;
+                        if (j.What == "return") { if (epilogue >= 0 && j.Label == epilogue) skipExit = true; break; }
                         if (j.What == "goto") { label = j.Label; continue; }
                         throw new SimFault(j.What + " outside a loop");
                     }
                 }
                 // the exit block: push local; SAVE_REG; POP
-                if (t.Fn.ExitIdx >= 0)
+                if (t.Fn.ExitIdx >= 0 && !skipExit)
                 {
                     Sim.PushWord(Sim.Mem(Sim.StackBase + bp + t.Fn.Result));
                     Sim.Register = (short)Sim.PopWord();

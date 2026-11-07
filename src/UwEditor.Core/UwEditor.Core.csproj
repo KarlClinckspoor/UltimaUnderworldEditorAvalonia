@@ -5,6 +5,9 @@
     <RootNamespace>UwEditor.Core</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="UwEditor.Core.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../Underworld.Formats/Underworld.Formats.csproj" />
     <ProjectReference Include="../Underworld.Mods/Underworld.Mods.csproj" />
   </ItemGroup>

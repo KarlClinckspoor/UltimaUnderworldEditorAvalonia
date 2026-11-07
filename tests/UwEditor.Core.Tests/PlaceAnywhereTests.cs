@@ -169,7 +169,9 @@ namespace UwEditor.Core.Tests
             }
             // the items worth a hint: every artifact, every crucial item, and nothing else; each with a hint and a solution
             var worth = r.Moves.Where(r.WorthAHint).ToList();
-            Assert.All(r.Moves.Where(m => m.ByFill && KeyShuffleResult.IsArtifact(m.Item)), m => Assert.Contains(m, worth));
+            // every artifact, whether the fill placed it or not (Caliburn's blade is no key the logic asks for)
+            Assert.All(r.Moves.Where(m => KeyShuffleResult.IsArtifact(m.Item)), m => Assert.Contains(m, worth));
+            Assert.All(worth.Where(m => !m.ByFill), m => Assert.True(KeyShuffleResult.IsArtifact(m.Item), m.Item.Name + " is no key item and no artifact"));
             Assert.True(worth.Count < r.Moves.Count(m => m.ByFill), "some key items get no hint");
             Assert.Contains(worth, m => !KeyShuffleResult.IsArtifact(m.Item));
             output.WriteLine("{0} of {1} key items get a hint", worth.Count, r.Moves.Count(m => m.ByFill));
@@ -348,6 +350,27 @@ namespace UwEditor.Core.Tests
             Assert.True(o.PlaceAnywhere);
             var r = ItemShuffle.Run(s, edits.Model, o);
             Assert.Equal(0, r.Moved);
+        }
+
+        [Fact]
+        public void The_seed_a_retry_used_gives_the_same_scatter_and_shuffle_again()
+        {
+            var s = Uw1(); if (s == null) return;
+            // two attempts counted as failed: the third, seed 42, is the run
+            var retried = KeyShuffle.Run(s, null, new KeyShuffleOptions { Seed = 40, FailAttempts = 2 });
+            Assert.True(retried.Success, string.Join("; ", retried.Failures));
+            Assert.Equal(3, retried.Attempts);
+            Assert.Equal(42, retried.UsedSeed);
+            var again = KeyShuffle.Run(s, null, new KeyShuffleOptions { Seed = 42 });
+            Assert.True(again.Success, string.Join("; ", again.Failures));
+            Assert.Equal(1, again.Attempts);
+            Func<KeyShuffleResult, List<string>> moves = r => r.Moves
+                .Select(m => m.Item.Level + ":" + m.Item.Index + " -> " + m.Place.Level + ":" + m.Place.Index + " (" + m.Place.X + ", " + m.Place.Y + ")")
+                .OrderBy(x => x, StringComparer.Ordinal).ToList();
+            Assert.Equal(moves(again), moves(retried));
+            Assert.Equal(again.Relocated, retried.Relocated);
+            Assert.Equal(again.After.Keys.OrderBy(k => k), retried.After.Keys.OrderBy(k => k));
+            foreach (var kv in again.After) Assert.True(kv.Value.AsSpan().SequenceEqual(retried.After[kv.Key]), "level " + kv.Key + " differs");
         }
     }
 }

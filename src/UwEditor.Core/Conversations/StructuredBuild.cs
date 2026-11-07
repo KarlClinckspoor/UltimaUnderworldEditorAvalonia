@@ -673,11 +673,12 @@ namespace UwEditor.Core.Conversations
                 return fa != null && fa.Offset == Fn.Result;
             }
 
-            /// <summary>A jump out of the statements around it: break, continue, return (to a void function's end) or goto.</summary>
+            /// <summary>A jump out of the statements around it: break, continue, return (to the function's end:
+            /// in a function that returns a value, a bare return; skips the exit block) or goto.</summary>
             JumpNode JumpOut(Flat f, Expr when, Scope sc)
             {
                 string what = f.Dest == sc.Continue ? "continue" : f.Dest == sc.Break ? "break"
-                    : Fn.EpilogueIdx >= 0 && Fn.ExitAddr < 0 && f.Dest == fl[Fn.EpilogueIdx].Start ? "return" : "goto";
+                    : Fn.EpilogueIdx >= 0 && f.Dest == fl[Fn.EpilogueIdx].Start ? "return" : "goto";
                 var j = new JumpNode { F = f, Dest = f.Dest, When = when, What = what };
                 j.Covers.Add(f);
                 return j;

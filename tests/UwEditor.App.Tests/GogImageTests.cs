@@ -57,8 +57,14 @@ namespace UwEditor.App.Tests
             string install = Path.Combine(dir, "Ultima Underworld"), dest = Path.Combine(dir, "copies");
             Directory.CreateDirectory(install);
             File.WriteAllText(Path.Combine(install, "dosboxULTIMA1.conf"), "[dosbox]\nmachine=svga_s3\n");
+            // GOG installs the second game beside the first, with its own sound setup and settings
+            string install2 = Path.Combine(dir, "Ultima Underworld 2");
+            Directory.CreateDirectory(Path.Combine(install2, "UNDEROM2", "DATA"));
+            File.WriteAllText(Path.Combine(install2, "UNDEROM2", "DATA", "UW.CFG"), "4 7 220 1 sound");
+            File.WriteAllText(Path.Combine(install2, "dosboxULTIMA2.conf"), "[dosbox]\nmachine=svga_s3\n");
             string image = Path.Combine(install, "game.gog");
             FakeGogImage.FromFolders(image, new Dictionary<string, string> { ["UW"] = Path.Combine(root, "UW"), ["UW2"] = Path.Combine(root, "UW2") });
+            File.Copy(image, Path.Combine(install2, "game.gog"));   // the same image in both installs, as GOG ships it
             var before = File.ReadAllBytes(image);
             try
             {
@@ -81,8 +87,11 @@ namespace UwEditor.App.Tests
                 // nothing new in the install; the copies and nothing else beside it
                 Assert.Equal(new[] { "dosboxULTIMA1.conf", "game.gog" }, Directory.GetFileSystemEntries(install).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal));
                 Assert.Equal(new[] { Underworld.Mods.GogImage.InstallNote, "UW", "UW2" }, Directory.GetFileSystemEntries(dest).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal));
-                // Run in DOSBox finds GOG's settings in the install the copies came from
-                Assert.Equal(Path.Combine(install, "dosboxULTIMA1.conf"), UwEditor.Core.DosBoxConfig.FindGogConf(Path.Combine(dest, "UW2")), ignoreCase: true);
+                // Run in DOSBox finds GOG's settings in each game's own install: the second game's beside the first
+                Assert.Equal(Path.Combine(install, "dosboxULTIMA1.conf"), UwEditor.Core.DosBoxConfig.FindGogConf(Path.Combine(dest, "UW")), ignoreCase: true);
+                Assert.Equal(Path.Combine(install2, "dosboxULTIMA2.conf"), UwEditor.Core.DosBoxConfig.FindGogConf(Path.Combine(dest, "UW2")), ignoreCase: true);
+                // and the second game's copy has its install's sound setup, though the image came from the first
+                Assert.Equal("4 7 220 1 sound", File.ReadAllText(Path.Combine(dest, "UW2", "DATA", "UW.CFG")));
 
                 // the recent list: the copy, then the image (which starts over)
                 var recent = Settings.Load().Recent;

@@ -26,8 +26,9 @@ was brought in with its history from `KarlClinckspoor/UltimaUnderworldsModManage
   game from `game.gog`, so a modded game plays only through the manager's **Play**. Play
   uses the install's DOSBox and GOG's settings (`dosboxULTIMA1.conf` or 2, which GOG's Graphic
   Mode Setup changes), not the setup that mounts the image, then the manager's start, which
-  mounts the copy. Forgetting the game deletes the copy, unless it holds saved games or an
-  Exhumed game plays from it. Exhumed added on such an install reads the manager's copy of the
+  mounts the copy. The other game of the image takes its sound setup (`UNDEROM2` or 1) from its
+  own install beside this one, when it is there. Forgetting the game deletes the copy,
+  unless it holds saved games or an Exhumed game plays from it. Exhumed added on such an install reads the manager's copy of the
   same game (add that game as a DOS game first).
 - **DOS games are changed in place.** Before the manager touches a file it keeps the original
   in its vault, so the original game is always one click away. Where the editor has written a

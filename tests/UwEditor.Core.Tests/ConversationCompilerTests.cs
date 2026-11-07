@@ -455,6 +455,30 @@ namespace UwEditor.Core.Tests
         }
 
         [Fact]
+        public void A_bare_return_in_a_function_returning_a_value_reads_back_as_return()
+        {
+            // return; jumps past the exit block to the epilogue: once read as "goto", with the "return 5" lost
+            var r = CompileCorby(t => Replace(t, "    met_before = 1;\n", "    met_before = zz_pick(2);\n")
+                + "\nzz_pick(a) {\n    if (a == 1) {\n        return;\n    }\n    return 5;\n}\n", out var lib);
+            if (r == null) return;
+            Assert.True(r.Ok, string.Join("; ", r.Errors));
+            lib.Apply(r);
+            var c = lib.Archive.Read(1);
+            string view = lib.Decompile(c).Text;
+            // lib.Apply keeps no names: the function is called what its address makes it
+            string name = System.Text.RegularExpressions.Regex.Match(view, @"met_before = (\w+)\(2\);").Groups[1].Value;
+            int at = view.IndexOf("\n" + name + "(", StringComparison.Ordinal);
+            Assert.True(name.Length > 0 && at >= 0, view);
+            string fn = view.Substring(at + 1);
+            Assert.Contains("return;", fn);
+            Assert.Contains("return 5;", fn);
+            Assert.DoesNotContain("goto", fn.Substring(0, fn.IndexOf("\n}", StringComparison.Ordinal)));
+            var again = lib.Compile(c, view);
+            Assert.True(again.Ok, string.Join("; ", again.Errors));
+            Assert.True(again.Conversation.ToBytes().SequenceEqual(c.ToBytes()));
+        }
+
+        [Fact]
         public void The_parser_reads_every_construct_of_the_language()
         {
             var errors = new List<SourceError>();

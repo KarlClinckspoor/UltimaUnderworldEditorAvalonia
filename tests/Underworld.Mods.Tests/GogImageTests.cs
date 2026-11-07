@@ -59,6 +59,33 @@ namespace Underworld.Mods.Tests
         }
 
         [Fact]
+        public void The_other_game_takes_the_sound_setup_of_its_own_install_beside_this_one()
+        {
+            string image = Path.Combine(dir, "Ultima Underworld", "game.gog");
+            Directory.CreateDirectory(Path.GetDirectoryName(image));
+            FakeGogImage.Write(image, SmallDisc());
+            string uw1 = Path.GetDirectoryName(image), uw2 = Path.Combine(dir, "Ultima Underworld 2");
+            Directory.CreateDirectory(Path.Combine(uw1, "UNDEROM1", "DATA"));
+            File.WriteAllText(Path.Combine(uw1, "UNDEROM1", "DATA", "UW.CFG"), "one");
+            // without the second game's install, it has no setup of its own
+            Assert.Null(GogImage.SetupInstall(uw1, GameKind.UW2));
+            Directory.CreateDirectory(Path.Combine(uw2, "UNDEROM2", "DATA"));
+            File.WriteAllText(Path.Combine(uw2, "UNDEROM2", "DATA", "UW.CFG"), "two");
+            // a folder with a setup but no image of the same release is not the other install
+            Assert.Null(GogImage.SetupInstall(uw1, GameKind.UW2));
+            File.Copy(image, Path.Combine(uw2, "game.gog"));
+            Assert.Equal(Path.GetFullPath(uw1), GogImage.SetupInstall(uw1, GameKind.UW1));
+            Assert.Equal(Path.GetFullPath(uw2), GogImage.SetupInstall(uw1, GameKind.UW2));
+            GogImage.Extract(image, GameKind.UW2, Path.Combine(dir, "copy", "UW2"), uw1);
+            Assert.Equal("two", File.ReadAllText(Path.Combine(dir, "copy", "UW2", "DATA", "UW.CFG")));
+            // the note names each game's install; a game folder reads its own line
+            GogImage.WriteInstallNote(Path.Combine(dir, "copy"), uw1, new Dictionary<GameKind, string> { [GameKind.UW1] = uw1, [GameKind.UW2] = uw2 });
+            Assert.Equal(Path.GetFullPath(uw2), GogImage.InstallOf(Path.Combine(dir, "copy", "UW2")));
+            Directory.CreateDirectory(Path.Combine(dir, "copy", "UW"));
+            Assert.Equal(Path.GetFullPath(uw1), GogImage.InstallOf(Path.Combine(dir, "copy", "UW")));
+        }
+
+        [Fact]
         public void A_zip_with_the_disc_in_a_folder_is_read_too()
         {
             string image = Path.Combine(dir, "game.gog");

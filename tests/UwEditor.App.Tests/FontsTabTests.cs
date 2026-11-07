@@ -111,6 +111,41 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void An_import_and_a_header_change_are_each_one_undo_step()
+        {
+            if (Uw1 == null) return;
+            using (var copy = new GameCopy(Uw1, "DATA"))
+            {
+                var w = Ui.Open(copy.Folder);
+                var gw = w.ShowGraphics();
+                Ui.Pump();
+                gw.ShowTab(3);
+                Ui.Pump();
+                var p = gw.FontsPanel;
+                // another font's BDF (another height), imported into the scroll font
+                p.SelectFont("FONTBIG.SYS");
+                string bdf = Path.Combine(copy.Folder, "big.bdf");
+                File.WriteAllText(bdf, FontBdf.Export(p.Font, w.ViewModel.Session.Accents));
+                p.SelectFont("FONT5X6P.SYS");
+                var before = p.Font.ToBytes();
+                p.ImportBdf(bdf);
+                Assert.False(p.Font.ToBytes().SequenceEqual(before));
+                p.Undo();
+                Assert.Equal(before, p.Font.ToBytes());
+                // the space width: one step, header and all
+                int space = p.Font.SpaceWidth;
+                p.Font.SpaceWidth = space;   // unchanged: no step
+                p.SetSpaceWidth(space + 2);
+                Assert.Equal(space + 2, p.Font.SpaceWidth);
+                p.Undo();
+                Assert.Equal(space, p.Font.SpaceWidth);
+                Assert.Equal(before, p.Font.ToBytes());
+                gw.Close();
+                w.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void A_red_warning_says_the_executable_must_change_when_the_stock_codes_run_out()
         {
             if (Uw1 == null) return;

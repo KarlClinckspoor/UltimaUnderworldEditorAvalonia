@@ -18,7 +18,8 @@ namespace UwEditor.Core.Randomizer
     /// the name of the hand-made zone they lie in, or the level and the part of it), on as many
     /// pages as they need; then a page that says the solutions come next and nothing else; then
     /// the solutions (level, square and what holds it). Only the items worth a hint are given:
-    /// the artifacts (talismans, the Key of Infinity's parts, plot items) and the key items the
+    /// the artifacts (the talismans, the Key of Infinity's parts, Caliburn, its blade and its hilt:
+    /// KeyShuffleResult.IsArtifact), whatever placed them, and the key items the
     /// shuffled game cannot be finished without (KeyShuffleResult.WorthAHint), so not a key to a
     /// door the logic lets the player bash, pick or go round. The map screen draws notes in FONT4X5P.SYS
     /// (ui/AUTOMAP.C RedisplayStrings), which has capitals only: every line is in capitals

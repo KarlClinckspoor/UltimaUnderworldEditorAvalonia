@@ -51,29 +51,75 @@ namespace Underworld.Mods
         /// <summary>The note the editor leaves in the folder holding its copies (UW, UW2): the GOG install they came from, whose DOSBox and settings play them.</summary>
         public const string InstallNote = "GOG install.txt";
 
-        public static void WriteInstallNote(string copiesFolder, string install)
+        /// <summary>
+        /// Writes the note: the install the image came from on its first line, then each game's own
+        /// install ("UW: …", "UW2: …"), whose DOSBox settings play that game (GOG installs each game
+        /// on its own, both with the same image).
+        /// </summary>
+        public static void WriteInstallNote(string copiesFolder, string install, IDictionary<GameKind, string> perGame = null)
         {
-            File.WriteAllText(Path.Combine(copiesFolder, InstallNote),
-                Path.GetFullPath(install) + "\n\nThe GOG install these games were copied from (its game.gog). The editor runs them with its DOSBox and settings; the install itself is not changed.\n");
+            var sb = new System.Text.StringBuilder(Path.GetFullPath(install)).Append('\n');
+            if (perGame != null)
+                foreach (var kv in perGame.OrderBy(k => k.Key))
+                    if (kv.Value != null) sb.Append(FolderOf(kv.Key)).Append(": ").Append(Path.GetFullPath(kv.Value)).Append('\n');
+            sb.Append("\nThe GOG install these games were copied from (its game.gog), then each game's own install. The editor runs them with its DOSBox and settings; the installs themselves are not changed.\n");
+            File.WriteAllText(Path.Combine(copiesFolder, InstallNote), sb.ToString());
         }
 
-        /// <summary>The GOG install a copy came from (the note in its folder or the one above), when it is still there; else null.</summary>
+        /// <summary>The GOG install a copy came from (the note in its folder or the one above: the game's own line, else the first), when it is still there; else null.</summary>
         public static string InstallOf(string gameFolder)
         {
             if (string.IsNullOrEmpty(gameFolder)) return null;
             string full = Path.GetFullPath(gameFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string own = Path.GetFileName(full) + ": ";
             foreach (var d in new[] { full, Path.GetDirectoryName(full) })
             {
                 string note = d == null ? null : Path.Combine(d, InstallNote);
                 if (note == null || !File.Exists(note)) continue;
                 try
                 {
-                    string first = File.ReadLines(note).FirstOrDefault()?.Trim();
-                    return !string.IsNullOrEmpty(first) && Directory.Exists(first) ? first : null;
+                    var lines = File.ReadLines(note).Select(l => l.Trim()).ToList();
+                    string mine = lines.FirstOrDefault(l => l.StartsWith(own, StringComparison.OrdinalIgnoreCase));
+                    string path = mine != null ? mine.Substring(own.Length).Trim() : lines.FirstOrDefault();
+                    if (mine != null && !Directory.Exists(path)) path = lines.FirstOrDefault();
+                    return !string.IsNullOrEmpty(path) && Directory.Exists(path) ? path : null;
                 }
-                catch (IOException) { return null; }
+                catch (Exception e) when (e is IOException || e is UnauthorizedAccessException) { return null; }
             }
             return null;
+        }
+
+        /// <summary>
+        /// The install that holds a game's own setup (its UNDEROM1 or UNDEROM2 folder, or its
+        /// dosboxULTIMA1/2.conf): the install itself, else the same release's install of that game
+        /// beside it (GOG puts the two side by side, each with the same game.gog: a folder counts
+        /// only when it says it is that game and holds a game.gog of the same size). Null when
+        /// neither has it: the copy then keeps the disc's own UW.CFG, which has no sound.
+        /// </summary>
+        public static string SetupInstall(string install, GameKind game)
+        {
+            if (string.IsNullOrEmpty(install) || !Directory.Exists(install)) return null;
+            if (HasSetup(install, game)) return Path.GetFullPath(install);
+            string parent = Path.GetDirectoryName(Path.GetFullPath(install).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (parent == null || !Directory.Exists(parent)) return null;
+            // only the same release's other install: it says it is that game and holds a game.gog of the same size
+            string mine = Find(install);
+            long size = mine == null ? -1 : new FileInfo(mine).Length;
+            try
+            {
+                return Directory.EnumerateDirectories(parent).OrderBy(d => d, StringComparer.OrdinalIgnoreCase)
+                    .Where(d => GameOfInstall(d) == game && HasSetup(d, game))
+                    .FirstOrDefault(d => { string img = Find(d); return img != null && (size < 0 || new FileInfo(img).Length == size); });
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException) { return null; }
+        }
+
+        static bool HasSetup(string folder, GameKind game)
+        {
+            if (FindDir(folder, HardDiskFolderOf(game)) != null) return true;
+            string conf = game == GameKind.UW2 ? "DOSBOXULTIMA2.CONF" : "DOSBOXULTIMA1.CONF";
+            try { return Directory.EnumerateFiles(folder).Any(f => Path.GetFileName(f).ToUpperInvariant() == conf); }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException) { return false; }
         }
 
         /// <summary>game.gog in a folder (any letter case), or null.</summary>
@@ -116,9 +162,9 @@ namespace Underworld.Mods
 
         /// <summary>
         /// Copies a game out of the image into <paramref name="dest"/> (made; it must not exist or
-        /// be empty): every file of the disc's UW or UW2 folder, then the install's UNDEROM1 or
-        /// UNDEROM2 files (the CD version reads its sound setup from there), so the copy plays as
-        /// GOG's does. The files land in a temporary folder beside it first, renamed into place
+        /// be empty): every file of the disc's UW or UW2 folder, then the UNDEROM1 or UNDEROM2 files
+        /// of the game's own install (SetupInstall: the install, or the other game's beside it; the
+        /// CD version reads its sound setup from there), so the copy plays as GOG's does. The files land in a temporary folder beside it first, renamed into place
         /// when all are written. Returns the number of files.
         /// </summary>
         public static int Extract(string image, GameKind game, string dest, string install = null, Action<int, int> progress = null)
@@ -147,7 +193,8 @@ namespace Underworld.Mods
                         progress?.Invoke(count, files.Count);
                     }
                 }
-                string hd = install == null ? null : FindDir(install, HardDiskFolderOf(game));
+                string home = install == null ? null : SetupInstall(install, game);
+                string hd = home == null ? null : FindDir(home, HardDiskFolderOf(game));
                 if (hd != null)
                     foreach (var f in Directory.EnumerateFiles(hd, "*", SearchOption.AllDirectories))
                     {

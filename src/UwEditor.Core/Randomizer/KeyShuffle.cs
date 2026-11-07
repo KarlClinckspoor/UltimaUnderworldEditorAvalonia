@@ -14,6 +14,8 @@ namespace UwEditor.Core.Randomizer
         public int Seed = 1;
         /// <summary>Further seeds tried (seed + 1, seed + 2 …) when a fill fails the final check.</summary>
         public int Retries = 20;
+        /// <summary>Tests only: the first attempts are counted as failed after their scatter, to check that the used seed gives the run again.</summary>
+        internal int FailAttempts;
         /// <summary>The logic options (shared with the Automatic zones window).</summary>
         public AbilityOptions Logic = new AbilityOptions();
         /// <summary>A hand-made zone set (Karl's painted map, or the zone file in DATA) whose zone names label the places in the spoiler log; null for none.</summary>
@@ -39,7 +41,7 @@ namespace UwEditor.Core.Randomizer
         public bool ExploreMaps;
         /// <summary>Places on the floor become random squares of their level that the logic reaches (Anywhere), instead of where items lay.</summary>
         public bool Anywhere = true;
-        /// <summary>At Apply: the spoiler log in the map notes, a warning on page 9, hints on 10, answers on 11 (SpoilerNotes).</summary>
+        /// <summary>At Apply: the spoiler log in the map notes: a warning on page 9, the hints from page 10, a page saying the solutions come next, then the solutions (SpoilerNotes).</summary>
         public bool SpoilerNotes;
 
         public KeyShuffleOptions Clone()
@@ -181,8 +183,8 @@ namespace UwEditor.Core.Randomizer
             return c;
         }
 
-        /// <summary>A key item the spoiler notes give: an artifact, or one the game cannot be finished without.</summary>
-        public bool WorthAHint(KeyShuffleMove m) { return m.ByFill && (IsArtifact(m.Item) || IsCrucial(m.Item)); }
+        /// <summary>An item the spoiler notes give: an artifact, whatever placed it (Caliburn's blade is no key the logic asks for, yet worth a hint), or a key item the game cannot be finished without.</summary>
+        public bool WorthAHint(KeyShuffleMove m) { return IsArtifact(m.Item) || m.ByFill && IsCrucial(m.Item); }
         public IEnumerable<ShuffleObject> Moving { get { return Objects.Where(o => o.Stays == null); } }
     }
 
@@ -626,18 +628,12 @@ namespace UwEditor.Core.Randomizer
                 needed = Needed(t, so0);
                 objs = Survey(s, w, t, opt, needed);
             }
-            if (opt.Anywhere) PlaceAnywhere(s, w, t, opt, objs, r);
+            // Place anywhere: the squares are worked out once; each attempt scatters the places with its own seed
+            var anywhere = opt.Anywhere ? PrepareAnywhere(s, w, t, opt, objs) : null;
             r.Objects.AddRange(objs);
             var solver = MakeSolver(t, opt, objs);
             var places = solver.Places;
             if (places.Count == 0) { r.Refused = "Nothing moves with these categories."; r.Log.AppendLine(r.Refused); return r; }
-
-            // ---- the spheres of the original game: every item where it is, every place probed
-            var orig = places.ToDictionary(o => o, o => o);
-            var sv0 = solver.Run(orig, Enumerable.Range(0, places.Count), null, "original");
-            r.SpheresBefore = sv0.Spheres.Count;
-            for (int i = 0; i < places.Count; i++) { int sp; places[i].Sphere = sv0.TokenSphere.TryGetValue("loc:" + i, out sp) ? sp : -1; }
-            foreach (var o in objs.Where(o => o.Stays != null)) o.Sphere = -1;
 
             var keys = places.Where(o => o.Key).OrderBy(o => o.Level).ThenBy(o => o.Index).ToList();
             var rest = places.Where(o => !o.Key).OrderBy(o => o.Level).ThenBy(o => o.Index).ToList();
@@ -647,6 +643,18 @@ namespace UwEditor.Core.Randomizer
             {
                 int seed = unchecked(opt.Seed + attempt);
                 r.Attempts = attempt + 1;
+                // the places on their squares for this seed, so the seed the log names gives this run again
+                var wa = w;
+                if (anywhere != null) { wa = w.Copy(); anywhere.Scatter(s, wa, t, seed, r); }
+                if (attempt < opt.FailAttempts) { r.Failures.Add("seed " + seed + ": counted as failed (test)"); continue; }
+
+                // ---- the spheres of the game before the fill: every item where it is, every place probed
+                var orig = places.ToDictionary(o => o, o => o);
+                var sv0 = solver.Run(orig, Enumerable.Range(0, places.Count), null, "original");
+                r.SpheresBefore = sv0.Spheres.Count;
+                for (int i = 0; i < places.Count; i++) { int sp; places[i].Sphere = sv0.TokenSphere.TryGetValue("loc:" + i, out sp) ? sp : -1; }
+                foreach (var o in objs.Where(o => o.Stays != null)) o.Sphere = -1;
+
                 var rng = new Random(seed);
                 var order = keys.ToList();
                 Shuffle(rng, order);
@@ -680,7 +688,7 @@ namespace UwEditor.Core.Randomizer
                 var loose = others.Where(o => !o.Container).ToList();
                 for (int k = 0; k < loose.Count; k++) placed[loose[k]] = places[empty[k]];
                 // write it on a copy and solve that afresh
-                var wv = w.Copy();
+                var wv = wa.Copy();
                 foreach (var kv in placed)
                 {
                     if (kv.Key == kv.Value) continue;
@@ -717,6 +725,8 @@ namespace UwEditor.Core.Randomizer
                     if (!wv.Data[l].AsSpan().SequenceEqual(r.Before[l])) r.After[l] = wv.Data[l];
                 break;
             }
+            // no shuffle found: the places are where the items lie, as nothing is written
+            if (!r.Success && anywhere != null) anywhere.Restore(r);
             WriteLog(s, r, t);
             return r;
         }
@@ -725,36 +735,73 @@ namespace UwEditor.Core.Randomizer
         /// Place anywhere: every place that moves and lies on the floor goes to a random square of
         /// its level (Anywhere.Qualifies: open, not water or lava, no door, trap or trigger; slopes
         /// and the open half of a diagonal allowed) whose zone the logic reaches with every moving
-        /// item held, one place a square while there are squares. The places' records move in the
-        /// world's bytes before the fill, so the fill, the check and Apply all see them there; the
-        /// zone graph does not change, since loose items do not shape it.
+        /// item held, one place a square while there are squares. The squares are found once
+        /// (PrepareAnywhere); each attempt of the fill scatters the places with its own seed
+        /// (Scatter), so the seed the log names gives the same squares again. The places' records
+        /// move in the attempt's copy of the world's bytes before the fill, so the fill, the check
+        /// and Apply all see them there; the zone graph does not change, since loose items do not
+        /// shape it.
         /// </summary>
-        static void PlaceAnywhere(GameSession s, World w, TimelineResult t, KeyShuffleOptions opt, List<ShuffleObject> objs, KeyShuffleResult r)
+        static AnywherePlan PrepareAnywhere(GameSession s, World w, TimelineResult t, KeyShuffleOptions opt, List<ShuffleObject> objs)
         {
             var floor = objs.Where(o => o.Stays == null && o.OnFloor).ToList();
-            if (floor.Count == 0) return;
+            if (floor.Count == 0) return null;
             var sv = Timeline.Solve(t, opt.Logic, "every moving item held", GivesTokens(t, objs.Where(o => o.Stays == null)).ToList());
             var zones = new HashSet<int>(sv.ZoneSphere.Keys);
             var terrain = CreatureTerrain.TryLoad(s);
-            var rng = new Random(unchecked(opt.Seed * 31 + 0x5CA7));
+            var plan = new AnywherePlan();
             foreach (var g in floor.GroupBy(o => o.Level).OrderBy(g => g.Key))
             {
                 int level = g.Key;
                 var m = w.Model(level);
                 var squares = Anywhere.Squares(s, m, terrain, (x, y) => { int z = t.Set.ZoneAt(level, x, y); return z > ZoneSet.Unassigned && zones.Contains(z); });
-                var list = g.OrderBy(o => o.Index).ToList();
-                var spots = Anywhere.Spots(rng, m, squares, list.Count);
-                if (spots.Count == 0) { r.AnywhereNotes.Add("level " + level + ": no square the logic reaches qualifies; its " + list.Count + " places stay where items lay"); continue; }
-                for (int k = 0; k < list.Count; k++)
+                plan.Levels.Add(new AnywhereLevel { Level = level, Model = m, Squares = squares, Places = g.OrderBy(o => o.Index).ToList() });
+            }
+            foreach (var o in floor) plan.Home[o] = (o.X, o.Y, o.Zone);
+            return plan;
+        }
+
+        sealed class AnywhereLevel
+        {
+            public int Level;
+            public LevelModel Model;
+            public List<(int X, int Y)> Squares;
+            public List<ShuffleObject> Places;
+        }
+
+        sealed class AnywherePlan
+        {
+            public readonly List<AnywhereLevel> Levels = new List<AnywhereLevel>();
+            public readonly Dictionary<ShuffleObject, (int X, int Y, int Zone)> Home = new Dictionary<ShuffleObject, (int X, int Y, int Zone)>();
+
+            /// <summary>Puts every place back on the square its item lies on.</summary>
+            public void Restore(KeyShuffleResult r)
+            {
+                foreach (var kv in Home) { kv.Key.X = kv.Value.X; kv.Key.Y = kv.Value.Y; kv.Key.Zone = kv.Value.Zone; kv.Key.FromX = kv.Key.FromY = -1; }
+                r.Relocated = 0;
+                r.AnywhereNotes.Clear();
+            }
+
+            /// <summary>Moves the places to random squares in w (a copy of the world for one attempt), drawn from the attempt's seed.</summary>
+            public void Scatter(GameSession s, World w, TimelineResult t, int seed, KeyShuffleResult r)
+            {
+                Restore(r);
+                var rng = new Random(unchecked(seed * 31 + 0x5CA7));
+                foreach (var lv in Levels)
                 {
-                    var o = list[k];
-                    Anywhere.Move(s, level, w.Data[level], w.Tex[level], o.Index, spots[k]);
-                    o.FromX = o.X; o.FromY = o.Y;
-                    o.X = spots[k].X; o.Y = spots[k].Y;
-                    o.Zone = t.Set.NearestZone(level, o.X, o.Y);
-                    r.Relocated++;
+                    var spots = Anywhere.Spots(rng, lv.Model, lv.Squares, lv.Places.Count);
+                    if (spots.Count == 0) { r.AnywhereNotes.Add("level " + lv.Level + ": no square the logic reaches qualifies; its " + lv.Places.Count + " places stay where items lay"); continue; }
+                    for (int k = 0; k < lv.Places.Count; k++)
+                    {
+                        var o = lv.Places[k];
+                        Anywhere.Move(s, lv.Level, w.Data[lv.Level], w.Tex[lv.Level], o.Index, spots[k]);
+                        o.FromX = o.X; o.FromY = o.Y;
+                        o.X = spots[k].X; o.Y = spots[k].Y;
+                        o.Zone = t.Set.NearestZone(lv.Level, o.X, o.Y);
+                        r.Relocated++;
+                    }
+                    w.Changed(lv.Level);
                 }
-                w.Changed(level);
             }
         }
 

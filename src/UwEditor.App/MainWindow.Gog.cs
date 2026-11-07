@@ -159,8 +159,8 @@ namespace UwEditor.App
                         GogImage.Extract(image, g, to, install);
                         made.Add(to);
                     }
-                    // Run in DOSBox and Play test find the install's DOSBox and settings through this
-                    GogImage.WriteInstallNote(dest, install);
+                    // Run in DOSBox and Play test find each game's install (its DOSBox and settings) through this
+                    GogImage.WriteInstallNote(dest, install, games.ToDictionary(g => g, g => GogImage.SetupInstall(install, g)));
                 });
             }
             catch (Exception ex)
@@ -172,6 +172,13 @@ namespace UwEditor.App
                 return null;
             }
             finally { Cursor = Cursor.Default; }
+
+            // a game whose own install is not found plays without GOG's sound setup: say so
+            var bare = games.Where(g => GogImage.SetupInstall(install, g) == null).ToList();
+            if (bare.Count > 0)
+                await MessageWindow.Show(this, "No sound setup for " + string.Join(" and ", bare.Select(g => g == GameKind.UW2 ? "Ultima Underworld II" : "Ultima Underworld")),
+                    "Neither " + install + " nor a folder beside it holds " + string.Join(" or ", bare.Select(GogImage.HardDiskFolderOf)) +
+                    ", GOG's sound setup of the CD version. The copy keeps the disc's own UW.CFG, which has no sound: install that game from GOG beside this one and open its game.gog, or set the sound up in the copy's DATA\\UW.CFG.");
 
             // the image stays in the recent list: opening it again starts over with a fresh copy
             settings.AddRecent(image);

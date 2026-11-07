@@ -162,7 +162,8 @@ namespace UwEditor.App
         readonly MainWindow main;
         readonly Dictionary<string, byte[]> onDisk = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<string, string> paths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        readonly List<(string Font, int Code, FontGlyph Glyph, int Count)> undo = new List<(string, int, FontGlyph, int)>();
+        /// <summary>Undo steps: one glyph as it was, or (Whole) the whole font as it was, for an import or a header change.</summary>
+        readonly List<(string Font, int Code, FontGlyph Glyph, int Count, UwFont Whole)> undo = new List<(string, int, FontGlyph, int, UwFont)>();
         AccentSettings accents;
         static (FontGlyph Glyph, int Columns)? clipboard;
 
@@ -308,8 +309,8 @@ namespace UwEditor.App
             Grid.SetRow(ml, 1); sp.Children.Add(ml);
             Grid.SetRow(maxBox, 1); Grid.SetColumn(maxBox, 1); sp.Children.Add(maxBox);
             left.Children.Add(sp);
-            spaceBox.ValueChanged += (s, e) => { if (!quiet && Font != null && spaceBox.Value.HasValue) { Font.SpaceWidth = (int)spaceBox.Value.Value; Changed(); } };
-            maxBox.ValueChanged += (s, e) => { if (!quiet && Font != null && maxBox.Value.HasValue) { Font.MaxWidth = (int)maxBox.Value.Value; Changed(); } };
+            spaceBox.ValueChanged += (s, e) => { if (!quiet && Font != null && spaceBox.Value.HasValue && Font.SpaceWidth != (int)spaceBox.Value.Value) { PushWholeUndo(); Font.SpaceWidth = (int)spaceBox.Value.Value; Changed(); } };
+            maxBox.ValueChanged += (s, e) => { if (!quiet && Font != null && maxBox.Value.HasValue && Font.MaxWidth != (int)maxBox.Value.Value) { PushWholeUndo(); Font.MaxWidth = (int)maxBox.Value.Value; Changed(); } };
             var lw = new WrapPanel();
             lw.Children.Add(Btn("Max width = widest", () => { if (Font == null) return; maxBox.Value = Font.WidestGlyph(); }, "Set the header's max width to the widest glyph's width."));
             left.Children.Add(lw);
@@ -611,7 +612,15 @@ namespace UwEditor.App
         void PushUndo()
         {
             if (Font == null) return;
-            undo.Add((Font.Name, Code, Font.Glyphs[Code].Clone(), Font.Count));
+            undo.Add((Font.Name, Code, Font.Glyphs[Code].Clone(), Font.Count, null));
+            if (undo.Count > 200) undo.RemoveAt(0);
+        }
+
+        /// <summary>Keeps the whole font as it is, as one undo step (an import, the space or max width).</summary>
+        void PushWholeUndo()
+        {
+            if (Font == null) return;
+            undo.Add((Font.Name, Code, null, 0, Font.Clone()));
             if (undo.Count > 200) undo.RemoveAt(0);
         }
 
@@ -620,6 +629,15 @@ namespace UwEditor.App
             if (undo.Count == 0) { Status = "Nothing to undo."; return; }
             var u = undo[undo.Count - 1];
             undo.RemoveAt(undo.Count - 1);
+            if (u.Whole != null)
+            {
+                Fonts.ByName[u.Font] = u.Whole;
+                Font = null;
+                ShowFont(u.Font);
+                SelectCode(u.Code);
+                Changed();
+                return;
+            }
             var f = Fonts[u.Font];
             if (f == null) return;
             f.Glyphs[u.Code] = u.Glyph;
@@ -638,6 +656,9 @@ namespace UwEditor.App
             change(Font.Glyphs[Code]);
             Changed();
         }
+
+        /// <summary>The header's space width, as the box sets it (one undo step).</summary>
+        public void SetSpaceWidth(int w) { spaceBox.Value = w; }
 
         public void SetWidth(int w)
         {
@@ -923,7 +944,8 @@ namespace UwEditor.App
         {
             string n = Font.Name;
             f.Name = n;
-            for (int c = 0; c < UwFont.Codes; c++) undo.Add((n, c, Font.Glyphs[c].Clone(), Font.Count));
+            // one step: Undo puts back the whole font, header and all (its glyphs may not even fit the imported one's height)
+            PushWholeUndo();
             Fonts.ByName[n] = f;
             Font = null;
             ShowFont(n);

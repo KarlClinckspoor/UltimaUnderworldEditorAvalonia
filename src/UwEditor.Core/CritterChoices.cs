@@ -33,7 +33,7 @@ namespace UwEditor.Core
                 new Choice { Value = 7, Label = "7 stand (as 0)" },
                 new Choice { Value = 8, Label = "8 mill about near home" },
                 new Choice { Value = 9, Label = "9 fight back, cornered" },
-                new Choice { Value = 10, Label = "10 come and talk to the player" },
+                new Choice { Value = 10, Label = "10 wait, then talk to the player (it does not walk up)" },
                 new Choice { Value = 11, Label = "11 flutter at random" },
                 new Choice { Value = 12, Label = "12 hover at home" },
                 uw2 ? new Choice { Value = 15, Label = "15 frozen while the goal target counts down" } : null,

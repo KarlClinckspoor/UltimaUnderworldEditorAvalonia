@@ -261,7 +261,9 @@ namespace UwEditor.Core.Conversations
                     if (frame) { r.Start = code[ri - 2].Address; }
                     fn.EpilogueIdx = fl.Count - 1;
                     // the exit block of a function that returns a value: push local; SAVE_REG; POP
+                    // (a bare return; jumps past it to the epilogue, which puts a label between them)
                     int s = fl.Count - 2;
+                    if (s >= 0 && fl[s].Kind == FK.Label && fl[s].Addr == r.Start) s--;
                     if (s >= 0 && fl[s].Kind == FK.SaveReg)
                     {
                         var ld = fl[s].E as Load;
