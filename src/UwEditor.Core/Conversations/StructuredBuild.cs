@@ -638,7 +638,16 @@ namespace UwEditor.Core.Conversations
                     int E = last.Dest;
                     int e = E == Fn.End ? fl.Count : Index(E);
                     int elseHi = e > t && e <= hi ? e : fw.Contains(E) ? hi : -1;
-                    if (elseHi >= t)
+                    // an empty else after a JMP: the JMP is the end of what the if holds (a menu's last
+                    // choice going to the menu's end), not a jump over an else (Origin's compiler jumps over one with BRA)
+                    bool emptyJmp = last.Op == BablOp.JMP && elseHi >= t;
+                    for (int k = t; emptyJmp && k < elseHi; k++) if (fl[k].Kind != FK.Label) emptyJmp = false;
+                    // and an if whose block is only a JMP that reads as return, break or continue is "if (c) { return; }",
+                    // not "if (!c) { the rest }" (a goto stays folded: the view keeps as few gotos as it can)
+                    bool onlyJmp = last.Op == BablOp.JMP && JumpOut(last, null, sc).What != "goto";
+                    for (int k = i + 1; onlyJmp && k < t - 1; k++) if (fl[k].Kind != FK.Label) onlyJmp = false;
+                    emptyJmp |= onlyJmp;
+                    if (elseHi >= t && !emptyJmp)
                     {
                         var elseFw = elseHi == hi ? fw : Thread(AddrAt(elseHi), fw, AddrAt(hi));
                         node.Then = Block(i + 1, t - 1, sc, new HashSet<int>(elseFw) { AddrAt(t - 1) });

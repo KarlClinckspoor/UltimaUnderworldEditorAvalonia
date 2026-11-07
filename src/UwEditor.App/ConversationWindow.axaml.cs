@@ -82,6 +82,7 @@ namespace UwEditor.App
             else if (ctrl && e.Key == Key.R && current != null) { ShowSimulator(); e.Handled = true; }
             else if (ctrl && e.Key == Key.Enter && Model.Tab == 2) { ApplyScript(); e.Handled = true; }
             else if (!ctrl && e.Key == Key.F2 && current != null) { _ = BeginRename(); e.Handled = true; }
+            else if (ctrl && e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key == Key.K && current != null) { _ = CompileFromSource(); e.Handled = true; }
         }
 
         void FillList()
@@ -577,6 +578,88 @@ namespace UwEditor.App
             check();
             RenameWindowOpened?.Invoke(w);
             return w.ShowDialog(this);
+        }
+
+        /// <summary>
+        /// Developer-only, not in the manual (Ctrl+Shift+K): the Dialogue tab's source in a box,
+        /// compiled back into the conversation (ConversationCompiler). The editable Dialogue tab
+        /// comes later; this is for trying the compiler.
+        /// </summary>
+        public Task CompileFromSource()
+        {
+            if (Model.ScriptChanged) { Model.Status = "The script has edits that are not applied: apply or undo them first."; return Task.CompletedTask; }
+            var mono = Application.Current?.FindResource("Mono") as FontFamily ?? FontFamily.Default;
+            var box = new TextBox { Text = lib.Decompile(current).Text, AcceptsReturn = true, AcceptsTab = true, TextWrapping = TextWrapping.NoWrap, FontFamily = mono, FontSize = 12 };
+            var report = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0), FontFamily = mono, FontSize = 11 };
+            var compile = new Button { Content = "Compile", MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
+            var apply = new Button { Content = "Apply", MinWidth = 80, IsEnabled = false, HorizontalContentAlignment = HorizontalAlignment.Center };
+            var close = new Button { Content = "Close", IsCancel = true, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
+            var w = new Window
+            {
+                Title = "Compile from source (developer) — conversation " + current.Slot, Width = 900, Height = 700, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Content = new DockPanel
+                {
+                    Margin = new Thickness(12),
+                    Children =
+                    {
+                        new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Margin = new Thickness(0, 8, 0, 0), Children = { compile, apply, close }, [DockPanel.DockProperty] = Dock.Bottom },
+                        new ScrollViewer { MaxHeight = 160, Content = report, [DockPanel.DockProperty] = Dock.Bottom },
+                        box,
+                    },
+                },
+            };
+            CompileResult last = null;
+            compile.Click += (o, e) =>
+            {
+                last = lib.Compile(current, box.Text);
+                report.Text = CompileReport(last);
+                apply.IsEnabled = last.Ok;
+                if (!last.Ok && last.Errors.Count > 0) GoToSourceLine(box, last.Errors[0].Line);
+            };
+            box.TextChanged += (o, e) => apply.IsEnabled = false;
+            apply.Click += (o, e) => { if (last != null && last.Ok && ApplyCompiled(last)) w.Close(); };
+            close.Click += (o, e) => w.Close();
+            return w.ShowDialog(this);
+        }
+
+        static void GoToSourceLine(TextBox box, int line)
+        {
+            string s = box.Text ?? "";
+            int p = 0;
+            for (int i = 1; i < line && p >= 0; i++) { p = s.IndexOf('\n', p); if (p >= 0) p++; }
+            if (p < 0) return;
+            int end = s.IndexOf('\n', p);
+            box.SelectionStart = p;
+            box.SelectionEnd = end < 0 ? s.Length : end;
+        }
+
+        public static string CompileReport(CompileResult r)
+        {
+            var lines = new List<string>();
+            foreach (var e in r.Errors) lines.Add("Error: " + e);
+            foreach (var e in r.Warnings) lines.Add("Warning: " + e);
+            if (r.Ok)
+            {
+                lines.Add(string.Format("Compiled: {0} function{1} compiled, {2} copied unchanged; {3} words of code.", r.CompiledFunctions.Count, r.CompiledFunctions.Count == 1 ? "" : "s", r.CopiedFunctions.Count, r.Conversation.Code.Length));
+                foreach (var s in r.AddedStrings) lines.Add("New string " + s);
+                foreach (var s in r.UnusedStrings) lines.Add("No longer used (kept): " + s);
+            }
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>Puts a compiled conversation (and any new strings) in place, as Apply on the Script tab does.</summary>
+        public bool ApplyCompiled(CompileResult r)
+        {
+            if (current == null || r == null || !r.Ok || r.Conversation.Slot != current.Slot) return false;
+            try { lib.Apply(r); }
+            catch (Exception ex) { Model.Status = "Not applied: " + ex.Message; return false; }
+            current = lib.Archive.Read(current.Slot);
+            if (r.StringsChanged) { FillStrings(); StringsChanged?.Invoke(); }
+            RefreshDialogue();
+            MarkChanged();
+            Model.Status = string.Format("Conversation {0} compiled from source: {1} words of code{2} (not saved).", current.Slot, current.Code.Length, r.AddedStrings.Count > 0 ? ", " + r.AddedStrings.Count + " new string" + (r.AddedStrings.Count == 1 ? "" : "s") : "");
+            CurrentChanged?.Invoke();
+            return true;
         }
 
         /// <summary>For tests: the rename dialog as it opens.</summary>

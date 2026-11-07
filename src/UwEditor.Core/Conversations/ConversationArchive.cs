@@ -31,7 +31,9 @@ namespace UwEditor.Core.Conversations
         public int Count { get { return archive.Count; } }
 
         /// <summary>The biggest block the game's buffer takes (load_script: 0x4000; UW2 0x5000, from the Unity editor's converter).</summary>
-        public int MaxBlockBytes { get { return Kind == GameKind.UW2 ? 0x5000 : 0x4000; } }
+        public int MaxBlockBytes { get { return MaxBlockBytesFor(Kind); } }
+
+        public static int MaxBlockBytesFor(GameKind kind) { return kind == GameKind.UW2 ? 0x5000 : 0x4000; }
 
         public bool Has(int slot)
         {

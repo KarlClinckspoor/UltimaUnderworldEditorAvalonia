@@ -61,6 +61,24 @@ namespace UwEditor.Core.Conversations
         /// <summary>The conversation's readable view, with its names.</summary>
         public DecompileResult Decompile(Conversation c, bool fold = true) { return Decompiler.Decompile(c, StringsOf(c).ToArray(), Kind, fold, Names.Resolve(c)); }
 
+        /// <summary>
+        /// Compiles a conversation's source (the Dialogue tab's language, ConversationCompiler)
+        /// against the conversation as it is now: functions whose text did not change are its
+        /// old code. Nothing is written until Apply.
+        /// </summary>
+        public CompileResult Compile(Conversation c, string source, CompileOptions options = null)
+        {
+            return ConversationCompiler.Compile(c, StringsOf(c), Kind, Names.Resolve(c), source, options);
+        }
+
+        /// <summary>Puts a compiled conversation and its strings (new ones at the end of its block) in the archive and STRINGS.PAK until Save.</summary>
+        public void Apply(CompileResult r)
+        {
+            if (r == null || !r.Ok) throw new InvalidOperationException("The source did not compile.");
+            Archive.Write(r.Conversation.Slot, r.Conversation);
+            if (r.StringsChanged) Strings.Set(r.Conversation.StringBlock, r.Strings);
+        }
+
         NameBook names;
         /// <summary>The names the conversations are shown with: the shipped ones, and the user's renames once the editor has set where they are kept.</summary>
         public NameBook Names { get { return names ?? (names = NameBook.Load(Kind, null)); } set { names = value; } }

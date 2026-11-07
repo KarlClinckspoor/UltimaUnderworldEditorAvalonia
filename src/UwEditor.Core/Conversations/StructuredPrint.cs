@@ -87,6 +87,13 @@ namespace UwEditor.Core.Conversations
                     bool arr = arrays.Contains(s);
                     Vars[s] = new LocalVar { Slot = s, Size = arr ? Math.Max(1, next - s) : 1, Array = arr };
                 }
+                // locals the code never uses, before the temporaries: declared too, as the frame has them
+                int firstTemp = temps.Count > 0 ? temps.Min() : Fn.Locals + 1;
+                for (int s = 1; s < firstTemp && s <= Fn.Locals; s++)
+                {
+                    int idx;
+                    if (VarOf(s, out idx) == null) Vars[s] = new LocalVar { Slot = s, Size = 1 };
+                }
             }
 
             /// <summary>The variable holding a slot: the scalar itself, or the array and the slot's index in it (from 1).</summary>
@@ -421,9 +428,10 @@ namespace UwEditor.Core.Conversations
             {
                 Show(i.Branch);
                 Report.Role(i.Skip != null ? "if-else " + i.Skip.Op : "if");
-                if (i.Else != null && Invisible(i.Then) && !Invisible(i.Else))
+                // if (c) {} else { ... } made with a BRA (Origin's compiler, from an else in the source) is shown as it
+                // is, so it compiles back to the same code; one made with a JMP is shown as if (!c) { ... }
+                if (i.Else != null && Invisible(i.Then) && !Invisible(i.Else) && (i.Skip == null || i.Skip.Op != BablOp.BRA))
                 {
-                    // if (c) {} else { ... }: shown as if (!c) { ... }
                     Line(i.Branch.Addr, (elseIf ? "} else if (" : "if (") + R(Not(i.Cond)) + ") {", PseudoKind.Statement, i.Branch.End, i.Branch.Start);
                     Block(i.Then);
                     if (i.Skip != null) Show(i.Skip);
