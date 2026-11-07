@@ -149,6 +149,9 @@ Read, change and run every conversation in CNV.ARK (Ctrl+Shift+C).
   conversation and its strings; unchanged functions keep their exact bytes. Mistakes are
   underlined as you type and listed, with colours, find, go to line, F2 rename and F12 to a
   function. **Simulate** runs the text as typed, and **Undo apply** puts an Apply back.
+- **Names, not numbers:** functions, labels and variables carry names (from a names file
+  shipped for each game, which follows a conversation you edit function by function), and
+  F2 renames one everywhere. **Export names** saves your own names to share.
 - **Strings:** the conversation's text, edited in place, each string showing where the
   script uses it.
 - **Script:** the code as readable assembly, with labels, named imports and comments.
@@ -215,6 +218,8 @@ With a saved game open (Ctrl+Shift+P):
   letter"), export and import them as PNG sheets or BDF, and export TrueType fonts to install.
   An accent table gives letters such as é, ç and ñ codes the game can draw. The strings
   editors show and take those letters, and STRINGS.PAK gets a new Huffman tree when it needs one.
+  The game as shipped draws only a handful of spare codes, so a long accent table needs a
+  changed executable: the editor warns in red when a table goes beyond them.
 - **Pixel editor:** draw on any picture with its own colours: pencil, eraser, picker, fill,
   lines, rectangles and undo. The colours the game cycles (water, lava, fire) are marked and
   can be animated.
@@ -270,7 +275,9 @@ as MIDI, and import MIDI files as new themes in both their FM and MT-32 versions
 ![The player's map of level 1, painted as the game marks it](docs/images/automap.png)
 
 Paint the player's map tiles as seen or unseen, as the game would mark them, and add, move or
-delete the map notes (Ctrl+Shift+A). **Check and repair the saved game** fixes notes the game
+delete the map notes (Ctrl+Shift+A), on any level you pick (UW2 by world). In UW1 the map
+screen goes on past level 9 to pages of notes alone, up to page 99, and the editor writes them
+too. **Check and repair the saved game** fixes notes the game
 would read from the wrong level (its own crash bug), broken automap blocks and objects lost
 from the lists.
 
@@ -294,9 +301,11 @@ Turn the game into a fresh run every time, and keep it beatable.
 - **Apply** moves the keys, runes, ability and plot items to new places, and a solver that
   follows the world over time checks that the game can still be won under the logic you
   choose. Items on the floor go to random squares the logic reaches (not water, lava or
-  traps), or, if you prefer, trade the places where items lay. You get a spoiler log, which
-  can also go into the game's own map notes (hints and answers on the map pages past
-  level 9), and Undo puts everything back.
+  traps), or, if you prefer, trade the places where items lay. **Additional items** brings in
+  any other kind you pick: weapons, coins, bedrolls, books, even containers with what they
+  hold. You get a spoiler log, which can also go into the game's own map notes past level 9:
+  hints for the artifacts and the items you cannot finish without, a page that warns the
+  solutions come next, then the solutions. Undo puts everything back.
 - **Automatic zones** build the logic from the levels themselves: walkable regions, drops,
   climbs, gap jumps, doors, levers and teleports. It knows the player's abilities and where
   they come from (spells, items, the dragon skin boots), hidden walls a look opens, levers
