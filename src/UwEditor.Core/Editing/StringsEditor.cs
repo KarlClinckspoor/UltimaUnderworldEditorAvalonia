@@ -21,7 +21,8 @@ namespace UwEditor.Core.Editing
     /// <summary>
     /// STRINGS.PAK with its unsaved edits, one string at a time: the strings window and the keys
     /// window edit through it. It shares the conversation library's file when that is open, so a
-    /// conversation's strings and a key's description are never saved over each other.
+    /// conversation's strings and a key's description are never saved over each other. Strings
+    /// go in and out as the editor shows them: the accent table's codes as their letters.
     /// </summary>
     public sealed class StringsEditor
     {
@@ -60,30 +61,37 @@ namespace UwEditor.Core.Editing
             return Pak.Blocks.Select(b => new StringBlockInfo { Number = b, Count = Pak.Get(b).Count, Description = Describe(Session, b), Changed = Pak.IsChanged(b) }).ToList();
         }
 
-        public List<string> Get(int block) { return Pak.Get(block); }
+        AccentTable Accents { get { return Session.Accents ?? new AccentTable(); } }
+
+        /// <summary>A block's strings as shown (mapped codes as their letters).</summary>
+        public List<string> Get(int block) { return Pak.Get(block).Select(Accents.ToDisplay).ToList(); }
 
         public string Get(int block, int index)
         {
             var l = Pak.Get(block);
-            return index >= 0 && index < l.Count ? l[index] : null;
+            return index >= 0 && index < l.Count ? Accents.ToDisplay(l[index]) : null;
         }
 
-        /// <summary>Changes one string; throws when it has characters the file cannot write.</summary>
+        /// <summary>A shown text as the game's bytes; throws (FormatException, with the reason) for a letter the accent table has no code for.</summary>
+        public string ToGame(string text) { return Accents.ToGame((text ?? "").Replace("\r\n", "\n")); }
+
+        /// <summary>Changes one string (as shown); throws when it has characters the file cannot write.</summary>
         public void Set(int block, int index, string text)
         {
             var l = Pak.Get(block).ToList();
             if (index < 0) throw new ArgumentOutOfRangeException("index");
+            string game = ToGame(text);
             while (l.Count <= index) l.Add("");
-            l[index] = (text ?? "").Replace("\r\n", "\n");
+            l[index] = game;
             Pak.Set(block, l);
             Changed?.Invoke();
         }
 
-        /// <summary>Adds a string at the end of a block; returns its number.</summary>
+        /// <summary>Adds a string (as shown) at the end of a block; returns its number.</summary>
         public int Add(int block, string text)
         {
             var l = Pak.Get(block).ToList();
-            l.Add((text ?? "").Replace("\r\n", "\n"));
+            l.Add(ToGame(text));
             Pak.Set(block, l);
             Changed?.Invoke();
             return l.Count - 1;
@@ -115,7 +123,7 @@ namespace UwEditor.Core.Editing
             string f = text.Trim();
             foreach (int b in Pak.Blocks)
             {
-                var l = Pak.Get(b);
+                var l = Get(b);
                 for (int i = 0; i < l.Count; i++)
                     if ((l[i] ?? "").IndexOf(f, StringComparison.OrdinalIgnoreCase) >= 0) yield return (b, i, l[i]);
             }

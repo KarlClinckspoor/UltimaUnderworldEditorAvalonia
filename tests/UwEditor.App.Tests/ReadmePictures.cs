@@ -66,6 +66,27 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void Fonts()
+        {
+            if (Off(Uw1)) return;
+            var w = Ui.Open(Uw1);
+            var gw = w.ShowGraphics();
+            gw.ShowTab(3);
+            Ui.Pump();
+            var p = gw.FontsPanel;
+            p.SelectFont("FONT5X6P.SYS");
+            p.SetLetter('$', 'é');
+            p.SelectCode('$');
+            p.MakeAccented('e', UwEditor.Core.Graphics.AccentMark.Acute);
+            p.PreviewText = "Avatar, thou art welcome. Café?";
+            Save(gw, "fonts", 1280, 860);
+            // more letters than the stock game's free codes: the red warning
+            p.FillPreset("Portuguese");
+            Save(gw, "fonts-warning", 1280, 860);
+            gw.Close(); w.Close();
+        }
+
+        [AvaloniaFact]
         public void Globals()
         {
             if (Off(Uw2) || !Directory.Exists(Path.Combine(Uw2, "SAVE1"))) return;

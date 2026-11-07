@@ -161,7 +161,7 @@ namespace UwEditor.App
                     var from = UwEditor.Core.Conversations.StringsPakFile.FromBytes(pak);
                     int n = 0;
                     foreach (int b in from.Blocks)
-                        if (!from.Get(b).SequenceEqual(st.Get(b))) { st.Pak.Set(b, from.Get(b)); n++; }
+                        if (!from.Get(b).SequenceEqual(st.Pak.Get(b))) { st.Pak.Set(b, from.Get(b)); n++; }
                     if (n > 0) said.Add(n + " string block(s)");
                     stringsWindow?.Close();
                     keysWindow?.Close();

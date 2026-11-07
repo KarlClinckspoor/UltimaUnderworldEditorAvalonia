@@ -28,6 +28,35 @@ namespace UwEditor.App
         }
         StringsEditor strings;
 
+        /// <summary>The open game folder's accent settings (Tools ▸ Graphics ▸ Fonts).</summary>
+        public AccentSettings AccentSettings() { return vm.Session == null ? new AccentSettings() : settings.AccentsFor(vm.Session.GameFolder); }
+
+        /// <summary>What stops the accent table's letters showing in the game (FontChecks): the fonts
+        /// as the Fonts tab has them (unsaved changes too) or as DATA has them, every string with
+        /// its unsaved edits, and the map notes.</summary>
+        public System.Collections.Generic.List<string> AccentChecks()
+        {
+            var s = vm.Session;
+            if (s == null || s.Accents == null || s.Accents.IsEmpty) return new System.Collections.Generic.List<string>();
+            var fonts = graphicsWindow?.FontsPanel?.Fonts ?? UwEditor.Core.Graphics.GameFonts.Load(s.DataFolder);
+            UwEditor.Core.Conversations.StringsPakFile pak = null;
+            try { pak = Strings()?.Pak; } catch (Exception) { }
+            var blocks = pak == null ? Enumerable.Empty<(int, System.Collections.Generic.IList<string>)>()
+                : pak.Blocks.Select(b => (b, (System.Collections.Generic.IList<string>)pak.Get(b))).ToList();
+            return UwEditor.Core.Graphics.FontChecks.Run(s.Accents, fonts, blocks, UwEditor.Core.Graphics.FontChecks.Originals(s.DataFolder), UwEditor.Core.Graphics.FontChecks.MapNotes(s));
+        }
+
+        /// <summary>Keeps a game folder's accent table in the settings and gives it to the session; the open string views show it at once.</summary>
+        public void SaveAccents(AccentSettings a)
+        {
+            if (vm.Session == null) return;
+            settings.SetAccents(vm.Session.GameFolder, a);
+            settings.Save();
+            vm.Session.Accents = a.Table();
+            stringsWindow?.Model.Reload();
+            conversationWindow?.RefreshStrings();
+        }
+
         void OnKeys(object sender, RoutedEventArgs e) { ShowKeys(); }
         void OnTriggers(object sender, RoutedEventArgs e) { ShowTriggers(); }
         void OnStrings(object sender, RoutedEventArgs e) { ShowStrings(); }
@@ -77,6 +106,7 @@ namespace UwEditor.App
             if (stringsWindow == null)
             {
                 stringsWindow = new StringsWindow(st);
+                stringsWindow.Model.Checks = AccentChecks;
                 stringsWindow.Closed += (s, e) => stringsWindow = null;
                 stringsWindow.Show(this);
             }
@@ -118,6 +148,7 @@ namespace UwEditor.App
                 case "sound": ShowSound(); break;
                 case "sound-effects": { var s = ShowSound(); if (s != null) s.Tabs.SelectedIndex = 1; } break;
                 case "music": { var s = ShowSound(); if (s != null) s.Tabs.SelectedIndex = 2; } break;
+                case "fonts": ShowGraphics()?.ShowTab(3); break;
                 case "map": ToggleMap(); break;
                 case "pixels": EditItemPicture(0xB5); break;
                 case "pixels-portrait": { var g = ShowGraphics(); g.Model.FileName = vm.Session.IsUw2 ? "HEADS.GR" : "CHARHEAD.GR"; g.EditPicture(); break; }

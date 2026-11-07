@@ -89,6 +89,7 @@ namespace UwEditor.App
             else if (strings != null && strings.HasChanges) l.Add("strings (STRINGS.PAK)");
             if (globalsWindow?.Globals != null && globalsWindow.Globals.Dirty) l.Add("global variables");
             if ((graphicsWindow != null && graphicsWindow.Model.HasChanges) || (vm.Session != null && vm.Session.Pictures.HasChanges)) l.Add("pictures");
+            if (graphicsWindow?.FontsPanel != null && graphicsWindow.FontsPanel.HasChanges) l.Add("fonts");
             if (zoning != null && zoning.Dirty) l.Add("zones");
             foreach (var t in ToolWindows()) if (t.Has()) l.Add(t.What);
             return l;
@@ -643,6 +644,7 @@ namespace UwEditor.App
                         said.Add("global variables");
                     }
                     if (graphicsWindow != null && graphicsWindow.Model.HasChanges) { graphicsWindow.Model.SaveAll(); said.Add("pictures"); }
+                    if (graphicsWindow?.FontsPanel != null && graphicsWindow.FontsPanel.HasChanges) { graphicsWindow.FontsPanel.Save(); said.Add("fonts"); }
                     if (vm.Session.Pictures.HasChanges) { vm.Session.Pictures.SaveAll(); if (!said.Contains("pictures")) said.Add("pictures"); }
                     if (zoning != null && zoning.Dirty) { zoning.Save(); said.Add("zones"); }
                     foreach (var t in ToolWindows().ToList())

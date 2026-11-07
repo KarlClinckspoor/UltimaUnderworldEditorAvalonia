@@ -104,6 +104,19 @@ namespace UwEditor.App
 
         public void SearchAll() { searchingAll = true; FillRows(); }
 
+        /// <summary>Reads the strings again (after the accent table changed).</summary>
+        public void Reload()
+        {
+            int b = row?.Block ?? -1, i = row?.Index ?? -1;
+            ReadBlocks(); FillRows();
+            if (b >= 0) Row = Rows.FirstOrDefault(r => r.Block == b && r.Index == i);
+        }
+
+        /// <summary>What stops the accent table's letters showing (FontChecks), run after saving; set by the main window.</summary>
+        public Func<List<string>> Checks;
+        /// <summary>The checks' findings after the last save (empty when none).</summary>
+        public List<string> LastChecks { get; private set; } = new List<string>();
+
         /// <summary>Shows a block (and selects a string in it).</summary>
         public void Show(int number, int index = -1)
         {
@@ -147,9 +160,12 @@ namespace UwEditor.App
 
         public bool Save()
         {
+            bool newTree = Editor.Pak.NeedsNewTree;
             Editor.Save();
             ReadBlocks(); FillRows();
-            Status = "STRINGS.PAK saved; the editor's names and texts were read again.";
+            LastChecks = Checks?.Invoke() ?? new List<string>();
+            Status = "STRINGS.PAK saved" + (newTree ? " with a new Huffman tree (a string has a character the old tree had no code for)" : "") + "; the editor's names and texts were read again."
+                + (LastChecks.Count > 0 ? " " + LastChecks.Count + " accent problem" + (LastChecks.Count == 1 ? "" : "s") + ": see Tools ▸ Graphics ▸ Fonts." : "");
             Raise(nameof(HasChanges)); Raise(nameof(BlockChanged));
             return true;
         }
@@ -188,7 +204,12 @@ namespace UwEditor.App
 
         void OnSave(object sender, RoutedEventArgs e)
         {
-            try { Model.Save(); }
+            try
+            {
+                Model.Save();
+                if (Model.LastChecks.Count > 0)
+                    _ = MessageWindow.Show(this, "Accented letters the game cannot show yet", "STRINGS.PAK was saved. The accent table's letters need these fixed (Tools ▸ Graphics ▸ Fonts):\n\n" + string.Join("\n", Model.LastChecks));
+            }
             catch (Exception ex) { _ = MessageWindow.Show(this, "Could not save STRINGS.PAK", ex.Message); }
         }
     }

@@ -223,6 +223,7 @@ namespace UwEditor.App
         /// <summary>Shows an opened game (the old one's windows close).</summary>
         public void OpenSession(GameSession s)
         {
+            s.Accents = settings.AccentsFor(s.GameFolder).Table();
             atlas = SpriteAtlas.Build(s.Graphics.ObjectPictures);
             ApplyAccent(s.IsUw2);
             Title = "Underworld Editor — " + s.Title;
@@ -589,9 +590,9 @@ namespace UwEditor.App
         {
             if (vm.Session == null) return null;
             if (graphicsWindow != null) { graphicsWindow.Activate(); return graphicsWindow; }
-            graphicsWindow = new GraphicsWindow(vm.Session);
+            graphicsWindow = new GraphicsWindow(vm.Session, this);
             var gw = graphicsWindow;
-            MessageWindow.GuardClose(gw, "Graphics", () => gw.Model.HasChanges, () => { gw.Model.SaveAll(); return true; }, () => AskBeforeDiscarding && !quietClose);
+            MessageWindow.GuardClose(gw, "Graphics", () => gw.HasChanges, () => { gw.SaveAll(); return true; }, () => AskBeforeDiscarding && !quietClose);
             graphicsWindow.Closed += (o, e) => graphicsWindow = null;
             graphicsWindow.Show(this);
             return graphicsWindow;

@@ -58,8 +58,26 @@ namespace UwEditor.Core.Conversations
         /// <summary>The conversation's strings (its STRINGS.PAK block, from the header's string block).</summary>
         public List<string> StringsOf(Conversation c) { return Strings.Get(c.StringBlock); }
 
-        /// <summary>The conversation's readable view, with its names.</summary>
-        public DecompileResult Decompile(Conversation c, bool fold = true) { return Decompiler.Decompile(c, StringsOf(c).ToArray(), Kind, fold, Names.Resolve(c)); }
+        /// <summary>The accent table the strings are shown and written with (the session's).</summary>
+        public AccentTable Accents { get { return Session.Accents ?? new AccentTable(); } }
+
+        /// <summary>The conversation's strings as shown: the accent table's codes as their letters.</summary>
+        public List<string> ShownStringsOf(Conversation c) { return StringsOf(c).Select(Accents.ToDisplay).ToList(); }
+
+        /// <summary>Replaces a conversation's strings with shown text (letters turned into their codes). Throws with the reason when one cannot be written.</summary>
+        public void SetShownStrings(Conversation c, IList<string> shown)
+        {
+            var game = new List<string>();
+            for (int i = 0; i < shown.Count; i++)
+            {
+                try { game.Add(Accents.ToGame(shown[i] ?? "")); }
+                catch (FormatException ex) { throw new InvalidDataException("String " + i + ": " + ex.Message); }
+            }
+            Strings.Set(c.StringBlock, game);
+        }
+
+        /// <summary>The conversation's readable view, with its names (strings as shown).</summary>
+        public DecompileResult Decompile(Conversation c, bool fold = true) { return Decompiler.Decompile(c, ShownStringsOf(c).ToArray(), Kind, fold, Names.Resolve(c)); }
 
         /// <summary>
         /// Compiles a conversation's source (the Dialogue tab's language, ConversationCompiler)
@@ -68,7 +86,9 @@ namespace UwEditor.Core.Conversations
         /// </summary>
         public CompileResult Compile(Conversation c, string source, CompileOptions options = null)
         {
-            return ConversationCompiler.Compile(c, StringsOf(c), Kind, Names.Resolve(c), source, options);
+            options = options ?? new CompileOptions();
+            if (options.Accents == null) options.Accents = Accents;
+            return ConversationCompiler.Compile(c, ShownStringsOf(c), Kind, Names.Resolve(c), source, options);
         }
 
         /// <summary>Puts a compiled conversation and its strings (new ones at the end of its block) in the archive and STRINGS.PAK until Save.</summary>
@@ -76,7 +96,7 @@ namespace UwEditor.Core.Conversations
         {
             if (r == null || !r.Ok) throw new InvalidOperationException("The source did not compile.");
             Archive.Write(r.Conversation.Slot, r.Conversation);
-            if (r.StringsChanged) Strings.Set(r.Conversation.StringBlock, r.Strings);
+            if (r.StringsChanged) SetShownStrings(r.Conversation, r.Strings);
         }
 
         NameBook names;

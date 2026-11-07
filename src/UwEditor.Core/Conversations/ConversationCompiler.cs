@@ -11,6 +11,8 @@ namespace UwEditor.Core.Conversations
     {
         /// <summary>Compile every function from its source, copying none (the proofs use it; the editor keeps unchanged functions as they were).</summary>
         public bool CompileAll;
+        /// <summary>The accent table the source's strings are written with: a letter it has no code for is an error. Null: no check.</summary>
+        public AccentTable Accents;
     }
 
     /// <summary>A string of the conversation's block: its number and text.</summary>
@@ -308,6 +310,11 @@ namespace UwEditor.Core.Conversations
             public int StringId(StringE s)
             {
                 int id;
+                if (s.Text != null && options.Accents != null)
+                {
+                    string problem = options.Accents.Problem(s.Text);
+                    if (problem != null) Error(s, problem);
+                }
                 if (s.Text == null) id = s.Id;
                 else if (s.Id >= 0 && s.Id < strings.Count && strings[s.Id] == s.Text) id = s.Id;
                 else

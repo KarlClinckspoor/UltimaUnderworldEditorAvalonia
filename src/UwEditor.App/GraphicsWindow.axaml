@@ -147,6 +147,9 @@
           </DockPanel>
         </Grid>
       </TabItem>
+
+      <!-- fonts (FontsPanel, built when the tab is first shown) -->
+      <TabItem Header="Fonts" x:Name="FontsTab" />
     </TabControl>
   </DockPanel>
 </Window>

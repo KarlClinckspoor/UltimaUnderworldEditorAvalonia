@@ -14,7 +14,8 @@ namespace UwEditor.App
     /// <summary>
     /// Tools ▸ Graphics: the pictures in DATA (.GR, .TR, .BYT, BYT.ARK), the critters'
     /// animation frames (CRIT) and the cutscenes (CUTS), each viewable, exportable as PNG
-    /// and replaceable from a PNG of the same size in the picture's own colours.
+    /// and replaceable from a PNG of the same size in the picture's own colours; and the
+    /// fonts (FontsPanel) with the accent table.
     /// </summary>
     public partial class GraphicsWindow : Window
     {
@@ -23,9 +24,25 @@ namespace UwEditor.App
 
         public GraphicsWindow() { InitializeComponent(); }
 
-        public GraphicsWindow(GameSession session)
+        readonly MainWindow main;
+
+        /// <summary>The Fonts tab (null until it is first shown).</summary>
+        public FontsPanel FontsPanel { get; private set; }
+
+        /// <summary>Unsaved pictures, frames or fonts.</summary>
+        public bool HasChanges { get { return Model.HasChanges || FontsPanel?.HasChanges == true; } }
+
+        /// <summary>Writes every unsaved picture, frame and font.</summary>
+        public void SaveAll()
+        {
+            Model.SaveAll();
+            FontsPanel?.Save();
+        }
+
+        public GraphicsWindow(GameSession session, MainWindow main = null)
         {
             InitializeComponent();
+            this.main = main;
             ManualWindow.Attach(this, "Graphics");
             Model = new GraphicsViewModel(session);
             DataContext = Model;
@@ -45,11 +62,17 @@ namespace UwEditor.App
             };
         }
 
-        /// <summary>Shows a tab (0 pictures, 1 critters, 2 cutscenes), loading what it shows the first time.</summary>
+        /// <summary>Shows a tab (0 pictures, 1 critters, 2 cutscenes, 3 fonts), loading what it shows the first time.</summary>
         public void ShowTab(int i) { Tabs.SelectedIndex = i; OnTab(); }
 
         void OnTab()
         {
+            if (Tabs.SelectedIndex == 3 && FontsPanel == null)
+            {
+                FontsPanel = new FontsPanel(Model.Session, main);
+                FontsTab.Content = FontsPanel;
+                Model.Status = FontsPanel.Fonts.ByName.Count + " fonts in DATA.";
+            }
             if (Tabs.SelectedIndex == 1 && Model.Critters.Count == 0)
             {
                 Model.LoadCritters();

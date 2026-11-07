@@ -10,7 +10,9 @@ namespace UwEditor.Core.Conversations
     /// STRINGS.PAK for editing: the Huffman tree, the block table and each block's bytes.
     /// A block that was not changed is written back byte for byte; a changed one is encoded
     /// again with the file's own tree (STRINGS.PAK, GAMESTRN.C: a word string count, word
-    /// offsets, then the strings, each ending in '|').
+    /// offsets, then the strings, each ending in '|'). When a string has a character the tree
+    /// has no code for (an accented letter's code, say), saving builds a new tree from every
+    /// string's characters (StringsTree) and writes every block again with it.
     /// </summary>
     public sealed class StringsPakFile
     {
@@ -85,28 +87,67 @@ namespace UwEditor.Core.Conversations
             return new List<string>(e);
         }
 
-        /// <summary>The characters of s the file's tree cannot write.</summary>
+        /// <summary>The characters of s no STRINGS.PAK can hold (0 and codes of 128 and up; '|' is
+        /// refused on its own). A character the file's tree has no code for is not among them:
+        /// saving makes a new tree.</summary>
         public string Unencodable(string s)
         {
             var bad = new List<char>();
             foreach (char ch in s)
-                if (!StringsPak.CanEncode(ch.ToString(), nodes) && !bad.Contains(ch)) bad.Add(ch);
+                if (!StringsTree.Writable(ch) && ch != '|' && !bad.Contains(ch)) bad.Add(ch);
             return new string(bad.ToArray());
         }
+
+        /// <summary>Whether the file's tree has a code for every character of s.</summary>
+        public bool TreeCanWrite(string s) { return StringsPak.CanEncode(s ?? "", nodes); }
+
+        /// <summary>The characters the strings use, the terminator among them, with a block's strings replaced (for the 128-character limit).</summary>
+        public HashSet<char> CharactersWith(int block, IList<string> strings)
+        {
+            var set = new HashSet<char> { '|' };
+            foreach (int b in order)
+                if (b != block) set.UnionWith(Characters(b));
+            foreach (var t in strings) set.UnionWith(t ?? "");
+            return set;
+        }
+
+        readonly Dictionary<int, HashSet<char>> charCache = new Dictionary<int, HashSet<char>>();
+
+        HashSet<char> Characters(int block)
+        {
+            List<string> e;
+            if (edited.TryGetValue(block, out e)) return new HashSet<char>(e.SelectMany(t => t ?? ""));
+            HashSet<char> c;
+            if (!charCache.TryGetValue(block, out c)) charCache[block] = c = new HashSet<char>(Original(block).SelectMany(t => t ?? ""));
+            return c;
+        }
+
+        /// <summary>The longest string the game reads: GAMESTRN.C stops at 512 characters, the terminator among them.</summary>
+        public const int MaxStringLength = 511;
 
         /// <summary>Replaces a block's strings (adds the block when it is new). Throws when a string cannot be written.</summary>
         public void Set(int block, IList<string> strings)
         {
             var list = strings.ToList();
+            bool allCoded = true;
             for (int i = 0; i < list.Count; i++)
             {
-                string bad = Unencodable(list[i] ?? "");
-                if (bad.Length > 0) throw new InvalidDataException(string.Format("String {0} of block 0x{1:X4} has characters STRINGS.PAK's tree has no code for: {2}", i, block, string.Join(" ", bad.Select(ch => "'" + ch + "'"))));
-                if ((list[i] ?? "").Contains("|")) throw new InvalidDataException(string.Format("String {0} of block 0x{1:X4} contains '|', which ends a string.", i, block));
+                string t = list[i] ?? "";
+                if (t.Contains("|")) throw new InvalidDataException(string.Format("String {0} of block 0x{1:X4} contains '|', which ends a string.", i, block));
+                string bad = Unencodable(t);
+                if (bad.Length > 0) throw new InvalidDataException(string.Format("String {0} of block 0x{1:X4} has characters STRINGS.PAK cannot hold (only codes 1-127): {2}", i, block, string.Join(" ", bad.Select(ch => "'" + ch + "' (" + (int)ch + ")"))));
+                if (t.Length > MaxStringLength) throw new InvalidDataException(string.Format("String {0} of block 0x{1:X4} has {2} characters; the game reads at most {3}.", i, block, t.Length, MaxStringLength));
+                if (allCoded && !TreeCanWrite(t)) allCoded = false;
+            }
+            if (!allCoded)
+            {
+                var used = CharactersWith(block, list);
+                if (used.Count > StringsTree.MaxCharacters)
+                    throw new InvalidDataException(string.Format("The strings would use {0} different characters, the terminator among them; STRINGS.PAK's tree holds at most {1}.", used.Count, StringsTree.MaxCharacters));
             }
             var old = Original(block);
             if (raw.ContainsKey(block) && old.SequenceEqual(list)) { edited.Remove(block); return; }
-            Encode(block, list);   // checks that it fits
+            if (allCoded) Encode(block, list, nodes);   // checks that it fits (with a new tree, saving checks)
             edited[block] = list;
             if (!order.Contains(block))
             {
@@ -115,9 +156,15 @@ namespace UwEditor.Core.Conversations
             }
         }
 
+        /// <summary>Whether saving will build a new Huffman tree (an edited string has a character the file's tree has no code for).</summary>
+        public bool NeedsNewTree { get { return edited.Values.Any(l => l.Any(t => !TreeCanWrite(t))); } }
+
+        /// <summary>The file's Huffman tree.</summary>
+        public HuffmanNode[] Tree { get { return nodes; } }
+
         public void Revert(int block) { edited.Remove(block); if (!raw.ContainsKey(block)) order.Remove(block); }
 
-        byte[] Encode(int block, List<string> strings)
+        static byte[] Encode(int block, List<string> strings, HuffmanNode[] tree)
         {
             var o = new MemoryStream();
             int count = strings.Count;
@@ -126,7 +173,7 @@ namespace UwEditor.Core.Conversations
             int at = 0;
             foreach (var s in strings)
             {
-                var bits = StringsPak.ConvertString(s ?? "", nodes);
+                var bits = StringsPak.ConvertString(s ?? "", tree);
                 if (bits == null) throw new InvalidDataException("A string of block 0x" + block.ToString("X4") + " cannot be encoded.");
                 var b = bits.Select(x => (byte)x).ToArray();
                 if (at > 0xFFFF) throw new InvalidDataException("Block 0x" + block.ToString("X4") + " is over 64 KB, more than its word offsets reach.");
@@ -142,14 +189,31 @@ namespace UwEditor.Core.Conversations
         {
             if (edited.Count == 0) return (byte[])file.Clone();
             var o = new MemoryStream();
-            o.Write(file, 0, tableStart);
+            HuffmanNode[] tree = nodes;
+            bool rebuild = NeedsNewTree;
+            if (rebuild)
+            {
+                // every string's characters and terminators, counted for an optimal tree
+                var counts = new Dictionary<char, long>();
+                foreach (int b in order)
+                    foreach (var t in Get(b))
+                    {
+                        foreach (char ch in t ?? "") { long n; counts.TryGetValue(ch, out n); counts[ch] = n + 1; }
+                        long m; counts.TryGetValue('|', out m); counts['|'] = m + 1;
+                    }
+                tree = StringsTree.Build(counts);
+                o.WriteByte((byte)tree.Length); o.WriteByte((byte)(tree.Length >> 8));
+                foreach (var n in tree) { o.WriteByte((byte)n.Char); o.WriteByte((byte)n.Parent); o.WriteByte((byte)n.Left); o.WriteByte((byte)n.Right); }
+            }
+            else o.Write(file, 0, tableStart);
+            int start = (int)o.Length;
             o.WriteByte((byte)order.Count); o.WriteByte((byte)(order.Count >> 8));
-            int pos = tableStart + 2 + 6 * order.Count;
+            int pos = start + 2 + 6 * order.Count;
             var data = new List<byte[]>();
             foreach (int b in order)
             {
                 List<string> e;
-                byte[] bytes = edited.TryGetValue(b, out e) ? Encode(b, e) : raw[b];
+                byte[] bytes = rebuild ? Encode(b, Get(b), tree) : edited.TryGetValue(b, out e) ? Encode(b, e, tree) : raw[b];
                 o.WriteByte((byte)b); o.WriteByte((byte)(b >> 8));
                 o.WriteByte((byte)pos); o.WriteByte((byte)(pos >> 8)); o.WriteByte((byte)(pos >> 16)); o.WriteByte((byte)(pos >> 24));
                 data.Add(bytes);
@@ -169,7 +233,7 @@ namespace UwEditor.Core.Conversations
             file = again.file; nodes = again.nodes; tableStart = again.tableStart;
             order.Clear(); order.AddRange(again.order);
             raw.Clear(); foreach (var kv in again.raw) raw[kv.Key] = kv.Value;
-            edited.Clear(); cache.Clear();
+            edited.Clear(); cache.Clear(); charCache.Clear();
             Path = path;
         }
     }

@@ -909,7 +909,7 @@ bag's view, which the game rebuilds): those are cleared. The old file is kept as
 
 ## Graphics
 
-**Tools ▸ Graphics…** (Ctrl+Shift+R), with three tabs:
+**Tools ▸ Graphics…** (Ctrl+Shift+R), with four tabs:
 - **Pictures:** every `.GR`, `.TR`, `.BYT` and UW2's `BYT.ARK` in DATA, as thumbnails.
   Each is shown large in a palette from PALS.DAT; UW2's screens start in the palette the
   game shows them with.
@@ -924,6 +924,7 @@ bag's view, which the game rebuilds): those are cleared. The old file is kept as
   play the animation or step through its frames.
 - **Cutscenes:** every CUTS cutscene and its LPF animations, with a frame slider, playing
   at the file's frame rate.
+- **Fonts:** the six fonts and the accent table (see [Fonts](#fonts) below).
 
 **Export** writes an indexed PNG whose palette is the picture's own colours (its 16 or 32
 auxiliary colours, or the 256 of the palette), so the indices survive a round trip.
@@ -944,6 +945,120 @@ auxiliary colours, or the 256 of the palette), so the indices survive a round tr
 
 Replacing a cutscene frame re-encodes only its own delta, the next frame's delta and the loop
 back to the first frame. Saving keeps each old file as `.BKP`.
+
+### Fonts
+
+The **Fonts** tab edits the six `DATA\FONT*.SYS` files. They are the same in both games:
+
+| Font | Where the game uses it |
+|---|---|
+| `FONT5X6P` | the scroll: messages, conversations, books, the inventory, cutscene subtitles |
+| `FONT5X6I` | stats and skills |
+| `FONTBIG` | menus and cutscene titles |
+| `FONTCHAR` | character creation and skills |
+| `FONT4X5P` | map notes and labels (capitals and symbols only) |
+| `FONTBUTN` | buttons (the 26 capitals) |
+
+- **The codes:** a grid of codes 0–127. Each cell shows the code, its glyph, its letter (from
+  the accent table, else the ASCII character) and its width. Mapped codes have an orange frame.
+  Grey cells are codes the DOS game draws as '?' (see below).
+- **The glyph editor:** click or drag to draw. The first cell you touch decides whether the
+  stroke draws or rubs out; the right button always rubs out. Drag the red **width marker**,
+  or click in the strip under the cells, to set how far the text moves on after the
+  character. Pixels past the width are shaded: the game still draws them, over the next
+  character. The blue line is the baseline. The buttons copy and paste glyphs (between codes
+  and between fonts; a glyph from another font is cut or padded), clear, move the pixels a
+  step, undo and revert the glyph.
+- **Make accented letter:** copies a letter's glyph to the code you are editing and adds a
+  mark: grave, acute, circumflex, tilde, diaeresis, cedilla or ring. Each mark is drawn for
+  the font's size. It goes over the letter's ink (the cedilla under it), in the tallest
+  drawing that fits the free rows. A capital in a small font has no free row above it, so the
+  mark replaces its top row. Touch the result up by hand.
+- **Preview:** type a line, accented letters included. It is drawn as the game draws it, at
+  2–5 × scale, on the scroll's paper colour, with its width in pixels. The game measures a
+  line with `string_width`, which counts only the first 54 characters; the preview says so
+  when a line is longer.
+- **Space width** and **max width** (the header's widest glyph; *Max width = widest* sets it)
+  can be changed. Height and bytes a row are fixed: the game lays text out by them.
+- **Save fonts** writes every changed font with all 128 glyphs. The first original is kept as
+  `.ORIG` and the last version as `.BKP`, as for other files, and **Make a mod** carries the
+  fonts. The shipped files hold fewer glyphs (`FONT4X5P` 97, `FONTBUTN` 94, the others 127),
+  but the game always reads 128. A code past a file's end reads whatever an earlier font left
+  in memory, which is what made lowercase map notes hang the game. A saved font has no such
+  codes: a missing glyph is written blank, with width 0.
+- A font the game could not load is refused: a glyph is at most **33 bytes** (rows and width
+  byte). The game keeps the 128 glyphs in a buffer that ends where the text colours start:
+  4,318 bytes in UW1, 4,322 in UW2. `FONTBIG`, the biggest, uses 31.
+
+### The accent table
+
+Translated text can use accented letters (à, é, ç, ü, ñ…) without changing the game's
+program. A letter gets one of the game's codes, the font gets a glyph for it at that code,
+and the strings editors write the letter as the code.
+
+- The table is kept **per game folder** in the editor's settings, and shown in the Fonts tab.
+  Set a letter for the code you are editing (*This code's letter*), or fill the free codes
+  from a preset (*Portuguese*, *Spanish*, *French*, *German*, *Italian*, *Common Western*):
+  the preset's letters, most used first, take the free codes in order, as far as they go.
+- **Which codes are free:** the DOS game draws only codes 20h–7Ah and draws any other code as
+  '?' (`gfx/GRLIBI.ASM`, the same in UW2 and in Underworld Exhumed). So a letter needs a
+  printable symbol that no string uses:
+  - **UW1:** `$ % [ ]`;
+  - **UW2:** `$ [ ] ^` and `` ` ``.
+
+  *Also symbols only the debug strings use* adds the ones used only in block 24, which play
+  never shows (UW1 `# * /`, UW2 `* =`). *Also codes the DOS game draws as '?'* offers 1–31
+  and 7Bh–7Fh, for a game whose program is changed to draw them. Never `|` (ends a string),
+  `\` (the scroll's escapes) or `@` (conversations' substitutions), nor tab, line break,
+  carriage return, letters or digits.
+- With so few codes, give them to the letters the translation uses most, and write capitals
+  without accents.
+- **More letters need a changed executable.** When the table maps a letter to a code the
+  stock game cannot draw, or a preset has letters left over, a large red warning appears at
+  the top of the Fonts tab and above the accent table. For those letters to show, the game's
+  executable has to be changed. The change is two bytes of the text drawer
+  (`gfx/GRLIBI.ASM` at 4B2C, the same in both games):
+  - `cmp al,20h` becomes `cmp al,01h`;
+  - `cmp al,7Ah` becomes `cmp al,7Fh`.
+
+  The drawer then draws codes 1–127. Bytes of 128 and up stay '?': the compare is signed,
+  and the fonts have 128 glyphs. The editor does not make this change yet; it could be added
+  later, the way it already changes the start square in the executable. Without the change,
+  the DOS game draws those letters as '?'. So do Underworld Exhumed and UltimaHacks: they do
+  not run the DOS executable, so the same change would have to be made in their own code.
+- In the conversations' word matching (`conv/BABL.C`), a mapped symbol counts as punctuation,
+  so it splits words there.
+- **Strings** (Tools ▸ Strings, the Keys window, the conversation editor's Strings tab and
+  the Dialogue source) show mapped codes as their letters and take typed letters. Saving
+  writes the codes. A letter with no code is refused, and so is a mapped symbol typed as
+  itself; the message says why. The compiler reports such a letter at its line.
+- **Checks** (in the Fonts tab, and after saving strings) list what stops a letter showing:
+  - a mapped letter used in text whose font has no glyph at its code, or still the shipped
+    symbol. Every string is checked against the scroll font; block 1 also against `FONTBIG`
+    and `FONTCHAR`, block 2 against `FONT5X6I` and `FONTCHAR`, cutscenes against `FONTBIG`;
+  - a mapped code the DOS game draws as '?';
+  - a mapped code in a map note.
+
+### Font files: PNG, BDF and TrueType
+
+The Fonts tab exports the font shown and imports into it.
+
+- **PNG sheet** (export and import): 16 × 8 cells, code 0 at the top left. Each cell is
+  black ink on white with one more row under the glyph: its red pixels mark the width. Grey
+  lines part the cells. Draw in any paint program. On import, any dark pixel is ink and any
+  pixel of the width row that is not white counts. A sheet of the wrong size is refused.
+- **BDF** (export and import): the standard text bitmap-font format of X11 and of font
+  editors such as FontForge. Each glyph is named `uwNNN` by its code. It is encoded at its
+  letter from the accent table (ASCII for 20h–7Eh; other codes as `ENCODING -1 code`), with
+  its width as `DWIDTH`. The game's header goes into `UW_` properties, so a font exported and
+  imported is the same file byte for byte. A BDF from elsewhere is fitted into the game
+  font's height and columns, on its baseline. Each glyph's code comes from its name, its
+  `ENCODING -1` code or its character through the accent table.
+- **TrueType** (export only): a font to install in Windows, macOS or Linux, to use in a
+  translation's documents or a mock-up. Each pixel is a square, with no hinting. Letters are
+  at their accent-table characters, ASCII at its own, and other codes in the private use area
+  (U+E000 + code). At a size of one pixel per font pixel, without smoothing, it draws exactly
+  the game's glyphs. The font is named after the game and the file, such as "UW1 FONT5X6P".
 
 ## Pixel editor
 
@@ -1168,10 +1283,18 @@ Save levels writes the change with the level (only the level's texture map block
 ## Strings
 
 **Tools ▸ Strings…** (Ctrl+Shift+S) shows every block of STRINGS.PAK, with the conversations'
-blocks named; search one block or all of them. Strings can be edited and added, and
-characters the file cannot write are refused. Saving updates the names everywhere in the
-editor. The window shares the conversation editor's copy of the file, so edits made in both are
-never written over each other.
+blocks named; search one block or all of them. Strings can be edited and added. Saving
+updates the names everywhere in the editor. The window shares the conversation editor's copy
+of the file, so edits made in both are never written over each other.
+
+- Letters of the [accent table](#the-accent-table) are shown and typed as letters and saved
+  as their codes. A letter without a code is refused, with the reason.
+- STRINGS.PAK packs all text with one Huffman tree. When a string has a character the tree
+  has no code for (an accented letter's code, say), saving builds a new tree from every
+  string's characters and writes every block again with it. The game reads whatever tree the
+  file has. Characters the game cannot hold are refused: code 0 and codes of 128 and up, `|`
+  (it ends a string), and strings over 511 characters. After saving, the
+  [checks](#the-accent-table) list letters the fonts cannot show yet.
 
 ## 3D models
 

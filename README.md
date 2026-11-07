@@ -207,6 +207,10 @@ With a saved game open (Ctrl+Shift+P):
   colours the picture cannot use (with the nearest ones offered), transparency in a solid
   picture, and files the game could not load are all refused. A replaced cutscene frame
   re-encodes only its own delta.
+- **Fonts and accented letters:** edit the six fonts glyph by glyph (with "Make accented
+  letter"), export and import them as PNG sheets or BDF, and export TrueType fonts to install.
+  An accent table gives letters such as é, ç and ñ codes the game can draw. The strings
+  editors show and take those letters, and STRINGS.PAK gets a new Huffman tree when it needs one.
 - **Pixel editor:** draw on any picture with its own colours: pencil, eraser, picker, fill,
   lines, rectangles and undo. The colours the game cycles (water, lava, fire) are marked and
   can be animated.
@@ -490,7 +494,7 @@ The core tests check, among other things:
 - `--globals`: open the global variables window;
 - `--player` / `--graphics`: open the player or graphics window (`--tab N` picks the tab);
 - `--window NAME`: open a tool window or view (`map`, `zones`, `zonegraph`, `keys`, `strings`,
-  `triggers`, `mods`, `models`, `sound`, `music`, `automap`, `autozones`, `challenges`…);
+  `triggers`, `mods`, `models`, `sound`, `music`, `fonts`, `automap`, `autozones`, `challenges`…);
 - `--light N`: the game's light level N (0 none … 7 the brightest); `--walk`: first person at
   the start square.
 

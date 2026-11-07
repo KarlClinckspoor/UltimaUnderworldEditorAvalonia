@@ -36,6 +36,8 @@ namespace UwEditor.Core
         public Archive LevArk { get; private set; }
         public ObjectNames Names { get; private set; }
         public GameStrings Strings { get; private set; }
+        /// <summary>The accent table: which codes stand for which letters in the editors (kept per game folder in the editor's settings).</summary>
+        public AccentTable Accents { get; set; } = new AccentTable();
         public GameGraphics Graphics { get; private set; }
         /// <summary>The picture files opened for editing, with their unsaved replacements: one copy of each file for every window (graphics, pixel editor, item slots).</summary>
         public Graphics.PictureStore Pictures { get { return pictures ?? (pictures = new Graphics.PictureStore(DataFolder, Kind)); } }

@@ -49,6 +49,26 @@ namespace UwEditor.App
         /// <summary>The port in use crashes on UW1's level 9 (Underworld Exhumed v1.0.2 and later builds so far).</summary>
         public bool ExhumedLevel9Crash { get; set; } = true;
 
+        /// <summary>The accent table of each game folder (Tools ▸ Graphics ▸ Fonts), by the folder's full path.</summary>
+        public Dictionary<string, AccentSettings> Accents { get; set; } = new Dictionary<string, AccentSettings>();
+
+        static string AccentKey(string folder) { return string.IsNullOrEmpty(folder) ? "" : Path.GetFullPath(folder).TrimEnd('\\', '/').ToUpperInvariant(); }
+
+        /// <summary>A game folder's accent settings (empty ones when it has none).</summary>
+        public AccentSettings AccentsFor(string folder)
+        {
+            AccentSettings a;
+            if (Accents != null && Accents.TryGetValue(AccentKey(folder), out a) && a != null) return a;
+            return new AccentSettings();
+        }
+
+        public void SetAccents(string folder, AccentSettings a)
+        {
+            Accents = Accents ?? new Dictionary<string, AccentSettings>();
+            if (a == null || (a.Map.Count == 0 && !a.DebugSymbols && !a.UndrawnCodes)) Accents.Remove(AccentKey(folder));
+            else Accents[AccentKey(folder)] = a;
+        }
+
         /// <summary>The folder the settings (and the checkpoints) live in.</summary>
         public static string Folder { get { return Path.GetDirectoryName(PathOf()); } }
 
@@ -120,5 +140,18 @@ namespace UwEditor.App
             Recent.Insert(0, folder);
             if (Recent.Count > 8) Recent.RemoveRange(8, Recent.Count - 8);
         }
+    }
+
+    /// <summary>A game folder's accent table and its choices of free codes.</summary>
+    public sealed class AccentSettings
+    {
+        /// <summary>Code → letter.</summary>
+        public Dictionary<int, string> Map { get; set; } = new Dictionary<int, string>();
+        /// <summary>Symbols only the debug strings (block 24) use count as free.</summary>
+        public bool DebugSymbols { get; set; }
+        /// <summary>The codes the DOS game draws as '?' (1-31, 7Bh-7Fh) count as free.</summary>
+        public bool UndrawnCodes { get; set; }
+
+        public UwEditor.Core.AccentTable Table() { return UwEditor.Core.AccentTable.FromDictionary(Map); }
     }
 }

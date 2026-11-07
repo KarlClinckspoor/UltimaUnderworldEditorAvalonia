@@ -92,7 +92,7 @@ namespace UwEditor.App
             {
                 Conversation c;
                 try { c = lib.Archive.Read(slot); } catch (Exception) { continue; }
-                var strs = lib.StringsOf(c);
+                var strs = lib.ShownStringsOf(c);
                 string name = lib.Name(slot);
                 rows.Add(new ConversationRow
                 {
@@ -149,11 +149,20 @@ namespace UwEditor.App
             int imported = current.Imports.Count(i => !i.IsFunction && ImportedVariables.IsBound(i.Name, lib.Kind));
             Model.Subheader = string.Format("String block 0x{0:X4} · {1} words of code · {2} variables ({3} filled in by the game, the rest kept in BGLOBALS.DAT) · {4} built-in functions imported",
                 current.StringBlock, current.Code.Length, current.Variables, imported, current.Imports.Count(i => i.IsFunction));
-            originalStrings = lib.Strings.Original(current.StringBlock);
+            originalStrings = lib.Strings.Original(current.StringBlock).Select(lib.Accents.ToDisplay).ToList();
             RefreshDialogue();
             FillStrings();
             FillUsers(slot);
             CurrentChanged?.Invoke();
+        }
+
+        /// <summary>Shows the strings and the dialogue again (after the accent table changed).</summary>
+        public void RefreshStrings()
+        {
+            if (current == null || lib == null) return;
+            originalStrings = lib.Strings.Original(current.StringBlock).Select(lib.Accents.ToDisplay).ToList();
+            RefreshDialogue();
+            FillStrings();
         }
 
         void RefreshDialogue()
@@ -199,7 +208,7 @@ namespace UwEditor.App
         void FillStrings()
         {
             Model.Strings.Clear();
-            var strs = lib.StringsOf(current);
+            var strs = lib.ShownStringsOf(current);
             for (int i = 0; i < strs.Count; i++) AddRow(i, strs[i]);
         }
 
@@ -220,7 +229,7 @@ namespace UwEditor.App
             var list = Model.Strings.Select(r => (r.Text ?? "").Replace("\r\n", "\n").Replace("\r", "\n")).ToList();
             try
             {
-                lib.Strings.Set(current.StringBlock, list);
+                lib.SetShownStrings(current, list);
                 foreach (var r in Model.Strings) { r.Error = ""; r.Changed = r.Index >= originalStrings.Count || originalStrings[r.Index] != list[r.Index]; }
                 Model.Status = "String " + row.Index + " changed (not saved).";
             }
@@ -314,7 +323,7 @@ namespace UwEditor.App
                 current = lib.Archive.Read(current.Slot);
                 Model.ScriptChanged = false;
                 Model.ScriptError = "";
-                if (c.StringBlock != oldBlock) { originalStrings = lib.Strings.Original(c.StringBlock); FillStrings(); }
+                if (c.StringBlock != oldBlock) { originalStrings = lib.Strings.Original(c.StringBlock).Select(lib.Accents.ToDisplay).ToList(); FillStrings(); }
                 RefreshDialogue();
                 MarkChanged();
                 Model.Status = string.Format("Conversation {0} assembled: {1} words of code (not saved).", current.Slot, current.Code.Length);
@@ -376,7 +385,7 @@ namespace UwEditor.App
             {
                 var done = lib.Save();
                 foreach (var r in Model.All) r.Changed = false;
-                if (current != null) { originalStrings = lib.Strings.Original(current.StringBlock); foreach (var r in Model.Strings) r.Changed = false; }
+                if (current != null) { originalStrings = lib.Strings.Original(current.StringBlock).Select(lib.Accents.ToDisplay).ToList(); foreach (var r in Model.Strings) r.Changed = false; }
                 Model.Status = "Saved " + string.Join(" and ", done) + " in " + lib.Session.DataFolder + " (the old files are kept as .BKP).";
                 Saved?.Invoke();
                 return done;
@@ -398,7 +407,7 @@ namespace UwEditor.App
         }
 
         /// <summary>The shown conversation's strings, with unsaved edits.</summary>
-        public List<string> CurrentStrings { get { return current == null ? new List<string>() : lib.StringsOf(current); } }
+        public List<string> CurrentStrings { get { return current == null ? new List<string>() : lib.ShownStringsOf(current); } }
 
         /// <summary>The Strings tab's row of string n of the shown conversation, or null: editing its Text edits the string.</summary>
         public StringRow StringRowOf(int index) { return Model.Strings.FirstOrDefault(r => r.Index == index); }

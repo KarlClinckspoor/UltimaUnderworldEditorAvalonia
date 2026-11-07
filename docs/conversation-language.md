@@ -68,7 +68,9 @@ conversation's variable count and string block (from its header).
   fmenu switch case default int true streq ptr word save_reg`.
 - **Numbers** are decimal, with an optional `-` (`-1`). A number is a 16-bit word.
 - **Strings** are in double quotes, with `\"`, `\\` and `\n` as escapes, and the game's
-  own escapes (`@SS1`, `\\m`) as they are in STRINGS.PAK. A string stands for its number
+  own escapes (`@SS1`, `\\m`) as they are in STRINGS.PAK. The accent table's codes are
+  shown as their letters (`"Café"`), and the compiler writes them back as the codes. A letter
+  with no code is an error at its line (MANUAL.md, "The accent table"). A string stands for its number
   in the conversation's string block; `#n` after it gives the number (`"Tell me more." #7`).
   The Dialogue tab always writes the number. `#n` alone is string n. The compiler takes a
   string whose text is string n's as n; any other string (no number, or a text that is not
