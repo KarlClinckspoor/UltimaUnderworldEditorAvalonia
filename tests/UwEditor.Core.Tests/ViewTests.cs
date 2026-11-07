@@ -111,5 +111,44 @@ namespace UwEditor.Core.Tests
             Assert.True(faces > 100);
             Assert.True(offGrid > 0);
         }
+
+        [Theory]
+        [InlineData("UW")]
+        [InlineData("UW2")]
+        public void A_walls_texture_reads_left_to_right_from_the_open_tile_as_the_games_does(string game)
+        {
+            // 3d/GRIDDB.C draws each face in the view's frame, so a picture (UW1's door arch halves
+            // 38 and 39, the 'insert key here' plate) is never mirrored, from whichever side it is seen
+            string g = GameData.Game(game); if (g == null) return;
+            var s = GameSession.Open(g);
+            var mesh = LevelGeometry.Build(s.LoadLevel(1), false);
+            int faces = 0, diagonal = 0;
+            for (int t = 0; t + 1 < mesh.TriangleCount; t++)
+            {
+                if (mesh.TriangleKind[t] != 1) continue;
+                var a0 = mesh.Vertices[3 * t]; var b0 = mesh.Vertices[3 * t + 1];
+                t++;
+                Assert.Equal(1f, Math.Abs(a0.U - b0.U), 4);
+                var left = a0.U < b0.U ? a0 : b0; var right = a0.U < b0.U ? b0 : a0;
+                int tile = mesh.TriangleTile[t];
+                float cx = tile % 64 + 0.5f, cz = tile / 64 + 0.5f;
+                float mx = (a0.X + b0.X) / 2, mz = (a0.Z + b0.Z) / 2;
+                float fx = mx - cx, fz = mz - cz;
+                if (Math.Abs(fx) < 0.01f && Math.Abs(fz) < 0.01f)
+                {
+                    // a diagonal through the middle: look from the open half's corner instead
+                    var tt = s.LoadLevel(1).Tiles[tile % 64, tile / 64].Type;
+                    fx = tt == TileType.OpenSE || tt == TileType.OpenNE ? -1 : 1;
+                    fz = tt == TileType.OpenSE || tt == TileType.OpenSW ? 1 : -1;
+                    diagonal++;
+                }
+                // the viewer's right, looking along (fx, fz) with x east and z north
+                float rx = fz, rz = -fx;
+                Assert.True((right.X - left.X) * rx + (right.Z - left.Z) * rz > 0, "tile " + tile);
+                faces++;
+            }
+            Assert.True(faces > 100);
+            Assert.True(diagonal > 0);
+        }
     }
 }

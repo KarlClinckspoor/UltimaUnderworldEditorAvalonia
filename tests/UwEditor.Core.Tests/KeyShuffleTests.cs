@@ -283,6 +283,7 @@ namespace UwEditor.Core.Tests
             yield return new object[] { "filler", 5 };
             yield return new object[] { "creatures, magic off, single-use", 9 };
             yield return new object[] { "picking on, killing NPCs, orb", 13 };
+            yield return new object[] { "places where items lay", 21 };
         }
 
         static Action<KeyShuffleOptions> Set(string name)
@@ -292,6 +293,7 @@ namespace UwEditor.Core.Tests
                 case "filler": return o => o.Filler = true;
                 case "creatures, magic off, single-use": return o => { o.CreatureInventories = true; o.Logic.Magic = false; o.Logic.SingleUseItems = true; };
                 case "picking on, killing NPCs, orb": return o => { o.Logic.LockPicking = true; o.Logic.KillNpcs = true; o.Logic.RequireOrb = true; };
+                case "places where items lay": return o => o.Anywhere = false;
                 default: return null;
             }
         }
@@ -337,15 +339,17 @@ namespace UwEditor.Core.Tests
                 Assert.Equal(m.Item.Item, o.Item);
                 Assert.Equal(m.Item.Record.Owner, o.Owner);
             }
-            // and the objects' places did not move: positions and lists as before
+            // and the objects' places did not move, but those Place anywhere put on new squares: positions and lists as before
+            var relocated = new HashSet<string>(r.Moves.Where(m => m.Place.Relocated).Select(m => m.Place.Key2));
             foreach (int l in r.After.Keys)
             {
                 var a = s.LoadLevel(l); var b = edits.Model(l);
                 for (int i = 0; i < a.Objects.Length; i++)
                 {
                     Assert.Equal(a.Objects[i].Free, b.Objects[i].Free);
-                    Assert.Equal(a.Objects[i].TileX, b.Objects[i].TileX);
                     Assert.Equal(a.Objects[i].Parent, b.Objects[i].Parent);
+                    if (relocated.Contains(l + ":" + i)) Assert.True(a.Objects[i].OnTile && b.Objects[i].OnTile);
+                    else Assert.Equal(a.Objects[i].TileX, b.Objects[i].TileX);
                 }
             }
         }

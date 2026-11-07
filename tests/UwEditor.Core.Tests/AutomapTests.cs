@@ -31,12 +31,12 @@ namespace UwEditor.Core.Tests
             Assert.Contains(a.Notes, n => n.Text.Contains("THRONE ROOM"));
             var back = Automap.ReadNotes(Automap.WriteNotes(a.Notes));
             Assert.Equal(a.Notes.Select(n => (n.Text, n.X, n.Y)), back.Select(n => (n.Text, n.X, n.Y)));
-            // erased notes (x = -1) are left out; text is cut to 49 printable characters
+            // erased notes (x = -1) are left out; text is cut to 49 characters, in capitals (the font has no lowercase)
             var odd = Automap.ReadNotes(Automap.WriteNotes(new System.Collections.Generic.List<MapNote> { new MapNote { Text = new string('x', 80) + "é", X = 5, Y = 6 }, new MapNote { Text = "gone", X = -1, Y = 0 } }));
             Assert.Single(odd);
-            Assert.Equal(49, odd[0].Text.Length);
-            // a localized note's letters (bytes 0x80 and up) come back as they were
-            Assert.Equal("Mühle", Automap.ReadNotes(Automap.WriteNotes(new System.Collections.Generic.List<MapNote> { new MapNote { Text = "Mühle\u0001€", X = 1, Y = 2 } }))[0].Text);
+            Assert.Equal(new string('X', 49), odd[0].Text);
+            // letters lose their accents, characters past 0x60 (the notes' font's last glyph) become '?', control characters go
+            Assert.Equal("MUHLE?", Automap.ReadNotes(Automap.WriteNotes(new System.Collections.Generic.List<MapNote> { new MapNote { Text = "Mühle\u0001€", X = 1, Y = 2 } }))[0].Text);
         }
 
         [Theory]

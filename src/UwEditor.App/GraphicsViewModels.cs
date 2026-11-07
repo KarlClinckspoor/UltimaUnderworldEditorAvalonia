@@ -60,6 +60,7 @@ namespace UwEditor.App
             set
             {
                 if (!Set(ref fileName, value)) return;
+                FileNote = PairNote(value);
                 File = null;
                 PictureThumbs.Clear();
                 if (value == null) return;
@@ -76,6 +77,28 @@ namespace UwEditor.App
                 }
                 catch (Exception ex) { Status = value + ": " + ex.Message; }
                 PictureThumb = PictureThumbs.FirstOrDefault(t => t.Bitmap != null);
+            }
+        }
+
+        string fileNote;
+        /// <summary>A warning about the selected file, or null: UW1's texture files come in pairs.</summary>
+        public string FileNote { get { return fileNote; } private set { Set(ref fileNote, value); } }
+
+        /// <summary>
+        /// UW1 keeps every wall texture twice, 64 pixels in W64.TR and 16 in W16.TR, and every floor
+        /// texture in F32.TR and F16.TR. The 3D view draws faces from distance shade 4 on with the
+        /// small picture (3d/GRIDDB.C txtwal and txtflr, dist8), so a texture changed in only one file
+        /// shows the old picture near or far.
+        /// </summary>
+        public static string PairNote(string file)
+        {
+            switch ((file ?? "").ToUpperInvariant())
+            {
+                case "W64.TR": case "W16.TR":
+                    return "W64.TR and W16.TR hold the same wall textures: the game draws near walls with the 64×64 picture and walls a few squares away with the 16×16 one of W16.TR. When you change a texture, change the same number in both files, or distant walls show the old picture.";
+                case "F32.TR": case "F16.TR":
+                    return "F32.TR and F16.TR hold the same floor textures: the game draws near floors with the 32×32 picture and floors a few squares away with the 16×16 one of F16.TR. When you change a texture, change the same number in both files, or distant floors show the old picture.";
+                default: return null;
             }
         }
 

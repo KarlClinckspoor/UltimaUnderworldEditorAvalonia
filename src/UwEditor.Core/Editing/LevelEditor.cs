@@ -47,6 +47,18 @@ namespace UwEditor.Core.Editing
             }
         }
 
+        /// <summary>
+        /// A scratch editor over these level bytes, changed in place, with no animation block and
+        /// outside any LevelEdits: the randomizer moves objects with it on its own copies of the
+        /// levels before writing them whole.
+        /// </summary>
+        public LevelEditor(GameSession s, int level, byte[] data, byte[] tex)
+        {
+            Session = s; Level = level;
+            this.data = data;
+            this.tex = tex;
+        }
+
         /// <summary>The animation list's block (MAX_ANIMS 64 entries of 6 bytes: object link word, frames left, x, y).</summary>
         public const int AnimBlockLength = 0x180;
         byte[] animOriginal;
@@ -584,15 +596,15 @@ namespace UwEditor.Core.Editing
             FreeIndex(i);
         }
 
-        /// <summary>Moves an object lying on a tile to another tile (keeping its height above the floor).</summary>
-        public void MoveObject(int index, int x, int y, int? fineX = null, int? fineY = null)
+        /// <summary>Moves an object lying on a tile to another tile, keeping its height above the floor (onFloor: on the floor there).</summary>
+        public void MoveObject(int index, int x, int y, int? fineX = null, int? fineY = null, bool onFloor = false)
         {
             var o = Model.Objects[index];
             if (!o.OnTile) throw new InvalidOperationException("Only objects lying on a tile can be moved to another (this one is inside #" + o.Parent + ").");
             if (Model.Tiles[x, y].IsSolid) throw new InvalidOperationException("(" + x + ", " + y + ") is solid rock.");
             Change("Move #" + index + " to (" + x + ", " + y + ")", () =>
             {
-                int above = o.Z - FloorZ(o.TileX, o.TileY, o.FineX, o.FineY);
+                int above = onFloor ? 0 : o.Z - FloorZ(o.TileX, o.TileY, o.FineX, o.FineY);
                 Unlink(o);
                 SetNext(index, HeadOf(x, y));
                 SetHead(x, y, index);
@@ -922,9 +934,10 @@ namespace UwEditor.Core.Editing
                 if (e.AnimChanged) ark.Write(Session.Profile.OverlayBlock(e.Level), e.AnimBytes);
                 if (Session.Kind == GameKind.UW1) PruneUw1Animations(ark, e);
             }
-            foreach (var a in automaps.Values.Where(x => x.Dirty))
+            foreach (var a in automaps.Values.Where(x => x.Dirty || x.UnsafeNotes))
             {
-                ark.Write(Automap.MapBlock(Session.Kind, a.Level), a.Map);
+                // a page whose notes the game cannot draw (lowercase: Automap.NoteChars) is written again, cleaned, even unchanged
+                if (a.Dirty && !a.NotesOnly) ark.Write(Automap.MapBlock(Session.Kind, a.Level), a.Map);
                 ark.Write(Automap.NotesBlock(Session.Kind, a.Level), Automap.WriteNotes(a.Notes));
             }
             return ark.ToBytes();

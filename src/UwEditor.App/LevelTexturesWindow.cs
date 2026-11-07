@@ -58,8 +58,8 @@ namespace UwEditor.App
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             try { terrain = TerrainTable.Load(session); } catch (Exception) { terrain = null; }
 
-            if (session.IsUw2) { kinds.Add(TextureMap.Kind.Wall); kinds.Add(TextureMap.Kind.Door); kindBox.ItemsSource = new[] { "Wall and floor textures (T64.TR)", "Door textures (DOORS.GR)" }; }
-            else { kinds.Add(TextureMap.Kind.Wall); kinds.Add(TextureMap.Kind.Floor); kinds.Add(TextureMap.Kind.Door); kindBox.ItemsSource = new[] { "Wall textures (W64.TR)", "Floor textures (F32.TR)", "Door textures (DOORS.GR)" }; }
+            if (session.IsUw2) { kinds.Add(TextureMap.Kind.Wall); kinds.Add(TextureMap.Kind.Door); kindBox.ItemsSource = new[] { "Wall, floor and ceiling textures (T64.TR)", "Door textures (DOORS.GR)" }; }
+            else { kinds.Add(TextureMap.Kind.Wall); kinds.Add(TextureMap.Kind.Floor); kinds.Add(TextureMap.Kind.Door); kindBox.ItemsSource = new[] { "Wall textures (W64.TR)", "Floor/ceiling textures (F32.TR)", "Door textures (DOORS.GR)" }; }
             kindBox.SelectedIndex = 0;
             kindBox.SelectionChanged += (o, e) => { kind = kinds[Math.Max(0, kindBox.SelectedIndex)]; pending = -1; slots.SelectedIndex = -1; Fill(); };
 

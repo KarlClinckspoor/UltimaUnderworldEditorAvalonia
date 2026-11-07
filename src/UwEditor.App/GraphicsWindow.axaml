@@ -54,6 +54,10 @@
           </ListBox>
           <DockPanel Grid.Column="4">
             <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+              <Border x:Name="FileNoteBox" IsVisible="{Binding FileNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                      BorderBrush="{DynamicResource Accent}" BorderThickness="1" CornerRadius="3" Padding="6,4">
+                <TextBlock x:Name="FileNoteText" Text="{Binding FileNote}" TextWrapping="Wrap" FontSize="12" />
+              </Border>
               <TextBlock x:Name="PictureInfoText" Text="{Binding PictureInfo}" TextWrapping="Wrap" FontSize="12" />
               <ComboBox x:Name="PaletteBox" ItemsSource="{Binding PaletteNames}" SelectedIndex="{Binding PaletteIndex, Mode=TwoWay}" HorizontalAlignment="Stretch"
                         ToolTip.Tip="The PALS.DAT palette to show the picture in, and to match imported colours against." />

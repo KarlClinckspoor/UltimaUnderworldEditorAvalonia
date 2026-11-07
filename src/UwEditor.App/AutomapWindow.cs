@@ -48,6 +48,9 @@ namespace UwEditor.App
 
         public AutomapView() { ClipToBounds = true; Focusable = true; }
 
+        /// <summary>Tiles can be marked: there is a level to mark them by, and the page has a map (not UW1's notes-only pages past level 9).</summary>
+        public bool CanPaint { get { return Map != null && Level != null && !Map.NotesOnly; } }
+
         double Scale { get { return Math.Max(0.5, Math.Min(Bounds.Width / 320.0, Bounds.Height / 200.0)); } }
         Point Origin { get { double s = Scale; return new Point((Bounds.Width - 320 * s) / 2, (Bounds.Height - 200 * s) / 2); } }
         Point ToScreen(double px, double py) { var o = Origin; double s = Scale; return new Point(o.X + px * s, o.Y + (200 - py) * s); }
@@ -79,13 +82,13 @@ namespace UwEditor.App
             dc.FillRectangle(WidgetPaint.Brush(this, "Panel", Brushes.Black), new Rect(Bounds.Size));
             var o = Origin; double s = Scale;
             dc.FillRectangle(Parchment, new Rect(o.X, o.Y, 320 * s, 200 * s));
-            if (Map == null || Level == null) return;
+            if (Map == null) return;
             bool uw2 = Session != null && Session.IsUw2;
             for (int y = 1; y < 63; y++)
                 for (int x = 1; x < 63; x++)
                 {
                     var r = TileRect(x, y);
-                    if (ShowLevel && !Level.Tiles[x, y].IsSolid) dc.FillRectangle(Ghost, r);
+                    if (ShowLevel && Level != null && !Level.Tiles[x, y].IsSolid) dc.FillRectangle(Ghost, r);
                     int b = Map.Map[y * 64 + x], t = b & 0xF;
                     if (t == 0) continue;
                     if (t >= 10) { dc.FillRectangle(Known, r); continue; }          // UW2: known, not seen
@@ -134,7 +137,7 @@ namespace UwEditor.App
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
             base.OnPointerPressed(e);
-            if (Map == null || Level == null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            if (Map == null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
             var p = e.GetPosition(this);
             if (Mode == "notes")
             {
@@ -161,6 +164,7 @@ namespace UwEditor.App
                 InvalidateVisual();
                 return;
             }
+            if (!CanPaint) return;
             Map.Snapshot(Mode == "seen" ? "Mark seen" : "Mark unseen");
             dragging = true;
             e.Pointer.Capture(this);
@@ -181,7 +185,7 @@ namespace UwEditor.App
                 InvalidateVisual();
                 Changed?.Invoke();
             }
-            else if (Mode != "notes") PaintAt(p);
+            else if (Mode != "notes" && CanPaint) PaintAt(p);
         }
 
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
@@ -192,7 +196,7 @@ namespace UwEditor.App
         }
     }
 
-    /// <summary>Level ▸ Automap and map notes: the player's map of the current level and the notes on it, saved with the levels.</summary>
+    /// <summary>Level ▸ Automap and map notes: the player's map of a level (its own choice, starting at the main window's) and the notes on it, saved with the levels.</summary>
     public sealed class AutomapWindow : Window
     {
         readonly MainWindow main;
@@ -200,8 +204,16 @@ namespace UwEditor.App
         readonly ListBox notes = new ListBox();
         readonly TextBox text = new TextBox { Watermark = "The note's text (49 characters)", MaxLength = 49 };
         readonly TextBlock status = new TextBlock { FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.Wrap };
-        readonly TextBlock title = new TextBlock { FontSize = 16, FontWeight = FontWeight.SemiBold };
-        bool filling;
+        readonly TextBlock title = new TextBlock { FontSize = 16, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+        // which page: its own choice, not the main window's level
+        readonly ComboBox worldBox = new ComboBox { MinWidth = 170 };
+        readonly ComboBox pageBox = new ComboBox { MinWidth = 220, MaxDropDownHeight = 520 };
+        readonly Button prevButton = new Button { Content = "◀" }, nextButton = new Button { Content = "▶" };
+        readonly Button mainLevelButton = new Button { Content = "The main view's level" };
+        readonly Button allButton = new Button { Content = "Mark everything seen" }, noneButton = new Button { Content = "Mark nothing seen" };
+        bool filling, picking;
+        int page;
+        List<int> pages = new List<int>();
 
         public AutomapWindow(MainWindow main)
         {
@@ -220,10 +232,10 @@ namespace UwEditor.App
             brush.SelectionChanged += (o, e) => view.Brush = new[] { 0, 1, 2, 4 }[Math.Max(0, brush.SelectedIndex)];
             var showLevel = new CheckBox { Content = "Show the level under the map", IsChecked = true };
             showLevel.IsCheckedChanged += (o, e) => { view.ShowLevel = showLevel.IsChecked == true; view.InvalidateVisual(); };
-            var all = new Button { Content = "Mark everything seen" };
-            all.Click += (o, e) => Edit("Mark everything seen", a => a.All(main.ViewModel.Session, view.Level, true));
-            var none = new Button { Content = "Mark nothing seen" };
-            none.Click += (o, e) => Edit("Mark nothing seen", a => a.All(main.ViewModel.Session, view.Level, false));
+            var all = allButton;
+            all.Click += (o, e) => { if (view.CanPaint) Edit("Mark everything seen", a => a.All(main.ViewModel.Session, view.Level, true)); };
+            var none = noneButton;
+            none.Click += (o, e) => { if (view.CanPaint) Edit("Mark nothing seen", a => a.All(main.ViewModel.Session, view.Level, false)); };
             var undo = new Button { Content = "Undo" };
             undo.Click += (o, e) => { if (view.Map != null && view.Map.CanUndo) { view.Map.Undo(); Changed(); Fill(); } };
 
@@ -281,39 +293,151 @@ namespace UwEditor.App
 
             var dock = new DockPanel { Margin = new Thickness(16) };
             var head = new StackPanel { Spacing = 4, Margin = new Thickness(0, 0, 0, 10) };
-            head.Children.Add(title);
+            var picker = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            picker.Children.Add(prevButton);
+            if (main.ViewModel.Session != null && main.ViewModel.Session.IsUw2) picker.Children.Add(worldBox);
+            picker.Children.Add(pageBox);
+            picker.Children.Add(nextButton);
+            picker.Children.Add(mainLevelButton);
+            picker.Children.Add(title);
+            head.Children.Add(picker);
             head.Children.Add(status);
+            ToolTip.SetTip(prevButton, "The page before (Page Up).");
+            ToolTip.SetTip(nextButton, "The next page (Page Down).");
+            ToolTip.SetTip(mainLevelButton, "Shows the map of the level the main window shows.");
+            prevButton.Click += (o, e) => Step(-1);
+            nextButton.Click += (o, e) => Step(1);
+            mainLevelButton.Click += (o, e) => { var l = main.ViewModel.Level; if (l != null) ShowPage(l.Level); };
+            worldBox.SelectionChanged += (o, e) => { if (!picking && worldBox.SelectedIndex >= 0) ShowWorld(worldBox.SelectedIndex); };
+            pageBox.SelectionChanged += (o, e) => { if (!picking && pageBox.SelectedItem is PageItem it) ShowPage(it.Page); };
+            KeyDown += (o, e) =>
+            {
+                if (text.IsFocused) return;
+                if (e.Key == Key.PageUp) { Step(-1); e.Handled = true; }
+                else if (e.Key == Key.PageDown) { Step(1); e.Handled = true; }
+            };
             DockPanel.SetDock(head, Dock.Top);
             DockPanel.SetDock(tools, Dock.Left);
             DockPanel.SetDock(right, Dock.Right);
             dock.Children.Add(head); dock.Children.Add(tools); dock.Children.Add(right); dock.Children.Add(view);
             Content = dock;
             ManualWindow.Attach(this, "Automap and map notes");
-            main.ViewModel.LevelChanged += OnLevel;
             main.ViewModel.LevelEdited += OnLevelEdited;
-            Closed += (o, e) => { main.ViewModel.LevelChanged -= OnLevel; main.ViewModel.LevelEdited -= OnLevelEdited; };
-            OnLevel(main.ViewModel.Level);
+            Closed += (o, e) => main.ViewModel.LevelEdited -= OnLevelEdited;
+            BuildPages();
+            var start = main.ViewModel.Level;
+            ShowPage(start != null ? start.Level : pages.FirstOrDefault());
         }
+
+        /// <summary>An entry of the page list.</summary>
+        sealed class PageItem
+        {
+            public int Page;
+            public string Text = "";
+            public override string ToString() { return Text; }
+        }
+
+        /// <summary>
+        /// The pages: UW1's nine levels, then the notes-only pages 10-99 the map screen's arrow
+        /// also reaches (Automap.NotesOnly); UW2's 80 slots, picked by world and then by level.
+        /// </summary>
+        void BuildPages()
+        {
+            var s = main.ViewModel.Session;
+            pages = new List<int>();
+            if (s == null) return;
+            foreach (var slot in s.LevelSlots()) pages.Add(slot.Level);
+            if (!s.IsUw2) for (int p = s.Profile.LevelSlots + 1; p <= Automap.LastNotesPage; p++) pages.Add(p);
+            else
+            {
+                picking = true;
+                worldBox.ItemsSource = Enumerable.Range(0, s.Profile.WorldCount).Select(w =>
+                {
+                    var slots = s.LevelSlots().Where(x => x.World == w).ToList();
+                    return string.Format("{0} ({1} of {2})", s.Profile.WorldName(w), slots.Count(x => x.Present), slots.Count);
+                }).ToList();
+                picking = false;
+            }
+        }
+
+        string PageName(int p)
+        {
+            var s = main.ViewModel.Session;
+            if (Automap.IsNotesPage(s.Kind, p)) return "Page " + p + " (notes only)";
+            var slot = s.LevelSlots().FirstOrDefault(x => x.Level == p);
+            if (!s.IsUw2) return "Level " + p;
+            return slot != null ? slot.Name : s.Profile.LevelName(p);
+        }
+
+        /// <summary>The page list as it is for the page shown (UW2: the slots of its world).</summary>
+        void FillPageBox()
+        {
+            var s = main.ViewModel.Session;
+            picking = true;
+            var shown = s.IsUw2 ? pages.Where(p => s.Profile.WorldOf(p) == s.Profile.WorldOf(page)).ToList() : pages;
+            var items = shown.Select(p => new PageItem { Page = p, Text = PageName(p) }).ToList();
+            pageBox.ItemsSource = items;
+            pageBox.SelectedItem = items.FirstOrDefault(i => i.Page == page);
+            if (s.IsUw2) worldBox.SelectedIndex = s.Profile.WorldOf(page);
+            picking = false;
+        }
+
+        void ShowWorld(int world)
+        {
+            var s = main.ViewModel.Session;
+            var slots = s.LevelSlots().Where(x => x.World == world).ToList();
+            var first = slots.FirstOrDefault(x => x.Present) ?? slots.FirstOrDefault();
+            if (first != null) ShowPage(first.Level);
+        }
+
+        /// <summary>The next or previous page; UW2 skips the empty slots.</summary>
+        public void Step(int by)
+        {
+            var s = main.ViewModel.Session;
+            if (s == null || pages.Count == 0) return;
+            var present = new HashSet<int>(s.LevelSlots().Where(x => x.Present).Select(x => x.Level));
+            int i = pages.IndexOf(page);
+            for (int k = i + by; k >= 0 && k < pages.Count; k += by)
+                if (!s.IsUw2 || present.Contains(pages[k])) { ShowPage(pages[k]); return; }
+        }
+
+        /// <summary>Shows a page's map and notes: a level's (by its edited model), or a notes-only page's.</summary>
+        public void ShowPage(int p)
+        {
+            var vm = main.ViewModel;
+            var s = vm.Session;
+            if (s == null || vm.Edits == null || !pages.Contains(p)) return;
+            page = p;
+            LevelModel level = null;
+            if (!Automap.IsNotesPage(s.Kind, p) && s.LevelSlots().Any(x => x.Level == p && x.Present))
+            {
+                try { level = vm.Edits.Model(p); } catch (Exception) { level = null; }
+                if (level != null && !level.Present) level = null;
+            }
+            view.Session = s;
+            view.Level = level;
+            view.Map = vm.Edits.AutomapFor(p);
+            view.Selected = null;
+            FillPageBox();
+            int i = pages.IndexOf(p);
+            prevButton.IsEnabled = i > 0;
+            nextButton.IsEnabled = i < pages.Count - 1;
+            allButton.IsEnabled = noneButton.IsEnabled = view.CanPaint;
+            Fill();
+        }
+
+        /// <summary>The page shown (a level, or UW1's notes-only pages 10-99).</summary>
+        public int Page { get { return page; } }
 
         static StackPanel Row(params Control[] c) { var p = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 }; foreach (var x in c) p.Children.Add(x); return p; }
 
         public AutomapView View { get { return view; } }
 
-        void OnLevel(LevelModel level)
-        {
-            var vm = main.ViewModel;
-            view.Session = vm.Session;
-            view.Level = level;
-            view.Map = level == null || vm.Edits == null ? null : vm.Edits.AutomapFor(level.Level);
-            view.Selected = null;
-            Fill();
-        }
-
         /// <summary>The level was edited in the main window: paint by its new shapes (the model is rebuilt after an edit).</summary>
         void OnLevelEdited()
         {
             var level = main.ViewModel.Level;
-            if (level == null || view.Level == null || level.Level != view.Level.Level) return;
+            if (level == null || level.Level != page || Automap.IsNotesPage(main.ViewModel.Session.Kind, page)) return;
             view.Level = level;
             view.InvalidateVisual();
         }
@@ -352,9 +476,14 @@ namespace UwEditor.App
 
         void UpdateStatus()
         {
-            var l = view.Level;
-            title.Text = l == null ? "No level" : "The player's map of level " + l.Level;
-            status.Text = view.Map == null ? "" : string.Format("{0} tiles seen, {1} of {2} notes{3}.", view.Map.SeenCount, view.Map.Notes.Count, Automap.MaxNotes, view.Map.Dirty ? "; unsaved changes" : "");
+            var s = main.ViewModel.Session;
+            title.Text = s == null ? "No game" : "";
+            if (view.Map == null) { status.Text = ""; return; }
+            string what = view.Map.NotesOnly
+                ? "A page past the last level: the map screen's up arrow reaches it and shows a blank map with these notes. Only notes can be put here."
+                : view.Level == null ? "An empty slot: no level to mark tiles by; notes can still be written."
+                : string.Format("{0} tiles seen.", view.Map.SeenCount);
+            status.Text = string.Format("{0} {1} of {2} notes{3}.", what, view.Map.Notes.Count, Automap.MaxNotes, view.Map.Dirty ? "; unsaved changes" : "");
         }
     }
 }

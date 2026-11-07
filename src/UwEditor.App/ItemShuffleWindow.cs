@@ -47,27 +47,30 @@ namespace UwEditor.App
             newSeed.Click += (o, e) => seed.Value = new Random().Next(1, int.MaxValue);
             var defaults = new Button { Content = "All from the game" };
             ToolTip.SetTip(defaults, "Sets every tab's values to what the levels hold now.");
-            defaults.Click += (o, e) => { int sd = opt.Seed; var ign = opt.Ignored; opt = ShuffleOptions.Defaults(session, Level); opt.Seed = sd; opt.Ignored = ign; Build(); report.Text = "Every setting now follows the levels as they are."; };
+            defaults.Click += (o, e) => { int sd = opt.Seed; var ign = opt.Ignored; bool anyw = opt.PlaceAnywhere; opt = ShuffleOptions.Defaults(session, Level); opt.Seed = sd; opt.Ignored = ign; opt.PlaceAnywhere = anyw; Build(); report.Text = "Every setting now follows the levels as they are."; };
             seed.ValueChanged += (o, e) => opt.Seed = (int)(seed.Value ?? 1);
 
             var inv = new CheckBox { Content = "Include creatures' inventories" };
             var keep = new CheckBox { Content = "Keep spells and other enchantments" };
+            var anywhere = new CheckBox { Content = "Place anywhere" };
+            ToolTip.SetTip(anywhere, "On: the items the shuffle rolls that lie on the floor go to random squares of their level: open floor, slopes and the open half of a diagonal, but not water or lava, and not a square with a door, a trap or a trigger. These items carry no logic, so any such square of the level will do. Items in containers and creatures, and the starting equipment, stay. Off: everything stays where it lies.");
             inv.IsCheckedChanged += (o, e) => opt.IncludeInventories = inv.IsChecked == true;
             keep.IsCheckedChanged += (o, e) => opt.KeepOtherEnchantments = keep.IsChecked == true;
-            this.inv = inv; this.keep = keep;
+            anywhere.IsCheckedChanged += (o, e) => opt.PlaceAnywhere = anywhere.IsChecked == true;
+            this.inv = inv; this.keep = keep; this.anywhere = anywhere;
 
             var top = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 0, 8) };
             top.Children.Add(new TextBlock { Text = "Item property shuffle", FontSize = 16, FontWeight = FontWeight.SemiBold });
             top.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
-                Text = "Weapons, armour, food, lights, tools, runestones, wands, scrolls, potions and rings stay where they lie, but may become other items according to the weights below, " +
+                Text = "Weapons, armour, food, lights, tools, runestones, wands, scrolls, potions and rings may become other items according to the weights below, " +
                        "with their quality and enchantments rolled again. Each keeps its owner: if a rat's food becomes a lantern, the lantern belongs to the rat. The settings start from what the world holds. Weights are relative, and 0 removes a kind. Caliburn" + (s.IsUw2 ? ", the jewelled dagger" : "") +
-                       ", talismans and quest items are never touched. The item swap moves existing objects around instead. The same seed gives the same result.",
+                       ", talismans and quest items are never touched. With Place anywhere, those lying on the floor also go to random squares of their level; without it they stay where they lie. The item swap trades existing objects' places instead. The same seed gives the same result.",
             });
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             row.Children.Add(Label("Seed")); row.Children.Add(seed); row.Children.Add(newSeed); row.Children.Add(defaults);
-            row.Children.Add(inv); row.Children.Add(keep);
+            row.Children.Add(inv); row.Children.Add(keep); row.Children.Add(anywhere);
             top.Children.Add(row);
 
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 6) };
@@ -83,7 +86,7 @@ namespace UwEditor.App
             Closed += (o, e) => SaveOptions();
         }
 
-        readonly CheckBox inv, keep;
+        readonly CheckBox inv, keep, anywhere;
         TabItem ignoredTab;
         public ShuffleOptions Options { get { return opt; } }
         public bool CanUndoShuffle { get { return undoButton.IsEnabled; } }
@@ -172,6 +175,7 @@ namespace UwEditor.App
             seed.Value = opt.Seed;
             inv.IsChecked = opt.IncludeInventories;
             keep.IsChecked = opt.KeepOtherEnchantments;
+            anywhere.IsChecked = opt.PlaceAnywhere;
             int sel = Math.Max(0, tabs.SelectedIndex);
             tabs.Items.Clear();
             tabs.Items.Add(new TabItem { Header = "Weapons", Content = Scroll(WeaponsTab()) });

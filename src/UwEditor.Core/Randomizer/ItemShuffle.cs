@@ -332,7 +332,14 @@ namespace UwEditor.Core.Randomizer
         public readonly StringBuilder Report = new StringBuilder();
         /// <summary>Each level's block as Apply left it: Revert only puts back a level that has not been edited since.</summary>
         public readonly Dictionary<int, byte[]> After = new Dictionary<int, byte[]>();
+        /// <summary>Each level's block before Apply: Revert puts it back whole when objects moved.</summary>
+        public readonly Dictionary<int, byte[]> Before = new Dictionary<int, byte[]>();
+        /// <summary>Place anywhere: the objects put on other squares, by level.</summary>
+        public readonly Dictionary<int, List<ObjectMove>> Moves = new Dictionary<int, List<ObjectMove>>();
         public int Changed { get { return ByLevel.Values.Sum(l => l.Count); } }
+        public int Moved { get { return Moves.Values.Sum(l => l.Count); } }
+        /// <summary>The levels Apply writes: those with changed objects or moved ones.</summary>
+        public IEnumerable<int> Levels { get { return ByLevel.Keys.Union(Moves.Keys).OrderBy(k => k); } }
     }
 
     /// <summary>
@@ -467,8 +474,9 @@ namespace UwEditor.Core.Randomizer
                 if (!res.Original.TryGetValue(c.Level, out l)) res.Original[c.Level] = l = new List<ItemRewrite>();
                 l.Add(Of(c.O));
             }
+            if (!swapping && opt.PlaceAnywhere) PlaceAnywhere(s, level, opt, all, res);
             var after = Count(all, true);
-            res.Report.Insert(0, string.Format("Seed {0}: {1} objects change on {2} levels.\n\n", opt.Seed, res.Changed, res.ByLevel.Count));
+            res.Report.Insert(0, string.Format("Seed {0}: {1} objects change on {2} levels{3}.\n\n", opt.Seed, res.Changed, res.ByLevel.Count, res.Moved > 0 ? ", " + res.Moved + " move to other squares" : ""));
             res.Report.AppendLine().AppendLine("Item counts before → after:");
             foreach (var k in before.Keys.Union(after.Keys).OrderBy(x => x))
             {
@@ -1140,13 +1148,22 @@ namespace UwEditor.Core.Randomizer
         /// <summary>Applies a result to the level editors, one undoable change per level.</summary>
         public static void Apply(ShuffleResult r, LevelEdits edits, int seed)
         {
+            string label = "Shuffle item properties (seed " + seed + ")";
             edits.Together(() =>
             {
-                foreach (var kv in r.ByLevel)
+                foreach (int lv in r.Levels.ToList())
                 {
-                    var e = edits.For(kv.Key);
-                    e.RewriteItems(kv.Value, "Shuffle item properties (seed " + seed + ")");
-                    r.After[kv.Key] = (byte[])e.Data.Clone();
+                    var e = edits.For(lv);
+                    r.Before[lv] = (byte[])e.Data.Clone();
+                    e.Batch(label, () =>
+                    {
+                        List<ItemRewrite> rw;
+                        if (r.ByLevel.TryGetValue(lv, out rw)) e.RewriteItems(rw, label);
+                        List<ObjectMove> mv;
+                        if (r.Moves.TryGetValue(lv, out mv))
+                            foreach (var x in mv) e.MoveObject(x.Index, x.To.X, x.To.Y, x.To.FineX, x.To.FineY, onFloor: true);
+                    });
+                    r.After[lv] = (byte[])e.Data.Clone();
                 }
             });
         }
@@ -1161,12 +1178,15 @@ namespace UwEditor.Core.Randomizer
             var skipped = new List<int>();
             edits.Together(() =>
             {
-                foreach (var kv in r.Original)
+                foreach (int lv in r.Original.Keys.Union(r.Moves.Keys).OrderBy(k => k).ToList())
                 {
-                    var e = edits.For(kv.Key);
-                    byte[] after;
-                    if (r.After.TryGetValue(kv.Key, out after) && !e.Data.AsSpan().SequenceEqual(after)) { skipped.Add(kv.Key); continue; }
-                    e.RewriteItems(kv.Value, "Undo item shuffle");
+                    var e = edits.For(lv);
+                    byte[] after, before;
+                    if (r.After.TryGetValue(lv, out after) && !e.Data.AsSpan().SequenceEqual(after)) { skipped.Add(lv); continue; }
+                    // objects moved: the level as it was, whole (their lists' order included)
+                    if (r.Moves.ContainsKey(lv) && r.Before.TryGetValue(lv, out before)) { e.Replace(before, null, "Undo item shuffle"); continue; }
+                    List<ItemRewrite> orig;
+                    if (r.Original.TryGetValue(lv, out orig)) e.RewriteItems(orig, "Undo item shuffle");
                 }
             });
             return skipped;

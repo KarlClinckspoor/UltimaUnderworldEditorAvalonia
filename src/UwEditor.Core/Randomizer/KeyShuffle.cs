@@ -35,6 +35,10 @@ namespace UwEditor.Core.Randomizer
         public bool StartKit;
         /// <summary>At Apply: every level's map explored (StartAids.ExploreMaps).</summary>
         public bool ExploreMaps;
+        /// <summary>Places on the floor become random squares of their level that the logic reaches (Anywhere), instead of where items lay.</summary>
+        public bool Anywhere = true;
+        /// <summary>At Apply: the spoiler log in the map notes, a warning on page 9, hints on 10, answers on 11 (SpoilerNotes).</summary>
+        public bool SpoilerNotes;
 
         public KeyShuffleOptions Clone()
         {
@@ -69,6 +73,13 @@ namespace UwEditor.Core.Randomizer
         public int Zone, Sphere = -1;
         /// <summary>Its record (item, quality, flags, link, owner, enchantment, is-quantity): what moves.</summary>
         public ItemRewrite Record;
+        /// <summary>It lies on the floor (not in a container or a creature).</summary>
+        public bool OnFloor;
+        /// <summary>Its square before Place anywhere moved its place (-1: not moved).</summary>
+        public int FromX = -1, FromY = -1;
+        public bool Relocated { get { return FromX >= 0; } }
+        /// <summary>Where the item was in the levels (before Place anywhere).</summary>
+        public string WasWhere { get { return Relocated ? string.Format("L{0} ({1}, {2})", Level, FromX, FromY) : Where; } }
         public string Key2 { get { return Level + ":" + Index; } }
         public string Where { get { return string.Format("L{0} ({1}, {2}){3}", Level, X, Y, Holder.Length > 0 ? " " + Holder : ""); } }
         public string Tokens { get { return string.Join(", ", Gives.Select(p => p.Grants.Length > 0 ? p.Grants : p.Quantity + " towards " + p.Counts).Distinct()); } }
@@ -133,6 +144,9 @@ namespace UwEditor.Core.Randomizer
         public readonly Dictionary<int, byte[]> Applied = new Dictionary<int, byte[]>();
         /// <summary>The maps Apply explored (ExploreMaps), as they were before, for Undo.</summary>
         public readonly Dictionary<int, Tuple<byte[], List<UwEditor.Core.Editing.MapNote>>> MapsBefore = new Dictionary<int, Tuple<byte[], List<UwEditor.Core.Editing.MapNote>>>();
+        /// <summary>Place anywhere: the places moved to random squares, and the levels that had no square for them.</summary>
+        public int Relocated;
+        public readonly List<string> AnywhereNotes = new List<string>();
         /// <summary>What Apply did besides moving the items (the torch and map, the maps explored).</summary>
         public readonly List<string> AppliedAids = new List<string>();
         public bool IsApplied { get { return Applied.Count > 0; } }
@@ -376,6 +390,7 @@ namespace UwEditor.Core.Randomizer
                         Category = cat ?? "filler", Record = RecordOf(o), Zone = t.Set.NearestZone(level, o.TileX, o.TileY),
                     };
                     so.Gives.AddRange(gives);
+                    so.OnFloor = o.OnTile;
                     so.Requires = AbilityZones.ContainerLock(m, o) ?? "";
                     if (so.Requires.Length > 0) so.Holder += " (locked: " + so.Requires + ")";
                     // who holds it, and whether that keeps it
@@ -514,6 +529,7 @@ namespace UwEditor.Core.Randomizer
                 needed = Needed(t, so0);
                 objs = Survey(s, w, t, opt, needed);
             }
+            if (opt.Anywhere) PlaceAnywhere(s, w, t, opt, objs, r);
             r.Objects.AddRange(objs);
             var solver = MakeSolver(t, opt, objs);
             var places = solver.Places;
@@ -590,6 +606,43 @@ namespace UwEditor.Core.Randomizer
             }
             WriteLog(s, r, t);
             return r;
+        }
+
+        /// <summary>
+        /// Place anywhere: every place that moves and lies on the floor goes to a random square of
+        /// its level (Anywhere.Qualifies: open, not water or lava, no door, trap or trigger; slopes
+        /// and the open half of a diagonal allowed) whose zone the logic reaches with every moving
+        /// item held, one place a square while there are squares. The places' records move in the
+        /// world's bytes before the fill, so the fill, the check and Apply all see them there; the
+        /// zone graph does not change, since loose items do not shape it.
+        /// </summary>
+        static void PlaceAnywhere(GameSession s, World w, TimelineResult t, KeyShuffleOptions opt, List<ShuffleObject> objs, KeyShuffleResult r)
+        {
+            var floor = objs.Where(o => o.Stays == null && o.OnFloor).ToList();
+            if (floor.Count == 0) return;
+            var sv = Timeline.Solve(t, opt.Logic, "every moving item held", GivesTokens(t, objs.Where(o => o.Stays == null)).ToList());
+            var zones = new HashSet<int>(sv.ZoneSphere.Keys);
+            var terrain = CreatureTerrain.TryLoad(s);
+            var rng = new Random(unchecked(opt.Seed * 31 + 0x5CA7));
+            foreach (var g in floor.GroupBy(o => o.Level).OrderBy(g => g.Key))
+            {
+                int level = g.Key;
+                var m = w.Model(level);
+                var squares = Anywhere.Squares(s, m, terrain, (x, y) => { int z = t.Set.ZoneAt(level, x, y); return z > ZoneSet.Unassigned && zones.Contains(z); });
+                var list = g.OrderBy(o => o.Index).ToList();
+                var spots = Anywhere.Spots(rng, m, squares, list.Count);
+                if (spots.Count == 0) { r.AnywhereNotes.Add("level " + level + ": no square the logic reaches qualifies; its " + list.Count + " places stay where items lay"); continue; }
+                for (int k = 0; k < list.Count; k++)
+                {
+                    var o = list[k];
+                    Anywhere.Move(s, level, w.Data[level], w.Tex[level], o.Index, spots[k]);
+                    o.FromX = o.X; o.FromY = o.Y;
+                    o.X = spots[k].X; o.Y = spots[k].Y;
+                    o.Zone = t.Set.NearestZone(level, o.X, o.Y);
+                    r.Relocated++;
+                }
+                w.Changed(level);
+            }
         }
 
         static void Shuffle<T>(Random rng, IList<T> l)
@@ -696,6 +749,11 @@ namespace UwEditor.Core.Randomizer
                     foreach (var kv in StartAids.ExploreMaps(edits.Session, edits, "Key item scatter: maps explored")) r.MapsBefore[kv.Key] = kv.Value;
                     r.AppliedAids.Add(r.MapsBefore.Count == 0 ? "Every map was already explored." : "The maps of levels " + string.Join(", ", r.MapsBefore.Keys.OrderBy(k => k)) + " were explored.");
                 }
+                if (r.Options.SpoilerNotes)
+                {
+                    var pages = PutSpoilerNotes(r, edits);
+                    r.AppliedAids.Add(pages.Count == 0 ? "The spoiler log was already in the map notes." : "The spoiler log was written in the map notes: a warning on page " + SpoilerNotes.WarningPage + ", hints from page " + SpoilerNotes.HintsPage + ", answers from page " + SpoilerNotes.AnswersPage + " (pages " + string.Join(", ", pages.OrderBy(k => k)) + " changed).");
+                }
             },
             // Edit ▸ Undo took the whole apply back: the maps too, and the result is no longer applied; Redo brings both again
             undone: () =>
@@ -709,7 +767,16 @@ namespace UwEditor.Core.Randomizer
                 if (appliedThen != null) foreach (var kv in appliedThen) r.Applied[kv.Key] = kv.Value;
                 if (r.Options.ExploreMaps)
                     foreach (var kv in StartAids.ExploreMaps(edits.Session, edits, "Key item scatter: maps explored")) r.MapsBefore[kv.Key] = kv.Value;
+                if (r.Options.SpoilerNotes) PutSpoilerNotes(r, edits);
             });
+        }
+
+        /// <summary>The spoiler log written in the map notes; each page's notes as they were go with the maps for Undo (a page the maps already hold keeps its older state). Returns the pages changed.</summary>
+        static List<int> PutSpoilerNotes(KeyShuffleResult r, LevelEdits edits)
+        {
+            var before = SpoilerNotes.Write(edits.Session, edits, r, "Key item scatter: spoiler log in the map notes");
+            foreach (var kv in before) if (!r.MapsBefore.ContainsKey(kv.Key)) r.MapsBefore[kv.Key] = kv.Value;
+            return before.Keys.ToList();
         }
 
         /// <summary>The maps explored at Apply put back as they were (a map is cosmetic: even if marked since), but not on the levels in skip.</summary>
@@ -771,6 +838,14 @@ namespace UwEditor.Core.Randomizer
             return n.Length == 0 ? o.Where : o.Where + " in " + n;
         }
 
+        /// <summary>Where an item was before the shuffle (before Place anywhere moved its record), named.</summary>
+        static string NamedWas(ZoneSet names, ShuffleObject o)
+        {
+            if (!o.Relocated) return Named(names, o);
+            string n = PlaceName(names, o.Level, o.FromX, o.FromY);
+            return n.Length == 0 ? o.WasWhere : o.WasWhere + " in " + n;
+        }
+
         static void WriteLog(GameSession s, KeyShuffleResult r, TimelineResult t)
         {
             var b = r.Log;
@@ -781,6 +856,9 @@ namespace UwEditor.Core.Randomizer
             b.AppendLine("Logic: " + opt.Logic + ".");
             b.AppendLine("Moving: " + string.Join(", ", Categories.Where(opt.Move.Contains).Select(CategoryName)) + (opt.Filler ? ", and everything else as filler" : "") + "; creature inventories " + (opt.CreatureInventories ? "in (creatures without a conversation)" : "out") + ".");
             b.AppendLine("Method: assumed fill on the time-aware solver; a fresh solve of the shuffled levels (with the return check) must reach the goal.");
+            b.AppendLine(opt.Anywhere
+                ? "Place anywhere: on; " + r.Relocated + " places on the floor moved to random squares of their level that the logic reaches (not water or lava, no door, trap or trigger)" + (r.AnywhereNotes.Count > 0 ? "; " + string.Join("; ", r.AnywhereNotes) : "") + "."
+                : "Place anywhere: off; items trade the places where items lay.");
             var names = opt.Names;
             if (opt.Zoning != null)
                 b.AppendLine("Zones: " + (opt.ZoningFrom.Length > 0 ? opt.ZoningFrom : "the zoning given") + " (the Zones window's), laid on the levels' regions; \"zone N\" is its zone N.");
@@ -812,16 +890,16 @@ namespace UwEditor.Core.Randomizer
             {
                 b.AppendLine("  Sphere " + (g.Key < 0 ? "never" : g.Key.ToString()) + ":");
                 foreach (var m in g.OrderBy(x => x.Item.Category).ThenBy(x => x.Item.Name))
-                    b.AppendLine(string.Format("    {0} [{1}]: {2}, zone {3} (was {4}; the place held #{5} {6}, reached in sphere {7} of the original)", m.Item.Name, m.Item.Tokens, Named(names, m.Place), m.Place.Zone, Named(names, m.Item), m.Place.Index, m.Place.Name,
-                        m.Place.Sphere < 0 ? "never" : m.Place.Sphere.ToString()));
+                    b.AppendLine(string.Format("    {0} [{1}]: {2}, zone {3} (was {4}; {5}, reached in sphere {6} of the original)", m.Item.Name, m.Item.Tokens, Named(names, m.Place), m.Place.Zone, NamedWas(names, m.Item),
+                        m.Place.Relocated ? "a random square" : "the place held #" + m.Place.Index + " " + m.Place.Name, m.Place.Sphere < 0 ? "never" : m.Place.Sphere.ToString()));
             }
-            var others = r.Moves.Where(m => !m.ByFill && m.Item != m.Place).ToList();
+            var others = r.Moves.Where(m => !m.ByFill && (m.Item != m.Place || m.Place.Relocated)).ToList();
             if (others.Count > 0)
             {
                 b.AppendLine();
                 b.AppendLine("THE OTHER ITEMS (" + others.Count + " moved)");
                 foreach (var m in others.OrderBy(x => x.Place.Level).ThenBy(x => x.Place.Index).Take(400))
-                    b.AppendLine(string.Format("  {0} -> {1} (was {2})", m.Item.Name, Named(names, m.Place), Named(names, m.Item)));
+                    b.AppendLine(string.Format("  {0} -> {1} (was {2})", m.Item.Name, Named(names, m.Place), NamedWas(names, m.Item)));
                 if (others.Count > 400) b.AppendLine("  …");
             }
         }

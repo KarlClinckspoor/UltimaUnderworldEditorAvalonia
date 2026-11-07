@@ -145,7 +145,9 @@ namespace UwEditor.Core.Tests
             var opt = ShuffleOptions.Defaults(s, edits.Model);
             opt.Seed = 7;
             ItemShuffle.Apply(ItemShuffle.Run(s, edits.Model, opt), edits, 7);
-            foreach (var h in holders) Assert.Equal(h.rec, edits.Model(h.level).Objects[h.index].Record);
+            // the holder as it was; only its list link (next, word 2 bits 6-15) may differ, when an item after it on its tile went to another square (Place anywhere)
+            Func<byte[], byte[]> noNext = rec => { var c = (byte[])rec.Clone(); c[4] &= 0x3F; c[5] = 0; return c; };
+            foreach (var h in holders) Assert.Equal(noNext(h.rec), noNext(edits.Model(h.level).Objects[h.index].Record));
         }
 
         [Fact]

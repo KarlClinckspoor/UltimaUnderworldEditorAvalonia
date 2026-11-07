@@ -710,6 +710,57 @@ namespace UwEditor.App.Tests
         }
 
         [AvaloniaFact]
+        public void Automap_window_picks_its_own_page_and_reaches_the_notes_pages_past_level_9()
+        {
+            if (Uw1 == null) return;
+            using (var copy = new GameCopy(Uw1, "DATA"))
+            {
+                var w = OpenQuiet(copy.Folder);
+                w.ViewModel.LoadLevel(2);
+                var aw = w.ShowAutomap();
+                Ui.Pump();
+                Assert.Equal(2, aw.Page);                               // starts at the main view's level
+                w.ViewModel.LoadLevel(5);
+                Ui.Pump();
+                Assert.Equal(2, aw.Page);                               // and does not follow it
+                aw.Step(1);
+                Assert.Equal(3, aw.Page);
+                aw.ShowPage(9); aw.Step(1);
+                Assert.Equal(10, aw.Page);                              // past the last level: notes only
+                Assert.True(aw.View.Map.NotesOnly);
+                Assert.False(aw.View.CanPaint);
+                Assert.Null(aw.View.Level);
+                aw.ShowPage(99); aw.Step(1);
+                Assert.Equal(99, aw.Page);
+                aw.Close();
+                w.Close();
+            }
+        }
+
+        [AvaloniaFact]
+        public void Automap_window_steps_through_uw2s_slots_skipping_empty_ones()
+        {
+            if (Uw2 == null) return;
+            using (var copy = new GameCopy(Uw2, "DATA"))
+            {
+                var w = OpenQuiet(copy.Folder);
+                var aw = w.ShowAutomap();
+                Ui.Pump();
+                var s = w.ViewModel.Session;
+                var present = s.LevelSlots().Where(x => x.Present).Select(x => x.Level).ToList();
+                aw.ShowPage(present[0]);
+                for (int i = 1; i < Math.Min(present.Count, 20); i++)
+                {
+                    aw.Step(1);
+                    Assert.Equal(present[i], aw.Page);
+                    Assert.True(aw.View.CanPaint);
+                }
+                aw.Close();
+                w.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void Zones_window_adds_renames_paints_fills_and_lists_key_items()
         {
             if (Uw1 == null) return;

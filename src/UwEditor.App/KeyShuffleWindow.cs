@@ -43,6 +43,8 @@ namespace UwEditor.App
         bool quickRunning, namesFromZoning;
         readonly CheckBox kitBox = new CheckBox { Content = "A full torch (quality 63) and the map beside the start" };
         readonly CheckBox mapsBox = new CheckBox { Content = "Every map square explored" };
+        readonly CheckBox anywhereBox = new CheckBox { Content = "Place anywhere (random squares, not where items lay)" };
+        readonly CheckBox notesBox = new CheckBox { Content = "Spoiler log in the map notes (pages 9-11)" };
 
         /// <summary>The last preview or shuffle, or null.</summary>
         public KeyShuffleResult Result { get; private set; }
@@ -68,7 +70,7 @@ namespace UwEditor.App
                 TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75,
                 Text = "Moves the key items to new places so that the game stays beatable with the logic chosen below. The zones (the Zones window's zoning, or automatic zones when there is none) and the time-aware solver decide what is reachable. " +
                        "The key items are placed one by one, each somewhere the solver can reach while it counts the items not yet placed as held (assumed fill); the other items fill the rest. " +
-                       "A fresh solve of the shuffled levels must then reach level 9 without a one-way trap, or the next seed is tried. Items trade places whole (keys keep their lock numbers). " +
+                       "A fresh solve of the shuffled levels must then reach level 9 without a one-way trap, or the next seed is tried. Items move whole (keys keep their lock numbers); with Place anywhere, the places on the floor are random squares the logic reaches. " +
                        "Nothing is written until you press Apply, which makes one undoable step per level; the changes are saved with the levels." + (s.IsUw2 ? " This works for Ultima Underworld 1 only, whose facts and solver it uses." : ""),
             });
             // the zoning: the Zones window's, or Quick autozone when there is none
@@ -121,6 +123,13 @@ namespace UwEditor.App
             mapsBox.IsCheckedChanged += (o, e) => opt.ExploreMaps = mapsBox.IsChecked == true;
             ToolTip.SetTip(mapsBox, "At Apply, every level's map shows every square, as if the player had seen it all; the map notes are kept.");
             more.AddRow("At the start", kitBox, mapsBox);
+            anywhereBox.IsChecked = opt.Anywhere;
+            anywhereBox.IsCheckedChanged += (o, e) => opt.Anywhere = anywhereBox.IsChecked == true;
+            ToolTip.SetTip(anywhereBox, "On: the places on the floor become random squares of their level that the logic reaches: open floor, slopes and the open half of a diagonal, but not water or lava, and not a square with a door, a trap or a trigger. Items in containers and creatures keep those places. Off: the items trade the places where items lay.");
+            notesBox.IsChecked = opt.SpoilerNotes;
+            notesBox.IsCheckedChanged += (o, e) => opt.SpoilerNotes = notesBox.IsChecked == true;
+            ToolTip.SetTip(notesBox, "At Apply, the log goes into the game's own map notes, which a new game copies from DATA: page 9 (the Ethereal Void's map) gets a warning, page 10 hints (each key item by the name of the zone it lies in, or its level and the part of it), page 11 the answers (level and square). The map screen's up arrow goes past level 9 to these pages. Longer logs go on to pages 12 and 13, and so on.");
+            more.AddRow("Places", anywhereBox, notesBox);
             top.Children.Add(more);
 
             previewButton.Click += async (o, e) => await RunAsync(false);
@@ -242,7 +251,7 @@ namespace UwEditor.App
         {
             if (r == null || !r.Success || r.IsApplied) return false;
             var o = r.Options;
-            if (o.Seed != opt.Seed || o.Retries != opt.Retries || o.Filler != opt.Filler || o.CreatureInventories != opt.CreatureInventories || !o.Move.SetEquals(opt.Move)) return false;
+            if (o.Seed != opt.Seed || o.Retries != opt.Retries || o.Anywhere != opt.Anywhere || o.Filler != opt.Filler || o.CreatureInventories != opt.CreatureInventories || !o.Move.SetEquals(opt.Move)) return false;
             if (o.Logic.ToString() != opt.Logic.ToString() || o.Nav.MaxClimb != opt.Nav.MaxClimb || o.Nav.JumpSpellClimb != opt.Nav.JumpSpellClimb || o.Nav.GapJumps != opt.Nav.GapJumps
                 || o.Nav.GapTiles != opt.Nav.GapTiles || o.Nav.JumpSpellGapTiles != opt.Nav.JumpSpellGapTiles || o.Nav.DiagonalJumps != opt.Nav.DiagonalJumps
                 || o.Nav.CutAtLevelChanges != opt.Nav.CutAtLevelChanges || o.Nav.FoldEmptyDeadEnds != opt.Nav.FoldEmptyDeadEnds || o.Nav.ShippedStart != opt.Nav.ShippedStart) return false;
@@ -295,6 +304,7 @@ namespace UwEditor.App
             // the helps are done at Apply, with the choices as they are now
             r.Options.StartKit = opt.StartKit;
             r.Options.ExploreMaps = opt.ExploreMaps;
+            r.Options.SpoilerNotes = opt.SpoilerNotes;
             KeyShuffle.Apply(r, main.ViewModel.Edits);
             if (r.AppliedAids.Count > 0)
             {

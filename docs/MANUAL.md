@@ -83,6 +83,10 @@ new-game start; in a saved game a **green arrow** marks the player.
   step) and runs down, a texture every 4 floor steps, as the game lays it. So under the
   ceiling (height 16) a wall ends on a whole texture only when its floor is at 0, 4, 8 or 12,
   and is cut at the bottom otherwise, in the game as here.
+  A texture reads left to right as you face the wall from the open side, from whichever side
+  you look, as the game draws it (`3d/GRIDDB.C` builds each face as the player sees it). So a
+  picture is never mirrored: the two halves of Underworld's arched double door (wall textures
+  38 and 39) join up from both sides.
 - The ceiling (G), seen only from below, as in the game.
 - Objects drawn the game's way, from COMOBJ.DAT's render field:
   - doors in their frames (open doors swung by their flags, the portcullis raised, the
@@ -856,6 +860,12 @@ bag's view, which the game rebuilds): those are cleared. The old file is kept as
 - **Pictures:** every `.GR`, `.TR`, `.BYT` and UW2's `BYT.ARK` in DATA, as thumbnails.
   Each is shown large in a palette from PALS.DAT; UW2's screens start in the palette the
   game shows them with.
+  - Underworld keeps every wall texture twice: 64 × 64 in `W64.TR` and 16 × 16 in `W16.TR`.
+    Floors are kept in `F32.TR` (32 × 32) and `F16.TR` (16 × 16). The game draws walls and
+    floors near you with the big picture and those a few squares away with the 16 × 16 one
+    (`3d/GRIDDB.C` `txtwal` and `txtflr`); further still they are flat colours. Opening one of
+    these files shows a note: change the same texture number in both files, or distant walls
+    or floors show the old picture. Underworld II has only `T64.TR`.
 - **Critter animations:** the CRIT art files by the creatures that use them. Their
   animations come from the UW1 page headers or UW2's `CR.AN`. Pick an auxiliary palette;
   play the animation or step through its frames.
@@ -1004,9 +1014,15 @@ written to the game until you save the levels.
 
 ## Automap and map notes
 
-**Level ▸ Automap and map notes…** (Ctrl+Shift+A) shows the player's map of the current
-level and the notes written on it, as the game's map screen would, and follows the level
-shown in the main window. The map lives in `LEV.ARK` (UW1 blocks 0x1A + level and 0x23 +
+**Level ▸ Automap and map notes…** (Ctrl+Shift+A) shows the player's map of a level and the
+notes written on it, as the game's map screen would. It opens on the level the main window
+shows, then keeps its own choice:
+- Underworld: the list holds levels 1-9, then pages 10-99 (notes only, see below).
+- Underworld II: pick the world, then the level in it (each world lists how many of its 8
+  slots hold a level).
+- ◀ and ▶ (or Page Up and Page Down) step to the page before or after; Underworld II skips
+  empty slots. **The main view's level** jumps back to the level the main window shows.
+- A page with no level under it (a notes-only page, an empty slot) takes notes but no marks. The map lives in `LEV.ARK` (UW1 blocks 0x1A + level and 0x23 +
 level; UW2 0x9F + level and 0xEF + level). A saved game has its own; a new game starts from
 `DATA`'s, which in Underworld II already holds the castle with 14 notes.
 
@@ -1016,6 +1032,11 @@ level; UW2 0x9F + level and 0xEF + level). A saved game has its own; a new game 
 - **Mark everything seen** / **Mark nothing seen** do the whole level.
 - **Notes**: click to add a note, drag one to move it, select it to change its text (one byte
   a character, at most 49, the game's limit) or delete it. A level holds up to 100 notes.
+- **Pages past the last level** (Underworld): the map screen's up arrow goes on past level 9,
+  up to page 99 (`ui/AUTOMAP.C`). Those pages show a blank map with their own notes, from
+  `LEV.ARK` blocks 0x2D-0x86, which nothing else uses. A new game copies `DATA`'s `LEV.ARK`,
+  notes included, so notes put there travel with a mod. The key item scatter can write its
+  spoiler log there (pages 9-11 and on).
 - **Show the level under the map** draws the level faintly behind the map, as a guide for
   painting.
 - **Undo** steps back in the window; the changes are saved with the levels (Save levels)
@@ -1073,9 +1094,11 @@ level shown in the main window. A tile names its wall and floor textures by slot
 level's texture map says which texture each slot shows.
 
 - Underworld: 48 wall slots (`W64.TR`), 10 floor slots (`F32.TR`, the ceiling is slot 9)
-  and 6 door slots (`DOORS.GR`).
+  and 6 door slots (`DOORS.GR`). The list to edit is chosen as **Wall textures**,
+  **Floor/ceiling textures** or **Door textures**: a level has one ceiling texture, the one
+  in floor slot 9, and floors set to slot 9 show it too.
 - Underworld II: 64 slots of `T64.TR`; the first 16 are also the floor slots (the ceiling is
-  slot 15), plus 6 door slots.
+  slot 15), plus 6 door slots. The list is **Wall, floor and ceiling textures**.
 
 Each slot shows its picture, the texture number, how many open tiles use it, and the
 texture's terrain (water, lava...). Choose a slot, then click another texture on the right;
@@ -1795,7 +1818,8 @@ game, with the default options, the goal is reached in 26 spheres.
    (up to **Retries** times).
 
 Items trade places whole (item, quality, flags, quantity or link, owner, enchantment), so a
-key keeps its lock number. An item placed inside a locked chest needs what opens the chest.
+key keeps its lock number. With **Place anywhere** (on at first), the places on the floor are
+first moved to random squares the logic reaches, so items do not end up where items lay. An item placed inside a locked chest needs what opens the chest.
 Items NPCs hand over in conversation, trap templates, objects a trap or trigger names, the
 moonstone and Tyball's orb stay where they are, but still count in the logic. The **Vow of
 poverty** and **Starvation** challenges spare only the 20 coins beside Shak and the meat
@@ -2029,12 +2053,25 @@ glitchless.
 
 ### Shuffling item properties
 
-**Randomizer ▸ Item property shuffle…** changes what items are without moving them. Weapons,
-armour, food, lights, tools, runestones, wands, spell scrolls, potions and rings stay where
-they lie (on the floor, in a container or a creature's inventory) but may become something
-else. Each object keeps its owner: food belonging to a rat that becomes a lantern is the rat's
-lantern. (The shuffle never moves objects from one spot to another, so it needs no ownership
-option; the item swap has one.) Choose the settings in the tabs, press **Preview** to see the
+**Randomizer ▸ Item property shuffle…** changes what items are. Weapons, armour, food, lights,
+tools, runestones, wands, spell scrolls, potions and rings may become something else. Each
+object keeps its owner: food belonging to a rat that becomes a lantern is the rat's lantern.
+(The shuffle never trades objects between spots, so it needs no ownership option; the item swap
+has one.)
+
+**Place anywhere** (on at first) also puts the items it rolls that lie on the floor on random
+squares of their level:
+- open floor, slopes, and the open half of a diagonal tile (the item lies inside that half, at
+  the floor's height there, so on a slope it is neither buried nor floating);
+- not water or lava, and not a square with a door, a trap or a trigger;
+- anywhere else on the level: these items carry no logic, so where they land does not matter
+  to finishing the game (one may land somewhere hard to reach, or out of reach);
+- one item a square while there are squares.
+
+Items in containers and creatures' inventories, and the starting equipment, stay where they
+are. With it off, everything stays where it lies. The rolls do not depend on it: the same seed
+gives the same items either way. The item swap never moves items to new squares: it keeps them
+in the places items had. Choose the settings in the tabs, press **Preview** to see the
 report, then **Shuffle**. **Undo shuffle** puts back every object changed by the shuffles
 made in this window; each shuffle is
 also one Edit ▸ Undo step per level, and nothing reaches the game until you save the levels.
@@ -2393,6 +2430,39 @@ with unsaved edits and with any Named challenges or swaps already applied.
   flasks of port.
 - **Plot items** lying in the levels: the halves of the sword, the orb rocks, Garamon's
   bones, the flutes and the like.
+
+**Place anywhere** (on at first) turns the places on the floor into random squares of their
+level instead of where items lay:
+- open floor, slopes and the open half of a diagonal tile, at the floor's height there;
+- not water or lava, and not a square with a door, a trap or a trigger;
+- only in zones the logic reaches when every item that moves is counted as held, so the fill
+  can still put each key item somewhere reachable;
+- one place a square while there are squares.
+
+Places in containers and creatures' inventories stay those places. The log says how many places
+moved, and gives each item's old square with "a random square" for its new one. Off, items
+trade the places where items lay, as before.
+
+**Spoiler log in the map notes** (off at first) writes the log into the game's own map notes
+at **Apply** (Underworld only; `LEV.ARK` in `DATA`, so a new game has them, and a mod made
+from the game carries them):
+- **page 9**, the Ethereal Void's map, keeps its own notes and gets a warning that the next
+  pages hold spoilers;
+- **page 10: hints.** Each key item, in the order the logic reaches them, with the name of the
+  hand-made zone it lies in and its level ("Key of Courage: Tyball's crib (L7)"), or, without
+  names, its level and the part of the level ("level 3, southeast"). ", hidden" means it is in
+  a container or carried;
+- **page 11: answers.** Each key item's level, square and what holds it ("L3 (12, 40) in sack").
+- A page holds 25 lines. Longer logs go on: hints on pages 12, 14 …, answers on 13, 15 …,
+  each page's first line saying where the next one is.
+- Keys are named by the first lock they open ("key to door, L2 (15, 51)").
+- Everything is written in capitals, as the game itself writes notes. The map screen's note
+  font has no lowercase letters, and a note with one hangs the game as soon as its page is
+  shown (in DOSBox and in Underworld Exhumed alike). The editor writes every map note in
+  capitals, and saving rewrites any lowercase note it finds on a page it opened.
+- The map screen's up arrow reaches these pages past level 9 (see **Automap and map notes**).
+- Undo apply and Edit ▸ Undo take the notes back with the rest. A later Apply replaces the log
+  of an earlier one.
 
 **Creature inventories** lets items carried by creatures without a conversation take part.
 Their inventories become places too. **Everything else as filler** adds every other item the

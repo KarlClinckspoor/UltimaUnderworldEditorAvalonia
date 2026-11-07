@@ -95,6 +95,16 @@ namespace UwEditor.Core
             new[] { 3, 2, 0, 1, 0, 1 },
         };
 
+        /// <summary>
+        /// Texture u at each edge's corner a (corner b gets 1 - it). The game draws a wall as the
+        /// player sees it from the open tile, the texture's left column on his left (3d/GRIDDB.C
+        /// grdb_elem builds each face in the view's own frame), so a picture reads the same from
+        /// every side: the west wall runs south to north, the north wall west to east, and the east
+        /// and south walls the other way round. x is east and z (tile y) north, a left-handed set
+        /// drawn unmirrored (OrbitCamera).
+        /// </summary>
+        static readonly float[] EdgeU0 = { 0f, 1f, 1f, 0f };
+
         /// <summary>Whether the tile is open along edge e (0 W, 1 E, 2 S, 3 N).</summary>
         public static bool EdgeOpen(TileType type, int e)
         {
@@ -161,8 +171,10 @@ namespace UwEditor.Core
                     int da = -1, db = -1;
                     if (t.Type == TileType.OpenSE || t.Type == TileType.OpenNW) { da = 0; db = 2; }
                     else if (t.Type == TileType.OpenSW || t.Type == TileType.OpenNE) { da = 3; db = 1; }
+                    // seen from the open half: OpenSE and OpenSW read SW to NE and NW to SE, the other two the other way
+                    bool diagLeftFirst = t.Type == TileType.OpenSE || t.Type == TileType.OpenSW;
                     if (da >= 0)
-                        WallQuad(mesh, tile, x, y, da, db, h[da] * Step, h[db] * Step, Ceiling, Ceiling, 0f, 1f, wallLayer, WallDiag);
+                        WallQuad(mesh, tile, x, y, da, db, h[da] * Step, h[db] * Step, Ceiling, Ceiling, diagLeftFirst ? 0f : 1f, diagLeftFirst ? 1f : 0f, wallLayer, WallDiag);
                     for (int e = 0; e < 4; e++)
                     {
                         if (!EdgeOpen(t.Type, e)) continue;
@@ -180,10 +192,8 @@ namespace UwEditor.Core
                             topB = Math.Max(botB, nh[ed[5]] * Step);
                             if (topA <= botA && topB <= botB) continue;
                         }
-                        // texture u runs with the world axis along the edge, so walls line up
-                        float u0 = e < 2 ? y + CornerXY[a].Y : x + CornerXY[a].X;
-                        float u1 = e < 2 ? y + CornerXY[b].Y : x + CornerXY[b].X;
-                        WallQuad(mesh, tile, x, y, a, b, botA, botB, topA, topB, u0, u1, wallLayer, e < 2 ? WallEW : WallNS);
+                        float u0 = EdgeU0[e];
+                        WallQuad(mesh, tile, x, y, a, b, botA, botB, topA, topB, u0, 1f - u0, wallLayer, e < 2 ? WallEW : WallNS);
                     }
                 }
             return mesh;

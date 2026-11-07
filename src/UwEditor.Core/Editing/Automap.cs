@@ -7,7 +7,7 @@ using UltimateEditor.Games;
 
 namespace UwEditor.Core.Editing
 {
-    /// <summary>A note the player wrote on the map: up to 49 characters at a point of the map screen (struct ATM, 0x36 bytes).</summary>
+    /// <summary>A note the player wrote on the map: up to 49 characters (capitals: Automap.NoteChars) at a point of the map screen (struct ATM, 0x36 bytes).</summary>
     public sealed class MapNote
     {
         public string Text = "";
@@ -31,16 +31,31 @@ namespace UwEditor.Core.Editing
         public byte[] Map { get; private set; }
         public List<MapNote> Notes { get; private set; }
         public bool Dirty { get; private set; }
+        /// <summary>
+        /// A page of notes past the last level (UW1 pages 10-99): the map screen's arrows go up to
+        /// page 0x63 and show a blank map with the page's notes from block 0x23 + page (ui/AUTOMAP.C
+        /// ManageDungeonMap, ChangeAutoMapLevel loads a map only below 9, ShowAutoMapLevel reads the
+        /// notes of any page). LEV.ARK's 135 blocks end at page 99's; those blocks are unused
+        /// otherwise, and a new game copies DATA's LEV.ARK, notes included (ui/MAINMENU.C). Such a
+        /// page has no map: its Map is blank, and only its notes are read and written (block
+        /// 0x1A + page would be a level's notes).
+        /// </summary>
+        public bool NotesOnly { get; private set; }
+        /// <summary>The last page of notes UW1's map screen shows (ui/AUTOMAP.C: level &lt; 0x63).</summary>
+        public const int LastNotesPage = 0x63;
         readonly List<Tuple<byte[], List<MapNote>, string>> undo = new List<Tuple<byte[], List<MapNote>, string>>();
 
         public static int MapBlock(GameKind kind, int level) { return (kind == GameKind.UW2 ? 0x9F : 0x1A) + level; }
         public static int NotesBlock(GameKind kind, int level) { return (kind == GameKind.UW2 ? 0xEF : 0x23) + level; }
 
+        /// <summary>Whether a page is one of UW1's notes-only pages (10-99).</summary>
+        public static bool IsNotesPage(GameKind kind, int page) { return kind == GameKind.UW1 && page > 9 && page <= LastNotesPage; }
+
         public static Automap Load(GameSession s, int level)
         {
-            var a = new Automap { Level = level, Map = new byte[64 * 64], Notes = new List<MapNote>() };
+            var a = new Automap { Level = level, Map = new byte[64 * 64], Notes = new List<MapNote>(), NotesOnly = IsNotesPage(s.Kind, level) };
             int mb = MapBlock(s.Kind, level), nb = NotesBlock(s.Kind, level);
-            if (s.LevArk.Has(mb)) { var b = s.LevArk.Read(mb); Array.Copy(b, a.Map, Math.Min(b.Length, a.Map.Length)); }
+            if (!a.NotesOnly && s.LevArk.Has(mb)) { var b = s.LevArk.Read(mb); Array.Copy(b, a.Map, Math.Min(b.Length, a.Map.Length)); }
             if (s.LevArk.Has(nb)) a.Notes = ReadNotes(s.LevArk.Read(nb));
             return a;
         }
@@ -73,13 +88,47 @@ namespace UwEditor.Core.Editing
             return b;
         }
 
-        /// <summary>One byte a character, at most 49 (the game's buffer): control characters dropped; bytes 0x80 and up kept (localized versions' letters).</summary>
+        /// <summary>A note's text as the game can draw it, at most 49 characters (the game's buffer): see NoteChars.</summary>
         public static string Clean(string s)
         {
+            string t = NoteChars(s);
+            return t.Length > TextSize - 1 ? t.Substring(0, TextSize - 1) : t;
+        }
+
+        /// <summary>The last character a note can hold: the map screen draws notes in FONT4X5P.SYS (ui/AUTOMAP.C RedisplayStrings), whose 97 glyphs end at 0x60.</summary>
+        public const char LastNoteChar = '`';
+
+        /// <summary>
+        /// Text in the characters a note can hold: 0x20 to 0x60, capitals and no lowercase, which is
+        /// all the game itself lets the player type (ui/AUTOMAP.C ManageDungeonMap: 0x20 to 0x7A,
+        /// through toupper; UW1 and UW2 alike). Letters lose their accents and become capitals,
+        /// typographic quotes and dashes become plain, braces brackets, anything else a '?', and
+        /// control characters are dropped. A character past 0x60 must not reach the game: FONT4X5P.SYS
+        /// has 97 glyphs, gfx/GRFX.C grfx_load_font reads 128 glyphs' worth over the previous
+        /// font's, and setup_font (gfx/GRLIBI.ASM _447D) points every character 0 to 127 into that
+        /// buffer, so a lowercase letter gets a stale glyph and width byte. The rasteriser (GRLIBI.ASM,
+        /// after _4A06) draws a character again until a width byte moves it on, so a stale width of 0
+        /// ('e', 'l', 's' and 'z', with FONT5X6P.SYS loaded before) loops for ever: the game hangs on
+        /// the map page that shows the note (DOSBox and Underworld Exhumed alike). Its string_width
+        /// (_4C45) indexes the glyph table with bytes 0x80 and up past its 128 entries too.
+        /// </summary>
+        public static string NoteChars(string s)
+        {
             var sb = new StringBuilder();
-            foreach (char c in s ?? "") if (c >= 32 && c != 127 && c <= 255 && sb.Length < TextSize - 1) sb.Append(c);
+            foreach (char c in (s ?? "").Normalize(NormalizationForm.FormD))
+            {
+                if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.NonSpacingMark) continue;
+                char u = c >= 'a' && c <= 'z' ? (char)(c - 32)
+                    : c == '‘' || c == '’' ? '\'' : c == '“' || c == '”' ? '"' : c == '–' || c == '—' ? '-'
+                    : c == '{' ? '(' : c == '}' ? ')' : c;
+                if (u >= ' ' && u <= LastNoteChar) sb.Append(u);
+                else if (!char.IsControl(u)) sb.Append('?');
+            }
             return sb.ToString();
         }
+
+        /// <summary>Whether a note holds text the game cannot draw (written by an earlier editor or another tool): saving writes the notes again, cleaned.</summary>
+        public bool UnsafeNotes { get { return Notes.Any(n => n.Text != Clean(n.Text)); } }
 
         /// <summary>The map screen pixel of a tile's corner (AUTOMAP.C DoTile: three pixels a tile).</summary>
         public static void TileToPixel(double tx, double ty, out double px, out double py) { px = (tx - 1) * 3 + 10; py = (ty - 1) * 3 + 7; }

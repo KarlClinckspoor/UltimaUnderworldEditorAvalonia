@@ -285,7 +285,10 @@ Turn the game into a fresh run every time, and keep it beatable.
 
 - **Apply** moves the keys, runes, ability and plot items to new places, and a solver that
   follows the world over time checks that the game can still be won under the logic you
-  choose. You get a spoiler log, and Undo puts everything back.
+  choose. Items on the floor go to random squares the logic reaches (not water, lava or
+  traps), or, if you prefer, trade the places where items lay. You get a spoiler log, which
+  can also go into the game's own map notes (hints and answers on the map pages past
+  level 9), and Undo puts everything back.
 - **Automatic zones** build the logic from the levels themselves: walkable regions, drops,
   climbs, gap jumps, doors, levers and teleports. It knows the player's abilities and where
   they come from (spells, items, the dragon skin boots), hidden walls a look opens, levers
@@ -308,8 +311,9 @@ Turn the game into a fresh run every time, and keep it beatable.
 </table>
 
 - **Item property shuffle:** weapons, armour, food, lights, tools, runestones, wands,
-  scrolls, potions and rings become other items in place, by weights per type, with their
+  scrolls, potions and rings become other items, by weights per type, with their
   enchantments rolled again (chance, strength and depth, as numbers or hand-drawn curves).
+  Those lying on the floor can also go to random squares of their level.
 - **Swap monsters:** creatures trade places by strength, keeping each spot's difficulty or
   growing with depth. Talkers stay, and nobody lands in water or lava they cannot survive.
 - **Swap items:** existing objects trade places within their kind or across kinds, within a
