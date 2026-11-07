@@ -366,5 +366,8 @@ errors, each at a line and column. It works in these steps:
 
    A script function called with another number of arguments than it lists is a warning.
 
-A developer-only window (Ctrl+Shift+K in the conversation window) shows the Dialogue source
-in a box, compiles it and applies it; the editable Dialogue tab comes later.
+The Dialogue tab of the conversation editor is this compiler's editor: it checks the text as
+it is typed, and Apply puts the result in the conversation (MANUAL.md, "Editing on the
+Dialogue tab"). After an Apply, the names the source gave the functions it compiled (their
+labels, locals and arguments too) are kept in the user's names (`NameBook.Adopt`), so the
+text shows them again: a function's names otherwise follow its body, which an edit changes.

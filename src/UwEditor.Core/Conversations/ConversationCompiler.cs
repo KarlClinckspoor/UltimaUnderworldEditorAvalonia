@@ -23,6 +23,19 @@ namespace UwEditor.Core.Conversations
         public override string ToString() { return "#" + Id + " " + Decompiler.Quote(Text); }
     }
 
+    /// <summary>Where a function of the source went in the compiled code, with the names its source gave its labels, locals and arguments.</summary>
+    public sealed class PlacedFunction
+    {
+        public string Name;
+        public int Address;
+        /// <summary>Compiled from the source (false: copied from the old code as it was).</summary>
+        public bool Compiled;
+        /// <summary>The labels of the source (name: its address), for a compiled function.</summary>
+        public readonly Dictionary<string, int> Labels = new Dictionary<string, int>(StringComparer.Ordinal);
+        /// <summary>The locals and arguments of the source (frame offset: name, as NameTarget.Local counts them), for a compiled function.</summary>
+        public readonly Dictionary<int, string> Locals = new Dictionary<int, string>();
+    }
+
     /// <summary>What compiling a conversation's source gives: the new conversation and its strings, or the errors.</summary>
     public sealed class CompileResult
     {
@@ -43,6 +56,8 @@ namespace UwEditor.Core.Conversations
         public string Assembly;
         /// <summary>Functions copied from the old code because their source did not change, and functions compiled from the source.</summary>
         public readonly List<string> CopiedFunctions = new List<string>(), CompiledFunctions = new List<string>();
+        /// <summary>Every function of the source in the compiled code, in order (NameBook.Adopt keeps the source's names for them).</summary>
+        public readonly List<PlacedFunction> Placed = new List<PlacedFunction>();
     }
 
     /// <summary>
@@ -149,6 +164,9 @@ namespace UwEditor.Core.Conversations
             public string Label;
             /// <summary>The old function copied as it was (its start in the old code), or -1.</summary>
             public int CopyFrom = -1;
+            /// <summary>A compiled function's labels (source name: assembly label) and variables (frame offset: name).</summary>
+            public Dictionary<string, string> Labels;
+            public Dictionary<int, string> Locals;
         }
 
         sealed class Job
@@ -301,6 +319,13 @@ namespace UwEditor.Core.Conversations
 
                 Result.Conversation = c;
                 Result.Strings = strings;
+                foreach (var u in order)
+                {
+                    var p = new PlacedFunction { Name = u.Name, Address = labelAt[u.Label], Compiled = u.CopyFrom < 0 };
+                    if (u.Labels != null) foreach (var kv in u.Labels) { int a; if (labelAt.TryGetValue(kv.Value, out a)) p.Labels[kv.Key] = a; }
+                    if (u.Locals != null) foreach (var kv in u.Locals) p.Locals[kv.Key] = kv.Value;
+                    Result.Placed.Add(p);
+                }
                 for (int i = originalStrings; i < strings.Count; i++) Result.AddedStrings.Add(new StringChange { Id = i, Text = strings[i] });
                 foreach (int id in oldStrings.OrderBy(x => x))
                     if (!usedStrings.Contains(id) && id < originalStrings) Result.UnusedStrings.Add(new StringChange { Id = id, Text = strings[id] });
@@ -490,6 +515,8 @@ namespace UwEditor.Core.Conversations
                 job.Emit("POPBP");
                 job.Emit("RET");
                 job.Patch(FramePlaceholder, (declared + temps).ToString(CultureInfo.InvariantCulture));
+                u.Labels = new Dictionary<string, string>(labels, StringComparer.Ordinal);
+                u.Locals = vars.Values.Where(v => v.Kind == SymKind.Local || v.Kind == SymKind.Arg).ToDictionary(v => v.Address, v => v.Name);
             }
 
             const string FramePlaceholder = "#FRAME#";

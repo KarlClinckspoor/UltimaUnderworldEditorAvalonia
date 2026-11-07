@@ -134,7 +134,7 @@ weapons, food, monsters, keys, traps, triggers or enchanted objects. **Find in a
 
 <table>
 <tr>
-<td colspan="2"><img src="docs/images/conversations.png" alt="The conversation editor: Corby's dialogue rebuilt from its code"></td>
+<td colspan="2"><img src="docs/images/conversations.png" alt="The conversation editor: Corby's dialogue as source, edited, with a mistake underlined"></td>
 </tr>
 <tr>
 <td><img src="docs/images/conversation-graph.png" alt="Corby's conversation as a graph of nodes"></td>
@@ -143,8 +143,12 @@ weapons, food, monsters, keys, traps, triggers or enchanted objects. **Find in a
 </table>
 
 Read, change and run every conversation in CNV.ARK (Ctrl+Shift+C).
-- **Dialogue:** what the script does, rebuilt from its code. It shows what the NPC says, each
-  menu with its numbered answers, and the checks on quests, variables and the talker's state.
+- **Dialogue:** the conversation as readable source, rebuilt from its code, and edited there:
+  what the NPC says, each menu with its answers, the checks on quests and variables. Change a
+  line or add a menu choice, and **Apply** (Ctrl+Enter) compiles it back into the
+  conversation and its strings; unchanged functions keep their exact bytes. Mistakes are
+  underlined as you type and listed, with colours, find, go to line, F2 rename and F12 to a
+  function. **Simulate** runs the text as typed, and **Undo apply** puts an Apply back.
 - **Strings:** the conversation's text, edited in place, each string showing where the
   script uses it.
 - **Script:** the code as readable assembly, with labels, named imports and comments.

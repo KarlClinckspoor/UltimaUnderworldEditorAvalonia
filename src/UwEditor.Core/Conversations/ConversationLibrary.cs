@@ -20,6 +20,18 @@ namespace UwEditor.Core.Conversations
         }
     }
 
+    /// <summary>A slot's conversation and string block as the library held them (ConversationLibrary.Snapshot): null where they were not edited.</summary>
+    public sealed class ConversationState
+    {
+        public int Slot;
+        public bool Edited;
+        public Conversation Conversation;
+        public int Block = -1;
+        public bool StringsEdited;
+        /// <summary>The block's strings as the game has them (accent codes, not letters).</summary>
+        public List<string> Strings;
+    }
+
     /// <summary>
     /// The game's conversations for editing: CNV.ARK and STRINGS.PAK from DATA (a saved game
     /// uses DATA's), the names creatures talk under, and saving both files together.
@@ -97,6 +109,82 @@ namespace UwEditor.Core.Conversations
             if (r == null || !r.Ok) throw new InvalidOperationException("The source did not compile.");
             Archive.Write(r.Conversation.Slot, r.Conversation);
             if (r.StringsChanged) SetShownStrings(r.Conversation, r.Strings);
+        }
+
+        /// <summary>
+        /// A slot's state in the library (its conversation and its string block, edited or not),
+        /// to put back later: an applied edit's undo step.
+        /// </summary>
+        public ConversationState Snapshot(int slot)
+        {
+            var c = Archive.Read(slot);
+            int block = c != null ? c.StringBlock : -1;
+            return new ConversationState
+            {
+                Slot = slot,
+                Edited = Archive.IsChanged(slot),
+                Conversation = Archive.IsChanged(slot) ? c : null,
+                Block = block,
+                StringsEdited = block >= 0 && Strings.IsChanged(block),
+                Strings = block >= 0 && Strings.IsChanged(block) ? Strings.Get(block) : null,
+            };
+        }
+
+        /// <summary>Puts a slot back as a snapshot had it (the string block the slot has now is put back too when it is another).</summary>
+        public void Restore(ConversationState st)
+        {
+            var now = Archive.Read(st.Slot);
+            if (now != null && now.StringBlock != st.Block) Strings.Revert(now.StringBlock);
+            if (st.Edited) Archive.Write(st.Slot, st.Conversation); else Archive.Revert(st.Slot);
+            if (st.Block >= 0)
+            {
+                if (st.StringsEdited) Strings.Set(st.Block, st.Strings); else Strings.Revert(st.Block);
+            }
+        }
+
+        ConversationArchive shippedArchive;
+        StringsPakFile shippedStrings;
+        bool shippedRead;
+
+        /// <summary>
+        /// The conversation of a slot as shipped, and its strings as the game has them: from
+        /// CNV.ARK.ORIG and STRINGS.PAK.ORIG, the untouched copies kept the first time the editor
+        /// wrote the files (SafeFile), or the files as they are while there are none. Null when
+        /// the slot has no conversation there.
+        /// </summary>
+        public ConversationState Shipped(int slot)
+        {
+            if (!shippedRead)
+            {
+                shippedRead = true;
+                string o = Archive.Path == null ? null : SafeFile.OriginalOf(Archive.Path);
+                try { shippedArchive = o != null ? ConversationArchive.Load(o, Kind) : Archive.Path != null ? ConversationArchive.Load(Archive.Path, Kind) : null; } catch (Exception) { shippedArchive = null; }
+                o = Strings.Path == null ? null : SafeFile.OriginalOf(Strings.Path) ?? Strings.Path;
+                try { shippedStrings = o != null ? StringsPakFile.Load(o) : null; } catch (Exception) { shippedStrings = null; }
+            }
+            Conversation c;
+            if (shippedArchive != null) c = shippedArchive.Has(slot) ? shippedArchive.Read(slot) : null;
+            else { var raw = Archive.RawBlock(slot); c = raw == null || raw.Length < 0x10 ? null : Conversation.Parse(raw, slot); }
+            if (c == null) return null;
+            return new ConversationState
+            {
+                Slot = slot, Edited = true, Conversation = c, Block = c.StringBlock, StringsEdited = true,
+                Strings = shippedStrings != null ? shippedStrings.Original(c.StringBlock) : Strings.Original(c.StringBlock),
+            };
+        }
+
+        /// <summary>Puts a slot's shipped conversation and strings (Shipped) in the library until Save. Returns false when there is none.</summary>
+        public bool RevertToShipped(int slot)
+        {
+            var st = Shipped(slot);
+            if (st == null) return false;
+            var now = Archive.Read(slot);
+            if (now != null && now.StringBlock != st.Block) Strings.Revert(now.StringBlock);
+            // the same bytes as the file: not an edit
+            var raw = Archive.RawBlock(slot);
+            if (raw != null && raw.SequenceEqual(st.Conversation.ToBytes())) Archive.Revert(slot); else Archive.Write(slot, st.Conversation);
+            Strings.Set(st.Block, st.Strings);
+            return true;
         }
 
         NameBook names;

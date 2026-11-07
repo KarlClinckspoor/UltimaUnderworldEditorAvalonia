@@ -55,7 +55,16 @@ namespace UwEditor.App.Tests
             if (Off(Uw1)) return;
             var w = Ui.Open(Uw1);
             var cw = w.ShowConversations(1);
+            // the Dialogue tab mid-edit: a changed line, a new menu choice, and a misspelt call underlined
+            var doc = cw.Editor.Document;
+            Action<string, string> type = (find, with) => { int at = cw.DialogueText.IndexOf(find, StringComparison.Ordinal); if (at >= 0) doc.Replace(at, find.Length, with); };
+            type("\"Hast thou come to add to my torment?\" #1", "\"Art thou here to mock me, stranger?\"");
+            type("\"Indeed I have, thou mewling child!\" #5:\n                flee_and_end();\n",
+                 "\"Indeed I have, thou mewling child!\" #5:\n                flee_and_end();\n            \"I shall leave thee be.\":\n                flee_and_endd();\n");
+            var check = cw.CheckNow();
+            if (check.Errors.Count > 0) cw.GoTo(check.Errors[0].Line, check.Errors[0].Column);
             Save(cw, "conversations", 1280, 820);
+            cw.RevertToApplied();
             var gw = w.ShowConversationGraph(1);
             Ui.Pump();
             Save(gw, "conversation-graph", 1300, 860);

@@ -95,6 +95,8 @@ namespace UwEditor.App.Tests
                 case Avalonia.Input.Key.Home: return PhysicalKey.Home;
                 case Avalonia.Input.Key.Enter: return PhysicalKey.Enter;
                 case Avalonia.Input.Key.F2: return PhysicalKey.F2;
+                case Avalonia.Input.Key.F12: return PhysicalKey.F12;
+                case Avalonia.Input.Key.Tab: return PhysicalKey.Tab;
                 default:
                     if (k >= Avalonia.Input.Key.A && k <= Avalonia.Input.Key.Z)
                         return (PhysicalKey)Enum.Parse(typeof(PhysicalKey), k.ToString());

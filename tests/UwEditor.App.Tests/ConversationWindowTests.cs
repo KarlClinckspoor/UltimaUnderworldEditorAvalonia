@@ -58,11 +58,17 @@ namespace UwEditor.App.Tests
             Assert.Contains(cw.Model.Lines, l => l.Line.Kind == PseudoKind.Menu && l.Text.Trim() == "menu {");
             Assert.Contains(cw.Model.Lines, l => l.Line.Kind == PseudoKind.Menu && l.Text.Trim() == "\"Of what torment dost thou speak?\" #2:");
             Assert.DoesNotContain(cw.Model.Lines, l => l.Text.Contains("goto "));
-            // the compiler's library functions are hidden until asked for
-            Assert.DoesNotContain(cw.Model.Lines, l => l.Text.Contains("never called"));
+            // the editor holds the whole conversation; the compiler's library functions are folded until asked for
+            Assert.Equal(cw.Model.Lines.Count, cw.Editor.Document.LineCount - 1);
+            Assert.Contains("never called", cw.DialogueText);
+            int header = cw.DialogueText.IndexOf("npc_not_hostile()", StringComparison.Ordinal);
+            int headerEnd = cw.DialogueText.IndexOf('\n', header);
+            Assert.Contains(cw.Folding.AllFoldings, f => f.StartOffset == headerEnd && f.IsFolded);
+            Assert.Contains(cw.Folding.AllFoldings, f => !f.IsFolded);
             Ui.Find<CheckBox>(cw, "HideUnusedBox").IsChecked = false;
             Ui.Pump();
-            Assert.Contains(cw.Model.Lines, l => l.Text.Contains("never called"));
+            Assert.DoesNotContain(cw.Folding.AllFoldings, f => f.IsFolded);
+            Assert.False(cw.DialoguePending);
             Assert.Equal(47, cw.Model.Strings.Count);
             Assert.Contains("said at 02B5", cw.Model.Strings[1].Uses);
             await Until(() => cw.Model.Users.Any(u => u.User != null));

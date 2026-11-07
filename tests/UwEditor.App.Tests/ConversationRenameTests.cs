@@ -33,11 +33,13 @@ namespace UwEditor.App.Tests
             Assert.StartsWith(shipped + "()", fline.Text);
             Assert.Contains(graph.Graph.Visible, n => n.Title == shipped + "()");
 
+            // the caret on the function's name in the Dialogue tab's text
             cw.Model.Tab = 0;
-            var list = Ui.Find<ListBox>(cw, "DialogueList");
-            list.SelectedItem = fline;
             Ui.Pump();
-            Assert.Equal(target, cw.NameCandidates()[0]);
+            int header = cw.DialogueText.IndexOf("\n" + shipped + "(", StringComparison.Ordinal) + 1;
+            Assert.True(header > 0);
+            cw.Editor.CaretOffset = header + 2;
+            Assert.Equal(target, cw.NameCandidates().Single());
 
             // F2 asks; a clash and a bad name are refused
             Window dialog = null;
@@ -56,6 +58,9 @@ namespace UwEditor.App.Tests
             Assert.Null(cw.Rename(target, "corby_greets"));
             Ui.Pump();
             Assert.Contains(cw.Model.Lines, l => l.Line.Kind == PseudoKind.Function && l.Text.StartsWith("corby_greets()"));
+            Assert.Contains("\ncorby_greets()", cw.DialogueText);
+            Assert.DoesNotContain(shipped + "(", cw.DialogueText);
+            Assert.False(cw.DialoguePending);
             Assert.Contains("CALL      corby_greets", cw.Model.Script);
             Assert.False(cw.ScriptPending);
             Assert.Equal(cw.Current.ToBytes(), Assembler.Assemble(cw.Model.Script).ToBytes());

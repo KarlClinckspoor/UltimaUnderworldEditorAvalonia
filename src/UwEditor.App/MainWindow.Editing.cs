@@ -84,7 +84,7 @@ namespace UwEditor.App
             var l = new List<string>();
             if (vm.HasLevelChanges) l.Add(vm.ChangedLevels);
             if (playerSheet != null && playerSheet.Dirty) l.Add("the player (PLAYER.DAT)");
-            bool talk = (conversations != null && conversations.HasChanges) || (conversationWindow != null && conversationWindow.Model.ScriptChanged);
+            bool talk = (conversations != null && conversations.HasChanges) || (conversationWindow != null && conversationWindow.TextPending);
             if (talk) l.Add("conversations or strings");
             else if (strings != null && strings.HasChanges) l.Add("strings (STRINGS.PAK)");
             if (globalsWindow?.Globals != null && globalsWindow.Globals.Dirty) l.Add("global variables");
@@ -630,7 +630,7 @@ namespace UwEditor.App
                 }
                 if (everything)
                 {
-                    if (conversationWindow != null && (conversationWindow.Model.ScriptChanged || (conversations != null && conversations.HasChanges)))
+                    if (conversationWindow != null && (conversationWindow.TextPending || (conversations != null && conversations.HasChanges)))
                     {
                         if (conversationWindow.Save() == null) throw new InvalidOperationException("the conversation could not be saved: " + conversationWindow.Model.Status);
                         said.Add("conversations and strings");

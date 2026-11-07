@@ -539,9 +539,9 @@ after it runs once. **Creatures set it off too** sets the trigger's enchanted bi
 **Tools ▸ Conversations ▸ All conversations…** (Ctrl+Shift+C) lists every conversation in CNV.ARK, by slot and
 by the name the creature talks under. The list filter matches slots, names and any text a
 conversation says. The window has four tabs:
-- **Dialogue:** what the script does, rebuilt from its code by following the conversation
-  machine's stack (conv/BABL.C) and read back as structured source, in the conversation
-  language (`docs/conversation-language.md`):
+- **Dialogue:** the conversation as source you can edit (see "Editing on the Dialogue tab"
+  below), rebuilt from its code by following the conversation machine's stack (conv/BABL.C)
+  and read back in the conversation language (`docs/conversation-language.md`):
   - each function with its arguments and its locals (`int local3[5];`);
   - `say` and `respond` with their text and string number;
   - `if` / `else if` / `else`, `while` loops, `return e;` for a function's value;
@@ -554,9 +554,8 @@ conversation says. The window has four tabs:
   A `goto` and its label (named, see "Names and F2" below) are left only where the script
   itself jumps between parts in a way no `if` or loop can show (UW1 has 277, mostly in
   conversation 4; UW2 895). Functions the script never calls (the compiler's small library)
-  are hidden unless you ask. Double-click a line to see its code: the Script tab selects the
-  instruction the line comes from (the store, the say, the call, the branch of an `if`, the
-  compare of a menu's choice).
+  are folded to one line unless you ask (**Fold uncalled functions**): they stay
+  in the text, as they are part of the conversation.
 - **Strings:** the conversation's block of STRINGS.PAK, edited in place. Each string shows
   where the script uses it. **Add string** appends one, for the script to say.
 - **Script:** the code as assembly, one instruction a line (conv.h's opcodes):
@@ -564,13 +563,65 @@ conversation says. The window has four tabs:
   - imported functions by name;
   - the header and import table as directives;
   - comments with each address and the strings.
-  **Apply** (Ctrl+Enter) assembles it. A mistake is reported at its line. Disassembling
-  and assembling every shipped conversation of both games gives back the same bytes.
+  **Apply** (Ctrl+Enter) assembles it, as one step **Undo apply** takes back. A mistake is
+  reported at its line. Disassembling and assembling every shipped conversation of both
+  games gives back the same bytes.
 - **Who talks:** the creatures in the levels that use the slot (whoami, or the generic
   slot for whoami 0). Double-click one to go to it in the main window.
 **Save** (Ctrl+S) writes CNV.ARK and STRINGS.PAK in `DATA`, with only the changed blocks
-rewritten. UW2's blocks are compressed again. The old files are kept as `CNV.ARK.BKP` and
-`STRINGS.PAK.BKP`. When the window closes, its edits stay in memory until the game is closed.
+rewritten (text typed and not applied is applied first). UW2's blocks are compressed again.
+The old files are kept as `CNV.ARK.BKP` and `STRINGS.PAK.BKP`. When the window closes, its
+applied edits stay in memory until the game is closed. **Revert conversation** puts the shown
+conversation back as last saved.
+
+### Editing on the Dialogue tab
+
+The Dialogue tab is a text editor of the conversation's source. Change a line, add a menu
+choice, call another function, add one: the compiler (`ConversationCompiler`, described in
+`docs/conversation-language.md`) turns the text back into the conversation's code.
+- **The editor:** colours for keywords, strings, numbers, string numbers (`#7`), comments,
+  the script's functions, the game's built-ins and its variables (in the light and the dark
+  look); line numbers; folding of each function (the box beside its first line); **Ctrl+F**
+  finds (and replaces), **Ctrl+L** goes to a line, **Ctrl+Z** and **Ctrl+Y** undo and redo
+  typing, **Tab** and **Shift+Tab** indent and outdent the selected lines by four spaces.
+  **Wrap long lines** breaks a line longer than the editor is wide onto more lines on screen,
+  the rest indented under its start; the text keeps its lines (a long `say` is still one
+  line, with one line number). The choice is kept in the settings.
+- **Checking as you type:** a moment after you stop typing, the text is compiled in the
+  background. Mistakes are underlined (errors in red, warnings in amber; hover one for its
+  message) and listed under the editor; double-click one to go to it. The line above the
+  list says whether the text compiles and how many functions it changes.
+- **Apply** (Ctrl+Enter) compiles the text and puts the conversation and its new strings in
+  the editor's copy of CNV.ARK and STRINGS.PAK, as one step. It is refused while the text has
+  errors. A function whose text you did not change is copied from the old code byte for byte;
+  only the edited functions are compiled. A string whose text is a string of the
+  conversation's block is that string; a new or changed line becomes a new string at the end
+  of the block (the old one stays, in case something else says it). After Apply the text is
+  the conversation's again, with the new strings' numbers. The Script and Strings tabs, the
+  graph and the simulator follow. Nothing is written to the game until you save.
+- **Undo apply** and **Redo apply** step through the Applies of the shown conversation (and
+  its reverts and Script applies), its code and strings together. Saving starts them again.
+- **Revert to last applied** throws away the edits not applied (Ctrl+Z in the text brings
+  them back). **Revert to the original** puts back the conversation and its strings as the
+  game shipped them: from `CNV.ARK.ORIG` and `STRINGS.PAK.ORIG`, the untouched copies the
+  editor keeps the first time it saves, or the files as they are when there are none. It is
+  one step too: Undo apply takes it back.
+- **Simulate** (Ctrl+R) on the Dialogue tab with edits not applied runs the text as typed,
+  compiled in memory and not applied; the simulator's title says so. When the text does not
+  compile, the status line says why and the caret goes to the first error. Simulate again
+  after more edits.
+- **Names:** the text refers to functions, labels and globals by their names (see "Names and
+  F2"). **F2** renames the name at the caret, in the text and in your names. **F12** or
+  **Ctrl+click** on a function, label or local goes to where it is defined. Hover a string
+  for its number in the block (or "a new string"), a built-in for what it does (from the
+  game's code), a variable the game fills in for what it holds. An edited function would lose
+  its names (they follow a function's body, and the edit changes it), so Apply keeps the names
+  your text gave it in your names file.
+- **Unsaved work:** text typed and not applied counts as unsaved work. Closing the window asks
+  whether to apply it, and checkpoints keep it (`dialogue-NNN.txt`, as `conversation-NNN.txt`
+  keeps a Script typed and not applied); restoring a checkpoint puts the text back in the
+  editor. The Dialogue and Script tabs each refuse to apply while the other has text not
+  applied.
 
 Saving CNV.ARK also keeps the conversations' private globals in step. The game reads a
 conversation's private globals from its record in the save's `BGLOBALS.DAT` (at most as many
@@ -602,9 +653,9 @@ reading: they never change the bytes, and the Script assembles to the same code 
   or another release), the names follow each function by its body (its code, with jumps
   counted from the function and calls from the call), labels and locals with it; globals
   keep their address. Library names follow bodies in every slot.
-- **F2** renames. On the Dialogue tab it renames the function, label or variable on the
-  selected line (several on the line: pick one); on the Script tab, the function or label
-  at the caret. A name is letters, digits and `_`, not starting with a digit. It must not
+- **F2** renames. On the Dialogue tab it renames the function, label or variable whose name
+  is at the caret, in the text too when it has edits not applied (a local only in its
+  function); on the Script tab, the function or label at the caret. A name is letters, digits and `_`, not starting with a digit. It must not
   clash with another name in the conversation, an imported function or variable, an
   instruction or a word the views use (`if`, `while`, `menu`, `goto`, `say`...). An empty name goes back to
   the shipped one. Imported variables keep the game's names. With unapplied Script edits,

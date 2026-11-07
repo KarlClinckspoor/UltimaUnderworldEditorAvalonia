@@ -92,16 +92,16 @@ namespace UwEditor.App
         /// Cancel. ask says whether to ask at all (the main window turns it off when it has already
         /// asked about everything, or in tests); save returns false when saving failed.
         /// </summary>
-        public static void GuardClose(Window w, string what, System.Func<bool> dirty, System.Func<bool> save, System.Func<bool> ask)
+        public static void GuardClose(Window w, string what, System.Func<bool> dirty, System.Func<bool> save, System.Func<bool> ask, string question = null, string saveButton = "Save")
         {
             bool closing = false;
             w.Closing += async (s, e) =>
             {
                 if (closing || !dirty() || (ask != null && !ask())) return;
                 e.Cancel = true;
-                string a = await Ask(w, "Unsaved changes", what + " has unsaved changes. Save them before closing?", "Save", "Discard", "Cancel");
+                string a = await Ask(w, "Unsaved changes", question ?? what + " has unsaved changes. Save them before closing?", saveButton, "Discard", "Cancel");
                 if (a == "Cancel") return;
-                if (a == "Save" && !save()) return;
+                if (a == saveButton && !save()) return;
                 closing = true;
                 w.Close();
             };

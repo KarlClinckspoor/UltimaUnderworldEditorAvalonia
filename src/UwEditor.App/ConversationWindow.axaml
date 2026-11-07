@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:app="clr-namespace:UwEditor.App"
+        xmlns:ae="using:AvaloniaEdit"
         x:Class="UwEditor.App.ConversationWindow"
         x:DataType="app:ConversationViewModel"
         Title="Conversations"
@@ -13,7 +14,7 @@
         <TextBlock Grid.Column="0" Text="Conversations" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0" />
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
           <Button x:Name="SimulateButton" Content="Simulate…" Click="OnSimulate" IsEnabled="{Binding HasSelection}"
-                  ToolTip.Tip="Run this conversation as the game would, choosing from its menus (Ctrl+R). Nothing is written to the game." />
+                  ToolTip.Tip="Run this conversation as the game would, choosing from its menus (Ctrl+R). On the Dialogue tab with edits not applied, it runs the text as typed. Nothing is written to the game." />
           <Button x:Name="GraphButton" Content="Graph…" Click="OnGraph" IsEnabled="{Binding HasSelection}"
                   ToolTip.Tip="Show this conversation's flow as a graph: what the NPC says, the menus, and where each answer leads." />
           <Button x:Name="GlobalsButton" Content="Global variables…" Click="OnGlobals" ToolTip.Tip="Show the quest flags, game variables and private globals that conversations read and write (Ctrl+G)." />
@@ -60,31 +61,51 @@
         <TabControl x:Name="Tabs" SelectedIndex="{Binding Tab}" Padding="0,6,0,0">
           <TabItem Header="Dialogue" x:Name="DialogueTab">
             <DockPanel>
-              <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,6">
-                <TextBlock Classes="muted" VerticalAlignment="Center" TextWrapping="Wrap"
-                           Text="What the script does, read from its code: the lines said and responded, the menus and their choices, and the quests and variables it checks. Double-click a line to see its code; edit the text on the Strings tab. F2 renames a function, label or variable on the selected line." />
-                <CheckBox Grid.Column="1" x:Name="HideUnusedBox" Content="Hide functions that are never called" IsChecked="True" Margin="12,0,0,0"
-                          IsCheckedChanged="OnHideUnusedChanged" ToolTip.Tip="The compiler adds a small library of functions to every conversation, and most of them are never called." />
-                <Button Grid.Column="2" x:Name="ExportNamesButton" Content="Export names…" Click="OnExportNames" Margin="8,0,0,0"
+              <TextBlock DockPanel.Dock="Top" Classes="muted" TextWrapping="Wrap" Margin="0,0,0,6"
+                         Text="The conversation in the conversation language. Edit it and Apply (Ctrl+Enter) to compile it into the conversation; mistakes are underlined as you type. Simulate (Ctrl+R) runs the text as typed. F2 renames, F12 or Ctrl+click goes to a function, Ctrl+F finds, Ctrl+L goes to a line, Tab and Shift+Tab indent." />
+              <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" ItemSpacing="8" LineSpacing="6" Margin="0,0,0,6">
+                <Button x:Name="ApplyDialogueButton" Content="Apply" Click="OnApplyDialogue" IsEnabled="{Binding DialogueChanged}" FontWeight="SemiBold"
+                        ToolTip.Tip="Compile the text into the conversation and its new strings (Ctrl+Enter). Refused while the text has errors. Nothing is written to the game until you save." />
+                <Button x:Name="RevertAppliedButton" Content="Revert to last applied" Click="OnRevertToApplied" IsEnabled="{Binding DialogueChanged}"
+                        ToolTip.Tip="Throw away the edits not applied: the text goes back to the conversation as it is now (Ctrl+Z in the text brings them back)." />
+                <Button x:Name="RevertOriginalButton" Content="Revert to the original" Click="OnRevertToOriginal" IsEnabled="{Binding HasSelection}"
+                        ToolTip.Tip="Put back the conversation and its strings as shipped (CNV.ARK.ORIG and STRINGS.PAK.ORIG, kept the first time the editor saved, or the files as they are). Undo apply steps back." />
+                <Button x:Name="UndoApplyButton" Content="Undo apply" Click="OnUndoApply" IsEnabled="{Binding CanUndoApply}"
+                        ToolTip.Tip="Put this conversation back as it was before the last Apply or revert (its code and its strings)." />
+                <Button x:Name="RedoApplyButton" Content="Redo apply" Click="OnRedoApply" IsEnabled="{Binding CanRedoApply}" />
+                <CheckBox x:Name="WrapBox" Content="Wrap long lines" IsCheckedChanged="OnWrapChanged"
+                          ToolTip.Tip="Break lines longer than the editor is wide onto more lines on screen, indented under their start. Only the display: the text keeps its lines (the line numbers count them)." />
+                <CheckBox x:Name="HideUnusedBox" Content="Fold uncalled functions" IsChecked="True"
+                          IsCheckedChanged="OnHideUnusedChanged" ToolTip.Tip="The compiler adds a small library of functions to every conversation, and most of them are never called. Folded, they stay in the text (they are part of the conversation) as one line." />
+                <Button x:Name="ExportNamesButton" Content="Export names…" Click="OnExportNames"
                         ToolTip.Tip="Write the names (the shipped ones with your renames folded in) as a names file, the format of docs/conversations/names-uw1.json." />
+              </WrapPanel>
+              <Grid RowDefinitions="*,4,96">
+                <ae:TextEditor x:Name="SourceEditor" Grid.Row="0" ShowLineNumbers="True" FontFamily="{DynamicResource Mono}" FontSize="12"
+                               Background="{DynamicResource Bg}" Foreground="{DynamicResource Text}" LineNumbersForeground="{DynamicResource Muted}"
+                               HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" WordWrap="False" />
+                <GridSplitter Grid.Row="1" ResizeDirection="Rows" />
+                <DockPanel Grid.Row="2">
+                  <TextBlock x:Name="ProblemSummaryText" DockPanel.Dock="Top" Text="{Binding ProblemSummary}" Classes="muted" FontSize="11" Margin="2,4,0,2" TextWrapping="Wrap" />
+                  <ListBox x:Name="ProblemList" ItemsSource="{Binding Problems}" Background="{DynamicResource Bg}" DoubleTapped="OnProblemDoubleTapped" FontSize="12">
+                    <ListBox.Styles>
+                      <Style Selector="ListBoxItem">
+                        <Setter Property="Padding" Value="6,1" />
+                        <Setter Property="MinHeight" Value="0" />
+                      </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="app:ProblemRow">
+                        <Grid ColumnDefinitions="64,110,*">
+                          <TextBlock Grid.Column="0" Text="{Binding Kind}" Foreground="{Binding Brush}" FontWeight="SemiBold" />
+                          <TextBlock Grid.Column="1" Text="{Binding Where}" Foreground="{DynamicResource Muted}" FontFamily="{DynamicResource Mono}" FontSize="11" VerticalAlignment="Center" />
+                          <TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap" />
+                        </Grid>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </DockPanel>
               </Grid>
-              <ListBox x:Name="DialogueList" ItemsSource="{Binding Lines}" Background="{DynamicResource Bg}" DoubleTapped="OnDialogueDoubleTapped"
-                       FontFamily="{DynamicResource Mono}" FontSize="12">
-                <ListBox.Styles>
-                  <Style Selector="ListBoxItem">
-                    <Setter Property="Padding" Value="6,1" />
-                    <Setter Property="MinHeight" Value="0" />
-                  </Style>
-                </ListBox.Styles>
-                <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="app:DialogueLine">
-                    <Grid ColumnDefinitions="44,*">
-                      <TextBlock Grid.Column="0" Text="{Binding Address}" Foreground="{DynamicResource Muted}" FontSize="10" VerticalAlignment="Top" Margin="0,2,0,0" />
-                      <TextBlock Grid.Column="1" Text="{Binding Text}" Foreground="{Binding Brush}" FontWeight="{Binding Weight}" TextWrapping="Wrap" />
-                    </Grid>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
             </DockPanel>
           </TabItem>
 

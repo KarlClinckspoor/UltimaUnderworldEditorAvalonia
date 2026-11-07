@@ -598,7 +598,57 @@ namespace UwEditor.Core.Conversations
         /// are kept in a file). An empty name, or the placeholder, drops the user's name, so the
         /// shipped one (if any) shows again. Check the name with ConversationNames.Check first.
         /// </summary>
-        public void Rename(Conversation c, NameTarget t, string name)
+        public void Rename(Conversation c, NameTarget t, string name) { RenameMany(c, new[] { new KeyValuePair<NameTarget, string>(t, name) }); }
+
+        /// <summary>
+        /// After a compiled conversation is applied: the names its source gave the functions it
+        /// compiled (their labels, locals and arguments too) become the user's names for the new
+        /// block, so the text keeps calling them what it did. A function copied as it was keeps
+        /// its names by its body. Returns how many names were written.
+        /// </summary>
+        public int Adopt(Conversation c, IEnumerable<PlacedFunction> placed)
+        {
+            var lay = BablLayout.Of(c);
+            var now = Resolve(c);
+            var list = new List<KeyValuePair<NameTarget, string>>();
+            Action<NameTarget, string> want = (t, n) => { if (now.NameOf(t) != n) list.Add(new KeyValuePair<NameTarget, string>(t, n)); };
+            foreach (var p in placed ?? Enumerable.Empty<PlacedFunction>())
+            {
+                if (!p.Compiled || !lay.Functions.Contains(p.Address)) continue;
+                if (p.Address != 0) want(NameTarget.Function(p.Address), p.Name);
+                foreach (var l in p.Labels) if (lay.Labels.Contains(l.Value) && lay.FunctionOf(l.Value) == p.Address) want(NameTarget.Label(l.Value), l.Key);
+                foreach (var v in p.Locals) want(NameTarget.Local(p.Address, v.Key), v.Value);
+            }
+            if (list.Count > 0) RenameMany(c, list);
+            return list.Count;
+        }
+
+        /// <summary>A copy of the user's names for a slot (null: none), to put back with SetUserSlot.</summary>
+        public SlotNames UserSlot(int slot)
+        {
+            SlotNames s;
+            if (!User.Slots.TryGetValue(slot, out s)) return null;
+            var copy = new SlotNames { Talker = s.Talker, Sha256 = s.Sha256 };
+            foreach (var kv in s.Functions) copy.Functions[kv.Key] = kv.Value.Clone();
+            foreach (var kv in s.Globals) copy.Globals[kv.Key] = kv.Value;
+            return copy;
+        }
+
+        /// <summary>Puts back the user's names for a slot as UserSlot copied them (null: none), and saves them.</summary>
+        public void SetUserSlot(int slot, SlotNames s)
+        {
+            if (s == null) User.Slots.Remove(slot);
+            else
+            {
+                var copy = new SlotNames { Talker = s.Talker, Sha256 = s.Sha256 };
+                foreach (var kv in s.Functions) copy.Functions[kv.Key] = kv.Value.Clone();
+                foreach (var kv in s.Globals) copy.Globals[kv.Key] = kv.Value;
+                User.Slots[slot] = copy;
+            }
+            SaveUser();
+        }
+
+        void RenameMany(Conversation c, IEnumerable<KeyValuePair<NameTarget, string>> renames)
         {
             var lay = BablLayout.Of(c);
             string sha = BlockHash(c);
@@ -613,21 +663,26 @@ namespace UwEditor.Core.Conversations
                 foreach (var kv in s.Globals) moved.Globals[kv.Key] = kv.Value;
                 User.Slots[c.Slot] = s = moved;
             }
-            if (string.IsNullOrEmpty(name) || name == ConversationNames.PlaceholderOf(t)) name = null;
-            if (t.Kind == NameKind.Global)
+            foreach (var kv in renames)
             {
-                if (name == null) s.Globals.Remove(t.Address); else s.Globals[t.Address] = name;
-            }
-            else
-            {
-                int f = t.Kind == NameKind.Function ? t.Address : t.Kind == NameKind.Local ? t.Address : lay.FunctionOf(t.Address);
-                FunctionNames fn;
-                if (!s.Functions.TryGetValue(f, out fn)) s.Functions[f] = fn = new FunctionNames();
-                fn.Body = lay.Body(f);
-                if (t.Kind == NameKind.Function) fn.Name = name;
-                else if (t.Kind == NameKind.Label) { if (name == null) fn.Labels.Remove(t.Address - f); else fn.Labels[t.Address - f] = name; }
-                else { if (name == null) fn.Locals.Remove(t.Offset); else fn.Locals[t.Offset] = name; }
-                if (fn.Empty) s.Functions.Remove(f);
+                var t = kv.Key;
+                string name = kv.Value;
+                if (string.IsNullOrEmpty(name) || name == ConversationNames.PlaceholderOf(t)) name = null;
+                if (t.Kind == NameKind.Global)
+                {
+                    if (name == null) s.Globals.Remove(t.Address); else s.Globals[t.Address] = name;
+                }
+                else
+                {
+                    int f = t.Kind == NameKind.Function ? t.Address : t.Kind == NameKind.Local ? t.Address : lay.FunctionOf(t.Address);
+                    FunctionNames fn;
+                    if (!s.Functions.TryGetValue(f, out fn)) s.Functions[f] = fn = new FunctionNames();
+                    fn.Body = lay.Body(f);
+                    if (t.Kind == NameKind.Function) fn.Name = name;
+                    else if (t.Kind == NameKind.Label) { if (name == null) fn.Labels.Remove(t.Address - f); else fn.Labels[t.Address - f] = name; }
+                    else { if (name == null) fn.Locals.Remove(t.Offset); else fn.Locals[t.Offset] = name; }
+                    if (fn.Empty) s.Functions.Remove(f);
+                }
             }
             if (s.Empty) User.Slots.Remove(c.Slot);
             SaveUser();

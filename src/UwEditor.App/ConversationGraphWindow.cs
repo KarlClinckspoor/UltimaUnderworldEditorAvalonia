@@ -628,7 +628,7 @@ namespace UwEditor.App
             var v = g.Visible.ToList();
             status.Text = string.Format("{0}  ·  conversation {1}: {2} nodes ({3} with menus, {4} where the NPC speaks), {5} edges, {6} answers{7}.",
                 name ?? "No name", conv.Slot, v.Count, v.Count(n => n.Kind == GraphNodeKind.Menu), v.Count(n => n.Kind == GraphNodeKind.Say), g.Edges.Count,
-                g.Edges.Count(e => e.Kind == GraphEdgeKind.Choice), cw.ScriptPending ? "  ·  the script has unapplied edits, so this shows the applied code" : "");
+                g.Edges.Count(e => e.Kind == GraphEdgeKind.Choice), cw.TextPending ? "  ·  the text has edits not applied, so this shows the applied code" : "");
             Zoomed();
         }
 

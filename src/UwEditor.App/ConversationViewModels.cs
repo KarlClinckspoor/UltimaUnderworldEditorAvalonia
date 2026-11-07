@@ -73,6 +73,18 @@ namespace UwEditor.App
         internal void SetQuietly(string t) { text = t ?? ""; Raise(nameof(Text)); }
     }
 
+    /// <summary>An error or warning of the Dialogue tab's live check, in the list under the editor.</summary>
+    public sealed class ProblemRow
+    {
+        public SourceError Error { get; set; }
+        public bool Warning { get; set; }
+        public string Where { get { return "Line " + Error.Line + ", col " + Error.Column; } }
+        public string Kind { get { return Warning ? "Warning" : "Error"; } }
+        public string Message { get { return Error.Message; } }
+        public IBrush Brush { get { return Warning ? ColourScheme.Pick("#D9A441", "#9A6A10") : ColourScheme.Pick("#E07060", "#B03A2A"); } }
+        public override string ToString() { return Kind + " at line " + Error.Line + ", column " + Error.Column + ": " + Error.Message; }
+    }
+
     public sealed class UserRow
     {
         public ConversationUser User { get; set; }
@@ -84,13 +96,16 @@ namespace UwEditor.App
         string filter = "", status = "", header = "", subheader = "", script = "", scriptError = "";
         ConversationRow selected;
         int tab;
-        bool scriptChanged;
+        bool scriptChanged, dialogueChanged, canUndoApply, canRedoApply;
+        string problemSummary = "";
 
         public ObservableCollection<ConversationRow> All { get; } = new ObservableCollection<ConversationRow>();
         public ObservableCollection<ConversationRow> Rows { get; } = new ObservableCollection<ConversationRow>();
         public ObservableCollection<DialogueLine> Lines { get; } = new ObservableCollection<DialogueLine>();
         public ObservableCollection<StringRow> Strings { get; } = new ObservableCollection<StringRow>();
         public ObservableCollection<UserRow> Users { get; } = new ObservableCollection<UserRow>();
+        /// <summary>The Dialogue tab's errors and warnings, from the last check of the text.</summary>
+        public ObservableCollection<ProblemRow> Problems { get; } = new ObservableCollection<ProblemRow>();
 
         public string Filter { get { return filter; } set { if (Set(ref filter, value ?? "")) ApplyFilter(); } }
         public ConversationRow Selected { get { return selected; } set { if (Set(ref selected, value)) { SelectedChanged?.Invoke(); Raise(nameof(HasSelection)); } } }
@@ -103,6 +118,12 @@ namespace UwEditor.App
         public bool ScriptChanged { get { return scriptChanged; } set { Set(ref scriptChanged, value); } }
         public string ScriptError { get { return scriptError; } set { if (Set(ref scriptError, value)) Raise(nameof(HasScriptError)); } }
         public bool HasScriptError { get { return !string.IsNullOrEmpty(scriptError); } }
+        /// <summary>The Dialogue tab's text differs from the conversation as applied.</summary>
+        public bool DialogueChanged { get { return dialogueChanged; } set { Set(ref dialogueChanged, value); } }
+        public bool CanUndoApply { get { return canUndoApply; } set { Set(ref canUndoApply, value); } }
+        public bool CanRedoApply { get { return canRedoApply; } set { Set(ref canRedoApply, value); } }
+        /// <summary>The live check's verdict, above the problems list.</summary>
+        public string ProblemSummary { get { return problemSummary; } set { Set(ref problemSummary, value); } }
 
         public event Action SelectedChanged, TabChanged;
 

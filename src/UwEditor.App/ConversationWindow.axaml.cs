@@ -19,8 +19,9 @@ namespace UwEditor.App
 {
     /// <summary>
     /// Tools ▸ Conversations: every conversation of the open game, read from CNV.ARK and
-    /// STRINGS.PAK. Dialogue shows what a script does; Strings edits its text; Script edits its
-    /// code as assembly; Who talks lists the creatures that use it. Saving writes both files.
+    /// STRINGS.PAK. Dialogue edits a script in the conversation language (ConversationWindow.Dialogue.cs);
+    /// Strings edits its text; Script edits its code as assembly; Who talks lists the creatures
+    /// that use it. Saving writes both files.
     /// </summary>
     public partial class ConversationWindow : Window
     {
@@ -56,6 +57,7 @@ namespace UwEditor.App
             this.goTo = goTo;
             this.showGlobals = showGlobals;
             InitializeComponent();
+            InitDialogue();
             ManualWindow.Attach(this, "Conversations");
             DataContext = Model;
             Model.SelectedChanged += () => Load(Model.Selected == null ? -1 : Model.Selected.Slot);
@@ -81,8 +83,10 @@ namespace UwEditor.App
             else if (ctrl && e.Key == Key.G) { OpenGlobals(); e.Handled = true; }
             else if (ctrl && e.Key == Key.R && current != null) { ShowSimulator(); e.Handled = true; }
             else if (ctrl && e.Key == Key.Enter && Model.Tab == 2) { ApplyScript(); e.Handled = true; }
+            else if (ctrl && e.Key == Key.Enter && Model.Tab == 0) { ApplyDialogue(); e.Handled = true; }
             else if (!ctrl && e.Key == Key.F2 && current != null) { _ = BeginRename(); e.Handled = true; }
-            else if (ctrl && e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key == Key.K && current != null) { _ = CompileFromSource(); e.Handled = true; }
+            else if (!ctrl && e.Key == Key.F12 && current != null && Model.Tab == 0) { GoToDefinition(); e.Handled = true; }
+            else if (ctrl && e.Key == Key.L && current != null && Model.Tab == 0) { _ = AskGoToLine(); e.Handled = true; }
         }
 
         void FillList()
@@ -120,7 +124,7 @@ namespace UwEditor.App
                 r.Detail += n == 0 ? " · nobody in the levels" : string.Format(" · {0} creature{1}", n, n == 1 ? "" : "s");
             }
             if (Model.Selected != null) FillUsers(Model.Selected.Slot);
-            Model.Status = string.Format("{0} conversations. You can edit their strings and scripts; Save writes CNV.ARK and STRINGS.PAK.", Model.All.Count);
+            Model.Status = string.Format("{0} conversations. Edit a conversation on its Dialogue tab and Apply (Ctrl+Enter); Save writes CNV.ARK and STRINGS.PAK.", Model.All.Count);
         }
 
         /// <summary>Shows a slot (and selects it in the list).</summary>
@@ -140,8 +144,11 @@ namespace UwEditor.App
             Model.Strings.Clear();
             Model.Users.Clear();
             current = null;
+            simulated = null;
             names = ConversationNames.None;
-            if (slot < 0 || lib == null) { Model.Header = ""; Model.Subheader = ""; Model.SetScriptQuietly(""); return; }
+            Model.Problems.Clear();
+            Model.ProblemSummary = "";
+            if (slot < 0 || lib == null) { Model.Header = ""; Model.Subheader = ""; Model.SetScriptQuietly(""); appliedText = ""; SetSourceText("", true); Model.DialogueChanged = false; UpdateUndoButtons(); return; }
             try { current = lib.Archive.Read(slot); }
             catch (Exception ex) { Model.Header = "Conversation " + slot; Model.Subheader = "Cannot be read: " + ex.Message; return; }
             string name = lib.Name(slot);
@@ -150,9 +157,12 @@ namespace UwEditor.App
             Model.Subheader = string.Format("String block 0x{0:X4} · {1} words of code · {2} variables ({3} filled in by the game, the rest kept in BGLOBALS.DAT) · {4} built-in functions imported",
                 current.StringBlock, current.Code.Length, current.Variables, imported, current.Imports.Count(i => i.IsFunction));
             originalStrings = lib.Strings.Original(current.StringBlock).Select(lib.Accents.ToDisplay).ToList();
-            RefreshDialogue();
+            Model.ScriptChanged = false;
+            RefreshDialogue(fresh: true);
             FillStrings();
             FillUsers(slot);
+            UpdateUndoButtons();
+            CheckNow();
             CurrentChanged?.Invoke();
         }
 
@@ -165,24 +175,20 @@ namespace UwEditor.App
             FillStrings();
         }
 
-        void RefreshDialogue()
+        /// <summary>
+        /// Decompiles the shown conversation again: the Dialogue text (replaced when it has no
+        /// edits to keep, or always with forceText; fresh: another conversation, the text's undo
+        /// history starts again), the Script text when it has no edits, and the strings' uses.
+        /// </summary>
+        void RefreshDialogue(bool forceText = false, bool fresh = false)
         {
             dialogueStale = false;
             Model.Lines.Clear();
             if (current == null) return;
             var d = lib.Decompile(current);
             names = d.Names;
-            bool hide = HideUnusedBox == null || HideUnusedBox.IsChecked == true, skipping = false;
-            for (int i = 0; i < d.Lines.Count; i++)
-            {
-                var l = d.Lines[i];
-                if (l.Kind == PseudoKind.Function) skipping = hide && l.Text.Contains("never called");
-                // the blank line before a function belongs to it
-                bool blankBefore = l.Kind == PseudoKind.Comment && l.Text.Length == 0 && i + 1 < d.Lines.Count && d.Lines[i + 1].Kind == PseudoKind.Function;
-                if (blankBefore) { if (hide && d.Lines[i + 1].Text.Contains("never called")) continue; skipping = false; }
-                if (skipping) continue;
-                Model.Lines.Add(new DialogueLine { Line = l });
-            }
+            foreach (var l in d.Lines) Model.Lines.Add(new DialogueLine { Line = l });
+            ShowSource(d, fresh, forceText);
             if (!Model.ScriptChanged)
                 Model.SetScriptQuietly(Disassembler.Disassemble(current, a => { string n; return d.Notes.TryGetValue(a, out n) ? n : null; },
                     "Conversation " + current.Slot + (lib.Name(current.Slot) is string nm ? " — " + nm : ""), d.Names));
@@ -249,7 +255,7 @@ namespace UwEditor.App
             Model.Selected.Changed = lib.Archive.IsChanged(current.Slot) || lib.Strings.IsChanged(current.StringBlock);
         }
 
-        void OnHideUnusedChanged(object sender, RoutedEventArgs e) { if (current != null) RefreshDialogue(); }
+        void OnHideUnusedChanged(object sender, RoutedEventArgs e) { FoldNeverCalled(HideUnusedBox.IsChecked == true); }
 
         void OnAddString(object sender, RoutedEventArgs e) { AddString(); }
 
@@ -278,12 +284,6 @@ namespace UwEditor.App
             if (row != null && row.User != null) goTo?.Invoke(row.User);
         }
 
-        void OnDialogueDoubleTapped(object sender, TappedEventArgs e)
-        {
-            var line = DialogueList.SelectedItem as DialogueLine;
-            if (line != null) ShowAddress(line.Line.Address);
-        }
-
         /// <summary>Opens the Script tab with the caret on the instruction at a code address (focus: move the keyboard focus there too).</summary>
         public void ShowAddress(int address, bool focus = true)
         {
@@ -309,35 +309,35 @@ namespace UwEditor.App
 
         void OnApplyScript(object sender, RoutedEventArgs e) { ApplyScript(); }
 
-        /// <summary>Assembles the Script text into the conversation. Returns false with the error shown.</summary>
+        /// <summary>Assembles the Script text into the conversation, as one step (Undo apply on the Dialogue tab). Returns false with the error shown.</summary>
         public bool ApplyScript()
         {
             if (current == null) return false;
             if (!Model.ScriptChanged) return true;
+            if (Model.DialogueChanged) { Model.ScriptError = "The Dialogue tab has edits that are not applied: apply them, or revert to the last applied, first."; Model.Status = "The script was not applied: " + Model.ScriptError; return false; }
+            Conversation c;
             try
             {
-                var c = Assembler.Assemble(Model.Script);
+                c = Assembler.Assemble(Model.Script);
                 if (c.Slot != current.Slot) throw new AssemblyError(1, ".slot says " + c.Slot + ", but this is conversation " + current.Slot + ".");
-                int oldBlock = current.StringBlock;
-                lib.Archive.Write(current.Slot, c);
-                current = lib.Archive.Read(current.Slot);
-                Model.ScriptChanged = false;
-                Model.ScriptError = "";
-                if (c.StringBlock != oldBlock) { originalStrings = lib.Strings.Original(c.StringBlock).Select(lib.Accents.ToDisplay).ToList(); FillStrings(); }
-                RefreshDialogue();
-                MarkChanged();
-                Model.Status = string.Format("Conversation {0} assembled: {1} words of code (not saved).", current.Slot, current.Code.Length);
-                CurrentChanged?.Invoke();
-                return true;
             }
             catch (AssemblyError ex)
             {
                 Model.ScriptError = ex.Message;
                 GoToScriptLine(ex.Line);
+                Model.Status = "The script was not applied: " + Model.ScriptError;
+                return false;
             }
-            catch (Exception ex) { Model.ScriptError = ex.Message; }
-            Model.Status = "The script was not applied: " + Model.ScriptError;
-            return false;
+            catch (Exception ex) { Model.ScriptError = ex.Message; Model.Status = "The script was not applied: " + Model.ScriptError; return false; }
+            bool ok = Commit(st =>
+            {
+                lib.Archive.Write(current.Slot, c);
+                Model.ScriptChanged = false;
+                Model.ScriptError = "";
+            }, "Script apply");
+            if (!ok) { Model.ScriptError = Model.Status; Model.Status = "The script was not applied: " + Model.ScriptError; return false; }
+            Model.Status = string.Format("Conversation {0} assembled: {1} words of code (not saved).", current.Slot, current.Code.Length);
+            return true;
         }
 
         void GoToScriptLine(int line)
@@ -358,19 +358,20 @@ namespace UwEditor.App
 
         void OnRevert(object sender, RoutedEventArgs e) { RevertCurrent(); }
 
+        /// <summary>Puts the shown conversation and its strings back as last saved, as one step (Undo apply takes it back); text not applied is dropped.</summary>
         public void RevertCurrent()
         {
             if (current == null) return;
             int slot = current.Slot;
-            lib.Strings.Revert(current.StringBlock);
-            lib.Archive.Revert(slot);
-            var c = lib.Archive.Read(slot);
-            if (c != null) lib.Strings.Revert(c.StringBlock);
             Model.ScriptChanged = false;
-            Load(slot);
-            MarkChanged();
-            Model.Status = "Conversation " + slot + " is back as it was last saved.";
-            StringsChanged?.Invoke();
+            Commit(st =>
+            {
+                lib.Strings.Revert(current.StringBlock);
+                lib.Archive.Revert(slot);
+                var c = lib.Archive.Read(slot);
+                if (c != null) lib.Strings.Revert(c.StringBlock);
+            }, "Revert conversation");
+            Model.Status = "Conversation " + slot + " is back as it was last saved (Undo apply takes it back).";
         }
 
         void OnSave(object sender, RoutedEventArgs e) { Save(); }
@@ -380,10 +381,12 @@ namespace UwEditor.App
         {
             if (lib == null) return null;
             if (Model.ScriptChanged && !ApplyScript()) return null;
+            if (Model.DialogueChanged && !ApplyDialogue()) return null;
             if (!lib.HasChanges) { Model.Status = "Nothing to save."; return new List<string>(); }
             try
             {
                 var done = lib.Save();
+                ForgetApplySteps();
                 foreach (var r in Model.All) r.Changed = false;
                 if (current != null) { originalStrings = lib.Strings.Original(current.StringBlock).Select(lib.Accents.ToDisplay).ToList(); foreach (var r in Model.Strings) r.Changed = false; }
                 Model.Status = "Saved " + string.Join(" and ", done) + " in " + lib.Session.DataFolder + " (the old files are kept as .BKP).";
@@ -422,7 +425,14 @@ namespace UwEditor.App
         public ConversationSimulatorWindow ShowSimulator()
         {
             if (lib == null) return null;
-            if (simulatorWindow != null) { simulatorWindow.Activate(); return simulatorWindow; }
+            bool typed = simulated != null;
+            if (!PrepareSimulation()) return null;
+            if (simulatorWindow != null)
+            {
+                if (typed || simulated != null) simulatorWindow.Reload();
+                simulatorWindow.Activate();
+                return simulatorWindow;
+            }
             simulatorWindow = new ConversationSimulatorWindow(this);
             simulatorWindow.Closed += (o, e) => simulatorWindow = null;
             simulatorWindow.Show(this);
@@ -451,9 +461,9 @@ namespace UwEditor.App
         static readonly Regex word = new Regex("[A-Za-z_][A-Za-z0-9_]*");
 
         /// <summary>
-        /// What F2 can rename now: on the Dialogue tab, the functions, labels and variables on
-        /// the selected line (the line's own function or label first); on the Script tab, the
-        /// function or label at the caret or in the selection.
+        /// What F2 can rename now: on the Dialogue tab, the function, label or variable whose
+        /// name is at the caret; on the Script tab, the function or label at the caret or in the
+        /// selection.
         /// </summary>
         public List<NameTarget> NameCandidates()
         {
@@ -477,17 +487,7 @@ namespace UwEditor.App
                 }
                 return list;
             }
-            var line = DialogueList.SelectedItem as DialogueLine;
-            if (line == null) return list;
-            var l = line.Line;
-            int f = names.Layout.FunctionOf(l.Address);
-            if (l.Kind == PseudoKind.Function) list.Add(NameTarget.Function(l.Address));
-            else if (l.Kind == PseudoKind.Label) list.Add(NameTarget.Label(l.Address));
-            foreach (Match m in word.Matches(quoted.Replace(l.Text, " ")))
-            {
-                var t = names.Find(current, m.Value, f);
-                if (t.HasValue && !list.Contains(t.Value) && !(t.Value.Kind == NameKind.Function && t.Value.Address == 0)) list.Add(t.Value);
-            }
+            if (Model.Tab == 0) return DialogueNameCandidates();
             return list;
         }
 
@@ -527,9 +527,10 @@ namespace UwEditor.App
             string old = names.NameOf(t);
             try { lib.Names.Rename(current, t, name); }
             catch (Exception ex) { Model.Status = "Not renamed: " + ex.Message; return ex.Message; }
-            var keep = DialogueList.SelectedItem as DialogueLine;
+            // the names layer, then the typed text when it keeps edits (else it is decompiled again with the new name)
             RefreshDialogue();
-            if (keep != null) DialogueList.SelectedItem = Model.Lines.FirstOrDefault(x => x.Line.Address == keep.Line.Address && x.Line.Kind == keep.Line.Kind);
+            RenameInText(t, old, names.NameOf(t));
+            SourceChanged();
             Model.Status = string.Format("{0} is now {1} (kept in {2}).", old, names.NameOf(t), lib.Names.UserPath ?? "this session");
             NamesChanged?.Invoke();
             return null;
@@ -541,7 +542,7 @@ namespace UwEditor.App
             var list = NameCandidates();
             if (list.Count == 0)
             {
-                Model.Status = Model.Tab == 2 ? "Put the caret on a function or label name to rename it (F2)." : Model.Tab == 0 ? "Select a line with a function, label or variable to rename it (F2)." : "F2 renames on the Dialogue and Script tabs.";
+                Model.Status = Model.Tab == 2 ? "Put the caret on a function or label name to rename it (F2)." : Model.Tab == 0 ? "Put the caret on the name of a function, label or variable of the conversation as applied to rename it (F2)." : "F2 renames on the Dialogue and Script tabs.";
                 return;
             }
             if (Model.ScriptChanged) { Model.Status = "Not renamed: the script has edits that are not applied: apply or undo them first."; return; }
@@ -589,59 +590,6 @@ namespace UwEditor.App
             return w.ShowDialog(this);
         }
 
-        /// <summary>
-        /// Developer-only, not in the manual (Ctrl+Shift+K): the Dialogue tab's source in a box,
-        /// compiled back into the conversation (ConversationCompiler). The editable Dialogue tab
-        /// comes later; this is for trying the compiler.
-        /// </summary>
-        public Task CompileFromSource()
-        {
-            if (Model.ScriptChanged) { Model.Status = "The script has edits that are not applied: apply or undo them first."; return Task.CompletedTask; }
-            var mono = Application.Current?.FindResource("Mono") as FontFamily ?? FontFamily.Default;
-            var box = new TextBox { Text = lib.Decompile(current).Text, AcceptsReturn = true, AcceptsTab = true, TextWrapping = TextWrapping.NoWrap, FontFamily = mono, FontSize = 12 };
-            var report = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0), FontFamily = mono, FontSize = 11 };
-            var compile = new Button { Content = "Compile", MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
-            var apply = new Button { Content = "Apply", MinWidth = 80, IsEnabled = false, HorizontalContentAlignment = HorizontalAlignment.Center };
-            var close = new Button { Content = "Close", IsCancel = true, MinWidth = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
-            var w = new Window
-            {
-                Title = "Compile from source (developer) — conversation " + current.Slot, Width = 900, Height = 700, WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Content = new DockPanel
-                {
-                    Margin = new Thickness(12),
-                    Children =
-                    {
-                        new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Margin = new Thickness(0, 8, 0, 0), Children = { compile, apply, close }, [DockPanel.DockProperty] = Dock.Bottom },
-                        new ScrollViewer { MaxHeight = 160, Content = report, [DockPanel.DockProperty] = Dock.Bottom },
-                        box,
-                    },
-                },
-            };
-            CompileResult last = null;
-            compile.Click += (o, e) =>
-            {
-                last = lib.Compile(current, box.Text);
-                report.Text = CompileReport(last);
-                apply.IsEnabled = last.Ok;
-                if (!last.Ok && last.Errors.Count > 0) GoToSourceLine(box, last.Errors[0].Line);
-            };
-            box.TextChanged += (o, e) => apply.IsEnabled = false;
-            apply.Click += (o, e) => { if (last != null && last.Ok && ApplyCompiled(last)) w.Close(); };
-            close.Click += (o, e) => w.Close();
-            return w.ShowDialog(this);
-        }
-
-        static void GoToSourceLine(TextBox box, int line)
-        {
-            string s = box.Text ?? "";
-            int p = 0;
-            for (int i = 1; i < line && p >= 0; i++) { p = s.IndexOf('\n', p); if (p >= 0) p++; }
-            if (p < 0) return;
-            int end = s.IndexOf('\n', p);
-            box.SelectionStart = p;
-            box.SelectionEnd = end < 0 ? s.Length : end;
-        }
-
         public static string CompileReport(CompileResult r)
         {
             var lines = new List<string>();
@@ -656,18 +604,12 @@ namespace UwEditor.App
             return string.Join("\n", lines);
         }
 
-        /// <summary>Puts a compiled conversation (and any new strings) in place, as Apply on the Script tab does.</summary>
+        /// <summary>Puts a compiled conversation (and any new strings) in place, as one step (Undo apply), as Apply on the Dialogue tab does.</summary>
         public bool ApplyCompiled(CompileResult r)
         {
             if (current == null || r == null || !r.Ok || r.Conversation.Slot != current.Slot) return false;
-            try { lib.Apply(r); }
-            catch (Exception ex) { Model.Status = "Not applied: " + ex.Message; return false; }
-            current = lib.Archive.Read(current.Slot);
-            if (r.StringsChanged) { FillStrings(); StringsChanged?.Invoke(); }
-            RefreshDialogue();
-            MarkChanged();
+            if (!Commit(st => ApplyAndName(r), "Apply")) return false;
             Model.Status = string.Format("Conversation {0} compiled from source: {1} words of code{2} (not saved).", current.Slot, current.Code.Length, r.AddedStrings.Count > 0 ? ", " + r.AddedStrings.Count + " new string" + (r.AddedStrings.Count == 1 ? "" : "s") : "");
-            CurrentChanged?.Invoke();
             return true;
         }
 

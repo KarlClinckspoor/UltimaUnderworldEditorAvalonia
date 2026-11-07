@@ -339,6 +339,9 @@ namespace UwEditor.App
 
         void OnCurrentChanged() { Load(); }
 
+        /// <summary>Takes the conversation again (the editor's typed text, compiled for Simulate, or the applied one) and resets.</summary>
+        public void Reload() { Load(true); }
+
         /// <summary>A name was changed (F2 in the conversation editor): the values and what is logged from now on use it; the run goes on.</summary>
         void OnNamesChanged()
         {
@@ -352,10 +355,10 @@ namespace UwEditor.App
         /// <summary>Takes the conversation the editor shows (the world filled in again for another slot) and resets.</summary>
         void Load(bool keepTalkerChoice = false)
         {
-            conv = cw.Current;
+            conv = cw.SimulatedConversation;
             if (conv == null) { header.Text = "No conversation"; sim = null; Refresh(); return; }
             string name = cw.Library.Name(conv.Slot);
-            header.Text = (name ?? "No name") + "  ·  conversation " + conv.Slot;
+            header.Text = (name ?? "No name") + "  ·  conversation " + conv.Slot + (cw.SimulatingTypedText ? "  ·  the Dialogue text as typed (not applied)" : "");
             Title = "Conversation simulator — " + (name ?? "conversation " + conv.Slot);
             decompiled = cw.Library.Decompile(conv);
             if (conv.Slot != slot || start == null)
@@ -497,8 +500,8 @@ namespace UwEditor.App
             }
             string err = ApplyStart();
             if (err != null) { stateText.Text = err; tabs.SelectedIndex = 1; return; }
-            conv = cw.Current ?? conv;
-            sim = new ConversationSimulator(conv, cw.CurrentStrings, start, (b, i) => Session.Strings.Get(b, i), SimWorld.SavedGlobals(Session, conv.Slot));
+            conv = cw.SimulatedConversation ?? conv;
+            sim = new ConversationSimulator(conv, cw.SimulatedStrings, start, (b, i) => Session.Strings.Get(b, i), SimWorld.SavedGlobals(Session, conv.Slot));
             sim.Names = decompiled != null ? decompiled.Names : cw.Library.Names.Resolve(conv);
             sim.LogInstructions = logInstructions.IsChecked == true;
             transcript.Clear();
@@ -508,7 +511,7 @@ namespace UwEditor.App
             BuildRows();
             Refresh();
             if (sim.State == SimState.Running)
-                stateText.Text = "Ready. Run (F5) runs to the first menu; Step (F10) runs one instruction." + (cw.ScriptPending ? " The script has unapplied edits, so this runs the applied code." : "");
+                stateText.Text = "Ready. Run (F5) runs to the first menu; Step (F10) runs one instruction." + (cw.SimulatingTypedText ? " This runs the Dialogue text as typed, not applied: Simulate again after more edits." : cw.TextPending ? " The text has edits not applied, so this runs the applied code (Simulate from the Dialogue tab runs the typed text)." : "");
         }
 
         public void Step()
@@ -608,7 +611,7 @@ namespace UwEditor.App
             }
             foreach (var r in vars) r.Refresh();
             SyncLog();
-            if (follow.IsChecked == true && sim.State != SimState.Ended) cw.ShowAddress(sim.State == SimState.Running ? sim.Pc : sim.Menu != null ? sim.Menu.Address : sim.Pc, false);
+            if (follow.IsChecked == true && sim.State != SimState.Ended && !cw.SimulatingTypedText) cw.ShowAddress(sim.State == SimState.Running ? sim.Pc : sim.Menu != null ? sim.Menu.Address : sim.Pc, false);
         }
 
         void SyncLog()

@@ -609,6 +609,12 @@ namespace UwEditor.App
             if (conversationWindow == null)
             {
                 conversationWindow = new ConversationWindow(lib, GoToUser, s => { var g = ShowGlobals(); if (g != null && s >= 0) _ = ShowConversationGlobals(g, s); });
+                var cwin = conversationWindow;
+                cwin.WrapLines = settings.DialogueWrap;
+                cwin.WrapChanged += on => { settings.DialogueWrap = on; settings.Save(); };
+                // text typed on the Dialogue or Script tab and not applied is asked about; applied edits stay in the library until the editor saves
+                MessageWindow.GuardClose(cwin, "The conversation editor", () => cwin.TextPending, cwin.ApplyPending, () => AskBeforeDiscarding && !quietClose,
+                    "The conversation editor has text typed and not applied (on the Dialogue or Script tab). Apply it before closing? Applied edits are kept until you save.", "Apply");
                 conversationWindow.Closed += (s, e) => conversationWindow = null;
                 conversationWindow.Saved += () => { vm.Session.ReloadStrings(); vm.RefreshNames(); };
                 conversationWindow.Show(this);

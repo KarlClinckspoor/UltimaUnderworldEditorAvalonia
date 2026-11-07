@@ -83,10 +83,12 @@ namespace UwEditor.App
             var pak = conversations != null ? conversations.Strings : strings?.Pak;
             if (pak != null && pak.HasChanges) files["STRINGS.PAK"] = pak.ToBytes();
             if (playerSheet != null && playerSheet.Dirty) files["PLAYER.DAT"] = playerSheet.ToBytes();
-            // conversations: the compiled edits (CNV.ARK), and a script typed but not applied yet, as text
+            // conversations: the compiled edits (CNV.ARK), and text typed but not applied yet: the Script tab's, and the Dialogue tab's
             if (conversations != null && conversations.Archive.HasChanges) files["CNV.ARK"] = conversations.Archive.ToBytes();
             if (conversationWindow != null && conversationWindow.Model.ScriptChanged && conversationWindow.Current != null)
                 files[string.Format("conversation-{0:D3}.txt", conversationWindow.Current.Slot)] = System.Text.Encoding.UTF8.GetBytes(conversationWindow.Model.Script ?? "");
+            if (conversationWindow != null && conversationWindow.DialoguePending && conversationWindow.Current != null)
+                files[string.Format("dialogue-{0:D3}.txt", conversationWindow.Current.Slot)] = System.Text.Encoding.UTF8.GetBytes(conversationWindow.DialogueText);
             if (vm.Edits != null)
                 foreach (var a in vm.Edits.Automaps.Where(a => a.Dirty))
                 {
@@ -213,6 +215,14 @@ namespace UwEditor.App
                     string text = System.Text.Encoding.UTF8.GetString(CheckpointStore.ReadFile(c, f));
                     var w = ShowConversations(slot);
                     if (w != null) { w.Model.Script = text; said.Add("the unapplied script of conversation " + slot + " (in the conversation window: apply or save it there)"); }
+                }
+                foreach (var f in c.Files.Where(f => f.StartsWith("dialogue-", StringComparison.Ordinal) && f.EndsWith(".txt", StringComparison.Ordinal)))
+                {
+                    int slot;
+                    if (!int.TryParse(f.Substring(9, 3), out slot)) continue;
+                    string text = System.Text.Encoding.UTF8.GetString(CheckpointStore.ReadFile(c, f));
+                    var w = ShowConversations(slot);
+                    if (w != null) { w.SetDialogueText(text); said.Add("the unapplied Dialogue text of conversation " + slot + " (in the conversation window: apply or save it there)"); }
                 }
                 vm.FlushRefresh();
                 UpdateMarkers();

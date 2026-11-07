@@ -48,6 +48,8 @@ namespace UwEditor.App
         public bool ExhumedShowWindow { get; set; }
         /// <summary>The port in use crashes on UW1's level 9 (Underworld Exhumed v1.0.2 and later builds so far).</summary>
         public bool ExhumedLevel9Crash { get; set; } = true;
+        /// <summary>The conversation editor's Dialogue tab wraps lines longer than the editor is wide.</summary>
+        public bool DialogueWrap { get; set; }
 
         /// <summary>The accent table of each game folder (Tools ▸ Graphics ▸ Fonts), by the folder's full path.</summary>
         public Dictionary<string, AccentSettings> Accents { get; set; } = new Dictionary<string, AccentSettings>();
