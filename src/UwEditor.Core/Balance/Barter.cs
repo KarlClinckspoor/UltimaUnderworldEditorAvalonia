@@ -167,9 +167,11 @@ namespace UwEditor.Core.Balance
                 t.Patience = c.Patience;
                 t.Assess = (15 - c.Shrewd) * 6;
             }
-            t.GreedMin = c.Haggle * 6 * 75 / 100 - 2 * charm; t.GreedMax = c.Haggle * 6 * 124 / 100 - 2 * charm;
-            t.PatienceMin = c.Patience * 80 / 100 + (charm >> 1); t.PatienceMax = c.Patience * 199 / 100 + (charm >> 1);
-            t.AssessMin = (15 - c.Shrewd) * 6 * 75 / 100; t.AssessMax = (15 - c.Shrewd) * 6 * 149 / 100;
+            // as Range draws them: b + b × pct / 100, the division truncated toward zero
+            Func<int, int, int> at = (b, pct) => b + b * pct / 100;
+            t.GreedMin = at(c.Haggle * 6, -25) - 2 * charm; t.GreedMax = at(c.Haggle * 6, 24) - 2 * charm;
+            t.PatienceMin = at(c.Patience, -20) + (charm >> 1); t.PatienceMax = at(c.Patience, 99) + (charm >> 1);
+            t.AssessMin = at((15 - c.Shrewd) * 6, -25); t.AssessMax = at((15 - c.Shrewd) * 6, 49);
             t.Greed = (short)(t.Greed - 2 * charm);
             t.Patience = (short)(t.Patience + (charm >> 1));
             return t;

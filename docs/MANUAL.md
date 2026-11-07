@@ -600,7 +600,9 @@ choice, call another function, add one: the compiler (`ConversationCompiler`, de
   the conversation's again, with the new strings' numbers. The Script and Strings tabs, the
   graph and the simulator follow. Nothing is written to the game until you save.
 - **Undo apply** and **Redo apply** step through the Applies of the shown conversation (and
-  its reverts and Script applies), its code and strings together. Saving starts them again.
+  its reverts and Script applies), its code and strings together. A string edited on the
+  Strings tab or a name changed with F2 joins the last Apply's step: Undo apply takes it back
+  with that Apply, and nothing undone can be redone over it. Saving starts them again.
 - **Revert to last applied** throws away the edits not applied (Ctrl+Z in the text brings
   them back). **Revert to the original** puts back the conversation and its strings as the
   game shipped them: from `CNV.ARK.ORIG` and `STRINGS.PAK.ORIG`, the untouched copies the
@@ -617,8 +619,8 @@ choice, call another function, add one: the compiler (`ConversationCompiler`, de
   game's code), a variable the game fills in for what it holds. An edited function would lose
   its names (they follow a function's body, and the edit changes it), so Apply keeps the names
   your text gave it in your names file.
-- **Unsaved work:** text typed and not applied counts as unsaved work. Closing the window asks
-  whether to apply it, and checkpoints keep it (`dialogue-NNN.txt`, as `conversation-NNN.txt`
+- **Unsaved work:** text typed and not applied counts as unsaved work. Closing the window, or
+  picking another conversation in the list, asks whether to apply it (or discard it, or stay), and checkpoints keep it (`dialogue-NNN.txt`, as `conversation-NNN.txt`
   keeps a Script typed and not applied); restoring a checkpoint puts the text back in the
   editor. The Dialogue and Script tabs each refuse to apply while the other has text not
   applied.

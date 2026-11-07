@@ -139,7 +139,7 @@ namespace UwEditor.App
             grid.Children.Add(right);
             Content = new Border { Padding = new Thickness(14), Child = grid };
             ManualWindow.Attach(this, "Balance weapons");
-            Activated += (o, e) => Fill();
+            Activated += (o, e) => { own = null; Fill(); };   // the tables may have been saved since
             Fill();
         }
 

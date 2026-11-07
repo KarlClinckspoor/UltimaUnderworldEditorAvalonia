@@ -146,7 +146,7 @@ namespace UwEditor.App
         public void Shuffle()
         {
             var r = Run();
-            if (r.Changed == 0) { report.Text = "Nothing to change.\n\n" + r.Report; return; }
+            if (r.Changed == 0 && r.Moved == 0) { report.Text = "Nothing to change.\n\n" + r.Report; return; }
             ItemShuffle.Apply(r, main.ViewModel.Edits, opt.Seed);
             applied.Add(r);
             undoButton.IsEnabled = true;

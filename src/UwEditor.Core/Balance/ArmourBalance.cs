@@ -172,7 +172,7 @@ namespace UwEditor.Core.Balance
             int[] locs;
             r.Slot = SlotOf(cat, out locs);
             // UW1's shiny shield (in-class 7) is not a shield to the game: only 0x3B-0x3F count in the shield hand
-            if (cat == 0 && (item & 0xF) < 0xB) { locs = new int[0]; r.Slot = "Shield (not counted)"; }
+            if (cat == 0 && item < 0x3B) { locs = new int[0]; r.Slot = "Shield (not counted)"; }
             r.Locations = locs;
             r.Protection = t.Get("Armour", row, "Protection");
             r.MassStones = t.Get("Common properties", item, "Mass") / 10.0;

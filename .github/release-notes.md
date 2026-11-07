@@ -11,26 +11,35 @@ The Avalonia editor for **Ultima Underworld I and II**, and now the **Ultima Und
 
 **Mod manager:** unpack, run `UltimaUnderworldsModManager`, add a DOS game folder or an Underworld Exhumed program, import `.uwmod` files and pick one per game. The version is at the top of **Settings**.
 
-### New since 0.1.1-beta
-**Mods**
-- Mod format 2: a `.uwmod` holds only the differences from the game's own files, with the SHA-256 of each original, so it applies only to those files and gives back the author's files byte for byte. Mods may add the sounds the game opens by number. Format 1 mods are no longer read.
-- **Tools ▸ Mods ▸ Changed files as a .zip**: your changed files, whole, in their folders, to unzip over your own copy of the game. It is not for the mod manager, and not to share: it holds game data.
+### New since 0.1.2-beta
+**Conversations**
+- The Dialogue tab is an editor: the conversation language with colours, folding, find, go to line, a live check (errors underlined and listed), and **Apply** (Ctrl+Enter), which compiles the text back into the conversation and its strings. Undo apply / Redo apply, Revert to last applied, Revert to the original. Simulate runs the text as typed.
+- A compiler from the Dialogue source to the game's bytecode: every shipped conversation (97 in UW1, 102 in UW2) compiles back to the same bytes, and an edit changes only the function edited.
+- A structured view: if / else, while, menu and switch blocks instead of jumps.
+- Names: shipped names for the conversations' functions, labels and globals in both games, carried over to edited blocks function by function. **F2** renames; your names are kept in the settings folder.
 
-**Mod manager (new)**
-- Installs mods one at a time into DOS game folders (the originals are kept in its vault; changes are safe to interrupt) and into Underworld Exhumed, where each mod gets a home folder of its own. Built-in UltimaHacks for the DOS games, saved-game backups, and capturing a folder's changes as a mod.
-- Play starts DOSBox with GOG's own setups, or with GOG's settings for a folder without them. Each game has Start options for a settings file and arguments of your own.
-- Exhumed: Play names any DLL a build lacks and offers to copy it from a release. The enhancements chosen in the game's settings are kept between plays.
+**Fonts and translations**
+- **Tools ▸ Graphics ▸ Fonts**: a glyph editor for the games' FONT*.SYS, copy and paste between fonts, Make accented letter, PNG and BDF export and import, TrueType export.
+- An accent table per game folder, with presets: accented letters take the printable symbols no string uses (the game draws only codes 20h-7Ah). STRINGS.PAK gets a new Huffman tree when a character has no code yet.
 
 **Randomizer**
-- Automatic zones (UW1): walkable regions, abilities and the world over time, solved for whether the game can be finished; a zone graph; Zones window with Mark as start / goal and Check if solvable.
-- Key item scatter (UW1), named challenges, uniform progression in the item and monster swaps, and new monster and item swap options.
+- Place anywhere (on by default): floor items go to random squares of their level that the logic reaches.
+- Key item scatter: a spoiler log in UW1's map notes (hints for artifacts and crucial items, then the solutions), and a picker for additional items to include.
 
-**Editing and testing**
-- Sound and music: speech, effects and music (VOC, WAV, XMI, MIDI) with the games' limits.
-- Player window: inventory slots in paper-doll order, and UW1's story progress (Garamon, talismans, orb, cup, key, moonstone, Armageddon…).
-- Underworld Exhumed check and DOSBox spot test; a Run and Test menu; undo of changes made on several levels at once.
-- Object fields named from the game's code; a folding properties panel; the conversation graph with 70% fewer crossings.
-- Light or Dark and Compact or Comfortable layouts, shared by both apps.
+**Balance and editing**
+- **Tools ▸ Balance**: a barter simulator, a weapons overview and an armour and rings overview, worked out from the games' own rules.
+- Level textures: pick, then Use it; Undo takes the last change back. Saved pictures refresh the windows that show them.
+- Automap window with its own page picker (UW1's notes-only pages 10-99). The 3D view draws wall textures unmirrored and from the face's top edge, as the game does.
+
+**GOG's game.gog**
+- The editor (File ▸ Open GOG's game.gog…) and the mod manager (Add a DOS game… on a GOG install) copy the games out of GOG's CD image and work on that copy; the GOG install is left as it is. Play mods on such an install with the manager's Play.
+
+**Fixes from review**
+- The conversation window asks before showing another conversation when the text has edits not applied (they were thrown away). A string edit or rename after an Apply is no longer lost by Undo apply / Redo apply. A names file that cannot be read is kept as `.bad` before it is saved over.
+- The compiler: an answered menu (`x = menu {...};`) reads back from its own view, labels of two functions no longer clash, `#n` beyond the block and numbers below -32768 are errors, a frame too big for a word is an error. Strings are set before the code, so a refused string leaves the conversation as it was.
+- Balance windows follow saved object tables; the barter ranges' minimums are as the game draws them; Charm updates the trader's text. The additional-items picker's class boxes tick and untick as they say. An item shuffle that only moves items is applied.
+- Fonts: free accent codes are worked out from the strings as they are now. BDF export says proportional spacing and a numeric default character; TrueType export sets the private-use range bit correctly.
+- GOG copies: forgetting a DOS copy no longer deletes the folder an Exhumed game plays from; Exhumed uses the copy of its own game only; a moved or uninstalled GOG install no longer stops the game page; a failed copy in the editor leaves no half copy behind.
 
 ### Beta notes
 - **Back up your game** (or work through Tools ▸ Mods or the mod manager) before saving.

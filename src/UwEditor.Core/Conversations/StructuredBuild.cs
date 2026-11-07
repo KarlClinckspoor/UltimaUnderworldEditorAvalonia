@@ -209,7 +209,7 @@ namespace UwEditor.Core.Conversations
                     }
                     m.FlagValues.Insert(0, flag);
                 }
-                if (n == 0) { m = null; return false; }
+                if (n <= 0) { m = null; return false; }
                 m.First = j + 1;
                 m.Stores = stores;
                 return true;
@@ -351,7 +351,8 @@ namespace UwEditor.Core.Conversations
                     }
                 }
                 Report.Menus++;
-                TempSlots.Add(slot);
+                // the answer's slot is the compiler's own only when the compares become cases; else the source names it (x = menu {...};)
+                if (chained) TempSlots.Add(slot);
                 for (int k = 0; k < 21; k++) TempSlots.Add(m.Choices + k);
                 if (m.Filtered) for (int k = 0; k < 21; k++) TempSlots.Add(m.Flags + k);
                 if (!chained)

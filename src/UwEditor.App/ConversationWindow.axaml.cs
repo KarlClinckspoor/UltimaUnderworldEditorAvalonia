@@ -60,7 +60,7 @@ namespace UwEditor.App
             InitDialogue();
             ManualWindow.Attach(this, "Conversations");
             DataContext = Model;
-            Model.SelectedChanged += () => Load(Model.Selected == null ? -1 : Model.Selected.Slot);
+            Model.SelectedChanged += OnSelectedChanged;
             Model.TabChanged += () => { if (Model.Tab == 0 && dialogueStale) RefreshDialogue(); };
             AddHandler(KeyDownEvent, OnKey, RoutingStrategies.Tunnel);
             Closed += (o, e) => { simulatorWindow?.Close(); graphWindow?.Close(); };
@@ -125,6 +125,31 @@ namespace UwEditor.App
             }
             if (Model.Selected != null) FillUsers(Model.Selected.Slot);
             Model.Status = string.Format("{0} conversations. Edit a conversation on its Dialogue tab and Apply (Ctrl+Enter); Save writes CNV.ARK and STRINGS.PAK.", Model.All.Count);
+        }
+
+        bool switchingBack;
+
+        /// <summary>Another conversation was picked. Text typed and not applied is not thrown away
+        /// unasked: the list goes back to the shown conversation while the player chooses.</summary>
+        async void OnSelectedChanged()
+        {
+            if (switchingBack) return;
+            var target = Model.Selected;
+            int slot = target == null ? -1 : target.Slot;
+            if (current == null || slot == current.Slot || !TextPending) { Load(slot); return; }
+            var back = Model.All.FirstOrDefault(r => r.Slot == current.Slot);
+            // after the list's own selection change has settled
+            Dispatcher.UIThread.Post(() => { switchingBack = true; try { Model.Selected = back; } finally { switchingBack = false; } });
+            string a = await MessageWindow.Ask(this, "Edits not applied",
+                "The text of conversation " + current.Slot + " has edits that are not applied. Apply them before showing another conversation?",
+                "Apply", "Discard", "Cancel");
+            if (a == "Apply") { if (!ApplyPending()) return; }
+            else if (a != "Discard") return;
+            if (target != null && !Model.Rows.Contains(target)) Model.Filter = "";
+            switchingBack = true;
+            try { Model.Selected = target; } finally { switchingBack = false; }
+            Load(slot);
+            if (target != null) List.ScrollIntoView(target);
         }
 
         /// <summary>Shows a slot (and selects it in the list).</summary>
@@ -236,6 +261,7 @@ namespace UwEditor.App
             try
             {
                 lib.SetShownStrings(current, list);
+                KeepInLastStep();
                 foreach (var r in Model.Strings) { r.Error = ""; r.Changed = r.Index >= originalStrings.Count || originalStrings[r.Index] != list[r.Index]; }
                 Model.Status = "String " + row.Index + " changed (not saved).";
             }
@@ -527,6 +553,7 @@ namespace UwEditor.App
             string old = names.NameOf(t);
             try { lib.Names.Rename(current, t, name); }
             catch (Exception ex) { Model.Status = "Not renamed: " + ex.Message; return ex.Message; }
+            KeepInLastStep();
             // the names layer, then the typed text when it keeps edits (else it is decompiled again with the new name)
             RefreshDialogue();
             RenameInText(t, old, names.NameOf(t));

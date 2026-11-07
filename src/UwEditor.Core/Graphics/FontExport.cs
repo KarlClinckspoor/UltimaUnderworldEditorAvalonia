@@ -131,15 +131,15 @@ namespace UwEditor.Core.Graphics
             string fam = Family(f);
             L("STARTFONT 2.1");
             L("COMMENT Ultima Underworld font " + f.Name + ", exported by the Ultima Underworld editor");
-            L(string.Format(CultureInfo.InvariantCulture, "FONT -UW-{0}-Medium-R-Normal--{1}-{2}-75-75-C-{3}-ISO10646-1", fam, f.Height, f.Height * 10, f.Columns * 10));
+            L(string.Format(CultureInfo.InvariantCulture, "FONT -UW-{0}-Medium-R-Normal--{1}-{2}-75-75-P-{3}-ISO10646-1", fam, f.Height, f.Height * 10, f.Columns * 10));
             L(string.Format(CultureInfo.InvariantCulture, "SIZE {0} 75 75", f.Height));
             L(string.Format(CultureInfo.InvariantCulture, "FONTBOUNDINGBOX {0} {1} 0 {2}", f.Columns, f.Height, -descent));
             var props = new List<string>
             {
                 "FOUNDRY \"UW\"", "FAMILY_NAME \"" + fam + "\"", "WEIGHT_NAME \"Medium\"", "SLANT \"R\"", "SETWIDTH_NAME \"Normal\"",
-                "PIXEL_SIZE " + f.Height, "POINT_SIZE " + f.Height * 10, "RESOLUTION_X 75", "RESOLUTION_Y 75", "SPACING \"C\"",
+                "PIXEL_SIZE " + f.Height, "POINT_SIZE " + f.Height * 10, "RESOLUTION_X 75", "RESOLUTION_Y 75", "SPACING \"P\"",
                 "CHARSET_REGISTRY \"ISO10646\"", "CHARSET_ENCODING \"1\"",
-                "FONT_ASCENT " + ascent, "FONT_DESCENT " + descent, "DEFAULT_CHAR " + '?',
+                "FONT_ASCENT " + ascent, "FONT_DESCENT " + descent, "DEFAULT_CHAR " + (int)'?',
                 "UW_SPACE_WIDTH " + f.SpaceWidth, "UW_MAX_WIDTH " + f.MaxWidth, "UW_WIDTH_SIZE " + f.WidthSize,
                 "UW_ROW_BYTES " + f.RowBytes, "UW_GLYPHS " + f.Count, "UW_TAIL \"" + Hex(f.Tail) + "\"",
             };
@@ -487,7 +487,8 @@ namespace UwEditor.Core.Graphics
             uint ur1 = 1;                                // Basic Latin
             if (map.Keys.Any(u => u >= 0xA0 && u <= 0xFF)) ur1 |= 2;     // Latin-1 Supplement
             if (map.Keys.Any(u => u >= 0x100 && u <= 0x17F)) ur1 |= 4;   // Latin Extended-A
-            os2.U32(ur1); os2.U32(0); os2.U32(map.Keys.Any(u => u >= 0xE000 && u <= 0xF8FF) ? 1u << (60 - 32) : 0); os2.U32(0);
+            // bit 60 (Private Use Area) is in ulUnicodeRange2 (bits 32-63)
+            os2.U32(ur1); os2.U32(map.Keys.Any(u => u >= 0xE000 && u <= 0xF8FF) ? 1u << (60 - 32) : 0); os2.U32(0); os2.U32(0);
             os2.Bytes(Encoding.ASCII.GetBytes("UWED"));
             os2.U16(0x40);                               // fsSelection: regular
             os2.U16(seg.Count > 0 ? seg.First() : 0x20); os2.U16(seg.Count > 0 ? seg.Last() : 0x20);

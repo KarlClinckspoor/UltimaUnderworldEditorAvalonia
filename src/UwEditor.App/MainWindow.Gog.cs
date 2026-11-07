@@ -116,7 +116,13 @@ namespace UwEditor.App
                     await MessageWindow.Show(this, "Inside the GOG install", "Choose a folder outside " + install + ": the GOG install is left exactly as it is.");
                     return null;
                 }
-                var taken = games.Select(g => Path.Combine(dest, GogImage.FolderOf(g))).Where(d => Directory.Exists(d) && Directory.EnumerateFileSystemEntries(d).Any()).ToList();
+                List<string> taken;
+                try { taken = games.Select(g => Path.Combine(dest, GogImage.FolderOf(g))).Where(d => Directory.Exists(d) && Directory.EnumerateFileSystemEntries(d).Any()).ToList(); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    await MessageWindow.Show(this, "Could not read the folder", ex.Message);
+                    return null;
+                }
                 if (taken.Count > 0)
                 {
                     await MessageWindow.Show(this, "The folder already holds a copy",
@@ -140,18 +146,28 @@ namespace UwEditor.App
                 else return null;
             }
 
+            var made = new List<string>();
+            bool destExisted = Directory.Exists(dest);
             try
             {
                 Cursor = new Cursor(StandardCursorType.Wait);
                 await Task.Run(() =>
                 {
-                    foreach (var g in games) GogImage.Extract(image, g, Path.Combine(dest, GogImage.FolderOf(g)), install);
+                    foreach (var g in games)
+                    {
+                        string to = Path.Combine(dest, GogImage.FolderOf(g));
+                        GogImage.Extract(image, g, to, install);
+                        made.Add(to);
+                    }
                     // Run in DOSBox and Play test find the install's DOSBox and settings through this
                     GogImage.WriteInstallNote(dest, install);
                 });
             }
             catch (Exception ex)
             {
+                // no half copy is left behind: a retry would find the folder taken
+                foreach (var d in made) try { Directory.Delete(d, true); } catch (Exception) { }
+                if (!destExisted) try { Directory.Delete(dest, true); } catch (Exception) { }
                 await MessageWindow.Show(this, "Could not copy the games", ex.Message);
                 return null;
             }

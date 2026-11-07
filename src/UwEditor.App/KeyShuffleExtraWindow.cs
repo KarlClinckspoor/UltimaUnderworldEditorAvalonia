@@ -42,11 +42,12 @@ namespace UwEditor.App
                 var items = offered.Where(x => x.Class == id).ToList();
                 if (items.Count == 0) continue;
                 var head = new CheckBox { Content = cls[1] + " (" + items.Sum(x => x.Count) + ")", FontWeight = FontWeight.SemiBold, IsThreeState = true };
-                head.IsCheckedChanged += (o, e) =>
+                // Click, not the toggle's own cycle (true → null → false): a click on a class
+                // that is not wholly ticked ticks it all, a click on a wholly ticked one unticks it
+                head.Click += (o, e) =>
                 {
                     if (filling) return;
-                    // a click on a partly ticked class ticks it all
-                    bool on = head.IsChecked != false;
+                    bool on = !items.All(x => chosen.Contains(x.Item));
                     foreach (var x in items) { if (on) chosen.Add(x.Item); else chosen.Remove(x.Item); }
                     Refresh();
                 };

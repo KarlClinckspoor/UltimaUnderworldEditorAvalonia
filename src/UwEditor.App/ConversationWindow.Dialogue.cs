@@ -408,6 +408,23 @@ namespace UwEditor.App
             return true;
         }
 
+        /// <summary>A string edit or a rename made outside Apply joins the last Apply's step (Undo apply
+        /// takes it back with it, Redo apply brings it again), and what could be redone is dropped:
+        /// neither may overwrite it with an older copy.</summary>
+        void KeepInLastStep()
+        {
+            if (current == null || lib == null) return;
+            List<ApplyStep> list;
+            if (undoSteps.TryGetValue(current.Slot, out list) && list.Count > 0)
+            {
+                var top = list[list.Count - 1];
+                top.After = lib.Snapshot(current.Slot);
+                top.NamesAfter = lib.Names.UserSlot(current.Slot);
+            }
+            if (redoSteps.TryGetValue(current.Slot, out list)) list.Clear();
+            UpdateUndoButtons();
+        }
+
         static void Push(Dictionary<int, List<ApplyStep>> steps, int slot, ApplyStep s)
         {
             List<ApplyStep> list;
@@ -418,6 +435,13 @@ namespace UwEditor.App
 
         /// <summary>After the library's copy of the shown conversation changed: every view shows it again, the Dialogue text replaced.</summary>
         void AfterLibraryChange(int oldBlock)
+        {
+            // the change is made: a block the views cannot read is said in the status line, not thrown into the click
+            try { ShowLibraryChange(oldBlock); }
+            catch (Exception ex) { Model.Status = "Applied, but conversation " + (current == null ? -1 : current.Slot) + " cannot be shown: " + ex.Message; }
+        }
+
+        void ShowLibraryChange(int oldBlock)
         {
             current = lib.Archive.Read(current.Slot);
             simulated = null;

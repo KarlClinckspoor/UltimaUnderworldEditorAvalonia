@@ -488,7 +488,8 @@ namespace UwEditor.Core.Conversations
                     Nested(m.Default);
                 }
                 indent--;
-                Line(m.Assign.Addr, "}", PseudoKind.Comment);
+                // x = menu { ... }; is an assignment: the source reads it back only with its ';'
+                Line(m.Assign.Addr, m.Answer != null ? "};" : "}", PseudoKind.Comment);
             }
 
             void Switch(SwitchNode s)

@@ -8,7 +8,7 @@
     <LangVersion>latest</LangVersion>
     <!-- The manager's version (Settings). Raise the last number with every change to the app
          (0.2.1, then 0.2.2...). The editor has its own, in the Directory.Build.props above. -->
-    <Version>0.2.2</Version>
+    <Version>0.2.3</Version>
     <Authors>Karl Clinckspoor</Authors>
     <Product>Ultima Underworlds Mod Manager</Product>
   </PropertyGroup>

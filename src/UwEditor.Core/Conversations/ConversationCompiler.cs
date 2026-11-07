@@ -340,7 +340,11 @@ namespace UwEditor.Core.Conversations
                     string problem = options.Accents.Problem(s.Text);
                     if (problem != null) Error(s, problem);
                 }
-                if (s.Text == null) id = s.Id;
+                if (s.Text == null)
+                {
+                    id = s.Id;
+                    if (id < 0 || id >= strings.Count) Error(s, "there is no string #" + id + " in this conversation's block (it has " + strings.Count + ").");
+                }
                 else if (s.Id >= 0 && s.Id < strings.Count && strings[s.Id] == s.Text) id = s.Id;
                 else
                 {
@@ -486,6 +490,8 @@ namespace UwEditor.Core.Conversations
                 pushNegative = job.PushNegative(f.Name);
                 // a function that returns a value keeps it in local 1 (Origin's compiler; conv/BABL.C only sees SAVE_REG)
                 if (returnsValue && declared == 0) declared = 1;
+                // a number of the function's own first: "L_" + function + "_" + label made zz_a's b_c and zz_a_b's c the same word
+                labelPrefix = "L" + job.NewLabel().Substring(2) + "_" + f.Name + "_";
                 CollectLabels(f.Body);
 
                 exitLabel = job.NewLabel(); endLabel = job.NewLabel();
@@ -514,6 +520,8 @@ namespace UwEditor.Core.Conversations
                 job.Emit("BPTOSP");
                 job.Emit("POPBP");
                 job.Emit("RET");
+                // the frame's size is pushed as a word the game reads signed
+                if (declared + temps > short.MaxValue) job.AddError(f.Line, f.Col, f.Name + " needs " + (declared + temps) + " words of variables; a function has at most " + short.MaxValue + ".");
                 job.Patch(FramePlaceholder, (declared + temps).ToString(CultureInfo.InvariantCulture));
                 u.Labels = new Dictionary<string, string>(labels, StringComparer.Ordinal);
                 u.Locals = vars.Values.Where(v => v.Kind == SymKind.Local || v.Kind == SymKind.Arg).ToDictionary(v => v.Address, v => v.Name);
@@ -552,6 +560,8 @@ namespace UwEditor.Core.Conversations
                 return found;
             }
 
+            string labelPrefix;
+
             void CollectLabels(List<SStmt> body)
             {
                 if (body == null) return;
@@ -561,7 +571,7 @@ namespace UwEditor.Core.Conversations
                     {
                         case LabelS l:
                             if (labels.ContainsKey(l.Name)) Error(l, "the label " + l.Name + " is in " + f.Name + " twice.");
-                            else labels[l.Name] = "L_" + f.Name + "_" + l.Name;
+                            else labels[l.Name] = labelPrefix + l.Name;
                             break;
                         case IfS i: CollectLabels(i.Then); CollectLabels(i.Else); break;
                         case WhileS w: CollectLabels(w.Body); break;
@@ -944,7 +954,13 @@ namespace UwEditor.Core.Conversations
                             case "*": Value(u.A); job.Emit("FETCHM"); return;
                             case "!": Value(u.A); job.Emit("NOT"); return;
                             case "-":
-                                if (u.A is NumberE nk && !nk.True) { Constant((-(short)nk.Value) & 0xFFFF); return; }
+                                if (u.A is NumberE nk && !nk.True)
+                                {
+                                    // with a minus a word goes down to -32768: -65535 is not 1
+                                    if (nk.Value > 32768) Error(u, "-" + nk.Value + " does not fit in a word (-32768 to 65535).");
+                                    Constant(-nk.Value & 0xFFFF);
+                                    return;
+                                }
                                 Value(u.A); job.Emit("NEG"); return;
                         }
                         break;

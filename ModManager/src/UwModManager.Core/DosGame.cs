@@ -72,6 +72,7 @@ public static class DosGame
     public static List<string> CdImageConfs(string folder)
     {
         var r = new List<string>();
+        if (!Directory.Exists(folder)) return r;
         foreach (var conf in Directory.GetFiles(folder, "*.conf"))
             foreach (var line in File.ReadAllLines(conf))
             {

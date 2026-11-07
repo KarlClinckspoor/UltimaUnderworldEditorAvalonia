@@ -101,7 +101,8 @@ namespace UwEditor.App
             left.Children.Add(useSel);
             left.Children.Add(traderText);
             var panel = new PlayerStatsPanel(session, stats, new[] { PlayerStats.Charm, PlayerStats.Appraise }, false);
-            panel.Changed += Recompute;
+            // Charm changes the trader's figures, and their text with them
+            panel.Changed += () => { if (traderBox.SelectedItem is TraderChoice) TemperChanged(); else Recompute(); };
             panel.Margin = new Thickness(0, 10, 0, 0);
             left.Children.Add(panel);
             left.Children.Add(BalanceUi.Heading("COINS"));
@@ -168,7 +169,7 @@ namespace UwEditor.App
             grid.Children.Add(middle);
             Content = new Border { Padding = new Thickness(14), Child = grid };
             ManualWindow.Attach(this, "Barter simulator");
-            Activated += (o, e) => { classes = Barter.Classes(session, Tables()); TemperChanged(); };
+            Activated += (o, e) => { own = null; classes = Barter.Classes(session, Tables()); TemperChanged(); };
 
             kindBox.SelectedIndex = 0;
             traderBox.SelectedIndex = traders.Count > 0 ? 0 : -1;

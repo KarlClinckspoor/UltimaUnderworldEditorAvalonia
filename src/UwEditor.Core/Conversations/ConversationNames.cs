@@ -63,6 +63,12 @@ namespace UwEditor.Core.Conversations
         /// <summary>How many functions got their names by their body, the block being another.</summary>
         public int Carried { get; internal set; }
 
+        /// <summary>Whether a name has the shape of a placeholder (func_0040, L0230, global3, local2, arg1…), which Check refuses as a name.</summary>
+        public static bool IsPlaceholderName(string name)
+        {
+            return !string.IsNullOrEmpty(name) && (placeholder.IsMatch(name) || name.StartsWith("func_", StringComparison.Ordinal) || name.StartsWith("frame[", StringComparison.Ordinal));
+        }
+
         public static readonly ConversationNames None = new ConversationNames();
 
         public static string FunctionPlaceholder(int a) { return a == 0 ? "main" : "func_" + a.ToString("X4"); }
@@ -465,7 +471,13 @@ namespace UwEditor.Core.Conversations
             if (userPath != null && File.Exists(userPath))
             {
                 try { b.User = NameFile.Parse(File.ReadAllText(userPath)); }
-                catch (Exception ex) { b.LoadError = userPath + ": " + ex.Message; }
+                catch (Exception ex)
+                {
+                    // the next rename saves over the file: keep what could not be read
+                    string kept = userPath + ".bad";
+                    try { File.Copy(userPath, kept, true); } catch (Exception) { kept = null; }
+                    b.LoadError = userPath + ": " + ex.Message + (kept != null ? " (kept as " + Path.GetFileName(kept) + ")" : "");
+                }
             }
             return b;
         }
@@ -667,7 +679,9 @@ namespace UwEditor.Core.Conversations
             {
                 var t = kv.Key;
                 string name = kv.Value;
-                if (string.IsNullOrEmpty(name) || name == ConversationNames.PlaceholderOf(t)) name = null;
+                // a placeholder is no name: one the source used for code that moved (Adopt) would
+                // otherwise stick to the new address and clash with the placeholder of the old one
+                if (string.IsNullOrEmpty(name) || ConversationNames.IsPlaceholderName(name)) name = null;
                 if (t.Kind == NameKind.Global)
                 {
                     if (name == null) s.Globals.Remove(t.Address); else s.Globals[t.Address] = name;

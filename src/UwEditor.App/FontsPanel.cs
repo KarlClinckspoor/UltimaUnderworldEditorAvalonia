@@ -816,6 +816,7 @@ namespace UwEditor.App
                 if (letter == '\0') session.Accents.Remove(code);
                 else
                 {
+                    ScanStrings();   // the strings may have changed since the panel was built
                     var free = FreeCodes();
                     if (!free.Contains(code) && session.Accents.LetterOf(code) == null)
                     {
@@ -837,6 +838,7 @@ namespace UwEditor.App
         {
             var p = AccentTable.Presets.FirstOrDefault(x => x.Name == name);
             if (p == null) return "";
+            ScanStrings();   // a code typed in the strings since the panel was built is no longer free
             string left = session.Accents.Fill(p, FreeCodes());
             leftOver = left;
             SaveTable();

@@ -151,9 +151,8 @@ public sealed class Manager
         // a GOG install that plays from game.gog has no game files: Exhumed reads the manager's copy of it
         if (IsGogImageInstall(folder))
         {
-            var copy = State.Targets.FirstOrDefault(d => d.IsGogCopy && d.Game == game && SamePath(d.GogInstall!, folder))
-                ?? State.Targets.FirstOrDefault(d => d.IsGogCopy && SamePath(d.GogInstall!, folder));
-            if (copy == null) throw new InvalidOperationException(folder + " plays the game from GOG's image (game.gog). Add it as a DOS game first: the manager copies the game out of the image, and Exhumed reads that copy.");
+            var copy = State.Targets.FirstOrDefault(d => d.IsGogCopy && d.Game == game && SamePath(d.GogInstall!, folder));
+            if (copy == null) throw new InvalidOperationException(folder + " plays the game from GOG's image (game.gog). Add " + (game == "uw2" ? "Ultima Underworld II" : "Ultima Underworld") + " of it as a DOS game first: the manager copies the game out of the image, and Exhumed reads that copy.");
             folder = copy.Folder;
         }
         var kind = DosGame.Detect(folder);
@@ -180,8 +179,15 @@ public sealed class Manager
             DosGame.DeleteMarker(t);
             if (t.IsGogCopy && IsInside(Paths.Games, t.Folder))
             {
-                if (Saves.List(t.Folder).Any(s => s.Exists)) note = "The copy of the game holds saved games, so it is kept: " + t.Folder;
-                else Directory.Delete(t.Folder, true);
+                var user = State.Targets.FirstOrDefault(o => o != t && SamePath(o.Folder, t.Folder));
+                if (user != null) note = "The copy of the game is kept: " + user.Name + " plays from it (" + t.Folder + ")";
+                else if (Saves.List(t.Folder).Any(s => s.Exists)) note = "The copy of the game holds saved games, so it is kept: " + t.Folder;
+                else
+                {
+                    try { Directory.Delete(t.Folder, true); }
+                    catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                    { note = "The copy of the game could not be deleted completely (" + e.Message + "): delete " + t.Folder + " yourself"; }
+                }
             }
         }
         State.Targets.Remove(t);

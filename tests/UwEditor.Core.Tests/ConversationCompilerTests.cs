@@ -413,6 +413,48 @@ namespace UwEditor.Core.Tests
         }
 
         [Fact]
+        public void A_string_number_beyond_the_block_is_an_error()
+        {
+            var r = CompileCorby(t => Replace(t, "    met_before = 1;\n", "    say #9999;\n"), out _);
+            if (r == null) return;
+            Assert.Contains("there is no string #9999", Only(r).Message);
+        }
+
+        [Fact]
+        public void A_negative_number_below_a_word_is_an_error()
+        {
+            var r = CompileCorby(t => Replace(t, "    met_before = 1;\n", "    met_before = -65535;\n"), out _);
+            if (r == null) return;
+            Assert.Contains("-65535 does not fit in a word", Only(r).Message);
+            r = CompileCorby(t => Replace(t, "    met_before = 1;\n", "    met_before = -32768;\n"), out _);
+            Assert.True(r.Ok, string.Join("; ", r.Errors));
+        }
+
+        [Fact]
+        public void Labels_of_different_functions_never_share_an_assembly_name()
+        {
+            // "L_" + function + "_" + label once made zz_a's b_c and zz_a_b's c the same word
+            var r = CompileCorby(t => t + "\nzz_a() {\nb_c:\n    return;\n}\n\nzz_a_b() {\nc:\n    return;\n}\n", out _);
+            if (r == null) return;
+            Assert.True(r.Ok, string.Join("; ", r.Errors));
+        }
+
+        [Fact]
+        public void An_answered_menu_reads_back_from_its_own_view()
+        {
+            var r = CompileCorby(t => Replace(t, "main() {\n", "main() {\n    int pick;\n    pick = menu { \"One.\"; \"Two.\"; };\n    global33 = pick;\n"), out var lib);
+            if (r == null) return;
+            Assert.True(r.Ok, string.Join("; ", r.Errors));
+            lib.Apply(r);
+            var c = lib.Archive.Read(1);
+            string view = lib.Decompile(c).Text;
+            Assert.Contains("= menu {", view);
+            var again = lib.Compile(c, view);
+            Assert.True(again.Ok, string.Join("; ", again.Errors) + "\n" + view.Substring(0, Math.Min(view.Length, 600)));
+            Assert.True(again.Conversation.ToBytes().SequenceEqual(c.ToBytes()));
+        }
+
+        [Fact]
         public void The_parser_reads_every_construct_of_the_language()
         {
             var errors = new List<SourceError>();

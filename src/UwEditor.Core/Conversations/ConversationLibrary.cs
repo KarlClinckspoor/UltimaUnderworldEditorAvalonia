@@ -107,8 +107,9 @@ namespace UwEditor.Core.Conversations
         public void Apply(CompileResult r)
         {
             if (r == null || !r.Ok) throw new InvalidOperationException("The source did not compile.");
-            Archive.Write(r.Conversation.Slot, r.Conversation);
+            // the strings first: they may be refused (too many characters, too long), and the code must not point at strings that are not there
             if (r.StringsChanged) SetShownStrings(r.Conversation, r.Strings);
+            Archive.Write(r.Conversation.Slot, r.Conversation);
         }
 
         /// <summary>
