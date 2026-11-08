@@ -84,7 +84,7 @@ namespace UwEditor.Core.Balance
             return easy ? e / 2 : e;
         }
 
-        static string WornEffect(GameKind kind, ObjectSpell sp, bool shieldOrRing, out int toHit, out int armour, out int everywhere)
+        internal static string WornEffect(GameKind kind, ObjectSpell sp, bool shieldOrRing, out int toHit, out int armour, out int everywhere)
         {
             toHit = armour = everywhere = 0;
             if (!sp.Has) return "";
@@ -101,7 +101,8 @@ namespace UwEditor.Core.Balance
                 case 0x22: everywhere = 2; return "+2 armour everywhere (Resist Blows; the best such effect counts)";
                 case 0x23: everywhere = 3; return "+3 armour everywhere (Thick Skin; the best such effect counts)";
                 case 0x25: everywhere = 5; return "+5 armour everywhere (Iron Flesh; the best such effect counts)";
-                case 0x31: return "+3 to the attacker's to-hit everywhere (adds up)";
+                // class 3 minor 1: cmbModTH += 3 at every location, which frp_check takes off the attacker's skill
+                case 0x31: toHit = 3; return "−3 to the attacker's to-hit everywhere (melee; adds up)";
                 case 0x32: return "quieter (noise −16)";
                 case 0x33: return "harder to see (visibility −5)";
                 case 0x34: return kind == GameKind.UW2 ? "much harder to see (visibility −16, and Conceal)" : "much harder to see (visibility −16)";

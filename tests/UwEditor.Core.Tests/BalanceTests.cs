@@ -134,6 +134,24 @@ namespace UwEditor.Core.Tests
             Assert.Equal(400, WeaponBalance.SwingTicks(GameKind.UW1, 15, 0, false));
             Assert.Equal(400, WeaponBalance.SwingTicks(GameKind.UW1, 15, 2, false));
             Assert.Equal(400 - 64, WeaponBalance.SwingTicks(GameKind.UW2, 15, 2, false));
+            // PLAYDATA.C player_affected_by, the same in both games: class 12 effects 0-7 (Protection) take
+            // effect + 1 off the attacker's to-hit, 8-15 (Toughness) add effect - 7 armour; on a shield or
+            // ring the toughness goes twice to the torso. Class 3 minor 1 takes 3 off the to-hit everywhere.
+            foreach (var kind in new[] { GameKind.UW1, GameKind.UW2 })
+            {
+                int th, ar, all;
+                ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 0 }, false, out th, out ar, out all);
+                Assert.Equal((1, 0), (th, ar));
+                ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 7 }, false, out th, out ar, out all);
+                Assert.Equal((8, 0), (th, ar));
+                ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 8 }, false, out th, out ar, out all);
+                Assert.Equal((0, 1), (th, ar));
+                Assert.Contains("twice", ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 15 }, true, out th, out ar, out all));
+                Assert.Equal((0, 8), (th, ar));
+                string text = ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 3, Link = 0x31 }, false, out th, out ar, out all);
+                Assert.Equal(3, th);
+                Assert.StartsWith("−3", text);
+            }
             Assert.Equal(6, ArmourBalance.ArmourValue(63, 6));
             Assert.Equal(1, ArmourBalance.ArmourValue(0, 6));
         }

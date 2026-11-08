@@ -1099,7 +1099,10 @@ UW2's weapon enchantment names are swapped: the Effect column says what each one
 - **Enchantments:** Protection takes its level from the attacker's to-hit at the item's
   locations (melee only); Toughness adds its level to the armour (on a shield or ring twice to
   the torso, never to the hands); Resist Blows, Thick Skin and Iron Flesh add 2, 3 and 5
-  everywhere (only the best counts). Rings do nothing without an enchantment.
+  everywhere (only the best counts); the to-hit protection effect (class 3, minor 1) takes 3
+  from the attacker's to-hit everywhere, adding up. The names say what each does in both games:
+  unlike UW2's weapon names, Protection and Toughness are not swapped. Rings do nothing without
+  an enchantment.
 - **Wear:** a critical hit takes 2d4 >> quality class off the quality of the helm, the leggings
   (the boots one time in five) or the shield; class 3 never wears.
 

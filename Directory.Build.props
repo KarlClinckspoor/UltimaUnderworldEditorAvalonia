@@ -8,6 +8,6 @@
     <!-- The editor's version (Help > About). Raise the last number with every change to the app
          (0.1.2, then 0.1.3...). The mod manager has its own, in ModManager/Directory.Build.props.
          A release's tag must be this version (v0.1.2-beta): .github/workflows/release.yml checks. -->
-    <Version>0.1.15</Version>
+    <Version>0.1.16</Version>
   </PropertyGroup>
 </Project>
