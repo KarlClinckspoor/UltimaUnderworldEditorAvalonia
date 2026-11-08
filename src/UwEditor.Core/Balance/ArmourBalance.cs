@@ -27,8 +27,15 @@ namespace UwEditor.Core.Balance
         /// <summary>The hit locations it covers (0 torso, 1 hands, 2 legs, 3 head).</summary>
         public int[] Locations = new int[0];
         public int Protection;
-        /// <summary>Armour at the quality chosen: quality × protection / 64 + 1, plus a toughness enchantment.</summary>
+        /// <summary>Armour at the quality chosen, as the game (DOS, and Exhumed as shipped) gives it:
+        /// quality × protection / 64 + 1, plus a toughness enchantment.</summary>
         public int Armour;
+        /// <summary>The armour the game's code means to give: differs from Armour where the code slips
+        /// (an armour spell, which adds nothing; Toughness on a shield or ring, which goes twice to the
+        /// torso and never to the hands). What a game with the slips fixed gives.</summary>
+        public int IntendedArmour;
+        /// <summary>The intended and the actual values differ.</summary>
+        public bool Bugged { get { return IntendedArmour != Armour || IntendedWorn != Worn; } }
         /// <summary>Taken from the attacker's to-hit at its locations by a protection enchantment.</summary>
         public int ToHitPenalty;
         public double MassStones;
@@ -36,6 +43,8 @@ namespace UwEditor.Core.Balance
         public int QualityClass;
         /// <summary>Expected damage of the reference blow at its location, without it and with it.</summary>
         public double Bare, Worn;
+        /// <summary>Expected damage of the reference blow at its location with the intended armour.</summary>
+        public double IntendedWorn;
         public double Saved { get { return Bare - Worn; } }
         public double SavedPercent { get { return Bare > 0 ? 100 * Saved / Bare : 0; } }
         public int Plain, Enchanted, Other;
@@ -84,23 +93,35 @@ namespace UwEditor.Core.Balance
             return easy ? e / 2 : e;
         }
 
-        internal static string WornEffect(GameKind kind, ObjectSpell sp, bool shieldOrRing, out int toHit, out int armour, out int everywhere)
+        /// <summary>
+        /// What a worn enchantment does. <paramref name="everywhere"/> is the armour it adds at every
+        /// location as the game runs; <paramref name="intendedEverywhere"/> what the code means to add
+        /// (they differ for the armour spells, see below). Toughness on a shield or ring: the caller
+        /// counts <paramref name="armour"/> twice on the torso (actual) or once on torso and hands (intended).
+        /// </summary>
+        internal static string WornEffect(GameKind kind, ObjectSpell sp, bool shieldOrRing, out int toHit, out int armour, out int everywhere, out int intendedEverywhere)
         {
-            toHit = armour = everywhere = 0;
+            toHit = armour = everywhere = intendedEverywhere = 0;
             if (!sp.Has) return "";
             if (sp.Flag11) return "a spell cast when the item is used; nothing while worn";
             if (sp.Major == 12)
             {
                 if (sp.Effect < 8) { toHit = sp.Effect + 1; return string.Format("−{0} to the attacker's to-hit at its locations (melee)", toHit); }
                 armour = sp.Effect - 7;
-                return shieldOrRing ? string.Format("+{0} armour on the torso, twice (+{1}); none on the hands", armour, 2 * armour) : string.Format("+{0} armour at its location", armour);
+                // player_affected_by adds the toughness to armour[slots[0]] in its loop over slots 0 and 1
+                return shieldOrRing
+                    ? string.Format("+{0} armour on torso and hands intended; actual +{1} on the torso (twice), none on the hands", armour, 2 * armour)
+                    : string.Format("+{0} armour at its location", armour);
             }
             int spell = sp.Link & 0x1FF;
             switch (spell)
             {
-                case 0x22: everywhere = 2; return "+2 armour everywhere (Resist Blows; the best such effect counts)";
-                case 0x23: everywhere = 3; return "+3 armour everywhere (Thick Skin; the best such effect counts)";
-                case 0x25: everywhere = 5; return "+5 armour everywhere (Iron Flesh; the best such effect counts)";
+                // class 2 (armour) keeps its level in bits 4-7 of the bonuses, but parse_spells shifts the
+                // bonuses right four times in its stealth loop before it reads them: the armour it adds is
+                // bits 8-11, always 0. UW.EXE and UW2.EXE (ovr133:065D, ovr142:0615) do the same.
+                case 0x22: intendedEverywhere = 2; return "+2 armour everywhere intended (Resist Blows); actual none: parse_spells drops it";
+                case 0x23: intendedEverywhere = 3; return "+3 armour everywhere intended (Thick Skin); actual none: parse_spells drops it";
+                case 0x25: intendedEverywhere = 5; return "+5 armour everywhere intended (Iron Flesh); actual none: parse_spells drops it";
                 // class 3 minor 1: cmbModTH += 3 at every location, which frp_check takes off the attacker's skill
                 case 0x31: toHit = 3; return "−3 to the attacker's to-hit everywhere (melee; adds up)";
                 case 0x32: return "quieter (noise −16)";
@@ -165,7 +186,7 @@ namespace UwEditor.Core.Balance
             return rows;
         }
 
-        static ArmourRow Row(GameSession s, ObjectTables t, int item, string name, ObjectSpell sp, int quality, int defence, BalanceBlow blow, double bare, bool easy)
+        internal static ArmourRow Row(GameSession s, ObjectTables t, int item, string name, ObjectSpell sp, int quality, int defence, BalanceBlow blow, double bare, bool easy)
         {
             var r = new ArmourRow { Item = item, Name = string.IsNullOrWhiteSpace(name) ? string.Format("item 0x{0:X3}", item) : name.Trim() };
             int row = item - 0x20;
@@ -179,15 +200,19 @@ namespace UwEditor.Core.Balance
             r.MassStones = t.Get("Common properties", item, "Mass") / 10.0;
             r.QualityClass = t.Get("Common properties", item, "Quality class");
             bool shieldOrRing = cat == 0 || cat == 9;
-            int th, ar, all;
-            r.Effect = WornEffect(s.Kind, sp, shieldOrRing, out th, out ar, out all);
+            int th, ar, all, intendedAll;
+            r.Effect = WornEffect(s.Kind, sp, shieldOrRing, out th, out ar, out all, out intendedAll);
             r.ToHitPenalty = th;
-            int toughness = (shieldOrRing ? 2 * ar : ar) + all;
-            r.Armour = cat == 9 ? toughness : ArmourValue(quality, r.Protection) + toughness;
+            int own = cat == 9 ? 0 : ArmourValue(quality, r.Protection);
+            // at the piece's location (a shield or ring: its torso): the toughness twice there as the game
+            // runs, once as meant (and once more on the hands)
+            r.Armour = own + (shieldOrRing ? 2 * ar : ar) + all;
+            r.IntendedArmour = own + ar + intendedAll;
             r.Bare = bare;
-            if (locs.Length == 0 && cat != 9 && all == 0) { r.Worn = bare; return r; }
-            // the expected damage of the blow at the piece's location (a shield or ring: its torso)
+            // a piece the game does not count as worn (a shield it does not take, an unknown slot) does nothing, enchantment included
+            if (locs.Length == 0 && cat != 9) { r.Worn = r.IntendedWorn = bare; return r; }
             r.Worn = Taken(blow, defence, r.Armour, th, easy);
+            r.IntendedWorn = Taken(blow, defence, r.IntendedArmour, th, easy);
             return r;
         }
     }

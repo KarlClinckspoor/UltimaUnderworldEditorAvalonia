@@ -1097,12 +1097,20 @@ UW2's weapon enchantment names are swapped: the Effect column says what each one
   weapon skill / 2) above 15. The Blow column is its expected damage at the item's location with
   the item worn; Saved compares it with nothing worn there.
 - **Enchantments:** Protection takes its level from the attacker's to-hit at the item's
-  locations (melee only); Toughness adds its level to the armour (on a shield or ring twice to
-  the torso, never to the hands); Resist Blows, Thick Skin and Iron Flesh add 2, 3 and 5
-  everywhere (only the best counts); the to-hit protection effect (class 3, minor 1) takes 3
-  from the attacker's to-hit everywhere, adding up. The names say what each does in both games:
-  unlike UW2's weapon names, Protection and Toughness are not swapped. Rings do nothing without
-  an enchantment.
+  locations (melee only); Toughness adds its level to the armour. The to-hit protection effect
+  (class 3, minor 1) takes 3 from the attacker's to-hit everywhere, adding up. The names say
+  what each does in both games: unlike UW2's weapon names, Protection and Toughness are not
+  swapped. Rings do nothing without an enchantment.
+- **Intended and actual.** Two slips in the game's code (both games, the same in Underworld
+  Exhumed as shipped) make it give something other than what it means to. **Armour** and
+  **Blow** are what the game does; **Intended** and **Int. blow** show what was meant, on the
+  rows where the two differ: what a game with the slips fixed gives.
+  - Resist Blows, Thick Skin and Iron Flesh, cast or on an item, are meant to add 2, 3 and 5
+    armour everywhere (the best one counts), and add nothing: `parse_spells` reads their level
+    after its stealth loop has shifted it away.
+  - Toughness on a shield or ring is meant to add its level on the torso and on the hands; the
+    game adds it twice on the torso and never on the hands (`player_affected_by` writes to the
+    first location in its loop over both). The row shows the torso.
 - **Wear:** a critical hit takes 2d4 >> quality class off the quality of the helm, the leggings
   (the boots one time in five) or the shield; class 3 never wears.
 

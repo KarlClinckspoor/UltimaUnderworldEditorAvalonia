@@ -139,18 +139,27 @@ namespace UwEditor.Core.Tests
             // ring the toughness goes twice to the torso. Class 3 minor 1 takes 3 off the to-hit everywhere.
             foreach (var kind in new[] { GameKind.UW1, GameKind.UW2 })
             {
-                int th, ar, all;
-                ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 0 }, false, out th, out ar, out all);
+                int th, ar, all, intended;
+                ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 0 }, false, out th, out ar, out all, out intended);
                 Assert.Equal((1, 0), (th, ar));
-                ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 7 }, false, out th, out ar, out all);
+                ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 7 }, false, out th, out ar, out all, out intended);
                 Assert.Equal((8, 0), (th, ar));
-                ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 8 }, false, out th, out ar, out all);
+                ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 8 }, false, out th, out ar, out all, out intended);
                 Assert.Equal((0, 1), (th, ar));
-                Assert.Contains("twice", ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 15 }, true, out th, out ar, out all));
+                Assert.Contains("twice", ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 12, Effect = 15 }, true, out th, out ar, out all, out intended));
                 Assert.Equal((0, 8), (th, ar));
-                string text = ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 3, Link = 0x31 }, false, out th, out ar, out all);
+                string text = ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 3, Link = 0x31 }, false, out th, out ar, out all, out intended);
                 Assert.Equal(3, th);
                 Assert.StartsWith("−3", text);
+                // armour spells (class 2) add nothing: parse_spells reads their level after shifting it away
+                foreach (int link in new[] { 0x22, 0x23, 0x25 })
+                {
+                    text = ArmourBalance.WornEffect(kind, new ObjectSpell { Has = true, Major = 2, Link = link }, false, out th, out ar, out all, out intended);
+                    Assert.Equal((0, 0, 0), (th, ar, all));
+                    Assert.Equal(link == 0x22 ? 2 : link == 0x23 ? 3 : 5, intended);
+                    Assert.Contains("intended", text);
+                    Assert.Contains("actual none", text);
+                }
             }
             Assert.Equal(6, ArmourBalance.ArmourValue(63, 6));
             Assert.Equal(1, ArmourBalance.ArmourValue(0, 6));
@@ -189,6 +198,25 @@ namespace UwEditor.Core.Tests
             Assert.Contains(arm, r => r.Slot == "Ring" && r.Total > 0);
             var low = ArmourBalance.Rows(s, t, lev, p, PlayerStats.Sword, new BalanceBlow(), 0).First(r => r.Item == 0x22 && r.Enchantment.Length == 0);
             Assert.Equal(1, low.Armour);
+            Assert.False(plate.Bugged);
+            Assert.Equal(plate.Armour, plate.IntendedArmour);
+
+            // actual and intended where the game's code slips: an armour spell on the breastplate adds
+            // nothing (intended +3), Toughness 2 on a shield goes twice to the torso (intended once)
+            var blow = new BalanceBlow();
+            var thick = ArmourBalance.Row(s, t, 0x22, "breastplate", new ObjectSpell { Has = true, Major = 2, Link = 0x23 }, 63, 0, blow, plate.Bare, false);
+            Assert.Equal(6, thick.Armour);
+            Assert.Equal(9, thick.IntendedArmour);
+            Assert.True(thick.Bugged);
+            Assert.True(thick.IntendedWorn < thick.Worn);
+            int shield = Enumerable.Range(0x3B, 5).First(i => t.Get("Armour", i - 0x20, "Category") == 0);
+            var plain = ArmourBalance.Row(s, t, shield, "shield", new ObjectSpell(), 63, 0, blow, plate.Bare, false);
+            var tough = ArmourBalance.Row(s, t, shield, "shield", new ObjectSpell { Has = true, Major = 12, Effect = 9 }, 63, 0, blow, plate.Bare, false);
+            Assert.Equal(plain.Armour + 4, tough.Armour);
+            Assert.Equal(plain.Armour + 2, tough.IntendedArmour);
+            // a piece the game does not take as worn does nothing, enchanted or not
+            var shiny = Enumerable.Range(0x20, 0x1B).Where(i => t.Get("Armour", i - 0x20, "Category") == 0).Select(i => ArmourBalance.Row(s, t, i, "shield", new ObjectSpell { Has = true, Major = 2, Link = 0x25 }, 63, 0, blow, plate.Bare, false)).ToList();
+            Assert.All(shiny, r => Assert.Equal(r.Bare, r.Worn));
         }
     }
 }

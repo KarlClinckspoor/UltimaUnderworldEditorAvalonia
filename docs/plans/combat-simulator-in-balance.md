@@ -26,7 +26,8 @@ These are the reasons to port rather than link:
 
 ## Discrepancies to settle first (phase 0)
 
-The inventory found places where the editor's existing Balance code and the site disagree. Settle each against the game's source (underworld-exhumed) before porting, so the two engines don't disagree inside one program:
+The inventory found places where the editor's existing Balance code and the site disagree, and
+the game's code settled one where both were wrong (item 8). Settle each against the game's source (underworld-exhumed) before porting, so the two engines don't disagree inside one program:
 
 1. **Swing time.** `WeaponBalance.SwingTicks` gives a UW1 longsword 1.56 s; the site's cycle gives 1.75 s, with the first blow at about 1.375 s. The editor also lacks the sword-bash delay and the time to the first blow.
 2. **Monster blow charge.** `ArmourBalance.Taken` uses full charge (128). The site scales by `ATK_CHARGE[k]` (mean about 81), so the editor overstates monster damage and misstates "Saved %". The editor also ignores the powerful +7..12 to hit and +4..15 damage.
@@ -35,7 +36,15 @@ The inventory found places where the editor's existing Balance code and the site
 5. **Luck (0x31).** The editor's text says "+3 to the attacker's to-hit"; the logic is −3. Probably a sign typo.
 6. **Easy mode.** The editor halves the expected value; the game halves each blow, rounding down.
 7. **Creature byte 0x0A bit 1.** The editor's schema says "never summoned"; the site says "ignores being hit" (the Wisp). Both may be true: name both.
-8. **Barter likes** (found while writing the conversation recipes). The Barter simulator reads likes from any `set_likes_dislikes` call. In slots 6, 276 and 278 that call sits in a function nothing calls, and Zak (slot 28) makes it only on the first visit, while the game clears likes at every conversation start. The simulator should use only calls reachable from `main`, and say when a call is first-visit only.
+8. **Armour spells add nothing** (checked in UW.EXE and UW2.EXE, `parse_spells` at ovr133:065D
+   and ovr142:0615). Resist Blows, Thick Skin and Iron Flesh keep their level in bits 4–7 of the
+   bonuses, but `parse_spells` shifts the bonuses right four times in its stealth loop before
+   reading them, so it adds bits 8–11: always 0. The site's buffs give 2, 3 and 5 armour; the
+   port must give 0 (and the site should be corrected). Since 2026-11-07 the Armour window
+   shows both, actual (Armour, Blow) and intended (Intended, Int. blow), as it does for
+   Toughness on a shield or ring; the simulator should offer the same choice (the game as
+   shipped, or with the slips fixed, as an Exhumed enhancement would play it).
+9. **Barter likes** (found while writing the conversation recipes). The Barter simulator reads likes from any `set_likes_dislikes` call. In slots 6, 276 and 278 that call sits in a function nothing calls, and Zak (slot 28) makes it only on the first visit, while the game clears likes at every conversation start. The simulator should use only calls reachable from `main`, and say when a call is first-visit only.
 
 Each item gets a test that pins the game's behaviour.
 
@@ -84,7 +93,7 @@ One port of the site's engine, with game differences behind a `CombatRules` obje
 
 | Phase | Content | Size | Done when |
 |---|---|---|---|
-| 0 | The eight discrepancies above, each with a test | S–M | Weapons, Armour and Barter agree with the game's source; tests pin each rule |
+| 0 | The discrepancies above, each with a test | S–M | Weapons, Armour and Barter agree with the game's source; tests pin each rule |
 | 1 | `GameRandom`, `SkillCheck`, `Blow`, `ExactBlow` + vector tests | M | Every CSV vector of the site replays exactly; exact distributions sum to 1 |
 | 2 | `CombatCharacter` + PLAYER.DAT fields + the shared Character panel | M | The site's PLAYER.DAT fixtures give the same derived values (zone armour, defence, resistances) |
 | 3 | **Skill checks** window | M | Same odds as the site for every call site, both games |
