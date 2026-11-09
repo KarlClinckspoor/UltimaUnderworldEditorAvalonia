@@ -17,7 +17,7 @@ namespace UwEditor.Core.Randomizer
     /// the floor on random squares of their level instead of where items lay. A square qualifies
     /// when it is open (flat, a slope, or the open half of a diagonal), not on the level's edge,
     /// its floor neither water nor lava (TERRAIN.DAT, as creatures are kept off them), and nothing
-    /// on it is a door, a trap or a trigger; the key item scatter adds the zones its logic reaches. The item lies at a
+    /// on it is a door, a trap or a trigger, and not in UW1's level 5 Pac-Man maze (MazeRocks); the key item scatter adds the zones its logic reaches. The item lies at a
     /// fine position inside the open part of the tile, at the floor's height there (a slope rises
     /// across the tile, LevelModel.FloorAt; LevelEditor.FloorZ).
     /// </summary>
@@ -27,6 +27,7 @@ namespace UwEditor.Core.Randomizer
         public static bool Qualifies(GameSession s, LevelModel m, TerrainTable terrain, int x, int y)
         {
             if (x < 1 || y < 1 || x > 62 || y > 62) return false;
+            if (MazeRocks.InMaze(s, m.Level, x, y)) return false;
             var t = m.Tiles[x, y];
             if (t == null || t.IsSolid) return false;
             if (CreatureTerrain.Restricted(CreatureTerrain.FloorClass(s, terrain, m, x, y))) return false;

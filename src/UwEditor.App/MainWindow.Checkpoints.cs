@@ -167,6 +167,7 @@ namespace UwEditor.App
                     if (n > 0) said.Add(n + " string block(s)");
                     stringsWindow?.Close();
                     keysWindow?.Close();
+                    mantrasWindow?.Close();
                     conversationWindow?.Close();
                 }
                 var pd = CheckpointStore.ReadFile(c, "PLAYER.DAT");

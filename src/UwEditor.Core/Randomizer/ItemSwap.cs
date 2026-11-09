@@ -240,6 +240,7 @@ namespace UwEditor.Core.Randomizer
                 {
                     if (o.Free || o.TileX < 0 || o.IsMobile) continue;
                     if (o.Parent >= 0 && m.Objects[o.Parent].IsTrapOrTrigger) continue;
+                    if (MazeRocks.Is(s, slot.Level, o)) continue;
                     if (KindOf(s, o, ((o.Record[1] >> 3) & 1) != 0, true) == null) continue;
                     l.Add(new IgnoredObject { Level = slot.Level, Index = o.Index, Label = Describe(s, m, o) });
                 }

@@ -59,6 +59,7 @@ namespace UwEditor.Core.Randomizer
                 {
                     if (o.Free || o.TileX < 0 || o.IsMobile) continue;
                     if (o.Parent >= 0 && m.Objects[o.Parent].IsTrapOrTrigger) continue;
+                    if (MazeRocks.Is(s, slot.Level, o)) continue;
                     bool f11 = ((o.Record[1] >> 3) & 1) != 0;
                     int q = Math.Max(1, Math.Min(63, o.Quality));
                     int parent = o.Parent >= 0 ? m.Objects[o.Parent].Item : -1;

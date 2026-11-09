@@ -415,6 +415,7 @@ namespace UwEditor.Core.Randomizer
                 foreach (var o in m.Objects)
                 {
                     if (o.Free || o.TileX < 0 || o.IsCritter || o.Item >= 0x140 || o.Index < 2) continue;
+                    if (MazeRocks.Is(s, level, o)) continue;
                     string key = level + ":" + o.Index;
                     List<Placement> gives;
                     if (!byObject.TryGetValue(key, out gives)) gives = new List<Placement>();

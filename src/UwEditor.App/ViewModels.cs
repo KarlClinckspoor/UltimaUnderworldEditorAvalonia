@@ -92,6 +92,7 @@ namespace UwEditor.App
         public bool HasGame { get { return session != null; } }
         public bool NoGame { get { return session == null; } }
         public bool IsUw2 { get { return session != null && session.IsUw2; } }
+        public bool IsUw1 { get { return session != null && !session.IsUw2; } }
         public string GameTitle { get { return session == null ? "No game open" : session.Title; } }
         public string GameFolder { get { return session == null ? "" : session.SaveFolder ?? session.DataFolder; } }
 
@@ -249,7 +250,7 @@ namespace UwEditor.App
                 int used = slots.Count(x => x.World == w && x.Present), all = slots.Count(x => x.World == w);
                 worlds.Add(s.IsUw2 ? string.Format("{0} ({1} of {2})", s.Profile.WorldName(w), used, all) : "Levels");
             }
-            foreach (var n in new[] { nameof(Session), nameof(HasGame), nameof(NoGame), nameof(IsUw2), nameof(GameTitle), nameof(GameFolder), nameof(Worlds) }) Raise(n);
+            foreach (var n in new[] { nameof(Session), nameof(HasGame), nameof(NoGame), nameof(IsUw2), nameof(IsUw1), nameof(GameTitle), nameof(GameFolder), nameof(Worlds) }) Raise(n);
             StartText = s.Start.Description;
             var startSlot = slots.FirstOrDefault(x => x.Level == s.Start.Level) ?? slots.FirstOrDefault(x => x.Present);
             suppressSlot = true;

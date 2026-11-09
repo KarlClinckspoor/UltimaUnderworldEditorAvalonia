@@ -842,8 +842,9 @@ ask_for_the_password() {
 - Shipped ones: Steeltoe (slot 21) wants the password "Deco Morono"; Garamon (slot 27) waits for
   "Talismans", then "volcano" or "lava", counting wrong tries in a global to give hints; Murgo
   (slot 24) has the player guess his name and try lizardman words, with `compare`.
-- The mantras chanted at shrines are not a conversation: the game's own code reads them, and the
-  conversation editor cannot change them.
+- The mantras chanted at shrines are not a conversation: the game's own code reads them (string
+  block 2), and the conversation editor cannot change them. **Randomizer ▸ Randomize mantras
+  (UW1)** swaps them and changes the conversations that name them.
 
 **One NPC knows the player met another.** In A's opening function (Hagbard's, slot 19, has
 `set_quest(1, 1);` there):
@@ -1970,8 +1971,16 @@ All of it is in the **Randomizer** menu:
 - **Item property shuffle**.
 - **Swap ▸ Swap items** and **Swap ▸ Swap monsters**.
 - **Named challenges**.
+- **Randomize mantras (UW1)**.
 
 The logic behind them is explained in **How the randomizer's logic works** below.
+
+**The Pac-Man maze's glowing rocks are never touched.** In Ultima Underworld, every glowing rock
+on level 5 is left alone by every randomizer, whatever the settings. That is the 83 rocks of the
+maze in the level's north-west corner, plus the one a creature on that level carries. They are
+never moved, swapped, rerolled, removed, counted or used as a spot for something else, and they
+are not in the lists of objects to ignore. **Place anywhere** also never puts an item in the maze,
+which runs from (2, 2) to (21, 22).
 
 **Randomizer ▸ Key item scatter ▸ Zones…** opens the zoning of the game. A zone is a part of the world
 that can be walked without meeting a requirement. Every tile has a zone id: 0 is rock, 1 is
@@ -2897,6 +2906,36 @@ Limits:
   hostile.
 - A pole and strong thread still make a fishing pole.
 - Loot made when a creature dies keeps the game's own quality.
+
+### Randomize mantras (UW1)
+
+**Randomizer ▸ Randomize mantras (UW1)…** makes the shrines' mantras swap words. For example,
+the Attack mantra might become SOL and the Casting mantra RA. Every book, scroll, wall writing
+and conversation that names a mantra is changed to the new word, so the game's hints still
+work. The window has a **Seed** (**New seed** picks one), **Preview**, **Apply** and **Undo
+mantras**. The report lists each mantra's old word, its new word and what the shrine does with
+it, then every text that changed. The same seed always gives the same result.
+
+How it works:
+
+- The game looks up a typed mantra among strings 0x33 to 0x4C of string block 2. These are the
+  20 skill mantras, INSAHN (the way to the Cup of Wonder), FANLO (the Key of Truth), NO, and the
+  three group mantras SUMM RA, MU AHM and OM CAH (game/SKILLS.C).
+- The words move between those strings. What a shrine does stays with each string: whatever
+  word now sits in FANLO's place gives the Key of Truth.
+- Every mantra that takes part gets another mantra's word. None keeps its own.
+- **Two mantras stay:**
+  - **INSAHN:** the incense visions show its three parts as pictures (cutscenes 11 to 13), and
+    pictures can't follow a change of word.
+  - **NO:** it does nothing, and no text names it.
+- **Texts:** a mantra in capitals ("RA", "SUMM RA") is replaced wherever it stands as a whole
+  word. A mantra written in title case is replaced only if it is long enough not to be a common
+  word, like "Summ Ra" or "Fanlo" in the book "Folanae Fanlo". The text keeps its case.
+- **Where the changes go:** they are unsaved edits to STRINGS.PAK, shared with **Tools ▸
+  Strings** and the conversation window, which show them at once. **File ▸ Save** writes them.
+- **Undo mantras** puts back the strings that still read as Apply left them. Edit ▸ Undo does
+  not cover strings.
+- UW2 has no shrine mantras, so the menu item is greyed out there.
 
 ### Apply
 

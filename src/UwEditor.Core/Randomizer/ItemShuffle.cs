@@ -425,6 +425,7 @@ namespace UwEditor.Core.Randomizer
                 foreach (var o in m.Objects)
                 {
                     if (o.Free || o.TileX < 0 || o.IsMobile) continue;
+                    if (MazeRocks.Is(s, slot.Level, o)) continue;
                     // every container up the chain counts: a sack a creature carries is in its inventory,
                     // and anything inside a trap (however deep) is a create-object template, left alone
                     bool inCritter = false, inTrap = false;
@@ -979,6 +980,7 @@ namespace UwEditor.Core.Randomizer
                 {
                     if (o.Free || o.TileX < 0 || o.IsMobile) continue;
                     if (o.Parent >= 0 && m.Objects[o.Parent].IsTrapOrTrigger) continue;
+                    if (MazeRocks.Is(s, slot.Level, o)) continue;
                     if (KindOf(s, o, ((o.Record[1] >> 3) & 1) != 0) == null) continue;
                     l.Add(new IgnoredObject { Level = slot.Level, Index = o.Index, Label = Describe(s, m, o) });
                 }

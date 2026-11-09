@@ -340,6 +340,10 @@ Turn the game into a fresh run every time, and keep it beatable.
   weakest first.
 - **Named challenges:** 21 whole-game rules (Monk, Lockdown, Hoarding, Ghost town, Bones
   rise…) with a preview and an exact Undo. Quest items and conversations are never touched.
+- **Randomize mantras (UW1):** the shrines' mantras swap words, and every book, scroll and
+  conversation that names one follows.
+
+No randomizer touches the glowing rocks of UW1's Pac-Man maze (level 5).
 
 The shuffles and swaps show their maths as a live formula and write a world report. Every tool
 makes one undo step per level.

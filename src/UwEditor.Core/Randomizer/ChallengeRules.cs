@@ -163,6 +163,7 @@ namespace UwEditor.Core.Randomizer
             foreach (var o in m.Objects)
             {
                 if (o.Free || o.TileX < 0 || o.Index < 2 || o.IsCritter || o.Item >= 0x140) continue;
+                if (MazeRocks.Is(x.S, level, o)) continue;
                 var t = new Thing { Level = level, O = o, Item = o.Item, Label = ItemShuffle.Describe(x.S, m, o) };
                 bool otherTrap = false;
                 for (int up = o.Parent, guard = 0; up >= 0 && guard < 64; up = m.Objects[up].Parent, guard++)
