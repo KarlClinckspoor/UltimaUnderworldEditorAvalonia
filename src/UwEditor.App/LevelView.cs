@@ -270,6 +270,16 @@ namespace UwEditor.App
 
         /// <summary>The scene when the paint stroke began (picking keeps to it until the stroke ends).</summary>
         LevelScene strokeScene;
+        /// <summary>The tile the stroke painted last: the next one is painted when the brush's tile changes.</summary>
+        int strokeTile = -1;
+
+        /// <summary>
+        /// The tile the brush paints for a pick (start: the stroke's press). The window sets it so the
+        /// shape brushes reach solid rock (Picking.TileForBrush); without it, the tile hit.
+        /// </summary>
+        public Func<PickResult, bool, int> BrushTile;
+
+        int BrushTileOf(PickResult ph, bool start) { return BrushTile != null ? BrushTile(ph, start) : (ph.Hit ? ph.Tile : -1); }
 
         // ---- mouse
 
@@ -316,7 +326,10 @@ namespace UwEditor.App
             {
                 strokeScene = scene;
                 painting = true;
-                Painted?.Invoke(PickAt(pt.Position), true);
+                var ph = PickAt(pt.Position);
+                strokeTile = BrushTileOf(ph, true);
+                ph.Tile = strokeTile;
+                Painted?.Invoke(ph, true);                 // always: the stroke opens even where there is no tile
             }
         }
 
@@ -354,9 +367,12 @@ namespace UwEditor.App
                 for (int k = 1; k <= steps; k++)
                 {
                     var ph = PickAt(lastAt + d * ((double)k / steps));
-                    if (ph.Hit && ph.Tile != State.HoverTile)
+                    int bt = BrushTileOf(ph, false);
+                    if (bt >= 0 && bt != strokeTile)
                     {
-                        State.HoverTile = ph.Tile; State.HoverObject = -1;
+                        strokeTile = bt;
+                        ph.Tile = bt;
+                        State.HoverTile = bt; State.HoverObject = -1;
                         Hovered?.Invoke(ph);
                         Painted?.Invoke(ph, false);
                     }

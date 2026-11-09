@@ -198,11 +198,13 @@ The toolbar above the view chooses the tool:
     While you drag, the mouse aims at the level as it was when the stroke began. The walls and
     steps the stroke itself makes (painting rock, raising floors) never stop the next tile
     being painted, whichever way you drag.
-  - **Solid rock:** the tile type, floor height and template brushes reach solid tiles too.
-    A solid tile has no surface of its own (each wall belongs to the open tile in front of
-    it), so a click on a wall paints the solid tile behind it. A click where nothing is drawn
-    (rock seen from above, in the 2D map or over the walls) paints the rock under the mouse.
-    The texture brushes and the light flag paint the tile hit, as before.
+  - **Solid rock:** the tile type, floor height and template brushes reach solid tiles too,
+    by a click or a drag. A solid tile has no surface of its own: each wall belongs to the open
+    tile in front of it, and rock has no top. So the brush follows the mouse's line into the
+    level and takes the first rock it meets between the floor and the ceiling, unless a floor or
+    an object is nearer. That is the rock behind a wall, or the rock under the mouse seen from
+    above (in the 2D map, or over the walls). Dragging across rock opens or changes every rock
+    tile the mouse passes over. The texture brushes and the light flag paint the tile hit.
   - **Objects to the floor** (tile type, floor height and template brushes): after a tile is
     painted, the objects lying on it go on its new floor. The height follows the floor under
     each one's fine position, so on a slope they sit at different heights. Objects from 0x160

@@ -43,7 +43,8 @@ namespace UwEditor.App
             };
             View.Painted += OnPainted;
             View.BrushPicked += OnBrushPicked;
-            View.PaintEnded += EndPaintStroke;
+            View.BrushTile = StrokeTile;
+            View.PaintEnded += () => { EndPaintStroke(); strokeLevel = null; };
             vm.OtherUnsaved = () => playerSheet != null && playerSheet.Dirty;
             View.HeightWheel += OnHeightWheel;
             View.DoublePicked += OnDoublePicked;
@@ -171,12 +172,6 @@ namespace UwEditor.App
         void OnPainted(PickResult hit, bool start)
         {
             if (hit.Tile >= 0 && vm.Level != null && ZonePaint(hit.Tile % 64, hit.Tile / 64, start)) return;
-            // the tile type, height and template brushes reach solid rock: the tile behind a wall, or the rock under the mouse
-            if (vm.PaintsShape && vm.Level != null)
-            {
-                var level = vm.Level;
-                hit.Tile = Picking.TileForBrush(hit, (x, y) => level.Tiles[x, y].IsSolid);
-            }
             if (vm.Editor == null) return;
             if (vm.PaintFill)
             {
@@ -194,6 +189,22 @@ namespace UwEditor.App
             if (hit.Tile < 0) return;
             if (strokeEditor != vm.Editor) return;               // the level changed during the stroke
             vm.Paint(hit.Tile % 64, hit.Tile / 64);
+        }
+
+        /// <summary>The level as it was when the paint stroke began: the brush's rock is found in it, as the view picks in that stroke's scene.</summary>
+        LevelModel strokeLevel;
+
+        /// <summary>
+        /// The tile a stroke paints for a pick: the tile type, height and template brushes reach solid
+        /// rock (the rock behind a wall, or under the mouse seen from above: Picking.TileForBrush), the
+        /// others paint the tile hit.
+        /// </summary>
+        int StrokeTile(PickResult hit, bool start)
+        {
+            if (start) strokeLevel = vm.Level;
+            if (!vm.PaintsShape) return hit.Hit ? hit.Tile : -1;
+            var level = strokeLevel ?? vm.Level;
+            return level == null ? -1 : Picking.TileForBrush(hit, (x, y) => level.Tiles[x, y].IsSolid);
         }
 
         /// <summary>Ctrl+click with the Paint tool: the brush is taken from the tile (solid rock too, for the brushes that reach it).</summary>

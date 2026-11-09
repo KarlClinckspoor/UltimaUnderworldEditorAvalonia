@@ -100,11 +100,18 @@ namespace UwEditor.Core.Tests
         {
             Func<int, int, bool> solid = (x, y) => x == 11;
             // a wall hit at x = 11 looking east (the wall belongs to the open tile 10): the rock behind it
-            var wall = new PickResult { Object = -1, Tile = 10 + 64 * 5, Kind = 1, Point = new Vector3(11f, 1f, 5.5f), Direction = new Vector3(1, 0, 0), Origin = new Vector3(9, 1, 5.5f) };
+            var wall = new PickResult { Object = -1, Tile = 10 + 64 * 5, Kind = 1, Point = new Vector3(11f, 1f, 5.5f), Direction = new Vector3(1, 0, 0), Origin = new Vector3(9, 1, 5.5f), Distance = 2f };
             Assert.Equal(11 + 64 * 5, Picking.TileForBrush(wall, solid));
-            // a floor hit is the tile hit
-            var floor = wall; floor.Kind = 0;
+            // a floor hit nearer than any rock is the tile hit
+            var floor = new PickResult { Object = -1, Tile = 10 + 64 * 5, Kind = 0, Point = new Vector3(10.5f, 0.5f, 5.5f), Origin = new Vector3(10.5f, 3.5f, 5.5f), Direction = new Vector3(0, -1, 0), Distance = 3f };
             Assert.Equal(10 + 64 * 5, Picking.TileForBrush(floor, solid));
+            // looking over a floor, the rock in front of it wins (it has no top face, but it stands up to the ceiling)
+            var dir = Vector3.Normalize(new Vector3(1, -0.2f, 0));
+            var far = new PickResult { Object = -1, Tile = 14 + 64 * 5, Kind = 0, Origin = new Vector3(9.5f, 3.9f, 5.5f), Direction = dir, Distance = 15f };
+            Assert.Equal(11 + 64 * 5, Picking.TileForBrush(far, solid));
+            // the camera inside rock (behind a wall) skips that rock
+            var inside = new PickResult { Object = -1, Tile = -1, Kind = -1, Origin = new Vector3(11.5f, 1f, 5.5f), Direction = new Vector3(-1, 0, 0), Distance = float.MaxValue };
+            Assert.Equal(0 + 64 * 5, Picking.TileForBrush(inside, (x, y) => x == 11 || x == 0));
             // a wall hit with open ground behind it stays the tile hit
             var step = wall; step.Point = new Vector3(12f, 0.5f, 5.5f); step.Tile = 11 + 64 * 5;
             Assert.Equal(11 + 64 * 5, Picking.TileForBrush(step, (x, y) => false));

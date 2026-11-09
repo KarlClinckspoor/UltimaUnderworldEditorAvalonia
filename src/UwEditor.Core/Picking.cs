@@ -84,32 +84,68 @@ namespace UwEditor.Core
 
         /// <summary>
         /// The tile a tile brush works on, solid rock too. Solid tiles have no surface of their own
-        /// (a wall belongs to the open tile in front of it), so a wall hit gives the solid tile just
-        /// behind it, and a ray that hits nothing (rock seen from above, in the 2D map or over the
-        /// walls) gives the solid tile at the top of the rock under it, or else the tile at floor
-        /// level. Otherwise the tile hit. -1 when there is none.
+        /// (each wall belongs to the open tile in front of it, and rock has no top), so the ray is
+        /// walked through the grid: the first solid tile it enters between the floor and the
+        /// ceiling wins, unless a drawn surface (a floor, or an object) is nearer. That is the rock
+        /// behind a wall, or the rock under the mouse seen from above. With neither, the tile hit,
+        /// or else the tile at floor level under the mouse. -1 when there is none.
         /// </summary>
         public static int TileForBrush(PickResult hit, Func<int, int, bool> solid)
         {
-            if (hit.Object < 0 && hit.Kind == 1 && hit.Tile >= 0)
+            var o = hit.Origin; var d = hit.Direction;
+            if (d.LengthSquared() > 1e-12f)
             {
-                var q = hit.Point + hit.Direction * 0.02f;
-                int tx = (int)Math.Floor(q.X), ty = (int)Math.Floor(q.Z);
-                if (tx >= 0 && ty >= 0 && tx < 64 && ty < 64 && solid(tx, ty)) return tx + 64 * ty;
+                int rock; float tRock;
+                float maxT = hit.Hit ? hit.Distance + 0.02f : 1e6f;
+                if (FirstSolid(o, d, solid, maxT, out rock, out tRock)) return rock;
             }
             if (hit.Hit) return hit.Tile;
-            var o = hit.Origin; var d = hit.Direction;
             if (Math.Abs(d.Y) < 1e-6f) return -1;
-            foreach (float h in new[] { LevelGeometry.Ceiling, 0f })
+            float t = -o.Y / d.Y;
+            if (t <= 0) return -1;
+            var p = o + d * t;
+            int tx = (int)Math.Floor(p.X), ty = (int)Math.Floor(p.Z);
+            return tx < 0 || ty < 0 || tx > 63 || ty > 63 ? -1 : tx + 64 * ty;
+        }
+
+        /// <summary>
+        /// The first solid tile the ray enters while it is between the floor (0) and the ceiling
+        /// (LevelGeometry.Ceiling), no farther than maxT (a grid walk, Amanatides and Woo). A ray
+        /// that starts inside rock (the camera behind a wall) skips that rock first.
+        /// </summary>
+        public static bool FirstSolid(Vector3 o, Vector3 d, Func<int, int, bool> solid, float maxT, out int tile, out float tHit)
+        {
+            tile = -1; tHit = 0;
+            float t0 = 0, t1 = maxT;
+            if (!Clip(o.X, d.X, 0, 64, ref t0, ref t1) || !Clip(o.Z, d.Z, 0, 64, ref t0, ref t1) || !Clip(o.Y, d.Y, 0, LevelGeometry.Ceiling, ref t0, ref t1)) return false;
+            var p = o + d * (t0 + 1e-5f);
+            int cx = Math.Clamp((int)Math.Floor(p.X), 0, 63), cz = Math.Clamp((int)Math.Floor(p.Z), 0, 63);
+            int sx = d.X > 0 ? 1 : -1, sz = d.Z > 0 ? 1 : -1;
+            float tMaxX = Math.Abs(d.X) < 1e-9f ? float.MaxValue : ((cx + (d.X > 0 ? 1 : 0)) - o.X) / d.X;
+            float tMaxZ = Math.Abs(d.Z) < 1e-9f ? float.MaxValue : ((cz + (d.Z > 0 ? 1 : 0)) - o.Z) / d.Z;
+            float dX = Math.Abs(d.X) < 1e-9f ? float.MaxValue : 1 / Math.Abs(d.X), dZ = Math.Abs(d.Z) < 1e-9f ? float.MaxValue : 1 / Math.Abs(d.Z);
+            float enter = t0;
+            bool skipping = t0 <= 0 && solid(cx, cz);
+            for (int guard = 0; guard < 200 && enter <= t1; guard++)
             {
-                float t = (h - o.Y) / d.Y;
-                if (t <= 0) continue;
-                var p = o + d * t;
-                int tx = (int)Math.Floor(p.X), ty = (int)Math.Floor(p.Z);
-                if (tx < 0 || ty < 0 || tx > 63 || ty > 63) continue;
-                if (h == 0f || solid(tx, ty)) return tx + 64 * ty;
+                if (cx < 0 || cz < 0 || cx > 63 || cz > 63) break;
+                bool s = solid(cx, cz);
+                if (skipping) { if (!s) skipping = false; }
+                else if (s) { tile = cx + 64 * cz; tHit = enter; return true; }
+                if (tMaxX < tMaxZ) { enter = tMaxX; tMaxX += dX; cx += sx; }
+                else { enter = tMaxZ; tMaxZ += dZ; cz += sz; }
             }
-            return -1;
+            return false;
+        }
+
+        /// <summary>Narrows [t0, t1] to where o + d t lies between lo and hi on one axis; false when nothing is left.</summary>
+        static bool Clip(float o, float d, float lo, float hi, ref float t0, ref float t1)
+        {
+            if (Math.Abs(d) < 1e-9f) return o >= lo && o <= hi;
+            float a = (lo - o) / d, b = (hi - o) / d;
+            if (a > b) { var x = a; a = b; b = x; }
+            t0 = Math.Max(t0, a); t1 = Math.Min(t1, b);
+            return t0 <= t1;
         }
 
         /// <summary>Whether a level surface lies between two points (a little short of each end).</summary>

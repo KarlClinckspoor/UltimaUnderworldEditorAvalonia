@@ -197,6 +197,75 @@ namespace UwEditor.App.Tests
             Assert.All(report, r => Assert.EndsWith("missed ", r));
         }
 
+        [AvaloniaTheory]
+        [InlineData(-1f, 4)]      // the 2D map, tile type
+        [InlineData(-1f, 6)]      // the 2D map, tile template
+        [InlineData(0f, 4)]
+        [InlineData(90f, 6)]
+        [InlineData(180f, 4)]
+        [InlineData(270f, 6)]
+        public void Dragging_over_solid_rock_opens_every_rock_tile_passed_over(float yaw, int mode)
+        {
+            if (Uw1 == null) return;
+            var dirs = new[] { new Vector(1, 0), new Vector(-1, 0), new Vector(0, 1), new Vector(0, -1) };
+            var report = new List<string>();
+            foreach (var dir in dirs)
+            {
+                var w = Ui.Open(Uw1);
+                w.AskBeforeDiscarding = false;
+                var vm = w.ViewModel;
+                var view = w.FindControl<LevelView>("View");
+                var m = vm.Level;
+                // a 5 x 5 block of solid rock
+                int cx = -1, cy = -1;
+                for (int y = 4; y < 60 && cx < 0; y++)
+                    for (int x = 4; x < 60 && cx < 0; x++)
+                    {
+                        bool ok = true;
+                        for (int dy = -2; dy <= 2 && ok; dy++) for (int dx = -2; dx <= 2 && ok; dx++) ok = m.Tiles[x + dx, y + dy].IsSolid;
+                        if (ok) { cx = x; cy = y; }
+                    }
+                Assert.True(cx > 0);
+                vm.ToolIndex = 2;
+                if (mode == 4) { vm.PaintMode = 4; vm.PaintType = (int)TileType.Open; }
+                else
+                {
+                    var open = Enumerable.Range(0, 64 * 64).Select(i => (X: i % 64, Y: i / 64)).First(p => m.Tiles[p.X, p.Y].Type == TileType.Open);
+                    vm.PickBrush(open.X, open.Y);         // Ctrl+click: an open tile's template (works from any mode)
+                    vm.PaintMode = 6;
+                    vm.PickBrush(open.X, open.Y);
+                }
+                if (yaw < 0) { vm.Select(-1, cx, cy, true); w.ToggleMap(); }
+                // rock is hit at its top (the ceiling's height): aim there
+                view.LookAt(new System.Numerics.Vector3(cx + 0.5f, yaw < 0 ? 0 : LevelGeometry.Ceiling, cy + 0.5f), 7f, yaw < 0 ? (float?)null : yaw, 55f);
+                Ui.Pump();
+                var b = view.Bounds;
+                var mid = new Point(b.Width / 2, b.Height / 2);
+                Point Win(Point p) { return view.TranslatePoint(p, w).Value; }
+                var path = Enumerable.Range(0, 31).Select(k => mid + dir * (b.Height * (yaw < 0 ? 0.1 : 0.22) * k / 30)).ToList();
+                var before = m;
+                var expected = path.Select(p => Picking.TileForBrush(view.PickAt(p), (x, y) => before.Tiles[x, y].IsSolid)).Where(x => x >= 0).Distinct().ToList();
+                w.MouseMove(Win(path[0]));
+                w.MouseDown(Win(path[0]), MouseButton.Left);
+                Ui.Pump();
+                foreach (var p in path.Skip(1)) { w.MouseMove(Win(p), RawInputModifiers.LeftMouseButton); Ui.Pump(); }
+                w.MouseUp(Win(path[path.Count - 1]), MouseButton.Left);
+                Ui.Pump();
+                vm.FlushRefresh();
+                var missed = expected.Where(x => vm.Level.Tiles[x % 64, x / 64].IsSolid).ToList();
+                var stray = new List<int>();
+                for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++)
+                    if (!expected.Contains(x + 64 * y) && !Same(before.Tiles[x, y], vm.Level.Tiles[x, y])) stray.Add(x + 64 * y);
+                report.Add(string.Format("dir {0}: rock {1} | missed {2} | stray {3}", dir, string.Join(" ", expected.Select(x => "(" + x % 64 + "," + x / 64 + ")")),
+                    string.Join(" ", missed.Select(x => "(" + x % 64 + "," + x / 64 + ")")), string.Join(" ", stray.Select(x => "(" + x % 64 + "," + x / 64 + ")"))));
+                Assert.True(expected.Count >= 2, report.Last());
+                w.Close();
+            }
+            output.WriteLine(string.Join(" || ", report));
+            Assert.All(report, r => Assert.Contains("| missed  | stray ", r + " "));
+            Assert.All(report, r => Assert.EndsWith("| stray ", r));
+        }
+
         static bool Same(TileInfo a, TileInfo b)
         {
             return a.Type == b.Type && a.Light == b.Light && a.Height == b.Height && a.FloorIndex == b.FloorIndex && a.WallIndex == b.WallIndex;

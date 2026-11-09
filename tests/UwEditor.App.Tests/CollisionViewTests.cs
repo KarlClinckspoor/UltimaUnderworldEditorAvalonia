@@ -74,7 +74,8 @@ namespace UwEditor.App.Tests
                     if (m.Tiles[x, y].Type == TileType.Open && m.Tiles[x + 1, y].IsSolid) { sx = x + 1; sy = y; }
             Assert.True(sx > 0);
             vm.PaintType = (int)TileType.Open;
-            var hit = new PickResult { Object = -1, Tile = (sx - 1) + 64 * sy, Kind = 1, Point = new System.Numerics.Vector3(sx, 1f, sy + 0.5f), Direction = new System.Numerics.Vector3(1, 0, 0) };
+            var hit = new PickResult { Object = -1, Tile = (sx - 1) + 64 * sy, Kind = 1, Point = new System.Numerics.Vector3(sx, 1f, sy + 0.5f), Direction = new System.Numerics.Vector3(1, 0, 0),
+                Origin = new System.Numerics.Vector3(sx - 0.5f, 1f, sy + 0.5f), Distance = 0.5f };
             int tile = Picking.TileForBrush(hit, (x, y) => vm.Level.Tiles[x, y].IsSolid);
             Assert.Equal(sx + 64 * sy, tile);
             vm.Editor.BeginBatch("paint");
