@@ -58,6 +58,7 @@
         <MenuItem Header="_Grid" ToggleType="CheckBox" IsChecked="{Binding ShowGrid, Mode=TwoWay}" InputGesture="H" />
         <MenuItem Header="Collision _edges" ToggleType="CheckBox" IsChecked="{Binding ShowCollisionEdges, Mode=TwoWay}" />
         <MenuItem Header="Collision fa_ces" ToggleType="CheckBox" IsChecked="{Binding ShowCollisionFaces, Mode=TwoWay}" />
+        <MenuItem Header="_Light flags" ToggleType="CheckBox" IsChecked="{Binding ShowLightFlags, Mode=TwoWay}" />
         <Separator />
         <MenuItem Header="_Frame the selection" InputGesture="F" Click="OnFrame" />
         <MenuItem Header="Look _straight down" InputGesture="T" Click="OnTopDown" />
@@ -265,7 +266,7 @@
       <Border DockPanel.Dock="Top" Classes="toolbar" IsVisible="{Binding HasGame}">
         <WrapPanel>
           <ComboBox x:Name="ToolBox" ItemsSource="{Binding Tools}" SelectedIndex="{Binding ToolIndex}" Width="96" Margin="0,0,6,0"
-                    ToolTip.Tip="Select: click to pick. Move: click a tile to move the selected object there. Paint: drag over tiles to paint them with the brush." />
+                    ToolTip.Tip="Select: click to pick. Move: click a tile to move the selected object there. Paint: drag over tiles to paint them with the brush; Ctrl+click a tile to take the brush from it (its template, textures, type or height)." />
           <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsPainting}" Margin="0,0,6,0">
             <ComboBox x:Name="PaintModeBox" ItemsSource="{Binding PaintModes}" SelectedIndex="{Binding PaintMode}" Width="140" />
             <ComboBox x:Name="SlotBox" ItemsSource="{Binding Slots}" SelectedIndex="{Binding PaintSlot}" IsVisible="{Binding PaintsTexture}" Width="170">
@@ -281,7 +282,7 @@
             <ComboBox ItemsSource="{Binding TileTypes}" SelectedIndex="{Binding PaintType}" IsVisible="{Binding PaintsType}" Width="150" />
             <NumericUpDown Value="{Binding PaintHeight}" Minimum="0" Maximum="15" Increment="1" FormatString="0" IsVisible="{Binding PaintsHeight}" Width="100" />
             <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding PaintsTemplate}">
-              <Button Content="From the selected tile" Click="OnTakeTemplate" ToolTip.Tip="Make the brush paint the selected tile's type, height and textures (the ticked parts)." />
+              <Button Content="From the selected tile" Click="OnTakeTemplate" ToolTip.Tip="Make the brush paint the selected tile's type, height and textures (the ticked parts). Ctrl+click a tile in the view does the same for that tile." />
               <CheckBox Content="type" IsChecked="{Binding TemplateType}" />
               <CheckBox Content="height" IsChecked="{Binding TemplateHeight}" />
               <CheckBox Content="floor" IsChecked="{Binding TemplateFloor}" />
@@ -291,7 +292,7 @@
             <CheckBox Content="Objects to the floor" IsChecked="{Binding DropObjects}" IsVisible="{Binding PaintsShape}"
                       ToolTip.Tip="After painting a tile's type or height, put the objects lying on it on its new floor, following slopes. Wall pieces, switches, bridges, traps and triggers (0x160 on) keep their height." />
             <ToggleButton Content="Fill" IsChecked="{Binding PaintFill}" ToolTip.Tip="A click paints every tile the player can walk to from the clicked tile, by the zones' movement rules: no rock, no doors and no climbs of more than two steps." />
-            <Button Content="Paint selection" Click="OnPaintSelection" ToolTip.Tip="Paint every selected tile with the brush. Ctrl+click or Ctrl+drag selects tiles." />
+            <Button Content="Paint selection" Click="OnPaintSelection" ToolTip.Tip="Paint every selected tile with the brush. With the Select tool, Ctrl+click or Ctrl+drag selects tiles." />
           </StackPanel>
           <Button Content="Add…" Click="OnAddObject" ToolTip.Tip="Add an object on the selected tile or into the selected container (Insert)." />
           <Button Content="Delete" Click="OnDeleteObject" IsEnabled="{Binding HasObject}" ToolTip.Tip="Delete the selected object and everything inside it (Del)." />

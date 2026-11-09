@@ -37,7 +37,7 @@ namespace UwEditor.App
             vm.LevelChanged += OnLevelChanged;
             vm.SelectionChanged += UpdateMarkers;
             vm.OptionsChanged += OnOptionsChanged;
-            vm.CollisionChanged += UpdateMarkers;
+            vm.OverlaysChanged += UpdateMarkers;
             View.Picked += OnPicked;
             View.Hovered += OnHovered;
             View.CameraChanged += UpdateViewText;

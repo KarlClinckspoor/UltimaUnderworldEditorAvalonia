@@ -6,7 +6,7 @@ using UwEditor.Core;
 
 namespace UwEditor.App
 {
-    /// <summary>The main window's side of View ▸ Collision edges and Collision faces, and the warning on save about new overlaps.</summary>
+    /// <summary>The main window's side of View ▸ Collision edges, Collision faces and Light flags, and the warning on save about new overlaps.</summary>
     public partial class MainWindow
     {
         byte[] comobj;
@@ -41,6 +41,26 @@ namespace UwEditor.App
             Hitboxes.Overlaps(boxes);
             if (vm.ShowCollisionEdges) Hitboxes.AddEdges(lines, boxes);
             if (vm.ShowCollisionFaces) Hitboxes.AddFaces(tris, boxes);
+        }
+
+        /// <summary>The light flag's colour: a faint blue.</summary>
+        static readonly System.Numerics.Vector4 LightFlagColour = new System.Numerics.Vector4(0.35f, 0.62f, 1f, 0.34f);
+
+        /// <summary>View ▸ Light flags: a faint blue sheet over the floor of every open square with the light flag, as the zones are drawn (Markers.TileSheet, following slopes).</summary>
+        void AddLightFlagOverlay(List<float> tris)
+        {
+            var level = vm.Level;
+            if (!vm.ShowLightFlags || level == null || tris == null) return;
+            const float up = 0.03f;                      // a hair above the zones' sheet, so both show
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
+                {
+                    var t = level.Tiles[x, y];
+                    if (t.IsSolid || (t.Light & 1) == 0) continue;
+                    Markers.TileSheet(tris, x, y,
+                        (float)level.FloorAt(x, y, 0, 0) + up, (float)level.FloorAt(x, y, 1, 0) + up,
+                        (float)level.FloorAt(x, y, 0, 1) + up, (float)level.FloorAt(x, y, 1, 1) + up, LightFlagColour);
+                }
         }
 
         /// <summary>Before the levels are written: the overlaps with a creature each changed level would add to what is on disk.</summary>

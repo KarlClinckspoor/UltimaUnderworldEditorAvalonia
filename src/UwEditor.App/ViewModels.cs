@@ -172,12 +172,15 @@ namespace UwEditor.App
 
         // ---- view options (View menu and the Show box)
 
-        bool collisionEdges, collisionFaces;
+        bool collisionEdges, collisionFaces, lightFlags;
         /// <summary>View ▸ Collision edges: the collision boxes' edges (Hitboxes), red where two overlap.</summary>
-        public bool ShowCollisionEdges { get { return collisionEdges; } set { if (Set(ref collisionEdges, value)) CollisionChanged?.Invoke(); } }
+        public bool ShowCollisionEdges { get { return collisionEdges; } set { if (Set(ref collisionEdges, value)) OverlaysChanged?.Invoke(); } }
         /// <summary>View ▸ Collision faces: the collision boxes' faces, see-through.</summary>
-        public bool ShowCollisionFaces { get { return collisionFaces; } set { if (Set(ref collisionFaces, value)) CollisionChanged?.Invoke(); } }
-        public event Action CollisionChanged;
+        public bool ShowCollisionFaces { get { return collisionFaces; } set { if (Set(ref collisionFaces, value)) OverlaysChanged?.Invoke(); } }
+        /// <summary>View ▸ Light flags: a faint blue sheet over each square with the light flag (bit 8 of the tile), drawn as the zones are.</summary>
+        public bool ShowLightFlags { get { return lightFlags; } set { if (Set(ref lightFlags, value)) OverlaysChanged?.Invoke(); } }
+        /// <summary>A marker overlay was turned on or off (collision boxes, light flags).</summary>
+        public event Action OverlaysChanged;
 
         public bool ShowCeiling { get { return Options.Ceiling; } set { if (Options.Ceiling == value) return; Options.Ceiling = value; Raise(); OptionsChanged?.Invoke(true); } }
         public bool ShowObjects { get { return Options.Objects; } set { if (Options.Objects == value) return; Options.Objects = value; Raise(); OptionsChanged?.Invoke(false); } }

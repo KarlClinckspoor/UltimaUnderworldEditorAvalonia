@@ -222,6 +222,8 @@ namespace UwEditor.App
             {
                 if (value < 0 || !Set(ref paintMode, value)) return;
                 RefreshSlots();
+                // the template starts as the selected tile, not as a made-up one
+                if (paintMode == 6 && !templateTaken && selectedTileX >= 0) TakeTemplate(selectedTileX, selectedTileY);
                 foreach (var n in new[] { nameof(PaintsTexture), nameof(PaintsType), nameof(PaintsHeight), nameof(PaintsTemplate), nameof(PaintsShape) }) Raise(n);
             }
         }
@@ -238,6 +240,8 @@ namespace UwEditor.App
 
         // ---- the tile template: a tile's type, height and textures, painted together
         int tplType = 1, tplHeight = 4, tplFloor, tplWall;
+        /// <summary>The template was taken from a tile (until then it is open, height 4, slot 0 and slot 0).</summary>
+        bool templateTaken;
         bool useType = true, useHeight = true, useFloor = true, useWall = true, paintFill;
         public bool TemplateType { get { return useType; } set { Set(ref useType, value); } }
         public bool TemplateHeight { get { return useHeight; } set { Set(ref useHeight, value); } }
@@ -253,6 +257,7 @@ namespace UwEditor.App
             if (level == null || x < 0 || y < 0) return false;
             var t = level.Tiles[x, y];
             tplType = (int)t.Type; tplHeight = t.Height; tplFloor = t.FloorIndex; tplWall = t.WallIndex;
+            templateTaken = true;
             Raise(nameof(TemplateText));
             EditStatus = string.Format("Template from ({0}, {1}): {2}.", x, y, TemplateText);
             return true;
@@ -280,6 +285,27 @@ namespace UwEditor.App
             }
             paintSlot = Math.Min(keep, Math.Max(0, Slots.Count - 1));
             Raise(nameof(PaintSlot));
+        }
+
+        /// <summary>
+        /// Ctrl+click with the Paint tool: the brush takes what the tile has. The template takes the
+        /// tile's type, height and textures; the texture brushes its floor or wall slot; the tile type
+        /// and height brushes its type or height. The tile is selected too.
+        /// </summary>
+        public void PickBrush(int x, int y)
+        {
+            if (level == null || x < 0 || y < 0 || x > 63 || y > 63) return;
+            var t = level.Tiles[x, y];
+            Select(-1, x, y, true);
+            switch (paintMode)
+            {
+                case 2: PaintSlot = Math.Min(t.FloorIndex, Math.Max(0, Slots.Count - 1)); EditStatus = string.Format("Brush: floor slot {0}, from ({1}, {2}).", t.FloorIndex, x, y); break;
+                case 3: PaintSlot = Math.Min(t.WallIndex, Math.Max(0, Slots.Count - 1)); EditStatus = string.Format("Brush: wall slot {0}, from ({1}, {2}).", t.WallIndex, x, y); break;
+                case 4: PaintType = (int)t.Type; EditStatus = string.Format("Brush: {0}, from ({1}, {2}).", TileInfo.TypeName(t.Type), x, y); break;
+                case 5: PaintHeight = t.Height; EditStatus = string.Format("Brush: height {0}, from ({1}, {2}).", t.Height, x, y); break;
+                case 6: TakeTemplate(x, y); break;
+                default: EditStatus = string.Format("Selected ({0}, {1}). Ctrl+click takes the brush from a tile with the texture, type, height and template brushes.", x, y); break;
+            }
         }
 
         /// <summary>Paints one tile with the brush (inside a stroke the window opened).</summary>

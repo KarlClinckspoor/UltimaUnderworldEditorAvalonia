@@ -206,6 +206,8 @@ namespace UwEditor.App
         bool previewing;
 
         float[] lastGrid, lastLines, lastMarks;
+        /// <summary>Ctrl+click with the Paint tool: the brush is taken from the tile under the mouse.</summary>
+        public event Action<PickResult> BrushPicked;
         /// <summary>How many floats the marker lines and the marker triangles hold now (for the tests).</summary>
         public int LineFloats { get { return lastLines == null ? 0 : lastLines.Length; } }
         public int MarkerFloats { get { return lastMarks == null ? 0 : lastMarks.Length; } }
@@ -257,11 +259,17 @@ namespace UwEditor.App
 
         public PickResult PickAt(Point p)
         {
-            if (scene == null) return PickResult.None;
+            // during a paint stroke, the level as it was when the stroke began: the walls and steps the
+            // stroke makes would otherwise catch the mouse, and the next tile under it would be missed
+            var sc = painting && strokeScene != null ? strokeScene : scene;
+            if (sc == null) return PickResult.None;
             Vector3 o, d;
             Camera.Ray((float)p.X, (float)p.Y, (float)Bounds.Width, (float)Bounds.Height, out o, out d);
-            return Picking.Pick(o, d, scene.Mesh, scene.Sprites, Camera.Right, Camera.Up, scene.Models);
+            return Picking.Pick(o, d, sc.Mesh, sc.Sprites, Camera.Right, Camera.Up, sc.Models);
         }
+
+        /// <summary>The scene when the paint stroke began (picking keeps to it until the stroke ends).</summary>
+        LevelScene strokeScene;
 
         // ---- mouse
 
@@ -279,7 +287,8 @@ namespace UwEditor.App
             objectDrag = objectDragging = rectSelect = false;
             e.Pointer.Capture(this);
             e.Handled = true;
-            if (leftDown && !panning && e.ClickCount == 2)
+            // a second press soon after a click is a double-click, except with the brush: a click, then a drag, paints on
+            if (leftDown && !panning && e.ClickCount == 2 && Tool != ViewTool.Paint)
             {
                 LastClick = pt.Position;
                 DoublePicked?.Invoke(PickAt(pt.Position));
@@ -296,8 +305,16 @@ namespace UwEditor.App
                 objectDrag = true; panning = false;
                 return;
             }
+            if (leftDown && !panning && Tool == ViewTool.Paint && (e.KeyModifiers & KeyModifiers.Control) != 0)
+            {
+                // Ctrl+click with the brush: pick it up from the tile instead of painting
+                BrushPicked?.Invoke(PickAt(pt.Position));
+                leftDown = false;
+                return;
+            }
             if (leftDown && !panning && Tool == ViewTool.Paint)
             {
+                strokeScene = scene;
                 painting = true;
                 Painted?.Invoke(PickAt(pt.Position), true);
             }
@@ -331,14 +348,20 @@ namespace UwEditor.App
             }
             if (painting && props.IsLeftButtonPressed)
             {
-                var ph = PickAt(p);
-                if (ph.Hit && (ph.Tile != State.HoverTile))
+                // every few pixels along the way from the last point, so a quick move skips no tile
+                var d = p - lastAt;
+                int steps = Math.Max(1, (int)Math.Ceiling(Math.Sqrt(d.X * d.X + d.Y * d.Y) / 4));
+                for (int k = 1; k <= steps; k++)
                 {
-                    State.HoverTile = ph.Tile; State.HoverObject = -1;
-                    Hovered?.Invoke(ph);
-                    Painted?.Invoke(ph, false);
-                    Redraw();
+                    var ph = PickAt(lastAt + d * ((double)k / steps));
+                    if (ph.Hit && ph.Tile != State.HoverTile)
+                    {
+                        State.HoverTile = ph.Tile; State.HoverObject = -1;
+                        Hovered?.Invoke(ph);
+                        Painted?.Invoke(ph, false);
+                    }
                 }
+                Redraw();
                 lastAt = p;
                 return;
             }
@@ -371,7 +394,7 @@ namespace UwEditor.App
         protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
         {
             base.OnPointerCaptureLost(e);
-            if (painting) { painting = false; PaintEnded?.Invoke(); }
+            if (painting) { painting = false; strokeScene = null; PaintEnded?.Invoke(); }
             if (rectSelect) { rectSelect = false; RectChanged?.Invoke(null); }
             if (objectDrag) CancelDrag();
         }
@@ -383,7 +406,7 @@ namespace UwEditor.App
             var at = e.GetPosition(this);
             rectSelect = objectDrag = objectDragging = false;      // before the capture goes (that would cancel them)
             e.Pointer.Capture(null);                                // may end the stroke (capture lost)
-            if (wasPainting) { if (painting) { painting = false; PaintEnded?.Invoke(); } }
+            if (wasPainting) { if (painting) { painting = false; strokeScene = null; PaintEnded?.Invoke(); } }
             else if (wasRect && dragging) { RectChanged?.Invoke(null); RectSelected?.Invoke(DragRect(at)); }
             else if (wasDrag && wasDragging) DragEnded?.Invoke(PickAt(at));
             else if (!dragging && e.InitialPressMouseButton == MouseButton.Right && !FirstPerson)

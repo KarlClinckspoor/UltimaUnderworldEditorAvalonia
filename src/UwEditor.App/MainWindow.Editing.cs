@@ -42,6 +42,7 @@ namespace UwEditor.App
                 else vm.EditStatus = "";
             };
             View.Painted += OnPainted;
+            View.BrushPicked += OnBrushPicked;
             View.PaintEnded += EndPaintStroke;
             vm.OtherUnsaved = () => playerSheet != null && playerSheet.Dirty;
             View.HeightWheel += OnHeightWheel;
@@ -176,21 +177,35 @@ namespace UwEditor.App
                 var level = vm.Level;
                 hit.Tile = Picking.TileForBrush(hit, (x, y) => level.Tiles[x, y].IsSolid);
             }
-            if (hit.Tile < 0 || vm.Editor == null) return;
+            if (vm.Editor == null) return;
             if (vm.PaintFill)
             {
                 // a fill is one click: the first tile of the stroke
-                if (start) FillFrom(hit.Tile % 64, hit.Tile / 64);
+                if (start && hit.Tile >= 0) FillFrom(hit.Tile % 64, hit.Tile / 64);
                 return;
             }
-            if (start)
+            // the stroke opens on the press, even where nothing is drawn, so dragging onto tiles from there paints them
+            if (start || strokeEditor == null)
             {
                 EndPaintStroke();
                 strokeEditor = vm.Editor;
                 strokeEditor.BeginBatch("Paint " + MainViewModel.PaintModeNames[vm.PaintMode].ToLowerInvariant());
             }
+            if (hit.Tile < 0) return;
             if (strokeEditor != vm.Editor) return;               // the level changed during the stroke
             vm.Paint(hit.Tile % 64, hit.Tile / 64);
+        }
+
+        /// <summary>Ctrl+click with the Paint tool: the brush is taken from the tile (solid rock too, for the brushes that reach it).</summary>
+        void OnBrushPicked(PickResult hit)
+        {
+            var level = vm.Level;
+            if (level == null) return;
+            int tile = vm.PaintsShape ? Picking.TileForBrush(hit, (x, y) => level.Tiles[x, y].IsSolid) : (hit.Hit ? hit.Tile : -1);
+            if (tile < 0) return;
+            ClearMulti();
+            vm.PickBrush(tile % 64, tile / 64);
+            UpdateMarkers();
         }
 
         /// <summary>The level a paint stroke began on: its undo step closes there, whatever level is shown by then.</summary>
@@ -329,6 +344,7 @@ namespace UwEditor.App
             }
             if (vm.ShowFacing) AddFacingArrows(lines, level);
             AddZoneOverlay(tris);
+            AddLightFlagOverlay(tris);
             return tris;
         }
 

@@ -182,11 +182,22 @@ The toolbar above the view chooses the tool:
 - **Paint:** drag over tiles to paint the light flag on or off (only that bit), a floor or
   wall texture from the level's texture list (shown with thumbnails), a tile type, a
   floor height, or a **tile template**. A template is a tile's type, height, floor texture
-  and wall texture together (only the ticked parts), taken with **From the selected tile**
-  or from the right-click menu. With **Fill**, a click paints every tile the player can walk
+  and wall texture together (only the ticked parts), taken with **From the selected tile**,
+  from the right-click menu, or with Ctrl+click. Choosing the template brush takes the selected
+  tile's template, if none was taken yet (before that it is an open tile, height 4, slot 0 and
+  slot 0). The line beside the boxes always says what the template holds.
+  - **Ctrl+click** with the Paint tool takes the brush from a tile instead of painting it. It
+    selects the tile, and the brush takes what that tile has: its template, its floor or wall
+    slot, its type or its height. Solid rock can be picked for the type, height and template. With **Fill**, a click paints every tile the player can walk
   to from the clicked tile, by the zone fill's rules (no rock, no doors, climbs of at most
   two steps). **Paint selection** paints the selected tiles. Each stroke, fill or painted
   selection is one undo step.
+  - **Strokes:** hold the button and drag to paint every tile the mouse passes over, even when
+    it moves fast. A stroke can start where nothing is drawn. With the Paint tool a second
+    press soon after a click is not a double-click, so a click followed by a drag paints on.
+    While you drag, the mouse aims at the level as it was when the stroke began. The walls and
+    steps the stroke itself makes (painting rock, raising floors) never stop the next tile
+    being painted, whichever way you drag.
   - **Solid rock:** the tile type, floor height and template brushes reach solid tiles too.
     A solid tile has no surface of its own (each wall belongs to the open tile in front of
     it), so a click on a wall paints the solid tile behind it. A click where nothing is drawn
@@ -267,6 +278,14 @@ Nothing in the game pushes objects apart. A move that ends inside another box is
 creature placed inside one may never move. **Save levels** warns about overlaps with a creature
 that the save adds to the level as it was on disk. The ones already there stay quiet, and
 **Level ▸ Fixes** lists them all.
+
+### Light flags
+
+**View ▸ Light flags** marks every open square with the light flag (bit 8 of the tile, painted
+with **Light flag on** and **off**). Each one gets a faint blue see-through sheet over its floor,
+following slopes, drawn the way the zones are. The sheets follow your painting at once, in the
+3D view and the 2D map. Underworld II uses the flag for light (DL.DAT, Tools ▸ Game tables);
+Ultima Underworld keeps it but does not use it.
 
 ### Selecting, copying and moving
 
