@@ -206,6 +206,9 @@ namespace UwEditor.App
         bool previewing;
 
         float[] lastGrid, lastLines, lastMarks;
+        /// <summary>How many floats the marker lines and the marker triangles hold now (for the tests).</summary>
+        public int LineFloats { get { return lastLines == null ? 0 : lastLines.Length; } }
+        public int MarkerFloats { get { return lastMarks == null ? 0 : lastMarks.Length; } }
 
         public void SetGrid(List<float> lines)
         {

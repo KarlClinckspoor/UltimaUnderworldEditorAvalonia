@@ -134,25 +134,28 @@ namespace UwEditor.Core.Editing
         public static void TileToPixel(double tx, double ty, out double px, out double py) { px = (tx - 1) * 3 + 10; py = (ty - 1) * 3 + 7; }
         public static void PixelToTile(double px, double py, out double tx, out double ty) { tx = (px - 10) / 3.0 + 1; ty = (py - 7) / 3.0 + 1; }
 
-        static ushort[] terrainCache;
-        static string terrainPath;
+        /// <summary>The TERRAIN.DAT words last read and the file they came from, swapped as one, so that
+        /// sessions of both games used at once (the tests run them in parallel) never read one game's
+        /// path with the other's words.</summary>
+        static Tuple<string, ushort[]> terrain;
 
         /// <summary>TERRAIN.DAT was written (the game tables): it is read again on the next use.</summary>
-        public static void TerrainChanged() { terrainPath = null; }
+        public static void TerrainChanged() { terrain = null; }
 
         static int Terrain(GameSession s, int texture, bool floor)
         {
             string p = GameProfile.Find(s.DataFolder, "TERRAIN.DAT");
             if (p == null || texture < 0) return 0;
-            if (terrainPath != p)
+            var c = terrain;
+            if (c == null || c.Item1 != p)
             {
                 var d = File.ReadAllBytes(p);
-                terrainCache = new ushort[d.Length / 2];
-                for (int i = 0; i < terrainCache.Length; i++) terrainCache[i] = (ushort)(d[2 * i] | d[2 * i + 1] << 8);
-                terrainPath = p;
+                var words = new ushort[d.Length / 2];
+                for (int i = 0; i < words.Length; i++) words[i] = (ushort)(d[2 * i] | d[2 * i + 1] << 8);
+                terrain = c = Tuple.Create(p, words);
             }
             int at = (s.IsUw2 || !floor ? 0 : 0x100) + texture;
-            return at < terrainCache.Length ? terrainCache[at] : 0;
+            return at < c.Item2.Length ? c.Item2[at] : 0;
         }
 
         /// <summary>

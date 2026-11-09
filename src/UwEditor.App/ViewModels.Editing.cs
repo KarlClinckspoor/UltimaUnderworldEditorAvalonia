@@ -222,13 +222,19 @@ namespace UwEditor.App
             {
                 if (value < 0 || !Set(ref paintMode, value)) return;
                 RefreshSlots();
-                foreach (var n in new[] { nameof(PaintsTexture), nameof(PaintsType), nameof(PaintsHeight), nameof(PaintsTemplate) }) Raise(n);
+                foreach (var n in new[] { nameof(PaintsTexture), nameof(PaintsType), nameof(PaintsHeight), nameof(PaintsTemplate), nameof(PaintsShape) }) Raise(n);
             }
         }
         public bool PaintsTexture { get { return paintMode == 2 || paintMode == 3; } }
         public bool PaintsType { get { return paintMode == 4; } }
         public bool PaintsHeight { get { return paintMode == 5; } }
         public bool PaintsTemplate { get { return paintMode == 6; } }
+        /// <summary>The brush changes a tile's shape (type, height or the template): it reaches solid rock, and may put the tile's objects on the new floor.</summary>
+        public bool PaintsShape { get { return paintMode >= 4 && paintMode <= 6; } }
+
+        bool dropObjects;
+        /// <summary>After a tile's type or height is painted, its objects go on its floor (LevelEditor.DropToFloor).</summary>
+        public bool DropObjects { get { return dropObjects; } set { Set(ref dropObjects, value); } }
 
         // ---- the tile template: a tile's type, height and textures, painted together
         int tplType = 1, tplHeight = 4, tplFloor, tplWall;
@@ -298,7 +304,9 @@ namespace UwEditor.App
                         if (useWall) e.SetTileField(x, y, "Wall texture", tplWall);
                         break;
                 }
-                EditStatus = string.Format("Painted {0} on ({1}, {2}).", PaintModeNames[paintMode].ToLowerInvariant(), x, y);
+                int dropped = PaintsShape && dropObjects ? e.DropToFloor(x, y) : 0;
+                EditStatus = string.Format("Painted {0} on ({1}, {2}){3}.", PaintModeNames[paintMode].ToLowerInvariant(), x, y,
+                    dropped > 0 ? string.Format("; {0} object{1} put on the floor", dropped, dropped == 1 ? "" : "s") : "");
             }
             catch (Exception ex) { EditStatus = ex.Message; }
         }

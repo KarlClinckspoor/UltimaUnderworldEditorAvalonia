@@ -37,6 +37,7 @@ namespace UwEditor.App
             vm.LevelChanged += OnLevelChanged;
             vm.SelectionChanged += UpdateMarkers;
             vm.OptionsChanged += OnOptionsChanged;
+            vm.CollisionChanged += UpdateMarkers;
             View.Picked += OnPicked;
             View.Hovered += OnHovered;
             View.CameraChanged += UpdateViewText;
@@ -235,7 +236,7 @@ namespace UwEditor.App
                 globalsWindow?.Close();
                 playerWindow?.Close();
                 graphicsWindow?.Close();
-                keysWindow?.Close(); stringsWindow?.Close(); triggersWindow?.Close(); modsWindow?.Close(); modelsWindow?.Close(); mantrasWindow?.Close();
+                keysWindow?.Close(); stringsWindow?.Close(); triggersWindow?.Close(); modsWindow?.Close(); modelsWindow?.Close(); mantrasWindow?.Close(); vowelPlayWindow?.Close();
                 zonesWindow?.Close(); zoneGraphWindow?.Close();
                 itemShuffleWindow?.Close(); itemSwapWindow?.Close(); monsterSwapWindow?.Close();
                 findWindow?.Close(); automapWindow?.Close(); checkpointsWindow?.Close();
@@ -433,6 +434,7 @@ namespace UwEditor.App
                 tris = BuildMarkers(lines);
                 if (vm.SelectedTileX >= 0) scene.TileOutline(lines, vm.SelectedTileX, vm.SelectedTileY, SelColour);
                 AddSelectionOutlines(lines);
+                AddHitboxes(lines, tris);
             }
             View.SetMarkers(tris);
             View.State.SelectedObject = vm.SelectedObject;

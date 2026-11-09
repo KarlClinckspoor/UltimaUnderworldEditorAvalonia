@@ -172,6 +172,13 @@ namespace UwEditor.App
 
         // ---- view options (View menu and the Show box)
 
+        bool collisionEdges, collisionFaces;
+        /// <summary>View ▸ Collision edges: the collision boxes' edges (Hitboxes), red where two overlap.</summary>
+        public bool ShowCollisionEdges { get { return collisionEdges; } set { if (Set(ref collisionEdges, value)) CollisionChanged?.Invoke(); } }
+        /// <summary>View ▸ Collision faces: the collision boxes' faces, see-through.</summary>
+        public bool ShowCollisionFaces { get { return collisionFaces; } set { if (Set(ref collisionFaces, value)) CollisionChanged?.Invoke(); } }
+        public event Action CollisionChanged;
+
         public bool ShowCeiling { get { return Options.Ceiling; } set { if (Options.Ceiling == value) return; Options.Ceiling = value; Raise(); OptionsChanged?.Invoke(true); } }
         public bool ShowObjects { get { return Options.Objects; } set { if (Options.Objects == value) return; Options.Objects = value; Raise(); OptionsChanged?.Invoke(false); } }
         public bool ShowInvisible { get { return Options.Invisible; } set { if (Options.Invisible == value) return; Options.Invisible = value; Raise(); OptionsChanged?.Invoke(false); } }

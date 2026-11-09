@@ -56,6 +56,8 @@
         <MenuItem Header="_Darkness" ToggleType="CheckBox" IsChecked="{Binding Darkness, Mode=TwoWay}" />
         <MenuItem Header="3D _models" ToggleType="CheckBox" IsChecked="{Binding ShowModels, Mode=TwoWay}" InputGesture="M" />
         <MenuItem Header="_Grid" ToggleType="CheckBox" IsChecked="{Binding ShowGrid, Mode=TwoWay}" InputGesture="H" />
+        <MenuItem Header="Collision _edges" ToggleType="CheckBox" IsChecked="{Binding ShowCollisionEdges, Mode=TwoWay}" />
+        <MenuItem Header="Collision fa_ces" ToggleType="CheckBox" IsChecked="{Binding ShowCollisionFaces, Mode=TwoWay}" />
         <Separator />
         <MenuItem Header="_Frame the selection" InputGesture="F" Click="OnFrame" />
         <MenuItem Header="Look _straight down" InputGesture="T" Click="OnTopDown" />
@@ -141,6 +143,7 @@
         </MenuItem>
         <MenuItem Header="_Named challenges…" Click="OnChallenges" IsEnabled="{Binding HasGame}" />
         <MenuItem Header="Randomize _mantras (UW1)…" Click="OnMantras" IsEnabled="{Binding IsUw1}" />
+        <MenuItem Header="_Vowel play…" Click="OnVowelPlay" IsEnabled="{Binding HasGame}" />
       </MenuItem>
       <MenuItem Header="_Help">
         <MenuItem Header="_Manual" InputGesture="F1" Click="OnManual" />
@@ -285,6 +288,8 @@
               <CheckBox Content="wall" IsChecked="{Binding TemplateWall}" />
               <TextBlock Text="{Binding TemplateText}" Classes="muted" VerticalAlignment="Center" />
             </StackPanel>
+            <CheckBox Content="Objects to the floor" IsChecked="{Binding DropObjects}" IsVisible="{Binding PaintsShape}"
+                      ToolTip.Tip="After painting a tile's type or height, put the objects lying on it on its new floor, following slopes. Wall pieces, switches, bridges, traps and triggers (0x160 on) keep their height." />
             <ToggleButton Content="Fill" IsChecked="{Binding PaintFill}" ToolTip.Tip="A click paints every tile the player can walk to from the clicked tile, by the zones' movement rules: no rock, no doors and no climbs of more than two steps." />
             <Button Content="Paint selection" Click="OnPaintSelection" ToolTip.Tip="Paint every selected tile with the brush. Ctrl+click or Ctrl+drag selects tiles." />
           </StackPanel>
@@ -294,13 +299,17 @@
           <Button Content="↷" Click="OnRedo" IsEnabled="{Binding CanRedo}" ToolTip.Tip="{Binding RedoText}" />
           <Button Content="Save levels" Click="OnSaveLevels" IsEnabled="{Binding CanSave}" ToolTip.Tip="{Binding ChangedLevels}" />
           <ToggleButton x:Name="WalkButton" Content="First person" Click="OnFirstPerson" ToolTip.Tip="Walk through the level (P to start, Esc to leave)." />
-          <TextBlock Text="{Binding EditStatus}" Classes="muted" VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" MaxWidth="420" />
         </WrapPanel>
       </Border>
       <Panel Background="#0E0E12">
         <app:LevelView x:Name="View" />
         <Canvas x:Name="GridLabels" IsHitTestVisible="False" ClipToBounds="True" />
         <Canvas x:Name="MarkerLabels" IsHitTestVisible="False" ClipToBounds="True" />
+        <!-- the editing messages lie over the view, so a long one never changes the view's size -->
+        <Border IsHitTestVisible="False" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,6,8,0" Padding="8,3"
+                CornerRadius="3" Background="#B0141418" IsVisible="{Binding EditStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+          <TextBlock Text="{Binding EditStatus}" Foreground="#E6E6E6" FontSize="12" TextWrapping="Wrap" MaxWidth="640" />
+        </Border>
         <TextBlock x:Name="ViewHint" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
                    TextAlignment="Center" FontSize="14" IsVisible="{Binding NoGame}"
                    Text="File ▸ Open game folder… (Ctrl+O)&#10;Choose the game folder, its DATA folder or a SAVE folder." />

@@ -170,7 +170,13 @@ namespace UwEditor.App
         void OnPainted(PickResult hit, bool start)
         {
             if (hit.Tile >= 0 && vm.Level != null && ZonePaint(hit.Tile % 64, hit.Tile / 64, start)) return;
-            if (!hit.Hit || hit.Tile < 0 || vm.Editor == null) return;
+            // the tile type, height and template brushes reach solid rock: the tile behind a wall, or the rock under the mouse
+            if (vm.PaintsShape && vm.Level != null)
+            {
+                var level = vm.Level;
+                hit.Tile = Picking.TileForBrush(hit, (x, y) => level.Tiles[x, y].IsSolid);
+            }
+            if (hit.Tile < 0 || vm.Editor == null) return;
             if (vm.PaintFill)
             {
                 // a fill is one click: the first tile of the stroke
@@ -616,10 +622,12 @@ namespace UwEditor.App
         {
             if (vm.Edits == null) return false;
             var said = new List<string>();
+            List<string> overlaps = null;
             try
             {
                 if (vm.Edits.HasChanges)
                 {
+                    try { overlaps = NewOverlapWarnings(); } catch (Exception) { overlaps = null; }
                     var levels = vm.Edits.Save();
                     said.Add("levels " + string.Join(", ", levels) + " written to " + System.IO.Path.GetFileName(vm.Session.LevArkPath));
                 }
@@ -664,6 +672,7 @@ namespace UwEditor.App
             vm.RaiseEditState();
             UpdateRunMarker();
             vm.EditStatus = said.Count == 0 ? "Nothing to save." : "Saved: " + string.Join("; ", said) + " (the first original is kept as .ORIG).";
+            WarnOverlaps(overlaps);
             return true;
         }
     }

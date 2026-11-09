@@ -342,6 +342,8 @@ Turn the game into a fresh run every time, and keep it beatable.
   rise…) with a preview and an exact Undo. Quest items and conversations are never touched.
 - **Randomize mantras (UW1):** the shrines' mantras swap words, and every book, scroll and
   conversation that names one follows.
+- **Vowel play:** proper names get their vowels shuffled (Garamon becomes Guromon) in every
+  string, with passwords and the mantras left alone.
 
 No randomizer touches the glowing rocks of UW1's Pac-Man maze (level 5).
 

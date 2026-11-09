@@ -187,7 +187,19 @@ The toolbar above the view chooses the tool:
   to from the clicked tile, by the zone fill's rules (no rock, no doors, climbs of at most
   two steps). **Paint selection** paints the selected tiles. Each stroke, fill or painted
   selection is one undo step.
+  - **Solid rock:** the tile type, floor height and template brushes reach solid tiles too.
+    A solid tile has no surface of its own (each wall belongs to the open tile in front of
+    it), so a click on a wall paints the solid tile behind it. A click where nothing is drawn
+    (rock seen from above, in the 2D map or over the walls) paints the rock under the mouse.
+    The texture brushes and the light flag paint the tile hit, as before.
+  - **Objects to the floor** (tile type, floor height and template brushes): after a tile is
+    painted, the objects lying on it go on its new floor. The height follows the floor under
+    each one's fine position, so on a slope they sit at different heights. Objects from 0x160
+    on keep their height: pillars, bridges, writing and pictures on walls, switches, levers,
+    traps and triggers.
 - **Ctrl+wheel** raises or lowers the floor under the mouse, together with the objects on it.
+- The messages about what was just done show over the top of the view, so a long one never
+  changes the view's size.
 - **First person** (P): walk the level at eye height. W A S D walk, Q and E or a drag turn,
   R and V look up and down, and Esc leaves. Rock and floors more than two steps up stop you.
 
@@ -230,6 +242,31 @@ teleport can aim at another level. A teleport to another level shows its bullsey
 with the level and square written beside it; **Go to the teleport's target** (also in the
 Edit menu) opens that level on the destination square. **Variable in globals…** opens the
 global variables window on the variable a set or check variable trap uses.
+
+### Collision boxes
+
+**View ▸ Collision edges** and **View ▸ Collision faces** draw the objects' collision boxes in
+the view: the edges as lines (seen through walls), the faces see-through. Static objects are
+yellow-orange, creatures magenta, and a box that overlaps another is red.
+
+The boxes are the game's own (motion/COLLIDE.C):
+- **Shape:** a square that never turns, the object's middle ± COMOBJ's **Radius** in fine
+  units (8 a tile), from the object's height up by COMOBJ's **Height** (8 z units a floor
+  step). Radius 4 is the whole tile, as for the bridge. The sizes are in **Tools ▸ Object
+  tables ▸ Common properties**.
+- **What has one:** creatures, and static objects with a height whose Touch flag is set. Flat
+  objects and the ones without Touch (coins, food) never block anything, so they get no box.
+  The player is item 0x7F (radius 2, height 23).
+- **Overlap, with a creature:** the game's test as a moving creature sees it. Bounds are
+  inclusive, and creatures count their radius one smaller, so two creatures of radius 2 overlap
+  within 2 fine units of each other.
+- **Overlap, two statics:** they never move into each other, so only boxes that really share
+  space count.
+
+Nothing in the game pushes objects apart. A move that ends inside another box is undone, so a
+creature placed inside one may never move. **Save levels** warns about overlaps with a creature
+that the save adds to the level as it was on disk. The ones already there stay quiet, and
+**Level ▸ Fixes** lists them all.
 
 ### Selecting, copying and moving
 
@@ -1462,7 +1499,10 @@ There are three kinds of finding:
   free object; a book, scroll, gravestone, writing or text trap naming a string that is not
   there.
 - **Warnings** may be meant: trap chains that loop, items or creatures in solid rock, items
-  under the floor, UW2 animation entries with another tile, locked locks no key opens.
+  under the floor, UW2 animation entries with another tile, locked locks no key opens, and
+  overlapping hitboxes (a creature's collision box sharing space with another creature's or
+  a blocking object's; see **Collision boxes**). The shipped levels have a few, such as a
+  mountainman standing in a door on Ultima Underworld's level 2.
 
 **Fix** repairs the selected finding, **Fix all of this kind** repairs the ones listed, and
 **Fix all** repairs everything with a fix in the levels checked (warnings only when **Fix all
@@ -1471,7 +1511,7 @@ is lost: what follows was already reached). Lost objects are freed as the game f
 (free stack, active list, animation list, and trap links to them cleared), or put back on the
 tile of the trap or trigger that names them. The free stacks and the active list are rebuilt,
 keeping their good entries in order. Each fix, and each level's Fix all, is one **Edit ▸ Undo** step. Texts,
-non-trap links, loops and keyless locks have no automatic fix. UW1 keeps its animation list
+non-trap links, loops, keyless locks and overlapping hitboxes have no automatic fix. UW1 keeps its animation list
 in a block of its own, which is not checked.
 
 ## Item cleaner
@@ -1972,6 +2012,7 @@ All of it is in the **Randomizer** menu:
 - **Swap ▸ Swap items** and **Swap ▸ Swap monsters**.
 - **Named challenges**.
 - **Randomize mantras (UW1)**.
+- **Vowel play**.
 
 The logic behind them is explained in **How the randomizer's logic works** below.
 
@@ -2936,6 +2977,40 @@ How it works:
 - **Undo mantras** puts back the strings that still read as Apply left them. Edit ▸ Undo does
   not cover strings.
 - UW2 has no shrine mantras, so the menu item is greyed out there.
+
+### Vowel play
+
+**Randomizer ▸ Vowel play…** shuffles the vowels of the game's proper names, the way the Quest
+64 randomizer Merrow does with its monsters. "Garamon" might become "Guromon" and "Lord British"
+"Lord Britush". It works on both games.
+
+- **The new spelling:** each vowel (a, e, i, o, u; y counts as a consonant) is drawn again and
+  keeps its case. So a name keeps its length, its consonants and its capitals. **Keep a first
+  vowel** leaves a vowel at the start alone, so "Illomo" still begins with I.
+- **One spelling everywhere:** a name gets one new spelling from the seed and the name. Every
+  string uses it: the names creatures talk under (string block 7), conversations, books,
+  scrolls and cutscenes. Possessives ("Garamon's") and capitals ("GARAMON") follow. Matching is
+  case-sensitive, so "Dr. Owl" changes and "an owl" does not.
+- **The names:** the list on the left, one name per line, is saved for each game. Edit it
+  freely. **The game's names** fills it again with:
+  - every capitalized word of the names creatures talk under that has a vowel and never appears
+    in lower case in the game's text ("Door", "Rat" and "Data" do, so they are left out; so are
+    titles such as Sir, Lord and Dr);
+  - the game's other names that its text uses: the Avatar, Lord British and Britannia, plus
+    Cabirus, Almric, Arial, Corwin and others in Ultima Underworld, and the Guardian, Blackrock
+    and Killorn in Underworld II.
+- **Words that never change:**
+  - the shrine mantras (Randomize mantras covers those);
+  - "Folanae";
+  - every word of a text that a conversation compares typed text against with compare or
+    contains: passwords like "Deco Morono" or "xyzzy", and the answers NPCs wait for. In
+    Ultima Underworld this keeps Murgo, Zak and Cabirus; in Underworld II, Bishop.
+  The report lists these words.
+- **No clashes:** a new spelling is never the old one, a word the game's text already uses (in
+  any case), another name or another name's new spelling. A name with no vowel to change stays.
+- **Where the changes go:** like Randomize mantras, the changes are unsaved STRINGS.PAK edits,
+  shown at once in Tools ▸ Strings and the conversation window. **Undo vowel play** puts them
+  back, and **File ▸ Save** writes them. Rude results are not filtered out.
 
 ### Apply
 

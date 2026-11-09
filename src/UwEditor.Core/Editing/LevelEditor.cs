@@ -619,6 +619,30 @@ namespace UwEditor.Core.Editing
             });
         }
 
+        /// <summary>
+        /// Puts the objects lying on a tile on its floor, at the floor's height under each one's fine
+        /// position (a slope rises across the tile, FloorZ). Things the game places at a height on
+        /// purpose stay: from 0x160 on (pillars, bridges, writing and pictures on walls, switches,
+        /// traps and triggers). Nothing happens on solid rock. One undoable change; returns how
+        /// many objects moved.
+        /// </summary>
+        public int DropToFloor(int x, int y)
+        {
+            if (Model.Tiles[x, y].IsSolid) return 0;
+            var moving = Model.TileObjects(x, y).Where(o => !o.Free && o.Item < 0x160 && o.Z != FloorZ(x, y, o.FineX, o.FineY)).Select(o => o.Index).ToList();
+            if (moving.Count == 0) return 0;
+            Change("Objects on (" + x + ", " + y + ") to the floor", () =>
+            {
+                var S = Uw1Schemas.StaticObject;
+                foreach (int i in moving)
+                {
+                    var o = Model.Objects[i];
+                    S["Z"].Set(data, FloorZ(x, y, o.FineX, o.FineY), LevelBlock.ObjectOffset(i));
+                }
+            });
+            return moving.Count;
+        }
+
         /// <summary>Whether an object can go inside another: the container's link is a list (not a quantity or special value), and it is not the object itself or inside it.</summary>
         public bool CanPutInside(int index, int container)
         {

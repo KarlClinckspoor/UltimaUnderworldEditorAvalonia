@@ -168,6 +168,7 @@ namespace UwEditor.App
                     stringsWindow?.Close();
                     keysWindow?.Close();
                     mantrasWindow?.Close();
+                    vowelPlayWindow?.Close();
                     conversationWindow?.Close();
                 }
                 var pd = CheckpointStore.ReadFile(c, "PLAYER.DAT");

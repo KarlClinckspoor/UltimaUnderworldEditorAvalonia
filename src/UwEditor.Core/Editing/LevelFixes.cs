@@ -117,11 +117,14 @@ namespace UwEditor.Core.Editing
         public static readonly FixCheck LockNoKey = new FixCheck("key", "Locks with no key", FixSeverity.Warning,
             "A lock is locked, and no key in any level has its number (lock 0, which no key opens, is left out). This may be intended (a lever, a trap or a conversation opens it), or the key may be in the player's inventory. There is no automatic fix.");
 
+        public static readonly FixCheck Hitbox = new FixCheck("hitbox", "Overlapping hitboxes", FixSeverity.Warning,
+            "A creature's collision box overlaps another creature's or a blocking object's (COMOBJ radius and height, the game's own test in motion/COLLIDE.C). Nothing in the game pushes objects apart: a move that ends inside another box is undone, so a creature that starts inside one may never move. Overlaps between two objects that never move are left out. There is no automatic fix: move one of them (View ▸ Collision edges shows the boxes).");
+
         /// <summary>Every check, in the order the fixes are applied by Fix all.</summary>
         public static readonly IReadOnlyList<FixCheck> Checks = new[]
         {
             ReachedTwice, PlayerInList, LostContents, Unreferenced, FreeStacks, ActiveList, HomeTile, DeadCreature,
-            TriggerLink, DeleteTarget, Overlays, MissingText, TrapLoop, OverlayTile, SolidTile, BelowFloor, LockNoKey,
+            TriggerLink, DeleteTarget, Overlays, MissingText, TrapLoop, OverlayTile, SolidTile, BelowFloor, LockNoKey, Hitbox,
         };
 
         // ---- bytes
@@ -599,6 +602,20 @@ namespace UwEditor.Core.Editing
                     var f = add(OverlayTile, obj, string.Format("Animation entry {0} of {1} says tile ({2}, {3}), but it lies on ({4}, {5}).", n, Name(session, d, obj), ox, oy, lx, ly));
                     f.FixText = "Set the entry's tile";
                     f.Repair = b => { int a2 = LevelBlock.Uw2OverlaysAt + entry * 6; if ((W(b, a2) >> 6) == obj) { b[a2 + 4] = (byte)lx; b[a2 + 5] = (byte)ly; } };
+                }
+            }
+
+            // ---- collision boxes a creature shares (only when the lists are sound enough to read)
+            if (!list.Any(f => f.Severity == FixSeverity.ListError))
+            {
+                var com = Hitboxes.ReadComObj(session);
+                if (com != null)
+                {
+                    var m = LevelModel.FromBytes(session, level, d, null);
+                    foreach (var o in Hitboxes.Overlaps(Hitboxes.Of(m, com)).Where(o => o.A.Creature || o.B.Creature))
+                    {
+                        var f = add(Hitbox, o.A.Creature ? o.A.Index : o.B.Index, Hitboxes.Describe(session, o));
+                    }
                 }
             }
             return list;
