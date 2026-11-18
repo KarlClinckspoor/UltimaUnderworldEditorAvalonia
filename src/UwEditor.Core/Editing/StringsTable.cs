@@ -44,7 +44,7 @@ namespace UwEditor.Core.Editing
     /// </summary>
     public static class StringsTable
     {
-        public static readonly string[] Formats = { "tsv", "csv", "po" };
+        public static readonly string[] Formats = { "tsv", "csv", "po", "txt" };
 
         /// <summary>The format a file name asks for by its extension, or null.</summary>
         public static string FormatOf(string path)
@@ -69,8 +69,72 @@ namespace UwEditor.Core.Editing
                 case "tsv": return ExportTsv(st);
                 case "csv": return ExportCsv(st);
                 case "po": return ExportPo(st);
+                case "txt": return ExportTxt(st);
             }
-            throw new ArgumentException("The formats are tsv, csv and po.");
+            throw new ArgumentException("The formats are tsv, csv, po and txt.");
+        }
+
+        /// <summary>
+        /// A table file's text. UTF-8 when the bytes are UTF-8; else Latin-1, which is what the
+        /// older tools' text dumps (and the translations made from them) are written in.
+        /// </summary>
+        public static string ReadFile(string path)
+        {
+            var bytes = System.IO.File.ReadAllBytes(path);
+            try
+            {
+                string s = new UTF8Encoding(false, true).GetString(bytes);
+                return s.Length > 0 && s[0] == (char)0xFEFF ? s.Substring(1) : s;
+            }
+            catch (ArgumentException) { return Encoding.Latin1.GetString(bytes); }
+        }
+
+        // ---- TXT: the text dump of the older tools (Underworld Adventures' strpak and the translations made from it)
+        //   strings.pak: 122 string blocks.
+        //
+        //   block: 0c00; 42 strings.
+        //   0: text, with \n for a line break
+        // The block number is hexadecimal; what follows "N: " is the text to the end of the line, spaces at its end included.
+
+        public static string ExportTxt(StringsEditor st)
+        {
+            var sb = new StringBuilder();
+            var blocks = st.Blocks().OrderBy(x => x.Number).ToList();
+            sb.Append("strings.pak: ").Append(blocks.Count).Append(" string blocks.\r\n");
+            foreach (var b in blocks)
+            {
+                var l = st.Get(b.Number);
+                sb.Append("\r\nblock: ").Append(b.Number.ToString("x4", CultureInfo.InvariantCulture)).Append("; ").Append(l.Count).Append(" strings.\r\n");
+                for (int i = 0; i < l.Count; i++) sb.Append(i).Append(": ").Append(TsvEscape(l[i])).Append("\r\n");
+            }
+            return sb.ToString();
+        }
+
+        static List<StringsTableRow> ReadTxt(string text, List<string> problems)
+        {
+            var rows = new List<StringsTableRow>();
+            int n = 0, block = -1;
+            foreach (var raw in text.Replace("\r\n", "\n").Split((char)10))
+            {
+                n++;
+                string line = raw.TrimEnd((char)13);
+                if (line.Trim().Length == 0 || line.StartsWith("strings.pak:", StringComparison.OrdinalIgnoreCase)) continue;
+                if (line.StartsWith("block:", StringComparison.OrdinalIgnoreCase))
+                {
+                    string id = line.Substring(6).Split(';')[0].Trim();
+                    if (!int.TryParse(id, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out block)) { problems.Add("line " + n + ": \"" + id + "\" is no block number (hexadecimal)"); block = -1; }
+                    continue;
+                }
+                int colon = line.IndexOf(':');
+                int i;
+                if (colon <= 0 || !int.TryParse(line.Substring(0, colon), NumberStyles.None, CultureInfo.InvariantCulture, out i))
+                { problems.Add("line " + n + ": not \"index: text\" (a string must stay on one line)"); continue; }
+                if (block < 0) { problems.Add("line " + n + ": a string before any \"block:\" line"); continue; }
+                string t = line.Substring(colon + 1);
+                if (t.StartsWith(" ")) t = t.Substring(1);
+                rows.Add(new StringsTableRow { Block = block, Index = i, Text = TsvUnescape(t) });
+            }
+            return rows;
         }
 
         // ---- TSV
@@ -273,8 +337,9 @@ namespace UwEditor.Core.Editing
                 case "tsv": return ReadTsv(text ?? "", problems);
                 case "csv": return ReadCsv(text ?? "", problems);
                 case "po": return ReadPo(text ?? "", problems);
+                case "txt": return ReadTxt(text ?? "", problems);
             }
-            throw new ArgumentException("The formats are tsv, csv and po.");
+            throw new ArgumentException("The formats are tsv, csv, po and txt.");
         }
 
         /// <summary>

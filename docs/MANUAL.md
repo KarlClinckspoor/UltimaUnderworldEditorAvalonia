@@ -1936,7 +1936,11 @@ of the file, so edits made in both are never written over each other.
   text; `\n` is a line break, `\t` a TAB, lines starting with `#` are comments), so one
   translation serves both programs. **CSV** is for a spreadsheet (block, index, source,
   translation; UTF-8 with a mark so that Excel reads the accents). **PO** is for Poedit and
-  Weblate (the context is `block:index`).
+  Weblate (the context is `block:index`). **TXT** is the text dump of the older tools
+  (`block: 0c00; 42 strings.`, then `0: text` lines, the block numbers in hexadecimal),
+  which older translations are kept in. A file that is not UTF-8 is read as Latin-1.
+  Before importing a translation, give its accented letters codes in the accent table
+  (Tools ▸ Graphics ▸ Fonts): a string with a letter that has no code is left as it was.
 - **Import a translation…** reads such a table back. A row whose text is empty keeps its
   string (in CSV the fourth column is the translation; in PO an empty or fuzzy `msgstr` is
   no translation yet). A string is never added, since the numbers are what the game's code

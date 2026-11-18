@@ -208,6 +208,7 @@ namespace UwEditor.App
             new Avalonia.Platform.Storage.FilePickerFileType("TSV (Underworld Revisited's strings.tsv)") { Patterns = new[] { "*.tsv" } },
             new Avalonia.Platform.Storage.FilePickerFileType("CSV (spreadsheets)") { Patterns = new[] { "*.csv" } },
             new Avalonia.Platform.Storage.FilePickerFileType("PO (Poedit, Weblate)") { Patterns = new[] { "*.po", "*.pot" } },
+            new Avalonia.Platform.Storage.FilePickerFileType("TXT (the older tools' text dump)") { Patterns = new[] { "*.txt" } },
         };
 
         async void OnExportTable(object sender, RoutedEventArgs e)
@@ -246,8 +247,8 @@ namespace UwEditor.App
             try
             {
                 string format = UwEditor.Core.Editing.StringsTable.FormatOf(path);
-                if (format == null) { Model.Status = "Not imported: the file's ending must be .tsv, .csv or .po."; return null; }
-                var res = UwEditor.Core.Editing.StringsTable.Import(Model.Editor, System.IO.File.ReadAllText(path), format);
+                if (format == null) { Model.Status = "Not imported: the file's ending must be .tsv, .csv, .po or .txt."; return null; }
+                var res = UwEditor.Core.Editing.StringsTable.Import(Model.Editor, UwEditor.Core.Editing.StringsTable.ReadFile(path), format);
                 Model.Reload();
                 Model.Status = "Imported " + System.IO.Path.GetFileName(path) + ": " + res.Describe() + (res.Changed > 0 ? " Save STRINGS.PAK writes them." : "");
                 return res;
