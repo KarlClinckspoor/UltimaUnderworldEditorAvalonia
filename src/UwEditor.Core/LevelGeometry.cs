@@ -27,18 +27,22 @@ namespace UwEditor.Core
         public readonly List<int> TriangleTile = new List<int>();
         /// <summary>For each triangle, what it is: 0 floor, 1 wall, 2 ceiling.</summary>
         public readonly List<byte> TriangleKind = new List<byte>();
+        /// <summary>For each triangle, the side of its tile a wall stands on: 0 W, 1 E, 2 S, 3 N, 4 the
+        /// diagonal; -1 for floors and ceilings. Not drawn: the export (Export/ArxExport) reads it.</summary>
+        public readonly List<sbyte> TriangleEdge = new List<sbyte>();
         public int WallLayers;
         /// <summary>The layer after the walls and the 16 floor slots: a checkerboard for indexes the texture map lacks.</summary>
         public int MissingLayer { get { return WallLayers + LevelGeometry.FloorLayers; } }
 
         public int TriangleCount { get { return TriangleTile.Count; } }
 
-        public void Tri(LevelVertex a, LevelVertex b, LevelVertex c, int tile, byte kind)
+        public void Tri(LevelVertex a, LevelVertex b, LevelVertex c, int tile, byte kind, sbyte edge = -1)
         {
             a.Tile = b.Tile = c.Tile = tile;
             Vertices.Add(a); Vertices.Add(b); Vertices.Add(c);
             TriangleTile.Add(tile);
             TriangleKind.Add(kind);
+            TriangleEdge.Add(edge);
         }
 
         public float[] ToArray()
@@ -174,7 +178,7 @@ namespace UwEditor.Core
                     // seen from the open half: OpenSE and OpenSW read SW to NE and NW to SE, the other two the other way
                     bool diagLeftFirst = t.Type == TileType.OpenSE || t.Type == TileType.OpenSW;
                     if (da >= 0)
-                        WallQuad(mesh, tile, x, y, da, db, h[da] * Step, h[db] * Step, Ceiling, Ceiling, diagLeftFirst ? 0f : 1f, diagLeftFirst ? 1f : 0f, wallLayer, WallDiag);
+                        WallQuad(mesh, tile, x, y, da, db, h[da] * Step, h[db] * Step, Ceiling, Ceiling, diagLeftFirst ? 0f : 1f, diagLeftFirst ? 1f : 0f, wallLayer, WallDiag, 4);
                     for (int e = 0; e < 4; e++)
                     {
                         if (!EdgeOpen(t.Type, e)) continue;
@@ -193,7 +197,7 @@ namespace UwEditor.Core
                             if (topA <= botA && topB <= botB) continue;
                         }
                         float u0 = EdgeU0[e];
-                        WallQuad(mesh, tile, x, y, a, b, botA, botB, topA, topB, u0, 1f - u0, wallLayer, e < 2 ? WallEW : WallNS);
+                        WallQuad(mesh, tile, x, y, a, b, botA, botB, topA, topB, u0, 1f - u0, wallLayer, e < 2 ? WallEW : WallNS, (sbyte)e);
                     }
                 }
             return mesh;
@@ -227,15 +231,15 @@ namespace UwEditor.Core
         /// height at both bottom ones), so a face that ends on a floor not a whole tile below its
         /// top shows the texture cut at the bottom. A sloped face takes its two ends' mean height.
         /// </summary>
-        static void WallQuad(LevelMesh m, int tile, int x, int y, int a, int b, float botA, float botB, float topA, float topB, float u0, float u1, int layer, float shade)
+        static void WallQuad(LevelMesh m, int tile, int x, int y, int a, int b, float botA, float botB, float topA, float topB, float u0, float u1, int layer, float shade, sbyte edge)
         {
             float h = ((topA - botA) + (topB - botB)) / 2;
             var v0 = new LevelVertex(P(x, y, a, botA), u0, h, layer, shade);
             var v1 = new LevelVertex(P(x, y, b, botB), u1, h, layer, shade);
             var v2 = new LevelVertex(P(x, y, b, topB), u1, 0, layer, shade);
             var v3 = new LevelVertex(P(x, y, a, topA), u0, 0, layer, shade);
-            m.Tri(v0, v1, v2, tile, 1);
-            m.Tri(v0, v2, v3, tile, 1);
+            m.Tri(v0, v1, v2, tile, 1, edge);
+            m.Tri(v0, v2, v3, tile, 1, edge);
         }
     }
 }

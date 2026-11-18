@@ -4576,6 +4576,18 @@ the files themselves, so it can be shared without the game's data:
   It is **not for the mod manager**, which takes `.uwmod` files, and **not for sharing in
   public**: it holds the game's own data. Share a `.uwmod` instead.
 
+## Export for ArxStructor (command line)
+
+`UwEditor.Cli export-arx --game <UW folder> --out <folder> [--level N]` writes Ultima
+Underworld 1's levels, without opening a window, as JSON and PNG files for ArxStructor, the
+Arx Fatalis level editor: each level's tiles, its surfaces as the 3D view builds them (with the
+texture of every triangle), its objects, doors, triggers, level links, lights and the tiles
+traps can change, and the textures, object pictures, object tables and strings. Without
+`--level` every level is written. It exits with 0 when done and another number, with the
+reason, when not. The same game gives the same files, byte for byte. The folder holds the
+game's own pictures and texts, so keep it to yourself. The format, its units and what each
+field means are in `docs/ARX-EXPORT.md`. UW2 is not exported yet.
+
 ## Keys and mouse
 
 | Where | Key | What it does |
